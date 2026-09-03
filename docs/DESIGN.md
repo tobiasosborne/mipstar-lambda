@@ -19,11 +19,12 @@ that tree from being reported as a local proof.
 The lambda layer is a phase-separated, explicitly represented calculus. It is not `Expr`, and a macro cannot create an IR node except
 through the same checked constructors used by ordinary functions.
 
-Let `Name`, `PrimName`, `Nat`, and `StaticEnv` be finite serializable data. The mutually defined auxiliary sorts are
+Let `Name`, `PrimName`, `Nat`, `MachineDesc`, `Level`, and `StaticEnv` be finite serializable data, and let `Sampler` and `Compressor` be
+declared program-result sorts. The mutually defined auxiliary sorts are
 
 ```text
 Pargs ::= P*
-Fuel  ::= FuelLiteral(Nat) | FuelBound(P,P)
+Fuel  ::= FuelLiteral(Nat) | FuelBound(P{Nat},P{Level})
 ```
 
 and the inductive grammar is
@@ -41,7 +42,8 @@ P ::= BoundVar(depth, slot)                  variable
     | Specialize(Pcode, StaticEnv)           code-to-code substitution
 ```
 
-`BoundVar` uses de Bruijn addresses internally; a side table retains source names for printing. A `PartialProgram` may contain typed holes.
+Here `P{A}` denotes the subset of program terms whose constructor/primitive contracts give result sort `A`. `BoundVar` uses de Bruijn
+addresses internally; a side table retains source names for printing. A `PartialProgram` may contain typed holes.
 `Closed(P)` means that every `BoundVar` is scoped and no `Hole` remains. `Specialize : PartialProgram x StaticEnv -> ClosedProgram` is
 defined only for a total, sort-correct environment covering exactly the remaining holes. Every primitive carries a total input contract and
 a symbolic cost bound. Literal values use nullary primitives; in particular, `true` abbreviates `Prim(true,Concrete(1),())`. `Eval` takes
@@ -68,7 +70,10 @@ Fix : PartialProgram{self_code::Quoted{A}} -> ClosedProgram{A}
 eval(Quote(Fix(P)),u;fuel) = eval(specialize(P,{self_code=>Quote(Fix(P))}),u;fuel)
 ```
 
-for every fuel at which both sides terminate. It is syntax, not Julia recursion. The halting verifier is the following term:
+for every fuel at which both sides terminate. It is syntax, not Julia recursion. In the display below, `M:P{MachineDesc}` and
+`L:P{Level}` are closed literal terms, `n:P{Nat}` and `x,y,a,b` are the five bound arguments, `S_L:ClosedProgram{Sampler}`, and
+`Compress:ClosedProgram{Compressor}`. The names `halts_within`, `true`, and `quoted_pair` are declared `PrimName`s, while `self_code` is
+the displayed typed hole; consequently the display has no other free symbols. The halting verifier is the following term:
 
 ```text
 Psi_M_L = Lambda(5,                         -- n,x,y,a,b
@@ -76,7 +81,7 @@ Psi_M_L = Lambda(5,                         -- n,x,y,a,b
      Prim(true, Concrete(1), ()),
      Eval(Apply(Quote(Compress),
                 Prim(quoted_pair, Concrete(1), Quote(S_L),
-                     Hole(self_code,Quoted{Decider})), Quote(L)),
+                     Hole(self_code,Quoted{Decider})), L),
           (n,x,y,a,b), FuelBound(n,L))))
 
 D_M_L = Fix(Psi_M_L)
@@ -237,11 +242,16 @@ support(c0) <= support(F_arith) * product_i (support(g_i)+1).
 At `m=2`, dense multilinear `g_i` already give the factor `5^5=3125`; expanding a Tseitin arithmetization over 16--32 variables can dominate
 memory. Constructors therefore accept a `MonomialBudget`. Immediately before each sparse multiplication they compute the single-product
 candidate count `|partial support|*|next factor support|`; they return `ExpansionRefused(estimate,budget)` without partial output if that
-one product would exceed the budget. The budget is not a cumulative sum across multiplications. TB0's fast degenerate witness has the
+one product would exceed the budget. The budget is not a cumulative sum across multiplications. The factor count is derived from the
+displayed formula, not assumed to be `2^5`: table `[0,1]` gives `g_i=X_i` and a two-term `g_i-O_i`, whereas `[1,0]` gives
+`g_i=1-X_i` and the three-term factor `1-X_i-O_i`. Thus a tuple with complement tables in positions 2 and 4 would have factor product
+`2*3*2*3*2=72` and coarse estimate `6^3*7^3*72=5,334,336`, not the binomial-only estimate. TB0's fast degenerate witness has the
 coarse pre-normalization estimate `7^3*6^3*2 = 148,176` candidates (three AND and three NOT equality gadgets, then one two-term and four
 one-term PCP factors), with `MonomialBudget=160,000`; the r2 critic's incremental sequence predicts a peak single-product count of 54,978.
-The all-nonconstant witness has estimate `7^3*6^3*2^5 = 2,370,816` and its separate budget is 2,500,000. A normalized monomial count is
-always reported as a measurement, never as either estimate. The sparse representation is an experiment, not a claim of scalability.
+The retained all-nonconstant witness uses five `[0,1]` tables, so §1.3's formula gives the pre-normalization estimate
+`7^3*6^3*(1+1)^5 = 2,370,816`; the r3 critic's incremental construction predicts a peak single-product count of 788,032. Because that
+peak is below 2,500,000 under the per-multiplication rule, its separate `MonomialBudget=2,500,000` is retained. A normalized monomial count
+is always reported as a measurement, never as either estimate. The sparse representation is an experiment, not a claim of scalability.
 
 | invariant                             | status                          | representation                      |
 |---------------------------------------|---------------------------------|-------------------------------------|
@@ -729,7 +739,7 @@ example `(x1,x5,o1)=(1,1,1)` with any remaining seven bits is present, while the
 `2^10` five-block witnesses returns 512 satisfying witnesses: all and only those with the index-1 entry `a_1[1]=1`. TB0 retains two of them:
 
 - **(i) fast degenerate witness:** `a_1=[0,1]`, `a_2=...=a_5=[0,0]`, so `g_1=X_1` and `g_2=...=g_5=0`;
-- **(ii) all-nonconstant witness:** `a_1=[0,1]`, `a_2=[1,0]`, `a_3=[0,1]`, `a_4=[1,0]`, `a_5=[0,1]`, so every `g_i` is non-constant.
+- **(ii) all-nonconstant witness:** `(a_1,...,a_5)=([0,1],[0,1],[0,1],[0,1],[0,1])`, so every `g_i=X_i` is non-constant.
 
 Every present clause has positive first literal at index 1, so both witnesses satisfy the relation `phi_C`, not a one-clause proxy. Witness
 (i) is retained as a fast coefficient-identity path, but its locality claims for `i=2,...,5` and Figure `decider-pcp` checks 4(a)/4(b) for
@@ -769,13 +779,14 @@ With witness (ii), every `g_i` has support dependency exactly `X_i`, and the str
 again with `inddeg(c_0)=6`. C3's block-dependency evidence comes only from this all-nonconstant witness. Three NOT equality gadgets have at
 most six terms and three AND gadgets at most seven. Witness (i) has
 `expected_support(c_0)<=6^3*7^3*2=148,176`, a predicted peak single-product count 54,978, and `MonomialBudget=160,000`. Witness (ii) has
-`expected_support(c_0)<=6^3*7^3*2^5=2,370,816` and `MonomialBudget=2,500,000`. The r2 critic measured 1,773,072 normalized monomials over
-`Z` (1,203,552 in characteristic two) for witness (ii); this is a **MEASURED** external design figure to be confirmed by TB0, which must
-report its own normalized support, elapsed time, and peak memory. Neither estimate is reported as measured support.
+five binomial factors, so §1.3 gives `expected_support(c_0)<=6^3*7^3*(1+1)^5=2,370,816`; its predicted peak single-product count is
+788,032, which fits the retained per-multiplication `MonomialBudget=2,500,000`. The r3 critic re-measured 788,032 normalized monomials over
+`Z` (534,912 in characteristic two) for witness (ii); these are **MEASURED external** design figures pending TB0 confirmation. TB0 must
+report its own normalized support, elapsed time, and peak memory. Neither pre-normalization estimate is reported as measured support.
 
 | rung | `q` | `k` | `m` | `d` | `s` | `m'` | `seed_dim` | field-point scope | `c_0` / target time |
 |---|---:|---:|---:|---:|---:|---:|---:|---|---|
-| TB0-small | 8 | 3 | 1 | 6 | 6 | 16 | n/a | 16 named coordinate lines and Boolean subcube | (i) estimate 148,176 / measured TBD; (ii) estimate 2,370,816 / measured TBD; report time/peak memory |
+| TB0-small | 8 | 3 | 1 | 6 | 6 | 16 | n/a | 16 named coordinate lines and Boolean subcube | (i) estimate 148,176 / peak 54,978 / measured TBD; (ii) estimate 2,370,816 / peak 788,032 / measured TBD; report time/peak memory |
 | TB0-sampled | `2^11` | 11 | 1 | 11 | 6 | 16 | n/a | >=10,000 seeded uniform `z` | both witness supports measured TBD; report time/peak memory |
 | TB0.5 midpoint | n/a | n/a | n/a | n/a | n/a | n/a | n/a | exact DP | no polynomial / <1 s |
 | TB1 low degree | 8 | 3 | 2 | 1 | n/a | n/a | 5 | all `8^5=32,768` seeds | no `c_0` / <10 s |
@@ -819,11 +830,11 @@ Concrete instances:
     `c_0=sum_j c_j*zero(z_j)`, the witness-(i) degree vector, structural equality on every coordinate,
     `max_j inddeg(c_j)=6<=d` (with equality on TB0-small), and exactly the seven named zero/nine named nonzero quotients. Do not credit its empty dependencies for
     `g_2,...,g_5` as block-locality evidence.
-6.  Build witness-(ii) proof `Pi_nd` with `MonomialBudget=2,500,000`. Assert every `g_i` is non-constant and
+6.  Build witness-(ii) `([0,1],[0,1],[0,1],[0,1],[0,1])` proof `Pi_nd` with `MonomialBudget=2,500,000`. Assert every `g_i` is non-constant and
     `Dependencies(g_i)={X_i}` exactly, with no other block; this is the sole C3 block-dependency evidence. Check its displayed `c_0`
     degree vector, `r=0`, the formal coefficient identity, structural bounds versus actual support, and every quotient's
     `inddeg(c_j)<=6<=d`. Run the same named GF(8) and sampled GF(2^11) completeness checks needed by TB2. Report normalized monomials,
-    elapsed time, and peak memory, explicitly comparing the result with the critic's measured 1,773,072-over-`Z` / 1,203,552-in-char-2
+    elapsed time, and peak memory, explicitly comparing the result with the critic's re-measured 788,032-over-`Z` / 534,912-in-char-2
     figures rather than treating those figures as locally confirmed.
 7.  Make C8 a permanent test: the fixture must report the displayed `F_arith` vector, and `docs/findings-F1-check.jl`'s two-gate circuit
     must report `(2,2,2,4,3)` for `(x1,x2,x3,w1,w2)`, in particular `deg_w1=4`. In both, the occurrence vector bounds support degree
@@ -832,8 +843,10 @@ Concrete instances:
 Print field parameters, all six policy predicates plus the separately labeled `P_formula_structural`, measured monomial/dependency tables
 for both witnesses, remainder, both PCP equations, slice/sample coverage, elapsed time, peak memory, and the trace. Every mutation has one
 owner and checker: A, `e-2 -> e-1`, is owned by item 3's GF(8) coefficient-identity replay; B, remove `g_2-o_2`, is owned by witness (ii)'s
-GF(2^11) formula test at `b_rho` with `O2=rho` (here `g_2(0)-O2=1-rho`, while the omitted factor changes it to 1 and
-`F_arith!=0`); C, omit output literal `w6`, is owned by the exhaustive circuit/Tseitin truth table; D, corrupt field reduction, is owned by
+formula test at `b_rho[O2 <- rho]`. Here all five `g_i=X_i`, the honest factor product is `rho`, and deleting `g_2-o_2` changes it to 1,
+while `F_arith=rho^4*(1+rho)!=0`. Thus honest `beta_0=rho^5*(1+rho)` and mutated `beta_0=rho^4*(1+rho)`; numerically these are respectively
+2 and 1 in `GF(8)`, and 96 and 48 in `GF(2^11)`, while the verifier RHS is the honest value. C, omit output literal `w6`, is owned by
+the exhaustive circuit/Tseitin truth table; D, corrupt field reduction, is owned by
 the GF(8) field-axiom sweep; E, change `w1` fan-out accounting from 2 to 1, is owned by the occurrence/support degree comparison; F, replace
 witness (ii)'s `a_3=[0,1]` by `[0,0]`, is owned by its all-nonconstant/exact-dependency checker. No mutation is credited merely because an
 unrelated test fails.
@@ -898,9 +911,9 @@ witnesses. Feed the generated—not hard-coded—circuit and both retained witne
 TB2's typed decider. Assert canonical quote-size propagation and print every intermediate object. Mutate the accepting transition to
 rejecting without changing the formula; trace/formula equivalence must fail before PCP construction.
 
-Expected `c_0` candidates remain at most 148,176 for witness (i) and 2,370,816 for witness (ii); both actual supports, elapsed times, and
-peak memory are measured. Confidence is medium: measure whether the front-end circuit normalization preserves the exact six-gate fixture
-before proceeding.
+Expected `c_0` candidates remain at most 148,176 for witness (i) and 2,370,816 for witness (ii); their predicted per-multiplication peaks
+are 54,978 and 788,032, respectively, so the 160,000 and 2,500,000 budgets fit. Both actual supports, elapsed times, and peak memory are
+measured. Confidence is medium: measure whether the front-end circuit normalization preserves the exact six-gate fixture before proceeding.
 
 ### 5.6 TB4 — `Compress` skeleton and quoted fixed point
 
