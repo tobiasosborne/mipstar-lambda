@@ -1,0 +1,4 @@
+# Brief 15 — CRITIC adjudication r4 on docs (final for this design cycle)
+Critic (Opus), round 4. Autonomous; no questions. Lane: `/home/tobias/Projects/discussions/verdicts/design-r4.md` ONLY; scratch under `/tmp/claude-1000/-home-tobias-Projects-discussions/fee4af66-0dce-432d-85cc-272c91280792/scratchpad/critic-design-r4/`. Ignore src/ test/ (another worker).
+Read rk-light adjudication rules; `verdicts/design-r3.md` (prior: R6 MAJOR, R7, R8); `docs/design-repair-r3-response.md`; `git -C /home/tobias/Projects/discussions diff 0007701 HEAD -- docs/` scoped to the r3 changes; current docs.
+Verify R6 (witness (ii) = all [0,1]: recompute that mutation B separates at b_ρ with O2=ρ — give both β₀ values in GF(8) and GF(2^11); recompute support if feasible in ≤10 min), R7 (estimate arithmetic and peak vs budget), R8 (sorts). At most 2 new objections on changed text. Adjudicate the C3 tuple substitution. Final line exactly `VERDICT: PASS` or `VERDICT: FAIL(<ids>)`.
