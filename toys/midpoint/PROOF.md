@@ -19,15 +19,26 @@ $y=f^{2^n}(x)$. For a randomized prover, condition first on all its private
 randomness: its value is an average of deterministic-strategy values, so it
 cannot exceed the same supremum.
 
-⟨2⟩4. The protocol recurrence is
+⟨2⟩4. **PROVE** the protocol recurrence
 $$
 V_0(x,y)={\bf 1}[y=f(x)],\qquad
 V_n(x,y)=\sup_{z\in D}
 \frac{V_{n-1}(x,z)+V_{n-1}(z,y)}2 .
 $$
-For fixed $z$, the two continuation strategies may differ because the coin
-outcome is public. Supremum, rather than maximum, makes this definition valid
-even when $D$ is infinite.
+
+⟨3⟩1. At level $0$ the verifier directly tests $y=f(x)$, giving the first
+identity.
+
+⟨3⟩2. At level $n>0$, because the coin outcome is public,
+$\sigma\mapsto(\sigma(\varnothing),\sigma|_{b_1},\sigma|_{b_2})$ is a
+bijection onto $D\times\Sigma_{n-1}\times\Sigma_{n-1}$. Consequently
+$$
+\sup_{z,\sigma_1,\sigma_2}
+\frac{v(\sigma_1;x,z)+v(\sigma_2;z,y)}2
+=\sup_{z\in D}\frac{V_{n-1}(x,z)+V_{n-1}(z,y)}2,
+$$
+where the equality remains valid for infinite $D$ because all three optima
+are written as suprema. **QED**.
 
 ⟨2⟩5. Put $p_n=1-2^{-n}$. Thus $p_0=0$ and
 $p_n=(1+p_{n-1})/2$ for $n>0$.
@@ -197,13 +208,24 @@ $$
 ⟨2⟩5. The two bounds are constant multiples of $2^n$ for $n\ge1$.
 **QED**.
 
-⟨1⟩6. **Cost model.** Charge unit work for each `Ask`, `Coin`, direct
-`Test`, and application of $f$ at the leaf. Every root-to-leaf execution of
-one level-$n$ term has exactly $n$ `Ask` nodes, $n$ `Coin` nodes, and one
-`Test`, hence verifier work $O(n)$. Sequential amplification to error at
-most $1/2$ costs
-$r(n)\cdot O(n)=\Theta(n2^n)$ versus the single-run $O(n)$; in this cost
-model it therefore cannot serve as a compression step.
+⟨1⟩6. **ASSUME** unit work for each `Ask`, `Coin`, direct `Test`, and
+application of $f$ at the leaf. **PROVE** the single-run and amplified costs.
+
+⟨2⟩1. **Transcript-shape induction.** At level $0$ the direct `Test` has
+profile $(0,0,1)$. At level $n>0$, an execution visits the root `Ask` and
+`Coin`, then one level-$(n-1)$ branch; the induction hypothesis therefore
+gives exactly $n$ `Ask` nodes, $n$ `Coin` nodes, and one `Test`.
+
+⟨2⟩2. The leaf `Test` applies $f$ once. Thus one run has verifier work
+exactly $n+n+1+1=2n+2=\Theta(n)$.
+
+⟨2⟩3. By ⟨1⟩5, sequential amplification to error at most $1/2$ costs
+$r(n)\cdot\Theta(n)=\Theta(n2^n)$, versus exactly $2n+2=\Theta(n)$ for one
+run. **QED**.
+
+In this cost model amplification is exponentially more expensive than a single
+run; no claim is made about the `Compress` operator of
+`docs/definitions.md`, which this toy does not instantiate.
 
 ## Proof scope versus executable checks
 

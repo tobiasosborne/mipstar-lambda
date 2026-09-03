@@ -91,3 +91,46 @@ M12 killed (exit 1): O2: sequential game stops after one accepted copy
 Test Summary:           | Pass  Total     Time
 midpoint mutation suite |   12     12  1m56.5s
 ```
+
+## r2 MINOR fixes
+
+- O15: Replaced ⟨1⟩6's final sentence with the critic's exact scoped wording;
+  the proof now disclaims any conclusion about `Compress`.
+- O16: Added the independent 30-digit $\ln 2$ anchors and all three requested
+  assertions. Mutations can now target `test.jl`, and the X1 endpoint swap is
+  permanent mutant M13.
+- O17: Recast ⟨1⟩6 as `ASSUME`/`PROVE` with the transcript-shape induction,
+  exact per-run cost $2n+2=\Theta(n)$, and amplified product
+  $r(n)\Theta(n)=\Theta(n2^n)$ as numbered ⟨2⟩1–⟨2⟩3.
+- O19: Promoted the recurrence to a numbered `PROVE` step and derived it from
+  the strategy-decomposition bijection.
+- O20: Added `unchecked=true` for the raw recurrence and checked
+  `optval ≤ cheating_bound(2)` for all three endpoints of the critic's
+  $D=\{0,1,2\}$, $f(t)=t+1\bmod 5$, $n=2$ instance.
+
+`julia toys/midpoint/test.jl` — exit 0:
+
+```text
+Test Summary:                                    | Pass  Total  Time
+term IR, red optimum block, and exact evaluators |   12     12  1.5s
+Test Summary:                 | Pass  Total  Time
+sharp orbit-prefix hypothesis |   10     10  0.5s
+Test Summary:                    | Pass  Total  Time
+exhaustive exact midpoint values | 1380   1380  3.2s
+Test Summary:                      | Pass  Total  Time
+adaptive sequential AND repetition |   20     20  0.7s
+Test Summary:                                     | Pass  Total  Time
+exact repetition threshold and logarithmic bounds |   51     51  0.1s
+Test Summary:         | Pass  Total  Time
+transcript cost model |   18     18  1.2s
+Test Summary:         | Pass  Total  Time
+Z/17Z bottom-up table | 2601   2601  0.7s
+```
+
+`julia toys/midpoint/mutations/run.jl` — exit 0:
+
+```text
+M13 killed (exit 1): O16: ln2 enclosure inverted (lo/hi swapped)
+Test Summary:           | Pass  Total     Time
+midpoint mutation suite |   13     13  2m13.3s
+```

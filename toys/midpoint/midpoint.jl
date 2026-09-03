@@ -124,7 +124,7 @@ function (::MidpointYTerm)(self, state::MidpointState)
     return Ask(FiniteContinuation(ask_domain, next))
 end
 
-function _validated_choices(f, domain, x, y, n::Integer)
+function _validated_choices(f, domain, x, y, n::Integer; unchecked::Bool=false)
     n < 0 && throw(ArgumentError("n must be nonnegative"))
     choices = collect(domain)
     isempty(choices) && throw(ArgumentError("domain must be nonempty"))
@@ -132,20 +132,22 @@ function _validated_choices(f, domain, x, y, n::Integer)
         throw(ArgumentError("x must belong to the domain"))
     any(candidate -> candidate == y, choices) ||
         throw(ArgumentError("y must belong to the domain"))
-    orbit_prefix_in_domain(f, choices, x, n) ||
+    unchecked || orbit_prefix_in_domain(f, choices, x, n) ||
         throw(ArgumentError("orbit prefix through f^(2^n)(x) must lie in the domain"))
     return choices
 end
 
 """
-    midpoint_protocol(f, domain, x, y, n)
+    midpoint_protocol(f, domain, x, y, n; unchecked=false)
 
 Construct the explicit level-`n` midpoint verifier term for `y = f^(2^n)(x)`.
 The finite `domain` is precisely the set offered at every `Ask`. Construction
 requires `x,y` and the orbit prefix `{f^k(x): 0 <= k <= 2^n}` to lie in it.
+Set `unchecked=true` to expose the raw recurrence while retaining all other
+input validation.
 """
-function midpoint_protocol(f, domain, x, y, n::Integer)
-    choices = _validated_choices(f, domain, x, y, n)
+function midpoint_protocol(f, domain, x, y, n::Integer; unchecked::Bool=false)
+    choices = _validated_choices(f, domain, x, y, n; unchecked=unchecked)
     unfold = z_fixed_point(MidpointYTerm())
     return unfold(MidpointState(f, choices, x, y, Int(n)))
 end

@@ -4,6 +4,10 @@ include(joinpath(@__DIR__, "midpoint.jl"))
 
 cheating_bound(n) = EXACT_ONE - BigInt(1) // (BigInt(2)^n)
 
+# ln 2 = 0.693147180559945309417232121458176568… (independent 30-digit sandwich)
+const LN2_LO_REF = BigInt(693147180559945309417232121458) // BigInt(10)^30 # < ln 2
+const LN2_HI_REF = BigInt(693147180559945309417232121459) // BigInt(10)^30 # > ln 2
+
 # Positive atanh series: ln(2) = 2 sum_{k>=0} (1/3)^(2k+1)/(2k+1).
 # The returned enclosure is rational and rigorous; no floating tolerance enters.
 function ln2_interval(terms::Int=16)
@@ -67,6 +71,12 @@ end
     # rather than a claimed value, fails: 3 and 4 are absent from the prefix.
     @test !orbit_prefix_in_domain(f, critic_domain, 0, 2)
     @test_throws ArgumentError midpoint_protocol(f, critic_domain, 0, 0, 2)
+    for y in critic_domain
+        unchecked_term = midpoint_protocol(
+            f, critic_domain, 0, y, 2; unchecked=true,
+        )
+        @test optval(unchecked_term) <= cheating_bound(2)
+    end
 
     # The sharp hypothesis is weaker than closure under f.
     @test orbit_prefix_in_domain(f, critic_domain, 0, 1)
@@ -126,6 +136,9 @@ end
 
 @testset "exact repetition threshold and logarithmic bounds" begin
     ln2_lo, ln2_hi = ln2_interval()
+    @test ln2_lo <= ln2_hi
+    @test ln2_lo <= LN2_LO_REF
+    @test LN2_HI_REF <= ln2_hi
     rs = Int[]
 
     for n in 1:12

@@ -7,8 +7,12 @@ const TEST_SUITE = joinpath(SOURCE_DIR, "test.jl")
 struct Mutation
     name::String
     description::String
+    target::Symbol
     replacements::Vector{Pair{String,String}}
 end
+
+Mutation(name, description, replacements) =
+    Mutation(name, description, :implementation, replacements)
 
 const MUTATIONS = (
     Mutation(
@@ -78,6 +82,13 @@ const MUTATIONS = (
         ["copies_after == 0 ? EXACT_ONE : game_value(x, y, level, copies_after - 1)" =>
          "EXACT_ONE"],
     ),
+    Mutation(
+        "M13",
+        "O16: ln2 enclosure inverted (lo/hi swapped)",
+        :test,
+        ["return lower, lower + tail_upper" =>
+         "return lower + tail_upper, lower"],
+    ),
 )
 
 function apply_mutation(source::String, mutation::Mutation)
@@ -91,15 +102,22 @@ function apply_mutation(source::String, mutation::Mutation)
 end
 
 function mutant_exit_code(mutation::Mutation)
-    source = read(IMPLEMENTATION, String)
-    mutated = apply_mutation(source, mutation)
+    implementation_source = read(IMPLEMENTATION, String)
+    test_source = read(TEST_SUITE, String)
+    if mutation.target == :implementation
+        implementation_source = apply_mutation(implementation_source, mutation)
+    elseif mutation.target == :test
+        test_source = apply_mutation(test_source, mutation)
+    else
+        error("$(mutation.name): unknown mutation target $(mutation.target)")
+    end
 
     # Every mutation is applied only to this temporary COPY.
     return mktempdir(prefix="midpoint-mutation-") do temporary_dir
         implementation_copy = joinpath(temporary_dir, "midpoint.jl")
         test_copy = joinpath(temporary_dir, "test.jl")
-        write(implementation_copy, mutated)
-        cp(TEST_SUITE, test_copy; force=true)
+        write(implementation_copy, implementation_source)
+        write(test_copy, test_source)
 
         output = IOBuffer()
         command = `$(Base.julia_cmd()) --startup-file=no $test_copy`
