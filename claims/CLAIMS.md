@@ -13,6 +13,7 @@ Statuses move UP only via a converged verdict in `verdicts/`. Author may move th
 | C6 | (Toy diagnostic) For the recursive midpoint protocol of handoff §"diagnostic toy example", optimal cheating acceptance probability for a false claim is exactly 1−2^{−n}. | CONJECTURE | — | — | — | — |
 | C7 | (Structural hypothesis, handoff §"Broader structural question") The reusable object is an algebra 𝒬 of CL question distributions closed under Introspect, PCPCompose, ×; low-degree PCPs fit because affine restrictions, random-point tests, and products preserve CL-ness. | CONJECTURE | C4 | — | n/a | — |
 | N1 | (Negative) Naive sequential/parallel repetition of the midpoint protocol needs Θ(2ⁿ) repetitions to reach constant gap and therefore cannot serve as a compression step. | CONJECTURE | C6 | — | — | — |
+| C8 | (Refutation candidate, docs/findings.md F1) For the NW19 Tseitin transformation arithmetized along the formula tree, deg_v(F_arith) ≤ 2(1+fanout(v)) and this is attained: for the 2-gate circuit g1=x1∧x2, g2=w1∧x3 the formal individual degree of w1 in F_arith is exactly 4 > 2, contradicting prop:tseitin-arith-degree as stated. Surviving statement: c₀ has individual degree ≤ 1+2(1+fanout_max); thm:pcp-decider holds with (2+5d)m' replaced by (2(1+fanout_max)+5d)m' and d ≥ 1+2(1+fanout_max). | CONJECTURE | — | docs/findings.md F1 | — | — |
 
 ## Definitions referenced
 - D1: the symbolic term language for polynomials, circuits, and PCP proofs — `docs/DESIGN.md` §Poly, §Circuit

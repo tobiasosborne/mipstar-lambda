@@ -1,0 +1,76 @@
+  fixing the dependence of the size parameters on the size of $x$, and
+  iterating through all possible values of the index parameter, we
+  obtain a Turing machine $R_3'$ that takes as input $x$ and runs in
+  time $\poly(n)$, and outputs the complete description of a $\succinctsquared$ instance $\calC_x$
+  with the desired properties.
+\end{proof}
+
+\subsection{The Tseitin transformation}
+
+In this section, we introduce the Tseitin transformation, which is a simple method of converting a Boolean circuit into a Boolean formula.
+
+\begin{definition}[Tseitin transformation]
+Let~$\calC$ be a Boolean circuit with~$n$ input variables $x_1, \ldots, x_n$ and~$s$ gates.
+Then the \emph{Tseitin transformation of $\calC$}, denoted $\calF := \mathrm{Tseitin}(\calC)$, is the Boolean formula defined as follows.
+\begin{itemize}
+\item[(i)] Introduce new variables $w_1, \ldots, w_s$ corresponding to the output wires of the gates in~$\calC$.
+		Then the input variables to $\calF$ consist of  $x_1, \ldots, x_n$ along with $w_1, \ldots, w_s$.
+\item[(ii)] Each gate in~$\calC$ operates on one or two variables in $\{x_1, \ldots, x_n, w_1, \ldots, w_s\}$.
+		Write $g_i(x, w)$ for the function computed by the $i$-th gate.
+		Then $\calF$ computes the intermediate expression
+		\begin{equation*}
+			z_i := (g_i(x, w) \land w_i) \lor (\overline{g_i(x, w)} \land \overline{w_i}).
+		\end{equation*}
+		The final output of $\calF$ is $z_1 \land (z_2 \land ( \cdots \land z_s))$.
+\end{itemize}
+By construction, $\calC(x) = 1$ if and only if there exists a~$w$ such that $\calF(x, w) = 1$
+(in particular, $w$ is taken to be the wire values of~$\calC$ on input~$x$).
+In addition, $\calF$ contains exactly $7s + (s-1)$ gates, meaning that it has size~$O(s)$.
+\end{definition}
+
+Next, we show how to convert Boolean formulas into functions over $\F_q$.
+
+\begin{definition}[Arithmetization]\label{def:arithmetization}
+Let $\calF$ be a Boolean formula of~$n$ variables and size~$s$.
+The \emph{arithmetization of $\calF$ over $\F_q$}, denoted $\arith{q}{\calF}$, is the formula produced by the following two-step process.
+\begin{itemize}
+\item[(i)] Transform $\calF$ by replacing all~$\lor$ gates with appropriate~$\land$ and~$\neg$ gates.
+\item[(ii)] Transform each Boolean gate into an $\F_q$ gate as follows:
+		Replace each~$\land$ gate in $\calF$ with a $\times$ gate.
+		Replace each~$\neg$ gate with a $\times -1$ gate followed by a $+1$ gate (enacting the transformation $b \in \F_q \mapsto 1-b$).
+		Call the resulting formula $\arith{q}{\calF}$.
+\end{itemize}
+Set $\calF_{\mathrm{arith}} := \arith{q}{\calF}$.
+On inputs $x \in \{0, 1\}^n$, $\calF_{\mathrm{arith}}(x) = \calF(x)$.
+On general inputs $x \in \F_q^n$, $\calF_{\mathrm{arith}}(x)$ is computable in time $\poly(s, q)$.
+\end{definition}
+
+The following proposition shows that small Boolean formulas have low-degree arithmetizations.
+
+\begin{proposition}[Low-degree arithmetization]\label{prop:low-degree-arithmetization}
+Let $\calF$ be a Boolean formula of~$n$ variables, size~$s$, and~$m$ gates.
+Then $\arith{q}{\calF}$ is a degree-$s$ polynomial over~$\F_q$.
+\end{proposition}
+\begin{proof}
+By induction on the number of gates, the base case $(m = 0)$ being trivial.
+For the induction hypothesis, assume the proposition holds for Boolean formulas which have fewer than~$m$ gates.
+Either the gate at the root of $\calF$ is a $\neg$ gate or an $\{\lor, \land\}$-gate.
+In the former case, $\calF = \neg \calF'$ for some Boolean formula with $m-1$ gates,
+and so $\arith{q}{\calF} = 1 - \arith{q}{\calF'}$ by construction.
+But these have the same degree, and so $\arith{q}{\calF}$ is degree~$s$ by the induction hypothesis.
+In the latter case, assume without loss of generality that it is an $\land$-gate. 
+Then $\calF= \calF_{\mathrm{left}} \land \calF_{\mathrm{right}}$ for two formulas
+of size $s_{\mathrm{left}} + s_{\mathrm{right}} = s$ and fewer than~$m$ gates.
+By the induction hypothesis, $\arith{q}{\calF_{\mathrm{left}}}$ has degree-$s_{\mathrm{left}}$ and
+$\arith{q}{\calF_{\mathrm{right}}}$ has degree-$s_{\mathrm{right}}$,
+and so $\arith{q}{\calF} = \arith{q}{\calF_{\mathrm{left}}} \times \arith{q}{\calF_{\mathrm{right}}}$ has degree~$s$.
+\end{proof}
+
+The arithmetization procedure describe in \Cref{def:arithmetization} can also be applied to general Boolean circuits~$\calC$, not just Boolean formulas.
+But \Cref{prop:low-degree-arithmetization} does not apply to general circuits;
+in fact, the arithmetization of a Boolean circuit can have very high degree, even if that circuit is small.
+This motivates using the Tseitin transformation: it allows us to convert a small circuit into a small formula, which has a low-degree arithmetization.
+
+
+%%% Local Variables:
+%%% mode: latex
