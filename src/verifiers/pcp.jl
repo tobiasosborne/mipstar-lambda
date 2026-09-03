@@ -170,6 +170,19 @@ struct PCPProof{F,N}
     eval_plan::SharedEvalPlan{F,N}
 end
 
+"The canonical coefficient embedding of a `{0,1}`-coefficient proof."
+struct PrimeFieldPCPProof{F,S,N}
+    source::PCPProof{S,N}
+    d::Int
+end
+
+function lift_pcp(proof::PCPProof{S,N}, ::Type{F}; d::Int) where {S,N,F<:GF2k}
+    polynomials = (proof.gs..., proof.c0, proof.cs...)
+    all(poly -> all(coefficient.bits <= 1 for coefficient in values(poly.terms)),
+        polynomials) || throw(ArgumentError("PCP proof is not defined over the prime subfield"))
+    PrimeFieldPCPProof{F,S,N}(proof, d)
+end
+
 struct PCPView{F,N}
     z::Vector{F}
     alpha::NTuple{5,F}
@@ -221,11 +234,53 @@ function ev_z(proof::PCPProof{F,N}, point::AbstractVector{F}) where {F,N}
     PCPView(Vector(point), alpha, beta0, beta)
 end
 
+
+function _evaluate_shared_as(plan::SharedEvalPlan{S,N},
+                             point::AbstractVector{F}) where {S,N,F<:GF2k}
+    maximum_exponent = maximum(plan.max_exponents)
+    powers = Matrix{UInt16}(undef, N, maximum_exponent + 1)
+    for coordinate in 1:N
+        powers[coordinate, 1] = UInt16(1)
+        for exponent in 1:plan.max_exponents[coordinate]
+            powers[coordinate, exponent + 1] =
+                _mul_raw(F, powers[coordinate, exponent], point[coordinate].bits)
+        end
+    end
+    values = Vector{UInt16}(undef, length(plan.nodes))
+    for (id, node) in enumerate(plan.nodes)
+        if node.coordinate == 0
+            node.coefficient.bits <= 1 ||
+                throw(ArgumentError("DAG coefficient is outside the prime subfield"))
+            values[id] = node.coefficient.bits
+            continue
+        end
+        total = UInt16(0)
+        for (exponent, child) in node.branches
+            product = _mul_raw(F, powers[node.coordinate, Int(exponent) + 1],
+                               values[child])
+            total = xor(total, product)
+        end
+        values[id] = total
+    end
+    ntuple(i -> plan.roots[i] == 0 ? zero(F) : F(Int(values[plan.roots[i]])), N)
+end
+
+function ev_z(proof::PrimeFieldPCPProof{F,S,N},
+              point::AbstractVector{F}) where {F,S,N}
+    source = proof.source
+    length(point) == N || throw(ArgumentError("PCP point has wrong dimension"))
+    alpha = ntuple(i -> _evaluate_as(source.gs[i], point), 5)
+    beta0 = _evaluate_as(source.c0, point)
+    beta = _evaluate_shared_as(source.eval_plan, point)
+    PCPView(Vector(point), alpha, beta0, beta)
+end
+
 pcp_eval(proof::PCPProof, point) = ev_z(proof, point)
+pcp_eval(proof::PrimeFieldPCPProof, point) = ev_z(proof, point)
 
 # gt-10-answer-reduction.tex:1548-1585 (fig:pcpverifier, steps 4-5).
 function pcpverifier(tf::TseitinFormula{N}, view::PCPView{F,N}) where {F,N}
-    formula_value = evaluate_arith_formula(tf.formula, view.z)
+    formula_value = evaluate_arith_formula(tf, view.z)
     formula_rhs = formula_value
     for i in 1:5
         formula_rhs *= view.alpha[i] - view.z[5 + i]

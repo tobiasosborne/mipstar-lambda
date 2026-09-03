@@ -140,6 +140,36 @@ struct FOr <: Formula
     right::Formula
 end
 
+struct FormulaInstruction
+    operation::UInt8 # 0=literal, 1=not, 2=and, 3=or
+    left::Int
+    right::Int
+    sign::Bool
+end
+
+function _compile_formula(formula::Formula)
+    instructions = FormulaInstruction[]
+    function emit(node::Formula)
+        if node isa Lit
+            push!(instructions, FormulaInstruction(0x00, node.variable, 0, node.sign))
+        elseif node isa FNot
+            child = emit(node.child)
+            push!(instructions, FormulaInstruction(0x01, child, 0, true))
+        elseif node isa FAnd
+            left = emit(node.left)
+            right = emit(node.right)
+            push!(instructions, FormulaInstruction(0x02, left, right, true))
+        else
+            left = emit(node.left)
+            right = emit(node.right)
+            push!(instructions, FormulaInstruction(0x03, left, right, true))
+        end
+        length(instructions)
+    end
+    emit(formula)
+    instructions
+end
+
 struct TseitinFormula{N}
     formula::Formula
     input_blocks::Tuple
@@ -147,6 +177,7 @@ struct TseitinFormula{N}
     gadgets::Tuple
     output_variable::Int
     occurrence_vector::NTuple{N,Int}
+    program::Vector{FormulaInstruction}
 end
 
 _formula_wire(wire::Input, input_count::Int) = Lit(wire.index)
@@ -224,7 +255,8 @@ function tseitin(circuit::Circuit; include_output=true)
     layout = VarLayout(names, blocks)
     count = occurrences(formula, length(names))
     term = TseitinFormula(formula, circuit.input_layout.blocks, layout,
-                          Tuple(parts), input_count + circuit.output.id, count)
+                          Tuple(parts), input_count + circuit.output.id, count,
+                          _compile_formula(formula))
     certificate = CertNode(CHECKED, :Tseitin;
         facts=(display="variables = $(length(names)); output literal = $(include_output)",),
         replay=tf -> CheckResult(tf.occurrence_vector ==
@@ -233,6 +265,24 @@ function tseitin(circuit::Circuit; include_output=true)
                                  expected=tf.occurrence_vector,
                                  actual=occurrences(tf.formula, length(tf.layout.names))))
     Checked(term, certificate)
+end
+
+
+function evaluate_formula(tf::TseitinFormula, assignment::AbstractVector{Bool})
+    values = Vector{Bool}(undef, length(tf.program))
+    for (index, instruction) in enumerate(tf.program)
+        if instruction.operation == 0x00
+            value = assignment[instruction.left]
+            values[index] = instruction.sign ? value : !value
+        elseif instruction.operation == 0x01
+            values[index] = !values[instruction.left]
+        elseif instruction.operation == 0x02
+            values[index] = values[instruction.left] && values[instruction.right]
+        else
+            values[index] = values[instruction.left] || values[instruction.right]
+        end
+    end
+    values[end]
 end
 
 function evaluate_formula(formula::Formula, assignment::AbstractVector{Bool})
@@ -260,10 +310,51 @@ function evaluate_arith_formula(formula::Formula, assignment::AbstractVector{F})
     left + right - left * right
 end
 
+
+function evaluate_arith_formula(tf::TseitinFormula, assignment::AbstractVector{F}) where {F}
+    values = Vector{F}(undef, length(tf.program))
+    for (index, instruction) in enumerate(tf.program)
+        if instruction.operation == 0x00
+            value = assignment[instruction.left]
+            values[index] = instruction.sign ? value : one(F) - value
+        elseif instruction.operation == 0x01
+            values[index] = one(F) - values[instruction.left]
+        elseif instruction.operation == 0x02
+            values[index] = values[instruction.left] * values[instruction.right]
+        else
+            left = values[instruction.left]
+            right = values[instruction.right]
+            values[index] = left + right - left * right
+        end
+    end
+    values[end]
+end
+
 struct FormulaEvalPlan <: AbstractEvalPlan
     formula::Formula
+    program::Vector{FormulaInstruction}
 end
-_evalplan(plan::FormulaEvalPlan, point) = evaluate_arith_formula(plan.formula, point)
+function _evalplan(plan::FormulaEvalPlan, point::AbstractVector{F}) where {F}
+    values = Vector{F}(undef, length(plan.program))
+    for (index, instruction) in enumerate(plan.program)
+        if instruction.operation == 0x00
+            value = point[instruction.left]
+            values[index] = instruction.sign ? value : one(F) - value
+        elseif instruction.operation == 0x01
+            values[index] = one(F) - values[instruction.left]
+        elseif instruction.operation == 0x02
+            values[index] = values[instruction.left] * values[instruction.right]
+        else
+            left = values[instruction.left]
+            right = values[instruction.right]
+            values[index] = left + right - left * right
+        end
+    end
+    values[end]
+end
+_evalplan_as(plan::FormulaEvalPlan, point, ::Type{F}) where {F} =
+    _evalplan(plan, point)
+_change_plan(plan::FormulaEvalPlan, ::Type{F}) where {F} = plan
 
 function _formula_poly(formula::Formula, ::Type{F}, layout::VarLayout) where {F<:GF2k}
     if formula isa Lit
@@ -295,7 +386,7 @@ function arith_q(tf::TseitinFormula{N}, ::Type{F};
     derivation = DegreeDerivation(:ArithFormula, tf.occurrence_vector,
                                   dependencies, ())
     result = _with_metadata(result, derivation, result.expected,
-                            FormulaEvalPlan(tf.formula))
+                            FormulaEvalPlan(tf.formula, tf.program))
     certificate = CertNode(CHECKED, :ArithTseitin;
         facts=(display="degrees = occurrences; inddeg = $(maximum(tf.occurrence_vector))",),
         replay=p -> CheckResult(degree_accounts_valid(p), :occurrence_degree_bound;

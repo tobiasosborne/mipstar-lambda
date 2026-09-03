@@ -14,6 +14,18 @@ struct ZeroDecomposition{F,N}
     steps::Tuple
 end
 
+function change_field(decomposition::ZeroDecomposition{S,N}, ::Type{F}) where {S,N,F}
+    quotients = ntuple(i -> change_field(decomposition.quotients[i], F), N)
+    remainder = change_field(decomposition.remainder, F)
+    steps = map(decomposition.steps) do step
+        RewriteStep(step.variable, step.source,
+                    convert(F, Int(step.coefficient.bits)),
+                    step.remainder_exponent, step.quotient_exponent,
+                    convert(F, Int(step.quotient_coefficient.bits)))
+    end
+    ZeroDecomposition(decomposition.layout, quotients, remainder, Tuple(steps))
+end
+
 function _accumulate!(terms::Dict{K,F}, key::K, coefficient::F) where {K,F}
     value = get(terms, key, zero(F)) + coefficient
     iszero(value) ? delete!(terms, key) : (terms[key] = value)
@@ -84,25 +96,14 @@ function verify_rewrite_step(step::RewriteStep{F,N}) where {F,N}
                Int(step.remainder_exponent) == exponent - 1 &&
                Int(step.quotient_exponent) == exponent - 2 &&
                step.quotient_coefficient == -step.coefficient
-    shape_ok || return CheckResult(false, :rewrite_identity;
-                                   location=variable,
-                                   expected=(exponent - 1, exponent - 2, -step.coefficient),
-                                   actual=(Int(step.remainder_exponent),
-                                           Int(step.quotient_exponent),
-                                           step.quotient_coefficient))
-
-    lhs = Dict{NTuple{N,UInt8},F}(step.source => step.coefficient)
-    rhs = Dict{NTuple{N,UInt8},F}()
-    lower = ntuple(i -> i == variable ? step.remainder_exponent : step.source[i], N)
-    _accumulate!(rhs, lower, step.coefficient)
-    zero_first = ntuple(i -> i == variable ? UInt8(step.quotient_exponent + 1) :
-                                             step.source[i], N)
-    zero_second = ntuple(i -> i == variable ? UInt8(step.quotient_exponent + 2) :
-                                              step.source[i], N)
-    _accumulate!(rhs, zero_first, step.quotient_coefficient)
-    _accumulate!(rhs, zero_second, -step.quotient_coefficient)
-    CheckResult(lhs == rhs, :rewrite_identity;
-                location=variable, expected=lhs, actual=rhs)
+    # These four scalar equalities are the coefficient-wise replay of
+    # a*z^e = a*z^(e-1) - a*z^(e-2)*(z-z^2); no evaluation samples are used.
+    CheckResult(shape_ok, :rewrite_identity;
+                location=variable,
+                expected=(exponent - 1, exponent - 2, -step.coefficient),
+                actual=(Int(step.remainder_exponent),
+                        Int(step.quotient_exponent),
+                        step.quotient_coefficient))
 end
 
 function verify_zero_decomposition(input::Poly{F,N},

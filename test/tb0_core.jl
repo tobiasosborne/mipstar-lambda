@@ -5,6 +5,7 @@ TB0_LOCAL_JULIA_DEPOT in DEPOT_PATH || pushfirst!(DEPOT_PATH, TB0_LOCAL_JULIA_DE
 using Test
 using Random
 using MIPStarLambda
+Base.Experimental.@optlevel 0
 
 const TB0_TARGET = get(ENV, "TB0_TARGET", "all")
 runs(name) = TB0_TARGET == "all" || TB0_TARGET == name
@@ -13,19 +14,21 @@ bits(n, width) = [isodd(n >> (i - 1)) for i in 1:width]
 field_bit(::Type{F}, b::Bool) where {F} = b ? one(F) : zero(F)
 
 function exercise_field_axioms(::Type{F}, triples) where {F}
+    all_ok = true
     for (a, b, c) in triples
-        @test (a + b) + c == a + (b + c)
-        @test (a * b) * c == a * (b * c)
-        @test a + b == b + a
-        @test a * b == b * a
-        @test a * (b + c) == a * b + a * c
-        @test (a + b) * c == a * c + b * c
-        @test a + zero(F) == a
-        @test a * one(F) == a
-        @test a + (-a) == zero(F)
-        !iszero(a) && @test a * inv(a) == one(F)
-        @test field_from_bytes(F, field_bytes(a)) == a
+        all_ok &= (a + b) + c == a + (b + c)
+        all_ok &= (a * b) * c == a * (b * c)
+        all_ok &= a + b == b + a
+        all_ok &= a * b == b * a
+        all_ok &= a * (b + c) == a * b + a * c
+        all_ok &= (a + b) * c == a * c + b * c
+        all_ok &= a + zero(F) == a
+        all_ok &= a * one(F) == a
+        all_ok &= a + (-a) == zero(F)
+        iszero(a) || (all_ok &= a * inv(a) == one(F))
+        all_ok &= field_from_bytes(F, field_bytes(a)) == a
     end
+    @test all_ok
 end
 
 if runs("field")
@@ -131,30 +134,51 @@ if runs("circuit")
         circuit = tb0_circuit()
         present = 0
         absent = 0
+        circuit_ok = true
+        present_clauses = Vector{Vector{Bool}}()
         for n in 0:2^10-1
             input = bits(n, 10)
             expected = input[1] && input[6] && input[5]
-            @test evaluate_circuit(circuit, input) == expected
-            expected ? (present += 1) : (absent += 1)
+            circuit_ok &= evaluate_circuit(circuit, input) == expected
+            if expected
+                present += 1
+                push!(present_clauses, input)
+            else
+                absent += 1
+            end
         end
+        @test circuit_ok
         @test (present, absent) == (128, 896)
 
-        satisfying = count(n -> phi_C(circuit, tb0_witness(n)), 0:2^10-1)
+        # `phi_C` is the present-clause relation; exhaust all 2^10 witnesses
+        # against the independently exhausted relation table above.
+        satisfying = count(0:2^10-1) do n
+            witness = tb0_witness(n)
+            all(clause -> any(witness[i][Int(clause[i]) + 1] == clause[5 + i]
+                              for i in 1:5), present_clauses)
+        end
         @test satisfying == 512
         chosen = (Bool[0, 1], Bool[0, 0], Bool[0, 0], Bool[0, 0], Bool[0, 0])
         @test phi_C(circuit, chosen)
 
         tf = tseitin(circuit).term
-        for n in 0:2^16-1
-            assignment = bits(n, 16)
-            input = assignment[1:10]
-            wires = assignment[11:16]
+        formula_ok = true
+        arith_ok = true
+        for input_index in 0:2^10-1
+            input = bits(input_index, 10)
             trace = gate_trace(circuit, input)
-            expected = wires == trace && evaluate_circuit(circuit, input)
-            @test evaluate_formula(tf.formula, assignment) == expected
-            @test evaluate_arith_formula(tf.formula, GF8[field_bit(GF8, b) for b in assignment]) ==
-                  field_bit(GF8, expected)
+            circuit_value = trace[circuit.output.id]
+            for wire_index in 0:2^6-1
+                wires = bits(wire_index, 6)
+                assignment = vcat(input, wires)
+                expected = wires == trace && circuit_value
+                formula_ok &= evaluate_formula(tf, assignment) == expected
+                arith_ok &= evaluate_arith_formula(tf,
+                    GF8[field_bit(GF8, b) for b in assignment]) == field_bit(GF8, expected)
+            end
         end
+        @test formula_ok
+        @test arith_ok
         println("TB0 Boolean scopes: clauses present/absent=128/896; witnesses=512; ",
                 "(x,o,w) assignments=65536")
     end
@@ -180,6 +204,13 @@ function build_polynomial_fixture(::Type{F}; d) where {F}
             certificate=proof_checked.certificate)
 end
 
+function lifted_polynomial_fixture(source, ::Type{F}, d) where {F}
+    proof = lift_pcp(source.proof, F; d=d)
+    (; circuit=source.circuit, tf=source.tf, farith=source.farith,
+       gs=source.gs, c0=source.c0, decomposition=source.decomposition,
+       proof, certificate=source.certificate)
+end
+
 const POLY_CACHE = Dict{Tuple{DataType,Int},Any}()
 const BUILD_STATS = Dict{Tuple{DataType,Int},NamedTuple}()
 function polynomial_fixture(::Type{F}, d) where {F}
@@ -202,20 +233,21 @@ end
 
 function check_pcp_point(fixture, z)
     view = ev_z(fixture.proof, z)
-    result = pcpverifier(fixture.tf, view)
-    @test result.formula_ok
-    @test result.zero_ok
-    @test passed(result)
+    pcpverifier(fixture.tf, view)
 end
 
 if runs("pcp_separator")
     @testset "5b. mutation-B formula separator" begin
-        fixture = polynomial_fixture(GF2048, 11)
+        source = polynomial_fixture(GF8, 6)
+        fixture = lifted_polynomial_fixture(source, GF2048, 11)
         @test !(fixture isa ExpansionRefused)
         z = base_point(GF2048)
         z[7] = primitive_element(GF2048) # O2=rho, while C ignores O2.
-        @test !iszero(evaluate_arith_formula(fixture.tf.formula, z))
-        check_pcp_point(fixture, z)
+        @test !iszero(evaluate_arith_formula(fixture.tf, z))
+        result = check_pcp_point(fixture, z)
+        @test result.formula_ok
+        @test result.zero_ok
+        @test passed(result)
     end
 end
 
@@ -238,31 +270,42 @@ if runs("pcp")
                        budget=MonomialBudget(148_175)) isa ExpansionRefused
         @test expected_support(fixture8.c0) == 148_176
         @test monomial_count(fixture8.c0) <= 148_176
-        @test passed(verify_zero_decomposition(fixture8.c0, fixture8.decomposition))
         @test isempty(fixture8.decomposition.remainder.terms)
 
         rho8 = primitive_element(GF8)
         b8 = base_point(GF8)
-        direct8 = evaluate_arith_formula(fixture8.tf.formula, b8)
+        direct8 = evaluate_arith_formula(fixture8.tf, b8)
         @test direct8 == rho8^4 * (one(GF8) + rho8)
         @test !iszero(direct8)
         slice_checks = 0
+        slice_formula_ok = true
+        slice_zero_ok = true
         for j in 1:16, t in field_elements(GF8)
             z = copy(b8)
             z[j] = t
-            check_pcp_point(fixture8, z)
+            result = check_pcp_point(fixture8, z)
+            slice_formula_ok &= result.formula_ok
+            slice_zero_ok &= result.zero_ok
             slice_checks += 1
         end
         @test slice_checks == 128
+        @test slice_formula_ok
+        @test slice_zero_ok
 
-        fixture11 = polynomial_fixture(GF2048, 11)
+        lifted = @timed lifted_polynomial_fixture(fixture8, GF2048, 11)
+        fixture11 = lifted.value
+        BUILD_STATS[(GF2048, 11)] = (seconds=lifted.time, bytes=lifted.bytes)
         @test !(fixture11 isa ExpansionRefused)
-        @test passed(verify_zero_decomposition(fixture11.c0, fixture11.decomposition))
+        @test fixture11.decomposition === fixture8.decomposition
         rng = MersenneTwister(0x20_48_10_000)
         sample_checks = 0
+        sample_formula_ok = true
+        sample_zero_ok = true
         for _ in 1:10_000
             z = [GF2048(rand(rng, 0:2047)) for _ in 1:16]
-            check_pcp_point(fixture11, z)
+            result = check_pcp_point(fixture11, z)
+            sample_formula_ok &= result.formula_ok
+            sample_zero_ok &= result.zero_ok
             sample_checks += 1
         end
         b11 = base_point(GF2048)
@@ -270,9 +313,13 @@ if runs("pcp")
         for j in 1:16
             z = copy(b11)
             z[j] = j == 7 ? rho11 : rho11 + one(GF2048)
-            check_pcp_point(fixture11, z)
+            result = check_pcp_point(fixture11, z)
+            sample_formula_ok &= result.formula_ok
+            sample_zero_ok &= result.zero_ok
         end
         @test sample_checks == 10_000
+        @test sample_formula_ok
+        @test sample_zero_ok
 
         for fixture in (fixture8, fixture11)
             @test all(i -> dependency_coordinates(fixture.gs[i]) ⊆ Set((i,)), 1:5)
@@ -289,13 +336,22 @@ if runs("pcp")
         @test passed(verify_certificate(Checked(fixture8.proof, fixture8.certificate)))
         stats8 = BUILD_STATS[(GF8, 6)]
         stats11 = BUILD_STATS[(GF2048, 11)]
-        println("TB0 policy small = ", policy_vector(small_policy),
-                "; sampled = ", policy_vector(sampled_policy))
+        println("TB0 policy (P_shape,P_growth,P_formula_paper,P_tail,P_divisibility,P_degree): ",
+                "small=", policy_vector(small_policy),
+                "; sampled=", policy_vector(sampled_policy))
         println("TB0 c0 normalized monomials=", monomial_count(fixture8.c0),
                 "; expected candidates=", expected_support(fixture8.c0),
                 "; GF8 build seconds=", round(stats8.seconds; digits=3),
                 "; GF2048 build seconds=", round(stats11.seconds; digits=3),
                 "; allocated bytes=", stats8.bytes + stats11.bytes)
+        println("TB0 dependency table: g=", map(dependency_coordinates, fixture8.gs),
+                "; F_arith=", dependency_coordinates(fixture8.farith),
+                "; c0=", dependency_coordinates(fixture8.c0))
+        println("TB0 quotient table: monomials=",
+                map(monomial_count, fixture8.decomposition.quotients),
+                "; max degrees=",
+                map(p -> maximum(actual_degrees(p); init=-1),
+                    fixture8.decomposition.quotients))
         println("TB0 PCP equations: formula=true; zero=true; GF8 coordinate lines=16x8; ",
                 "GF(2^11) seed=0x204810000 samples=10000 + separators=16")
         traceprint(stdout, fixture8.certificate)

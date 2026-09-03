@@ -193,6 +193,13 @@ _evalplan(plan::VariablePlan, point) = point[plan.coordinate]
 _evalplan(plan::AddPlan, point) = _evalplan(plan.left, point) + _evalplan(plan.right, point)
 _evalplan(plan::MulPlan, point) = _evalplan(plan.left, point) * _evalplan(plan.right, point)
 
+_evalplan_as(plan::VariablePlan, point, ::Type{F}) where {F} = point[plan.coordinate]
+_evalplan_as(plan::ConstantPlan, point, ::Type{F}) where {F} = F(Int(plan.value.bits))
+_evalplan_as(plan::AddPlan, point, ::Type{F}) where {F} =
+    _evalplan_as(plan.left, point, F) + _evalplan_as(plan.right, point, F)
+_evalplan_as(plan::MulPlan, point, ::Type{F}) where {F} =
+    _evalplan_as(plan.left, point, F) * _evalplan_as(plan.right, point, F)
+
 function _evalplan(plan::SparsePlan{F,N}, point) where {F,N}
     total = zero(F)
     for (key, coefficient) in plan.terms
@@ -203,6 +210,25 @@ function _evalplan(plan::SparsePlan{F,N}, point) where {F,N}
         total += term
     end
     total
+end
+
+
+function _evalplan_as(plan::SparsePlan{S,N}, point, ::Type{F}) where {S,N,F}
+    total = zero(F)
+    for (key, coefficient) in plan.terms
+        coefficient.bits <= 1 || throw(ArgumentError("coefficient is outside the prime subfield"))
+        term = F(Int(coefficient.bits))
+        for i in 1:N
+            key[i] == 0 || (term *= point[i]^Int(key[i]))
+        end
+        total += term
+    end
+    total
+end
+
+function _evaluate_as(poly::Poly{S,N}, point::AbstractVector{F}) where {S,N,F}
+    length(point) == N || throw(ArgumentError("point has wrong dimension"))
+    _evalplan_as(poly.plan, point, F)
 end
 
 function evaluate(poly::Poly{F,N}, point::AbstractVector{F}) where {F,N}
@@ -234,6 +260,29 @@ end
 function _with_metadata(poly::Poly{F,N}, derivation::DegreeDerivation{N},
                         expected::Int, plan=poly.plan) where {F,N}
     _poly(poly.layout, poly.terms, derivation, expected, plan)
+end
+
+_change_plan(plan::VariablePlan, ::Type{F}) where {F} = plan
+_change_plan(plan::ConstantPlan, ::Type{F}) where {F} = ConstantPlan(convert(F, Int(plan.value.bits)))
+_change_plan(plan::AddPlan, ::Type{F}) where {F} =
+    AddPlan(_change_plan(plan.left, F), _change_plan(plan.right, F))
+_change_plan(plan::MulPlan, ::Type{F}) where {F} =
+    MulPlan(_change_plan(plan.left, F), _change_plan(plan.right, F))
+function _change_plan(plan::SparsePlan{S,N}, ::Type{F}) where {S,N,F}
+    terms = Dict(key => convert(F, Int(coefficient.bits))
+                 for (key, coefficient) in plan.terms)
+    SparsePlan(terms)
+end
+
+
+"Change the carrier of a prime-subfield-coefficient polynomial (coefficients 0 or 1)."
+function change_field(poly::Poly{S,N}, ::Type{F}) where {S<:GF2k,F<:GF2k,N}
+    all(coefficient.bits <= 1 for coefficient in values(poly.terms)) ||
+        throw(ArgumentError("field change is defined only for prime-subfield coefficients"))
+    terms = Dict(key => convert(F, Int(coefficient.bits))
+                 for (key, coefficient) in poly.terms)
+    _poly(poly.layout, terms, poly.structural, poly.expected,
+          _change_plan(poly.plan, F))
 end
 
 function _from_terms(::Type{F}, layout::VarLayout{N},

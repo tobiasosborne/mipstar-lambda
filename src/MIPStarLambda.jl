@@ -1,8 +1,8 @@
-__precompile__(false)
 module MIPStarLambda
 
 using Random
 import Base: zero
+Base.Experimental.@optlevel 1
 
 include("certificates.jl")
 include("fields/gf2k.jl")
@@ -20,7 +20,7 @@ export VarBlock, VarLayout, DegreeDerivation, SupportReport, Poly,
        MonomialBudget, ExpansionRefused, polyvar, constant_poly, zero_poly,
        mul_poly, evaluate, polynomial_equal, monomial_count, expected_support,
        structural_degrees, actual_degrees, degree_accounts_valid,
-       dependency_coordinates, dependency_blocks, ind, g_a, dec, zero
+       dependency_coordinates, dependency_blocks, change_field, ind, g_a, dec, zero
 
 export BWire, Input, Gate, NotGate, AndGate, OrGate, Circuit,
        Lit, FNot, FAnd, FOr, TseitinFormula, tb0_circuit,
@@ -33,7 +33,8 @@ export RewriteStep, ZeroDecomposition, zero_basis_decompose,
 
 export PredicateStatus, PASS, FAIL, NOT_EVALUABLE, PCPParams, ParameterPolicy,
        parameter_policy, policy_vector, minimal_checkable_odd_k,
-       PCPProof, PCPView, build_c0, build_pcp, ev_z, pcp_eval, pcpverifier
+       PCPProof, PrimeFieldPCPProof, PCPView, build_c0, build_pcp, lift_pcp,
+       ev_z, pcp_eval, pcpverifier
 
 export Grade, CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR,
        CheckResult, passed, CertNode, Checked, verify_certificate, traceprint

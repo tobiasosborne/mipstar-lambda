@@ -42,8 +42,50 @@ function _mulbits(a::UInt16, b::UInt16, k::Int, modulus::UInt32)
     UInt16(result & (top - UInt32(1)))
 end
 
+function _log_tables(k::Int, modulus::UInt32)
+    q = 1 << k
+    logarithm = zeros(UInt16, q)
+    exponential = Vector{UInt16}(undef, 2(q - 1))
+    value = UInt16(1)
+    for exponent in 0:q-2
+        logarithm[Int(value) + 1] = UInt16(exponent)
+        exponential[exponent + 1] = value
+        exponential[exponent + q] = value
+        value = _mulbits(value, UInt16(2), k, modulus)
+    end
+    logarithm, exponential
+end
+
+const _GF8_LOG, _GF8_EXP = _log_tables(3, UInt32(0x00b))
+const _GF2048_LOG, _GF2048_EXP = _log_tables(11, UInt32(0x805))
+
+@inline function _mul_raw(::Type{GF2k{3,0x00b}}, a::UInt16, b::UInt16)
+    (a == 0 || b == 0) && return UInt16(0)
+    index = Int(_GF8_LOG[Int(a) + 1]) + Int(_GF8_LOG[Int(b) + 1]) + 1
+    _GF8_EXP[index]
+end
+
+@inline function _mul_raw(::Type{GF2k{11,0x805}}, a::UInt16, b::UInt16)
+    (a == 0 || b == 0) && return UInt16(0)
+    index = Int(_GF2048_LOG[Int(a) + 1]) + Int(_GF2048_LOG[Int(b) + 1]) + 1
+    _GF2048_EXP[index]
+end
+
+@inline _mul_raw(::Type{GF2k{K,M}}, a::UInt16, b::UInt16) where {K,M} =
+    _mulbits(a, b, K, UInt32(M))
+
 function Base.:*(a::GF2k{K,M}, b::GF2k{K,M}) where {K,M}
-    GF2k{K,M}(_mulbits(a.bits, b.bits, K, UInt32(M)), Val(:raw))
+    (iszero(a) || iszero(b)) && return zero(GF2k{K,M})
+    raw = if K == 3 && M == 0x00b
+        index = Int(_GF8_LOG[Int(a.bits) + 1]) + Int(_GF8_LOG[Int(b.bits) + 1]) + 1
+        _GF8_EXP[index]
+    elseif K == 11 && M == 0x805
+        index = Int(_GF2048_LOG[Int(a.bits) + 1]) + Int(_GF2048_LOG[Int(b.bits) + 1]) + 1
+        _GF2048_EXP[index]
+    else
+        _mulbits(a.bits, b.bits, K, UInt32(M))
+    end
+    GF2k{K,M}(raw, Val(:raw))
 end
 
 function Base.:^(a::F, exponent::Integer) where {F<:GF2k}
