@@ -24,9 +24,9 @@ they do not add a second mathematical definition elsewhere.
 | `Variables(blocked)`, `VarLayout` | Ordered variables together with named, disjoint blocks such as `X_1,...,X_5,O,W`. | `gt-10-answer-reduction.tex:L1435-L1441` (`def:pcp-proof`). |
 | `Dependencies(p)` | Coordinates, and consequently blocks, appearing with nonzero exponent in the normalized support of `p`. | Project IR for the block restriction required at `gt-10-answer-reduction.tex:L1878-L1885` (`sec:ld-compiler`). |
 | `occurrences(F)`, `occ_v(F)` | Number of leaf occurrences of each variable in the Boolean formula tree; `deg_v(arith_q(F))<=occ_v(F)`. | Structural replacement for the disputed claim at `gt-10-answer-reduction.tex:L173-L191` (`prop:tseitin-arith-degree`); finding F1/C8. |
-| `fanout(v)` | Number of circuit gates that directly consume wire/input `v`; in NW19 Tseitin, input occurrence is `2 fanout(v)` and gate-wire occurrence is `2+2 fanout(v)`, plus one for the output literal. | `ground-truth/nw19/nw19-tseitin-arith.tex` (`def:Tseitin transformation`); finding F1/F2. |
-| `MonomialBudget` | Pre-normalization candidate-product limit; expansion returns `ExpansionRefused` before exceeding it. | Project safety policy for the formal polynomial carrier. |
-| `expected_support(p)` | A pre-normalization upper estimate on candidate monomials, never the measured normalized support. | Project expansion-budget diagnostic. |
+| `fanout(v)`, `fanout_max` | Number of circuit gates that directly consume wire/input `v`, and its maximum over circuit wires/inputs. In NW19 Tseitin, input occurrence is `2 fanout(v)` and gate-wire occurrence is `2+2 fanout(v)`, plus one for the output literal. | `ground-truth/nw19/nw19-tseitin-arith.tex` (`def:Tseitin transformation`); finding F1/F2. |
+| `MonomialBudget` | Limit on the candidate count of one sparse multiplication, computed as `card(partial support)*card(next factor support)` before coefficient merging; expansion returns `ExpansionRefused` before a single product exceeds it. It is not a cumulative-work counter. | Project safety policy for the formal polynomial carrier. |
+| `expected_support(p)` | A pre-normalization upper estimate on candidate monomials for a named product, never the measured normalized support. | Project expansion-budget diagnostic. |
 | `deg_F` | Maximum coordinate of the checked occurrence bound for `F_arith`; TB0 has `deg_F=6`. | Finding F1/C8 and `DESIGN.md` §5. |
 | `rho`, `b_rho`, `S_j` | Declared primitive field element, TB0's printed off-cube base point, and its 16 named one-coordinate lines. | Project TB0 fixture; not paper notation. |
 | `P_exponent_range` | Predicate `d<=q-1`; when true, formal exponents lie in the paper's range `{0,...,q-1}`. | `gt-03-prelim.tex:L836-L840` (polynomial definition). |
@@ -43,7 +43,7 @@ they do not add a second mathematical definition elsewhere.
 | `H` | A decoding alphabet subset of `F_q`; the Boolean decoder uses `H={0,1}`. | `gt-03-prelim.tex:L917-L924` (`sec:ld-encoding`). |
 | `dec_H(g)`, `\mathrm{dec}_H(g)`, `decode_H(g)` | Vector indexed by Boolean `y`, equal to `g(y)` when `g(y) in H` and zero otherwise.  The paper's TeX command renders this as `coded_H`. | `gt-03-prelim.tex:L917-L924` (`sec:ld-encoding`). |
 | `zero(z)`, `zero_poly(z)` | `z(1-z)`, which vanishes at `0` and `1`. | `gt-10-answer-reduction.tex:L1281-L1292` (`prop:zero-basis`). |
-| `F_arith`, `F_{\mathrm{arith}}`, `formula_arith`, `arith_q(formula)` | Polynomial obtained by arithmetizing along the Boolean formula tree and agreeing on the Boolean cube. Its checked coordinate bound is the formula occurrence vector; the source's Tseitin bound 2 is retained as `SOURCE_REPAIR(disputed,C8)`. | `gt-10-answer-reduction.tex:L160-L190` (`def:formula-arithmetization`, disputed `prop:tseitin-arith-degree`). |
+| `F_arith`, `F_{\mathrm{arith}}`, `formula_arith`, `arith_q(formula)` | Polynomial obtained by arithmetizing along the Boolean formula tree and agreeing on the Boolean cube. Its checked coordinate bound is the formula occurrence vector; the source's Tseitin bound 2 is retained as `SOURCE_REPAIR(C8)`. | `gt-10-answer-reduction.tex:L160-L190` (`def:formula-arithmetization`, disputed `prop:tseitin-arith-degree`). |
 | `c_0` | `F_arith(x,o,w) * product_{i=1}^5(g_i(x_i)-o_i)`. | `gt-10-answer-reduction.tex:L1685-L1692` (completeness proof of `thm:pcp-decider`). |
 | `c_i`, `1<=i<=m'` | Quotient polynomials satisfying `c_0=sum_i c_i zero(z_i)` when `c_0` vanishes on the Boolean subcube. | `gt-10-answer-reduction.tex:L1281-L1322` (`prop:zero-basis`); `L1709-L1717`. |
 | `r`, `remainder` | Multilinear remainder after division by every `zero(z_i)`; a zero-on-subcube certificate requires the formal zero polynomial. | `gt-10-answer-reduction.tex:L1329-L1373` (proof of `prop:zero-basis`). |
@@ -80,7 +80,7 @@ they do not add a second mathematical definition elsewhere.
 | `chi(s_coord)`, `χ(s_coord)` | The unique axis bucket satisfying `s_coord=(chi(s_coord)-1)q/m+r`, `0<=r<q/m`, under the fixed integer representation of `F_q`; requires `m` to divide `q`. | `gt-07-ldt.tex:L208-L221` (`eq:chi-func`). |
 | `Point`, `ALine`, `DLine` | Point, axis-parallel-line, and diagonal-line question types in the classical low-degree game. | `gt-07-ldt.tex:L178-L201` (`sec:ld-game`). |
 | `V_pt`, `V_coord`, `V_dir` | Complementary point (`F_q^m`), coordinate (`F_q`), and direction (`F_q^m`) registers. | `gt-07-ldt.tex:L192-L201` (`sec:ld-game`). |
-| `V_{i,pt}`, `V_{i,coord}`, `V_{i,dir}` | PCP-copy registers. Copy 6 has point/direction dimension `m'` and coordinate dimension 6 by `eq:V-pcp`; scalar `table:tpcp` conflicts, so the IR marks its convention that `chi` reads `V_aux,coord` as `SOURCE_REPAIR`. | `gt-10-answer-reduction.tex:L1895-L1917` (`eq:V-pcp`); `gt-10-answer-reduction.tex:L1990-L1999` (`table:tpcp`). |
+| `V_{i,pt}`, `V_{i,coord}`, `V_{i,dir}` | PCP-copy registers. Copy 6 has point/direction dimension `m'` and coordinate dimension 6 by `eq:V-pcp`; scalar `table:tpcp` conflicts, so the IR marks its convention that `chi` reads `V_aux,coord` as `SOURCE_REPAIR`. | `gt-10-answer-reduction.tex:L1895-L1917` (`eq:V-pcp`); `gt-10-answer-reduction.tex:L1987-L1998` (`table:tpcp`). |
 | `L_Point` | Level-1 CL projection `(u,s_coord,v)->(u,0,0)`. | `gt-07-ldt.tex:L203-L207` (`eq:cl-ptf`). |
 | `L_ALine` | Level-2 CL map `(u,s_coord,v)->(L^lnf_{e_chi(s_coord)}u,s_coord,0)`. | `gt-07-ldt.tex:L208-L228` (`eq:cl-alnf`, `eq:chi-func`). |
 | `L_DLine` | Level-3 CL map using `v'=pi_{chi(s_coord)-1}(v)` and returning `(L^lnf_{v'}u,s_coord,v')`. | `gt-07-ldt.tex:L230-L237` (`eq:cl-dlnf`). |
@@ -101,9 +101,11 @@ they do not add a second mathematical definition elsewhere.
 | symbol / code name | authoritative meaning | ground-truth anchor |
 |---|---|---|
 | `PCPParams`, `(q,m,d,m',s)` | Tuple computed from `(n,T,Q_len,sigma,gamma)`. Its six named obligations are `P_shape`, `P_growth`, `P_formula_paper`, `P_tail`, `P_divisibility`, and `P_degree`; unknown universal constants may leave a proposed concrete tuple unresolved. | `gt-10-answer-reduction.tex:L1396-L1422` (`def:pcpparams`). |
+| `ParameterPredicateResult`, `PASS`, `FAIL`, `NOT_EVALUABLE` | For a predicate containing unknown universal constants, `PASS` means it holds for every admissible choice, `FAIL` means it fails for every admissible choice, and `NOT_EVALUABLE` means neither conclusion follows over the whole admissible range. This rule applies in particular to predicates 2 (`P_growth`) and 4 (`P_tail`): neither has a blanket result, and interval bounds may determine either `PASS` or `FAIL`. | Project evaluation policy for the universal constants constrained in `gt-10-answer-reduction.tex:L1402-L1403`, `L1409-L1414` (`def:pcpparams`). |
 | `P_shape` | `m'=5m+5+s` and `m'` is a power of two. | `gt-10-answer-reduction.tex:L1404-L1408` (`def:pcpparams`, item 1). |
 | `P_growth` | `k>=((gamma*b'+3a')/b') log s`; the tuple rule separately chooses the smallest odd `k` satisfying items 2a--2d. | `gt-10-answer-reduction.tex:L1409-L1412` (`def:pcpparams`, item 2a). |
-| `P_formula_paper` | The source predicate `(2+5k)m'/2^k<1/2`; `P_formula_structural` replaces 2 by computed `deg_F` and is marked `SOURCE_REPAIR(C8)`. | `gt-10-answer-reduction.tex:L1412-L1413` (`def:pcpparams`, item 2b). |
+| `P_formula_paper` | The source predicate `(2+5k)m'/2^k<1/2`, retained literally as the paper's item 2(b); its constant `2` conflicts with the checked occurrence bound and is tagged `SOURCE_REPAIR(C8)`. | `gt-10-answer-reduction.tex:L1412-L1413` (`def:pcpparams`, item 2b). |
+| `P_formula_structural` | Extra project obligation `(deg_F+5d)m'/q<1/2` using the checked occurrence bound. It is not a consequence of `def:pcpparams`: named fixtures check it directly, while a general circuit must assume it or derive it from additional fan-out and growth hypotheses. | Finding F1/C8; `DESIGN.md` §§2 and 4.1. |
 | `P_tail` | `k*m'/2^k<=s^(-b'*gamma)`. | `gt-10-answer-reduction.tex:L1413-L1414` (`def:pcpparams`, item 2c). |
 | `P_divisibility` | `m'` divides `2^k`; operationally this permits `chi` to form `m'` equal buckets for PCP copy 6. | `gt-10-answer-reduction.tex:L1414-L1416` (`def:pcpparams`, item 2d). |
 | `P_degree` | `d=k`; tuple formation also records `q=2^k` and the smallest-odd-`k` rule rather than treating them as a seventh predicate. | `gt-10-answer-reduction.tex:L1409-L1417` (`def:pcpparams`, items 2--3). |
@@ -111,9 +113,9 @@ they do not add a second mathematical definition elsewhere.
 | `z=(x_1,...,x_5,o,w)` | A point of `F_q^{m'}` in the fixed PCP block decomposition. | `gt-10-answer-reduction.tex:L1435-L1447` (`def:pcp-proof`, `def:pcp-eval`). |
 | `ev_z(Pi)`, `\mathrm{ev}_z(Π)`, `pcp_eval(Pi,z)` | PCP view `(alpha_1,...,alpha_5,beta_0,...,beta_{m'})` at `z`. | `gt-10-answer-reduction.tex:L1444-L1453` (`def:pcp-eval`). |
 | `alpha_i`, `α_i` | `g_i(x_i)`, the `i`th block-polynomial evaluation. | `gt-10-answer-reduction.tex:L1444-L1453` (`def:pcp-eval`). |
-| `alpha'_i`, `α'_i` | Copy-6 bundled evaluation of `g_i`, compared with the individual-copy `alpha_i` under the guarded consistency checks. | `gt-10-answer-reduction.tex:L1993-L1999`, `L2014-L2040` (`table:tpcp`, `fig:decider-pcp`). |
+| `alpha'_i`, `α'_i` | Copy-6 bundled evaluation of `g_i`, compared with the individual-copy `alpha_i` under the guarded consistency checks. | `gt-10-answer-reduction.tex:L1987-L1998`, `L2014-L2040` (`table:tpcp`, `fig:decider-pcp`). |
 | `beta_j`, `β_j` | `c_j(z)`, including `beta_0=c_0(z)`. | `gt-10-answer-reduction.tex:L1444-L1453` (`def:pcp-eval`). |
-| `h_i`, `h'_i`, `f_j` | Univariate line restrictions returned by individual copy `i` and bundled copy 6 for `g_i` and `c_j`. | `gt-10-answer-reduction.tex:L1990-L1999` (`table:tpcp`). |
+| `h_i`, `h'_i`, `f_j` | Univariate line restrictions returned by individual copy `i` and bundled copy 6 for `g_i` and `c_j`. | `gt-10-answer-reduction.tex:L1987-L1998` (`table:tpcp`). |
 | `pcpverifier`, `pcp_verifier` | Local verifier performing the formula test and zero-on-subcube test after reconstructing the succinct circuit and its arithmetization. | `gt-10-answer-reduction.tex:L1548-L1585` (`fig:pcpverifier`). |
 | `p_soundness` | Low-degree-PCP soundness threshold `1/2`; the premise is strict acceptance probability `>1/2`. | `gt-10-answer-reduction.tex:L1509-L1533` (`thm:pcp-decider`). |
 | `V^pcp` | Ambient direct sum for the six-copy PCP sampler. | `gt-10-answer-reduction.tex:L1895-L1913` (`eq:V-pcp`). |
@@ -124,6 +126,12 @@ they do not add a second mathematical definition elsewhere.
 | `ldparams'` | `(q,m',d,kappa=m'+6)`, used by the simultaneous bundled-proof low-degree check. | `gt-10-answer-reduction.tex:L2048-L2053` (`fig:decider-pcp`). |
 | `hat D_AR`, `typed_answer_reduced_decider` | Typed decider with the five guarded Figure `decider-pcp` checks; proof consistency/individual low degree restrict `i` to `{3,4,5}`. | `gt-10-answer-reduction.tex:L1973-L2071` (`fig:decider-pcp`). |
 | `D_AR`, `answer_reduced_decider` | Untyped verifier/decider obtained only after applying the cited `detype` transformation to the typed answer-reduced object. | `gt-10-answer-reduction.tex:L2077-L2116` (`thm:ar`); `gt-06-types.tex:L435-L475` (`lem:detyping-verifiers`). |
+
+For TB0, this is the sole evaluability calculation for predicates 2 and 4. With `gamma=1`, `s=6`, `m'=16`, `a'>1`, and `0<b'<1`,
+`a'/b'>1`. At `k=3`, the right side of `P_growth` exceeds `4 log 6` (about 10.34 in base 2 and 7.17 with natural log), so the predicate
+FAILS for every admissible pair; at `k=11`, admissible ratios exist on both sides of the threshold, so it is `NOT_EVALUABLE`. Also
+`6^(-b')` lies strictly between `1/6` and `1`: `P_tail` FAILS at `k=3` because `3*16/8=6>1`, and PASSES at `k=11` because
+`11*16/2048=11/128<1/6`.
 
 ## F. Verifier transformations and symbolic bounds
 
@@ -142,6 +150,8 @@ they do not add a second mathematical definition elsewhere.
 | `BoundExpr` | Either `Concrete(Int)` or `Opaque(description,parameters)`; an opaque theorem polynomial is printed, never assigned an invented exponent. | Project representation of source bounds. |
 | `PartialProgram`, `Hole(name,sort)` | Program syntax with explicit typed specialization holes. | Project syntax needed to express the fixed point in `handoff.md:L21-L39`. |
 | `ClosedProgram` | Program with all de Bruijn variables scoped and no remaining holes. | Project scope/phase invariant. |
+| `Pargs` | A finite sequence `P*` of program terms supplied to `Eval`. | Project surface sort for the fixed-point term in `handoff.md:L21-L39`. |
+| `Fuel` | Evaluator-fuel syntax `FuelLiteral(Nat)` or `FuelBound(P,P)`; evaluation interprets it to a finite bound or returns `TypeError`. | Project surface sort for bounded evaluation at `gt-10-answer-reduction.tex:L200-L205`. |
 | `Introspect` | Description transformation with the exact contract of the introspection theorem; a CITED stub in this campaign. | `gt-08-introspection.tex:L784-L817` (`thm:introspection`). |
 | `answer_reduce_pcp` | Executable-through-TB2 construction of the typed verifier `hat V^ar`, of typed level `max(ell,3)`; quantum conclusions remain cited. | `gt-10-answer-reduction.tex:L1860-L1965` (`sec:ld-compiler`). |
 | `detype` | CITED transformation from a typed normal-form verifier to an untyped one; adds two levels, maps soundness error by `16^|Type|`, and preserves value-1 completeness. Here `|Type^ar|=54`, so the factor is `16^54`. | `gt-06-types.tex:L435-L475` (`lem:detyping-verifiers`). |

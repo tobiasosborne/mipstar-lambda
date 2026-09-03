@@ -19,7 +19,14 @@ that tree from being reported as a local proof.
 The lambda layer is a phase-separated, explicitly represented calculus. It is not `Expr`, and a macro cannot create an IR node except
 through the same checked constructors used by ordinary functions.
 
-Let `Name`, `PrimName`, `Nat`, and `StaticEnv` be finite serializable data. The inductive grammar is
+Let `Name`, `PrimName`, `Nat`, and `StaticEnv` be finite serializable data. The mutually defined auxiliary sorts are
+
+```text
+Pargs ::= P*
+Fuel  ::= FuelLiteral(Nat) | FuelBound(P,P)
+```
+
+and the inductive grammar is
 
 ```text
 P ::= BoundVar(depth, slot)                  variable
@@ -37,7 +44,8 @@ P ::= BoundVar(depth, slot)                  variable
 `BoundVar` uses de Bruijn addresses internally; a side table retains source names for printing. A `PartialProgram` may contain typed holes.
 `Closed(P)` means that every `BoundVar` is scoped and no `Hole` remains. `Specialize : PartialProgram x StaticEnv -> ClosedProgram` is
 defined only for a total, sort-correct environment covering exactly the remaining holes. Every primitive carries a total input contract and
-a symbolic cost bound. `Eval` consumes fuel and returns `Value`, `OutOfFuel`, or `TypeError`, never a host-language exception. `Fix(P)`
+a symbolic cost bound. Literal values use nullary primitives; in particular, `true` abbreviates `Prim(true,Concrete(1),())`. `Eval` takes
+`Pargs : P*`, consumes a value of sort `Fuel`, and returns `Value`, `OutOfFuel`, or `TypeError`, never a host-language exception. `Fix(P)`
 requires the distinguished hole `self_code : Quoted{Decider}`, ties it to the quote of the result, and returns closed syntax.
 
 Only the two representations used by the rungs are IR types:
@@ -64,7 +72,8 @@ for every fuel at which both sides terminate. It is syntax, not Julia recursion.
 
 ```text
 Psi_M_L = Lambda(5,                         -- n,x,y,a,b
-  If(Prim(halts_within, Opaque("n steps",(n,)), M, n), true,
+  If(Prim(halts_within, Opaque("n steps",(n,)), M, n),
+     Prim(true, Concrete(1), ()),
      Eval(Apply(Quote(Compress),
                 Prim(quoted_pair, Concrete(1), Quote(S_L),
                      Hole(self_code,Quoted{Decider})), Quote(L)),
@@ -167,7 +176,7 @@ only through the cited padding transformation; rationale: equality is a speciali
 into the base datatype.
 
 **DD-18 — Bound arithmetization by occurrences.** Compute the full occurrence vector and treat the paper's uniform bound 2 as
-`SOURCE_REPAIR(disputed,C8)`; rationale: the formula-tree bound survives fan-out and is red-capable; rejected: an occurrence-at-most-two
+`SOURCE_REPAIR(C8)`; rationale: the formula-tree bound survives fan-out and is red-capable; rejected: an occurrence-at-most-two
 constructor that rejects every genuine fan-out-one Tseitin circuit.
 
 ### 1.3 Polynomial sort
@@ -226,11 +235,13 @@ support(c0) <= support(F_arith) * product_i (support(g_i)+1).
 ```
 
 At `m=2`, dense multilinear `g_i` already give the factor `5^5=3125`; expanding a Tseitin arithmetization over 16--32 variables can dominate
-memory. Constructors therefore accept a `MonomialBudget`, estimate candidate products before multiplying, and return
-`ExpansionRefused(estimate,budget)` without partial output. TB0's real six-gate formula has a pre-normalization estimate
-`7^3*6^3*2 = 148,176` candidates (three AND and three NOT equality gadgets, then one two-term and four one-term PCP factors), with
-`MonomialBudget=160,000`. The normalized monomial count of `c_0` must be measured; the estimate is not reported as an actual support size.
-The sparse representation is an experiment, not a claim of scalability.
+memory. Constructors therefore accept a `MonomialBudget`. Immediately before each sparse multiplication they compute the single-product
+candidate count `|partial support|*|next factor support|`; they return `ExpansionRefused(estimate,budget)` without partial output if that
+one product would exceed the budget. The budget is not a cumulative sum across multiplications. TB0's fast degenerate witness has the
+coarse pre-normalization estimate `7^3*6^3*2 = 148,176` candidates (three AND and three NOT equality gadgets, then one two-term and four
+one-term PCP factors), with `MonomialBudget=160,000`; the r2 critic's incremental sequence predicts a peak single-product count of 54,978.
+The all-nonconstant witness has estimate `7^3*6^3*2^5 = 2,370,816` and its separate budget is 2,500,000. A normalized monomial count is
+always reported as a measurement, never as either estimate. The sparse representation is an experiment, not a claim of scalability.
 
 | invariant                             | status                          | representation                      |
 |---------------------------------------|---------------------------------|-------------------------------------|
@@ -458,7 +469,7 @@ conclusions remain certificate leaves. `verify_certificate` prints every undisch
 #### Figure `decider-pcp`: complete executable specification
 
 For `i=1,...,5`, copy `i` uses dimension `m`; copy 6 uses point/direction dimension `m'`. The parsers transcribe `table:tpcp`
-(`gt-10-answer-reduction.tex:L1990-L1999`):
+(`gt-10-answer-reduction.tex:L1987-L1998`):
 
 | PCP type | question | answer |
 |---|---|---|
@@ -470,8 +481,9 @@ For `i=1,...,5`, copy `i` uses dimension `m`; copy 6 uses point/direction dimens
 | `DLine_6` | `v in F_q^{m'} x F_q x F_q^{m'}` | `(h'_1,...,h'_5,f_0,...,f_{m'}) : F_q -> F_q^{m'+6}` |
 
 Parse each product type as `(t_Q,t_Pi) in Type^ora x Type^pcp` and each question as `(x_Q,x_Pi)`. For each
-`w in {alice,bob}` in sequence, with `bar(w)` the other player and `alice<->1`, `bob<->2`, perform exactly these five top-level checks; an
-untriggered guard accepts (`gt-10-answer-reduction.tex:L2001-L2071 (fig:decider-pcp)`):
+`w in {alice,bob}` in sequence, with `bar(w)` the other player and `alice<->1`, `bob<->2`, perform exactly these five top-level checks,
+continuing past an untriggered guard (`gt-10-answer-reduction.tex:L2001-L2071 (fig:decider-pcp)`). The corresponding low-degree subroutine
+states its otherwise-accept convention explicitly (`gt-07-ldt.tex:L368 (fig:ld-decider)`):
 
 | step | exact type-pair guard | check and parameters |
 |---|---|---|
@@ -563,13 +575,24 @@ named `def:pcpparams` obligations are:
 6. `P_degree`: `d=k`.
 
 The tuple-formation rule additionally requires `q=2^k` for the smallest odd `k` satisfying obligations 2--5. These are individually
-printable predicates from `gt-10-answer-reduction.tex:L1396-L1422`; unknown universal constants give 2 and 4 grade `CITED` and checker
-result `NOT_EVALUABLE`, never PASS. `P_formula_structural` additionally checks `(deg_F+5d)*m'/q<1/2` with the computed occurrence bound
-`deg_F`; the mismatch between `deg_F` and the literal `2` in obligation 3 is `SOURCE_REPAIR(C8)`. `P_exponent_range: d<=q-1` records when
-formal sparse polynomials also meet the paper's exponent range (`gt-03-prelim.tex:L836-L840`). Relaxations cannot disappear from the trace.
+printable predicates from `gt-10-answer-reduction.tex:L1396-L1422`. Results involving the unknown constants—especially obligations 2 and
+4—use the single `PASS`/`FAIL`/`NOT_EVALUABLE` semantics in [`definitions.md`](definitions.md#e-pcp-proof-view-and-answer-reduction);
+there is no blanket result for either predicate. Separately, `P_formula_structural` checks `(deg_F+5d)*m'/q<1/2` with the computed
+occurrence bound `deg_F`. It is an EXTRA obligation, not a consequence of `def:pcpparams`; the paper's literal-2 obligation 3 remains
+`P_formula_paper` and is tagged `SOURCE_REPAIR(C8)`. `P_exponent_range: d<=q-1` records when formal sparse polynomials also meet the paper's
+exponent range (`gt-03-prelim.tex:L836-L840`). Relaxations and extra obligations cannot disappear from the trace.
 
 **DD-10 — One transformation, one evidence extension.** Each combinator retains its child's certificate and adds one node; rationale:
 printed traces mirror the mathematics; rejected: rebuilding a flat metadata record at the end.
+
+**DD-22 — Keep the structural formula inequality separate.** `def:pcpparams` chooses `k` using the literal-2
+`P_formula_paper`, so every finite fixture checks `P_formula_structural` separately and a general derivation carries it as ASSUMED until
+additional hypotheses discharge it. For the repaired NW19 formula, `deg_F<=2*fanout_max+3`. Copy gates can enforce
+`fanout_max<=2` while at most doubling circuit size, so `deg_F<=7`; because the five block factors add at most one
+to any coordinate, `d>=deg_F+1`, hence `d>=8`, suffices for the proof's individual-degree bound. For the inequality itself,
+`P_growth` gives `k>4 log s`; with the explicit hypothesis `m'=O(s)`, this makes
+`(deg_F+5k)m'/2^k=O(s^2/s^2.77)` even under natural-log convention (and `O(s^2/s^4)` in base 2), so
+`P_formula_structural` follows for all sufficiently large `s`. This is the surviving absorption statement, not a property of item 2(b).
 
 ## 3. Invariant tracking and the derivation tree
 
@@ -633,7 +656,11 @@ LowDegreePCPSoundness
 |- FormulaAgreementProbability > 1/2                           [CHECKED]
 |- Degree(formula difference) <= (deg_F+5d)m'                  [CHECKED]
 |- SZ_Formula(total_degree=(deg_F+5d)m', field=q)               [CITED]
-|- ParameterInequality((deg_F+5d)m'/q < 1/2)                    [CHECKED]
+|- P_formula_structural on TB0-sampled: PASS (EXTRA obligation)[CHECKED]
+|  `- ParameterInequality((deg_F+5d)m'/q < 1/2)
+|- P_formula_structural for a general circuit                   [ASSUMED]
+|  `- discharge requires a direct inequality or DD-22's fan-out,
+|     m'=O(s), growth, and sufficiently-large-s hypotheses
 |- FormulaPolynomialIdentity                                   [CHECKED]
 |- ZeroTestOccursOnEveryAcceptedView                            [CHECKED]
 |- ZeroAgreementProbability > 1/2                              [CHECKED]
@@ -645,10 +672,12 @@ LowDegreePCPSoundness
 |- SuccinctDeciderFaithfulness -> D accepts within T            [CITED]
 ```
 
-The zero-test bound is the paper's. For the formula test, the source literally uses `(2+5d)m'`; the occurrence computation replaces `2`
-by `deg_F`, giving `(deg_F+5d)m'` (`gt-10-answer-reduction.tex:L1733-L1771`). Both are printed, with the discrepancy marked
-`SOURCE_REPAIR(C8)`; dependency-aware bounds may be printed diagnostically but do not replace this repaired uniform bound. The final decoding
-argument is grounded at `gt-10-answer-reduction.tex:L1774-L1785`.
+The zero-test bound is the paper's. For the formula test, the source literally uses `(2+5d)m'`; the occurrence computation gives the
+separate structural bound `(deg_F+5d)m'` (`gt-10-answer-reduction.tex:L1733-L1771`). The literal-2 predicate is retained as
+`P_formula_paper` and tagged `SOURCE_REPAIR(C8)`; `P_formula_structural` is the EXTRA obligation defined in §2, evaluated with an explicit
+PASS/FAIL result for each named fixture and ASSUMED in the general tree unless DD-22's hypotheses are supplied. Only the passing
+TB0-sampled check appears in this soundness tree. Dependency-aware bounds may be printed diagnostically but do not replace this repaired
+uniform bound. The final decoding argument is grounded at `gt-10-answer-reduction.tex:L1774-L1785`.
 
 ### 4.2 Enforcement via low-degree tests
 
@@ -697,8 +726,18 @@ w5 = w4 AND o1          w6 = w5 AND x5       (output)
 
 Thus `w1` has fan-out two and `C=x1 AND o1 AND x5`. Among the `2^10` indexed signed clauses, exactly 128 are present and 896 absent; for
 example `(x1,x5,o1)=(1,1,1)` with any remaining seven bits is present, while the all-zero input is absent. Exhaustive search over the
-`2^10` five-block witnesses returns 512 satisfying witnesses, including `a_1=[0,1]` and `a_2=...=a_5=[0,0]`: every present clause has
-positive first literal at index 1. This is the relation `phi_C`, not a one-clause proxy.
+`2^10` five-block witnesses returns 512 satisfying witnesses: all and only those with the index-1 entry `a_1[1]=1`. TB0 retains two of them:
+
+- **(i) fast degenerate witness:** `a_1=[0,1]`, `a_2=...=a_5=[0,0]`, so `g_1=X_1` and `g_2=...=g_5=0`;
+- **(ii) all-nonconstant witness:** `a_1=[0,1]`, `a_2=[1,0]`, `a_3=[0,1]`, `a_4=[1,0]`, `a_5=[0,1]`, so every `g_i` is non-constant.
+
+Every present clause has positive first literal at index 1, so both witnesses satisfy the relation `phi_C`, not a one-clause proxy. Witness
+(i) is retained as a fast coefficient-identity path, but its locality claims for `i=2,...,5` and Figure `decider-pcp` checks 4(a)/4(b) for
+`i in {3,4,5}` are vacuous; it is never evidence for C3 block dependency or TB2 proof encoding. Witness (ii) owns that evidence.
+
+This finite circuit contains three NOT gates even though Figure `pcpverifier` describes the padded circuit as containing AND and OR gates.
+The fixture-local divergence is explicit: `s=6` counts all six gates, `m'=16` remains consistent, and no general source-faithfulness claim
+is inferred from the NOT-gate fixture.
 
 Tseitin uses all six NW19 equality gadgets, conjoins them along the stored formula tree, and adds `w6`. In variable order
 `(X1,...,X5,O1,...,O5,W1,...,W6)`, the formula occurrence vector is
@@ -708,69 +747,96 @@ Tseitin uses all six NW19 equality gadgets, conjoins them along the stored formu
 ```
 
 The actual individual-degree vector of `F_arith` is the same vector: every used-input and target-wire leading coefficient in an AND/NOT
-equality gadget is nonzero, so the displayed degrees add in the integral domain `F_q[X,O,W]`. With the chosen witness,
-`g_1(X_1)=X_1` and `g_2=...=g_5=0`; hence the structural and actual vector of
-`c_0=F_arith*product_i(g_i(X_i)-O_i)` is
+equality gadget is nonzero, so the displayed degrees add in the integral domain `F_q[X,O,W]`. With witness (i), the structural and actual
+vector of `c_0=F_arith*product_i(g_i(X_i)-O_i)` is
 
 ```text
-(3,0,0,0,2, 3,1,1,1,1, 6,4,4,4,4,3),
+(3,0,0,0,2, 3,1,1,1,1, 6,4,4,4,4,3)
 ```
 
-so `inddeg(c_0)=6` and every PCP polynomial requires `d>=6`. Three NOT equality gadgets have at most six terms and three AND gadgets at
-most seven, giving `expected_support(c_0)<=6^3*7^3*2=148,176` as a pre-normalization estimate; the actual normalized monomial count must
-be measured.
-`MonomialBudget=160,000` counts candidate products and refuses expansion before exceeding it.
+Its zero-basis certificate names the quotient relation
+`c_0=sum_{j=1}^{16} c_j*zero(z_j)` with `r=0`. Exactly
+`c_2,c_3,c_4,c_7,c_8,c_9,c_10` vanish because the corresponding `deg_j(c_0)<=1`; the other nine quotients, including all six `W`
+quotients, are nonzero, and `max_j inddeg(c_j)=6`, hence at most `d` on both rows and equal to `d` on TB0-small. Thus `inddeg(c_0)=6` and every PCP polynomial requires `d>=6`, but the four constant
+`g_i` make most block-locality checks vacuous.
+
+With witness (ii), every `g_i` has support dependency exactly `X_i`, and the structural and actual vector of `c_0` is
+
+```text
+(3,1,1,1,3, 3,1,1,1,1, 6,4,4,4,4,3)
+```
+
+again with `inddeg(c_0)=6`. C3's block-dependency evidence comes only from this all-nonconstant witness. Three NOT equality gadgets have at
+most six terms and three AND gadgets at most seven. Witness (i) has
+`expected_support(c_0)<=6^3*7^3*2=148,176`, a predicted peak single-product count 54,978, and `MonomialBudget=160,000`. Witness (ii) has
+`expected_support(c_0)<=6^3*7^3*2^5=2,370,816` and `MonomialBudget=2,500,000`. The r2 critic measured 1,773,072 normalized monomials over
+`Z` (1,203,552 in characteristic two) for witness (ii); this is a **MEASURED** external design figure to be confirmed by TB0, which must
+report its own normalized support, elapsed time, and peak memory. Neither estimate is reported as measured support.
 
 | rung | `q` | `k` | `m` | `d` | `s` | `m'` | `seed_dim` | field-point scope | `c_0` / target time |
 |---|---:|---:|---:|---:|---:|---:|---:|---|---|
-| TB0-small | 8 | 3 | 1 | 6 | 6 | 16 | n/a | named coordinate subcubes only | <=148,176 measured / <45 s |
-| TB0-sampled | `2^11` | 11 | 1 | 11 | 6 | 16 | n/a | >=10,000 seeded uniform `z` | same support / <45 s |
+| TB0-small | 8 | 3 | 1 | 6 | 6 | 16 | n/a | 16 named coordinate lines and Boolean subcube | (i) estimate 148,176 / measured TBD; (ii) estimate 2,370,816 / measured TBD; report time/peak memory |
+| TB0-sampled | `2^11` | 11 | 1 | 11 | 6 | 16 | n/a | >=10,000 seeded uniform `z` | both witness supports measured TBD; report time/peak memory |
 | TB0.5 midpoint | n/a | n/a | n/a | n/a | n/a | n/a | n/a | exact DP | no polynomial / <1 s |
 | TB1 low degree | 8 | 3 | 2 | 1 | n/a | n/a | 5 | all `8^5=32,768` seeds | no `c_0` / <10 s |
-| TB2 typed AR | `2^11` | 11 | 1 | 11 | 6 | 16 | computed | branch-directed plus seeded | measured TB0 support / <45 s |
-| TB3 front end | `2^11` | 11 | 1 | 11 | 6 | 16 | n/a | generated fixture | measured TB0 support / <45 s |
+| TB2 typed AR | `2^11` | 11 | 1 | 11 | 6 | 16 | computed | branch-directed plus seeded | witness (ii) measured support TBD / report time/peak memory |
+| TB3 front end | `2^11` | 11 | 1 | 11 | 6 | 16 | n/a | generated fixture | both witness supports measured TBD / report time/peak memory |
 | TB4 Compress IR | n/a | n/a | n/a | n/a | n/a | n/a | n/a | no field sweep | no expansion / <1 s |
 
-All PCP rows fix `gamma=1`. No row has `d>=q`. TB0-small is explicitly not a `def:pcpparams` tuple: its six-predicate report is
-`P_shape=PASS`, `P_growth=NOT_EVALUABLE`, `P_formula_paper=FAIL`, `P_tail=FAIL`, `P_divisibility=FAIL`, `P_degree=FAIL`; it does satisfy
-`m|q`, odd `k`, and `P_exponent_range` (`6<=7`). For TB0-sampled/TB2/TB3 the report is
-`PASS, NOT_EVALUABLE, PASS, PASS, PASS, PASS`: `P_tail` holds because `11*16/2048=11/128<1/6<6^(-b')` for `0<b'<1`.
+All PCP rows fix `gamma=1` and apply the predicate-result semantics cited in §2. No row has `d>=q`. TB0-small is explicitly not a
+`def:pcpparams` tuple: its six-predicate report is `P_shape=PASS`, `P_growth=FAIL`, `P_formula_paper=FAIL`, `P_tail=FAIL`,
+`P_divisibility=FAIL`, `P_degree=FAIL`; it does satisfy `m|q`, odd `k`, and `P_exponent_range` (`6<=7`). For
+TB0-sampled/TB2/TB3 the six-predicate report is
+`P_shape=PASS`, `P_growth=NOT_EVALUABLE`, `P_formula_paper=PASS`, `P_tail=PASS`, `P_divisibility=PASS`, `P_degree=PASS`.
 Thus `q=2^11`, odd `k`, `d=k`, `m|q`, and `m'|q` hold, but unknown `a',b'` prevent a claim about `P_growth` or smallest-odd minimality for
 the full formation rule.
 
-For the checkable degree condition, `k=11` is honestly minimal among odd `k`: with `deg_F=6`,
+For the checkable formula/divisibility conditions, `k=11` is the smallest odd `k` satisfying `P_divisibility` together with either formula
+constant. With `deg_F=6`,
 `(6+5*11)*16/2048=976/2048<1/2`, whereas `k=9` gives `816/512>1/2`. The source's literal condition also first passes at 11:
 `(2+5*11)*16/2048=912/2048<1/2`, while at 9 it is `752/512>1/2`. The zero-test bound is
-`(2+11)*16/2048=208/2048<1/2`. Both formula constants are retained and their discrepancy is a `SOURCE_REPAIR(C8)` candidate.
+`(2+11)*16/2048=208/2048<1/2`. `P_formula_structural` is separately evaluated on both TB0 rows: it FAILS at `q=8` and PASSES at
+`q=2^11`. The literal-2 `P_formula_paper` is retained as the paper's predicate and tagged `SOURCE_REPAIR(C8)`.
 
 ### 5.1 TB0 — field, encoding, zero basis, and PCP core
 
 Concrete instances:
 
 1.  Check field axioms, inverses, serialization, and distributivity exhaustively in `GF(2^3)` and on 10,000 seeded triples in `GF(2^11)`.
-2.  For `m=1`, extend `[0,1]`; for `m=2`, extend `[0,1,1,0]`. Verify every Boolean value and compare symbolic evaluation with
-    `a dot ind_m(x)` on all points of `GF(8)^m`, then on seeded `GF(2^11)` points.
+2.  For `m=1`, extend both non-constant tables `[0,1]` and `[1,0]`; for `m=2`, extend `[0,1,1,0]`. Verify every Boolean value and compare
+    symbolic evaluation with `a dot ind_m(x)` on all points of `GF(8)^m`, then on seeded `GF(2^11)` points.
 3.  Over `GF(8)`, decompose `f=x^3-x^2+x*y^2-x*y`; replay every rewrite and check the formal coefficient identity. The retained rewrite
     trace is justified because mutation A below directly exercises it.
 4.  Exhaust the `2^10` circuit inputs (128 present/896 absent), all `2^16` Boolean `(x,o,w)` assignments for circuit/Tseitin/output-literal
-    equivalence and arithmetization agreement, and all `2^10` witnesses for `phi_C`. These are the named small subcubes; there is no claim of
+    equivalence and arithmetization agreement, and all `2^10` witnesses for `phi_C`. These are named finite domains; there is no claim of
     exhausting `F_8^16` or `F_2048^16`.
 5.  Fix the declared primitive element `rho` and
     `b_rho=(X=(0,0,0,0,0),O=(1,1,1,1,1),W=(rho,0,0,0,0,rho))`; direct substitution gives
-    `F_arith(b_rho)=rho^4*(1+rho) != 0`. Build `Pi=(g_1,...,g_5,c_0,...,c_16)`. Over `GF(8)`, exhaust the 16 named coordinate lines
-    `S_j={z:z_j in GF(8), z_l=(b_rho)_l for l!=j}`. Over `GF(2^11)`, run `pcpverifier` at at least 10,000 seeded uniform `z` plus the
-    explicit separators on the analogous lines. Assert both checks accept, `r=0`, coefficient identity, dependency blocks, the two displayed degree vectors,
-    structural >= actual everywhere, equality on every displayed coordinate, and every `c_i` support degree <=d.
-6.  Make C8 a permanent test: the fixture must report the displayed `F_arith` vector, and `docs/findings-F1-check.jl`'s two-gate circuit
+    `F_arith(b_rho)=rho^4*(1+rho) != 0`. Build the fast witness-(i) proof `Pi_deg=(g_1,...,g_5,c_0,...,c_16)` with
+    `MonomialBudget=160,000`. Over `GF(8)`, exhaust the 16 named coordinate lines
+    `S_j={z:z_j in GF(8), z_l=(b_rho)_l for l!=j}` and the Boolean subcube. Over `GF(2^11)`, run `pcpverifier` at at least 10,000 seeded
+    uniform `z` plus explicit separators on analogous lines. Assert acceptance, `r=0`, the formal quotient relation
+    `c_0=sum_j c_j*zero(z_j)`, the witness-(i) degree vector, structural equality on every coordinate,
+    `max_j inddeg(c_j)=6<=d` (with equality on TB0-small), and exactly the seven named zero/nine named nonzero quotients. Do not credit its empty dependencies for
+    `g_2,...,g_5` as block-locality evidence.
+6.  Build witness-(ii) proof `Pi_nd` with `MonomialBudget=2,500,000`. Assert every `g_i` is non-constant and
+    `Dependencies(g_i)={X_i}` exactly, with no other block; this is the sole C3 block-dependency evidence. Check its displayed `c_0`
+    degree vector, `r=0`, the formal coefficient identity, structural bounds versus actual support, and every quotient's
+    `inddeg(c_j)<=6<=d`. Run the same named GF(8) and sampled GF(2^11) completeness checks needed by TB2. Report normalized monomials,
+    elapsed time, and peak memory, explicitly comparing the result with the critic's measured 1,773,072-over-`Z` / 1,203,552-in-char-2
+    figures rather than treating those figures as locally confirmed.
+7.  Make C8 a permanent test: the fixture must report the displayed `F_arith` vector, and `docs/findings-F1-check.jl`'s two-gate circuit
     must report `(2,2,2,4,3)` for `(x1,x2,x3,w1,w2)`, in particular `deg_w1=4`. In both, the occurrence vector bounds support degree
     coordinatewise and equality holds on the named variables.
 
-Print field parameters, all six policy predicates, measured monomial/dependency tables, remainder, both PCP equations, slice/sample coverage,
-and the trace. Every mutation has one owner and checker: A, `e-2 -> e-1`, is killed by the GF(8) coefficient-identity replay; B, remove
-`g_2-o_2`, is killed by the GF(2^11) formula test at `b_rho` with `O2=rho` (the circuit ignores `O2`, while the omitted factor changes from
-`rho` to 1 and `F_arith!=0`); C, omit output literal `w6`, is killed by the exhaustive circuit/Tseitin truth table; D, corrupt field
-reduction, is killed by the GF(8) field-axiom sweep; E, change `w1` fan-out accounting from 2 to 1, is killed by the occurrence/support degree
-comparison. No mutation is credited merely because an unrelated test fails.
+Print field parameters, all six policy predicates plus the separately labeled `P_formula_structural`, measured monomial/dependency tables
+for both witnesses, remainder, both PCP equations, slice/sample coverage, elapsed time, peak memory, and the trace. Every mutation has one
+owner and checker: A, `e-2 -> e-1`, is owned by item 3's GF(8) coefficient-identity replay; B, remove `g_2-o_2`, is owned by witness (ii)'s
+GF(2^11) formula test at `b_rho` with `O2=rho` (here `g_2(0)-O2=1-rho`, while the omitted factor changes it to 1 and
+`F_arith!=0`); C, omit output literal `w6`, is owned by the exhaustive circuit/Tseitin truth table; D, corrupt field reduction, is owned by
+the GF(8) field-axiom sweep; E, change `w1` fan-out accounting from 2 to 1, is owned by the occurrence/support degree comparison; F, replace
+witness (ii)'s `a_3=[0,1]` by `[0,0]`, is owned by its all-nonconstant/exact-dependency checker. No mutation is credited merely because an
+unrelated test fails.
 
 Confidence is medium. Measure normalized support and peak allocation first; an `ExpansionRefused` result is an honest TB0 residue, not a
 license to raise the budget silently.
@@ -808,9 +874,10 @@ Confidence is high; the first measurement is the cost of canonical projection fo
 
 Use the `q=2^11` PCP row and a trivial 1-level original sampler. Form its three-role oracularization, the 18-type PCP sampler, and their
 54-type product. Assert typed level 3, the register dimensions in `V^pcp`, and every question and answer parser. Construct the honest
-strategy from `Pi`; execute all five checks of Figure `decider-pcp` on a branch-covering deterministic suite plus 256 seeded questions
-conditioned on check-triggering type pairs. Report the unconditioned fraction of the `54^2=2916` ordered type pairs that triggers no check.
-Every honest check must accept.
+strategy from the all-nonconstant `Pi_nd`; execute all five checks of Figure `decider-pcp` on a branch-covering deterministic suite plus 256
+seeded questions conditioned on check-triggering type pairs. In particular, checks 4(a)/4(b) for `i in {3,4,5}` must use witness (ii), never
+the degenerate `Pi_deg`. Report the unconditioned fraction of the `54^2=2916` ordered type pairs that triggers no check. Every honest check
+must accept, and report construction/check time and peak memory.
 
 Mutate `c0` by `+1` and target the formula test; mutate the separate `g_3` by `+1` while leaving its bundled copy unchanged and target the
 proof-consistency check; truncate one line polynomial and target `D^ld`. Each must produce at least one named rejection. Print the
@@ -827,12 +894,13 @@ front end emits a decoupled relation extensionally equal to TB0's 128-clause rel
 claimed to meet the asymptotic construction of `prop:explicit-padded-succinct-deciders`.
 
 Exhaustively compare program result, bounded-trace acceptance, the small 3SAT relation, the 128/896 decoupled relation table, and all 1,024
-witnesses. Feed the generated—not hard-coded—circuit and chosen witness into TB0's Tseitin/PCP builder and TB2's typed decider. Assert
-canonical quote-size propagation and print every intermediate object. Mutate the accepting transition to rejecting without changing the
-formula; trace/formula equivalence must fail before PCP construction.
+witnesses. Feed the generated—not hard-coded—circuit and both retained witnesses into TB0's Tseitin/PCP builder; feed only witness (ii) into
+TB2's typed decider. Assert canonical quote-size propagation and print every intermediate object. Mutate the accepting transition to
+rejecting without changing the formula; trace/formula equivalence must fail before PCP construction.
 
-Expected `c_0` candidates remain at most 148,176 and the actual support is measured. Confidence is medium: measure whether the front-end
-circuit normalization preserves the exact six-gate fixture before proceeding.
+Expected `c_0` candidates remain at most 148,176 for witness (i) and 2,370,816 for witness (ii); both actual supports, elapsed times, and
+peak memory are measured. Confidence is medium: measure whether the front-end circuit normalization preserves the exact six-gate fixture
+before proceeding.
 
 ### 5.6 TB4 — `Compress` skeleton and quoted fixed point
 
@@ -889,13 +957,15 @@ certificate behavior is part of the experiment; rejected: committing to a genera
 ## 7. Risks, failure modes, and open questions
 
 1.  **Monomial blow-up.** Tseitin arithmetization followed by five low-degree factors can exceed memory long before paper-sized parameters.
-    The budgeted constructor makes this an explicit negative result. If TB0 approaches its 160,000-candidate budget or TB3 exceeds it,
-    measure factored-polynomial DAGs while retaining a separate coefficient-identity checker on reductions.
+    The budgeted constructor makes this an explicit negative result. If witness (i) approaches its 160,000-candidate budget, witness (ii)
+    approaches its 2,500,000-candidate budget, or TB3 exceeds either applicable budget, measure factored-polynomial DAGs while retaining a
+    separate coefficient-identity checker on reductions.
 2.  **Field policy.** The paper uses admissible `q=2^k` with odd `k` (`gt-03-prelim.tex:L662-L667`), the low-degree sampler assumes `m|q`
     (`gt-07-ldt.tex:L31-L37`), and PCP parameters require `m'|q` (`gt-10-answer-reduction.tex:L1406-L1416`). The `q=2^11` rows retain those
-    checkable facts, while the unknown universal constants leave two predicates and full minimality unresolved. `m'|q` is operational: copy
-    6 applies `chi` with `m'` buckets of equal size (`gt-10-answer-reduction.tex:L1944-L1946`). TB0-small uses `q=8,d=6<q` only for named
-    subcube exhaustions and prints every failed predicate.
+    checkable facts; their constant-dependent results are exactly the six-predicate reports in §5 under the semantics cited in §2, with
+    only sampled-row `P_growth` unresolved. `m'|q` is operational: copy 6 applies `chi` with `m'` buckets of equal size
+    (`gt-10-answer-reduction.tex:L1944-L1946`). TB0-small uses `q=8,d=6<q` only for named subcube exhaustions and prints every failed
+    predicate.
 3.  **No vacuous exhaustive-PCP claim.** Neither `F_8^16` nor `F_2048^16` is exhausted. Formal coefficient identities are exact; Boolean
     truth tables and named coordinate slices have explicitly printed domains; PCP acceptance over `q=2^11` is sampled and is completeness
     evidence only. No all-field acceptance experiment is promoted to soundness.
@@ -906,7 +976,9 @@ certificate behavior is part of the experiment; rejected: committing to a genera
     and the arithmetization domain uses the formula's actual variable count. Mark, without silent repair: `F_q^m` should be `F_q^{m'}` at
     `gt-10-answer-reduction.tex:L1709-L1715`; `alpha_i=g_i(z)` should read `g_i(x_i)` at L1725; `sigma` is omitted from Figure
     `decider-pcp`'s PCP call at L2058-L2062; `eq:V-pcp`'s six-dimensional coordinate sum conflicts with scalar `table:tpcp`; and the
-    individual-degree-2 claim conflicts with C8. NW19's missing output literal is repaired by construction and marked F2.
+    individual-degree-2 claim conflicts with C8. Accordingly, `P_formula_paper` retains the literal `2` as a `SOURCE_REPAIR(C8)` source
+    predicate, while `P_formula_structural` is an extra obligation and not a `def:pcpparams` consequence. NW19's missing output literal is
+    repaired by construction and marked F2.
 6.  **Oracularization is not optional.** Figure `decider-pcp` step 5 evaluates `L^alice,L^bob` on an oracle seed before invoking the PCP
     verifier (`gt-10-answer-reduction.tex:L2058-L2063`). A trivial product suffices for TB2 plumbing, but cannot support the theorem's
     consistency claim.
