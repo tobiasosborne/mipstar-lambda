@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "mipstar_lambda",
+  "project_id": "0aa343d6-6cfd-4360-a568-c65f926b6ba4"
+}
