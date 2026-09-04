@@ -1,0 +1,30 @@
+\begin{tikzpicture}[node distance=7mm and 8mm]
+  \node[lbl, text=desc, font=\footnotesize\sffamily\bfseries] (source)
+    {SOURCE WITH \(r+k\) SLOTS};
+  \node[descbox, below=3mm of source, minimum width=52mm] (program)
+    {$e(\ \underbrace{z_1,\ldots,z_r}_{\text{static}}\ ;\
+          \underbrace{x_1,\ldots,x_k}_{\text{live}}\ )$};
+  \node[descbox, below=5mm of program, fill=focuslt, draw=focus] (lits)
+    {literal data \(z_1,\ldots,z_r\)};
+  \node[checked, right=10mm of program, yshift=-7mm, minimum width=26mm] (smn)
+    {$s_{r,k}$\\compiler};
+  \draw[xform] (program) -- (smn);
+  \draw[xform] (lits) -- (smn);
+
+  \node[descbox, right=10mm of smn, minimum width=45mm, minimum height=31mm] (wrapper) {};
+  \node[bytes, anchor=north west, minimum width=42mm]
+    at ([xshift=4mm,yshift=-5mm]wrapper.north west) (literal)
+    {\(e\mid z_1\mid\cdots\mid z_r\)};
+  \node[ctrl, below=4mm of literal, minimum width=42mm] (univ)
+    {invoke \(U_{r+k}\)};
+  \node[stage, below=9mm of wrapper, minimum width=51mm] (live)
+    {run-time inputs \(x_1,\ldots,x_k\)};
+  \draw[->, machine, line width=.8pt] (live) -- (univ);
+  \draw[->, desc, line width=.8pt] (literal) -- (univ);
+  \node[byteslbl, above=2mm of wrapper] {wrapper code \(s_{r,k}(e,z_1,\ldots,z_r)\)};
+
+  \node[checked, below=10mm of live, xshift=-31mm, minimum width=109mm,
+        font=\scriptsize] (law)
+    {$\varphi^{(k)}_{s_{r,k}(e,z_1,\ldots,z_r)}(x_1,\ldots,x_k)$\\[-1pt]
+     $=\varphi^{(r+k)}_e(z_1,\ldots,z_r,x_1,\ldots,x_k)$};
+\end{tikzpicture}

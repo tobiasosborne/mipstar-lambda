@@ -1,0 +1,24 @@
+\begin{tikzpicture}[node distance=9mm and 12mm]
+  \node[descbox, minimum width=25mm] (old) {$\langle M_=\rangle$};
+  \node[descbox, below=of old, minimum width=25mm, fill=focuslt, draw=focus] (bound)
+    {$T=3$};
+  \node[checked, right=18mm of old, yshift=-8mm, minimum width=26mm] (compiler)
+    {wrapper\\compiler};
+  \draw[xform] (old) -- (compiler);
+  \draw[xform] (bound) -- (compiler);
+
+  \node[descbox, right=18mm of compiler, minimum width=66mm, minimum height=35mm] (wrapped) {};
+  \node[lbl, text=desc, anchor=north west] at ([xshift=3mm,yshift=-3mm]wrapped.north west)
+    {new finite description};
+  \node[descbox, minimum width=25mm] (inner) at ([xshift=-14mm,yshift=-3mm]wrapped.center)
+    {$\langle M_=\rangle$};
+  \node[checked, right=5mm of inner, text width=25mm] (clock)
+    {count steps\\$0,1,2,3$};
+  \draw[->, machine, line width=.8pt] (inner) -- (clock);
+  \node[bad, rounded corners=1.5pt, below=3mm of clock, inner sep=3pt,
+        font=\scriptsize\sffamily] (reject) {reject if still running};
+  \draw[->, bad, line width=.8pt] (clock) -- (reject);
+
+  \node[lbl, below=7mm of wrapped, align=center]
+    {copies source and a literal counter\\without asking whether \(M_=\) would halt};
+\end{tikzpicture}

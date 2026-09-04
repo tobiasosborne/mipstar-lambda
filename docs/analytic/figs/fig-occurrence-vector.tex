@@ -1,0 +1,28 @@
+\begin{tikzpicture}[node distance=3mm]
+  \node[panel, minimum width=14.8cm, minimum height=2.35cm] (top) {};
+  \node[panel title] at ([xshift=3mm,yshift=-3mm]top.north west)
+    {two-gate regression};
+  \matrix (A) [matrix of nodes, column sep=-\pgflinewidth,
+    nodes={cell,minimum width=1.16cm,minimum height=6.5mm},
+    anchor=center] at ([yshift=-2mm]top.center) {
+    |[cell,fill=desclt]| $x_1$ & |[cell,fill=desclt]| $x_2$ & |[cell,fill=desclt]| $x_3$ & |[cell,fill=desclt]| $w_1$ & |[cell,fill=desclt]| $w_2$ \\
+    $2$ & $2$ & $2$ & |[cell,fill=focuslt,draw=focus]| $4$ & $3$ \\
+  };
+  \node[tag check, right=4mm of A] {TESTED};
+
+  \node[panel, below=5mm of top, minimum width=14.8cm, minimum height=2.55cm] (bot) {};
+  \node[panel title] at ([xshift=3mm,yshift=-3mm]bot.north west)
+    {TB0: sixteen exact coordinates};
+  \matrix (B) [matrix of nodes, column sep=-\pgflinewidth,
+    nodes={cell,minimum width=7.2mm,minimum height=6.3mm},
+    anchor=center] at ([yshift=-2mm]bot.center) {
+    |[cell,fill=desclt]| $1$ & |[cell,fill=desclt]| $2$ & |[cell,fill=desclt]| $3$ & |[cell,fill=desclt]| $4$ &
+    |[cell,fill=desclt]| $5$ & |[cell,fill=desclt]| $6$ & |[cell,fill=desclt]| $7$ & |[cell,fill=desclt]| $8$ &
+    |[cell,fill=desclt]| $9$ & |[cell,fill=desclt]| $10$ & |[cell,fill=desclt]| $11$ & |[cell,fill=desclt]| $12$ &
+    |[cell,fill=desclt]| $13$ & |[cell,fill=desclt]| $14$ & |[cell,fill=desclt]| $15$ & |[cell,fill=desclt]| $16$ \\
+    $2$ & $0$ & $0$ & $0$ & $2$ & $2$ & $0$ & $0$ & $0$ & $0$ &
+    |[cell,fill=focuslt,draw=focus]| $6$ & $4$ & $4$ & $4$ & $4$ & $3$ \\
+  };
+  \node[lblsm, left=3mm of B] {$\operatorname{occ}_v$};
+  \node[tag check, right=4mm of B] {TESTED};
+\end{tikzpicture}

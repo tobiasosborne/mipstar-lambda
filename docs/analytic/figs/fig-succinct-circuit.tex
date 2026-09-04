@@ -1,0 +1,23 @@
+\begin{tikzpicture}[node distance=7mm and 4mm]
+  \node[descbox, minimum width=2.3cm] (idx) {index bits\\$(i,j,k)$};
+  \node[stage, right=of idx, minimum width=2.55cm] (decode)
+    {decode clause kind\\\scriptsize init / format / transition / accept};
+  \node[stage, right=of decode, minimum width=2.4cm] (addr)
+    {address arithmetic\\$j-1,j,j+1$};
+  \node[checked, right=of addr, minimum width=2.3cm] (tau)
+    {evaluate $\tau$\\or select input bit};
+  \node[descbox, right=of tau, minimum width=2.2cm] (clause)
+    {signed clause\\$(v_1^{o_1},v_2^{o_2},v_3^{o_3})$};
+  \draw[xform] (idx) -- (decode);
+  \draw[xform] (decode) -- (addr);
+  \draw[xform] (addr) -- (tau);
+  \draw[xform] (tau) -- (clause);
+  \node[lblsm, above=2mm of idx] {$O(\log F+\log\sigma)$ bits};
+  \node[lblsm, text=check, above=2mm of tau] {finite truth table};
+  \node[panel, below=9mm of $(decode.south)!0.5!(tau.south)$,
+    minimum width=9.2cm, minimum height=1.05cm] (bound)
+    {$|C_{t,n,F,Q,\sigma,x,y}|,\ \Time(C)=\poly(\log n,\log F,Q,\sigma)$};
+  \draw[quote] (idx.south) to[bend right=18] node[below,lblsm,text=desc]
+    {random access, never materialize $F\times W$} (bound.west);
+  \draw[quote] (bound.east) to[bend right=18] (clause.south);
+\end{tikzpicture}

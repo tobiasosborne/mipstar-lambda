@@ -1,0 +1,16 @@
+\begin{tikzpicture}[node distance=11mm and 24mm]
+  \node[tnode] (s) {$s$};
+  \node[tnode,below left=of s] (u) {$u$};
+  \node[tnode,below right=of s] (v) {$v$};
+  \node[tnode,below right=11mm and 24mm of u] (w) {$w$};
+  \draw[beta] (s)--node[lblsm,left] {$\beta^*$}(u);
+  \draw[beta] (s)--node[lblsm,right] {$\beta^*$}(v);
+  \draw[beta] (u)--node[lblsm,left] {$\beta^*$}(w);
+  \draw[beta] (v)--node[lblsm,right] {$\beta^*$}(w);
+  \begin{scope}[on background layer]
+    \node[citedbox,fit=(s)(u)(v)(w),inner sep=5mm] (claim) {};
+  \end{scope}
+  \node[tag cited,anchor=north east] at ([xshift=-2mm,yshift=-2mm]claim.north east)
+    {CITED: CHURCH--ROSSER};
+  \node[lblsm,right=2mm of w] {common reduct};
+\end{tikzpicture}

@@ -1,0 +1,14 @@
+\begin{tikzpicture}[node distance=6mm and 7mm]
+  \node[stage,draw=term] (s3) {$YF\;\overline3$};
+  \node[stage,draw=term,right=of s3] (s2) {$3\cdot(\tikz[baseline=-.5ex]\node[redex,minimum size=5mm] {$YF\;2$};)$};
+  \node[stage,draw=term,right=of s2] (s1) {$3\cdot2\cdot(\tikz[baseline=-.5ex]\node[redex,minimum size=5mm] {$YF\;1$};)$};
+  \draw[beta] (s3)--node[xformlbl] {$F(YF)$}(s2);
+  \draw[beta] (s2)--node[xformlbl] {unfold}(s1);
+
+  \node[stage,draw=term,below=11mm of s1] (s0)
+    {$3\cdot2\cdot1\cdot(\tikz[baseline=-.5ex]\node[redex,minimum size=5mm] {$YF\;0$};)$};
+  \node[checked,left=13mm of s0] (six) {$3\cdot2\cdot1\cdot1=\boxed6$};
+  \draw[beta] (s1.south) -- node[lblsm,right] {selected recursive branch} (s0.north);
+  \draw[beta] (s0.west) -- node[lblsm,above] {base branch} (six.east);
+  \node[lbl,below=3mm of s0] {one demanded unfold per numeral level};
+\end{tikzpicture}

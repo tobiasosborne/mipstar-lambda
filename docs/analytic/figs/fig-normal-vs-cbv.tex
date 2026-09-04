@@ -1,0 +1,23 @@
+\begin{tikzpicture}[node distance=7mm and 10mm]
+  \node[stage,draw=term] (nstart) {$K\;I\;\Omega$};
+  \node[stage,draw=term,below=9mm of nstart] (id) {$I$};
+  \draw[beta] (nstart) -- node[lblsm,right] {leftmost outermost} (id);
+  \node[tag check,below=2mm of id] {NORMAL FORM};
+  \begin{scope}[on background layer]
+    \node[panel,fit=(nstart)(id),inner sep=5mm] (npanel) {};
+  \end{scope}
+  \node[panel title] at ([xshift=2mm,yshift=-2mm]npanel.north west)
+    {NORMAL ORDER};
+
+  \node[stage,draw=term,right=25mm of nstart] (vstart) {$K\;I\;\Omega$};
+  \node[redex,below=9mm of vstart,minimum width=28mm,rounded corners=2pt]
+    (omega) {$\Omega=(\lambda x.xx)(\lambda x.xx)$};
+  \draw[beta] (vstart) -- node[lblsm,right] {evaluate argument} (omega);
+  \draw[->,bad,line width=.9pt] (omega.east) to[out=15,in=-15,looseness=4]
+    node[lblsm,right,text=bad] {$\Omega\to\Omega$} (omega.east);
+  \begin{scope}[on background layer]
+    \node[panel,fit=(vstart)(omega),inner sep=5mm] (vpanel) {};
+  \end{scope}
+  \node[panel title] at ([xshift=2mm,yshift=-2mm]vpanel.north west)
+    {CALL BY VALUE};
+\end{tikzpicture}

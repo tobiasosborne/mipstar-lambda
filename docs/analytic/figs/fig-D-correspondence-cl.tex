@@ -1,0 +1,11 @@
+\begin{tikzpicture}[node distance=6mm]
+  \node[descbox,minimum width=3.6cm] (paper) {$\ell$-level CL function\\point/line distributions};
+  \node[checked,right=of paper,minimum width=3.6cm] (ctor) {\texttt{CLStep}\\constructed levels $1,2,3$};
+  \node[checked,right=of ctor,minimum width=3.6cm] (hist) {\texttt{marginal\_k}\\$32768$-seed histograms};
+  \node[citedbox,right=of hist,minimum width=3.6cm] (sound) {\texttt{lem:ld-soundness}\\no proof checker};
+  \draw[xform] (paper) -- (ctor);
+  \draw[xform,check] (ctor) -- (hist);
+  \draw[xform,dashed,cited] (hist) -- (sound);
+  \node[tag check,above=2mm of hist] {C4a TESTED};
+  \node[tag cited,above=2mm of sound] {CITED};
+\end{tikzpicture}

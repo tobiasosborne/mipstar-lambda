@@ -1,0 +1,19 @@
+\begin{tikzpicture}[node distance=0mm]
+  \node[cell,minimum width=39mm,fill=machinelt] (syntax)
+    {$\mathsf{App}(\mathsf{Lambda}(0),1)$};
+  \node[cell,minimum width=29mm,right=0pt of syntax] (env) {$\eta=[1]$};
+  \node[cell head,minimum width=36mm,right=0pt of env] (kont) {$K=\mathsf{Arg}\cdot\square$};
+  \node[cell,minimum width=24mm,right=0pt of kont] (fuel) {$f=0110_2$};
+  \node[head,below=1mm of kont] {};
+  \node[byteslbl,below=6mm of syntax] {parsed syntax tree};
+  \node[byteslbl,below=6mm of env] {environment};
+  \node[byteslbl,below=6mm of kont] {continuation stack};
+  \node[byteslbl,below=6mm of fuel] {fuel counter};
+
+  \node[state,below=15mm of env] (parse) {$q_p$};
+  \node[state,right=10mm of parse] (apply) {$q_a$};
+  \node[state halt,right=10mm of apply] (emit) {$q_h$};
+  \draw[->,machine,line width=.8pt] (parse)--node[lblsm,above] {closure}(apply);
+  \draw[->,machine,line width=.8pt] (apply)--node[lblsm,above] {lookup $0$}(emit);
+  \node[lbl,below=2mm of apply] {finite transition routines manipulate finite records};
+\end{tikzpicture}

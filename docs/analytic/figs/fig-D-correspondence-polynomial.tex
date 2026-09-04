@@ -1,0 +1,12 @@
+\begin{tikzpicture}[node distance=5mm]
+  \node[descbox,minimum width=3.1cm] (paper) {Tseitin formula\\$\to F_{\rm arith}$};
+  \node[checked,right=of paper,minimum width=3.1cm] (poly) {\texttt{Poly}\\degree vectors};
+  \node[checked,right=of poly,minimum width=3.1cm] (zero) {\texttt{ZeroDecomposition}\\coefficient replay};
+  \node[checked,right=of zero,minimum width=3.1cm] (view) {\texttt{PCPView}\\two identities};
+  \draw[xform] (paper) -- (poly);
+  \draw[xform,check] (poly) -- (zero);
+  \draw[xform,check] (zero) -- (view);
+  \node[tag check,above=2mm of $(zero.north)!0.5!(view.north)$] {CHECKED ON NAMED INSTANCES};
+  \node[citedbox,below=5mm of $(poly.south)!0.5!(view.south)$,minimum width=7.2cm]
+    {PCP soundness remains C5 \textsc{Sketch}};
+\end{tikzpicture}

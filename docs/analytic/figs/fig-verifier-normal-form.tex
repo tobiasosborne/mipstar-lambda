@@ -1,0 +1,37 @@
+\begin{tikzpicture}[node distance=8mm and 17mm]
+  \node[ctrl, minimum width=23mm] (sampler) {sampler $S$};
+  \node[stage, above right=7mm and 28mm of sampler, minimum width=22mm] (pa)
+    {prover A};
+  \node[stage, below right=7mm and 28mm of sampler, minimum width=22mm] (pb)
+    {prover B};
+  \node[ctrl, right=76mm of sampler, minimum width=35mm, minimum height=18mm] (decider)
+    {decider $D$\\[-1pt]$D(n,x,y,a,b)\in\{0,1\}$};
+
+  \coordinate (xfork) at ($(sampler.east)!0.30!(pa.west)$);
+  \coordinate (yfork) at ($(sampler.east)!0.30!(pb.west)$);
+  \draw[->, machine, line width=.8pt] (sampler.east) |- node[lblsm, above, pos=.70] {$x$} (pa.west);
+  \draw[->, machine, line width=.8pt] (sampler.east) |- node[lblsm, below, pos=.70] {$y$} (pb.west);
+  \draw[->, machine, line width=.8pt] (pa.east) -| node[lblsm, above, pos=.25] {$a$}
+    ([yshift=4mm]decider.west);
+  \draw[->, machine, line width=.8pt] (pb.east) -| node[lblsm, below, pos=.25] {$b$}
+    ([yshift=-4mm]decider.west);
+  \draw[machine, line width=.7pt] (xfork) |- ([yshift=7mm]decider.west)
+    node[lblsm, above, pos=.82] {$x$};
+  \draw[machine, line width=.7pt] (yfork) |- ([yshift=-7mm]decider.west)
+    node[lblsm, below, pos=.82] {$y$};
+  \fill[machine] (xfork) circle (1.2pt);
+  \fill[machine] (yfork) circle (1.2pt);
+  \draw[->, machine, line width=.8pt] ([yshift=15mm]decider.north) --
+    node[lblsm, right] {$n$ in binary} (decider.north);
+
+  \node[cell head, right=11mm of decider] (bit) {$0/1$};
+  \draw[->, machine, line width=.8pt] (decider) -- node[lblsm, above] {accept bit} (bit);
+  \node[checked, below=9mm of decider, minimum width=36mm] (total)
+    {halts on every five-tuple};
+  \draw[callout] (total) -- (decider);
+  \begin{scope}[on background layer]
+    \node[panel, fit=(sampler)(pa)(pb)(decider)(total), inner sep=6mm] (verifier) {};
+  \end{scope}
+  \node[lbl, text=machine, anchor=south west] at ([xshift=2mm,yshift=1mm]verifier.north west)
+    {$V=(S,D)$};
+\end{tikzpicture}

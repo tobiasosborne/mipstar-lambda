@@ -1,0 +1,36 @@
+\begin{tikzpicture}[level distance=8mm,
+  level 1/.style={sibling distance=16mm},
+  level 2/.style={sibling distance=13mm},
+  node distance=8mm and 18mm]
+  \node[tnode] (lx) {$\lambda x$}
+    child[tedge] {node[tnode] (ly) {$\lambda y$}
+      child[tedge] {node[tnode] (appn) {$@$}
+        child[tedge] {node[tleaf] (nx) {$x$}}
+        child[tedge] {node[tleaf] (ny) {$y$}}
+      }
+    };
+  \draw[bind] (lx.west) to[bend right=55] (nx.west);
+  \draw[bind] (ly.east) to[bend left=42] (ny.east);
+  \node[lbl,above=2mm of lx] {named};
+
+  \node[tnode,right=34mm of lx] (lone) {$\lambda$}
+    child[tedge] {node[tnode] (ltwo) {$\lambda$}
+      child[tedge] {node[tnode] (appd) {$@$}
+        child[tedge] {node[tleaf,draw=focus,line width=1pt] (one) {$1$}}
+        child[tedge] {node[tleaf,draw=focus,line width=1pt] (zero) {$0$}}
+      }
+    };
+  \draw[bind] (lone.west) to[bend right=55]
+    node[lblsm,left] {cross 1} (one.west);
+  \draw[bind] (ltwo.east) to[bend left=42]
+    node[lblsm,right] {cross 0} (zero.east);
+  \node[lbl,above=2mm of lone] {canonical};
+
+  \node[closure,right=29mm of lone,yshift=-7mm] (frameb) {$[B]$\\[-1pt]\scriptsize index $0$};
+  \node[closure,below=2mm of frameb] (framea) {$[A]$\\[-1pt]\scriptsize index $1$};
+  \node[tleaf,right=8mm of frameb] (bout) {$B$};
+  \node[tleaf,right=8mm of framea] (aout) {$A$};
+  \draw[beta] (frameb)--(bout);
+  \draw[beta] (framea)--(aout);
+  \node[lbl,above=2mm of frameb] {environment lookup};
+\end{tikzpicture}

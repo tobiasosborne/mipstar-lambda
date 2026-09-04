@@ -1,0 +1,25 @@
+\begin{tikzpicture}
+  \node[descbox, minimum width=35mm] (code)
+    {$e$\\\\[-1pt]\scriptsize \((r+k)\)-input code};
+  \matrix (static) [matrix of nodes, below=5mm of code, nodes={bytes,anchor=center},
+    column sep=0pt] {
+    $z_1$ & $z_2$ & $\cdots$ & $z_r$ \\
+  };
+  \node[checked, right=12mm of code, minimum width=38mm] (s)
+    {$s_{r,k}$\\\\[-1pt]\scriptsize print wrapper};
+  \draw[quote] (code)--(s);
+  \draw[quote] (static.east) to[bend right=15] (s.south);
+  \node[descbox, right=12mm of s, minimum width=42mm] (wrap)
+    {$s_{r,k}(e,z)$\\\\[-1pt]\scriptsize literal \(e,z_1,\ldots,z_r\)};
+  \draw[xform] (s)--(wrap);
+  \matrix (live) [matrix of nodes, below=6mm of wrap, nodes={cell,anchor=center},
+    column sep=0pt] {
+    $x_1$ & $x_2$ & $\cdots$ & $x_k$ \\
+  };
+  \draw[->,machine,line width=.8pt] (live)--(wrap);
+  \node[ctrl, below=8mm of s] (U) {$U_{r+k}$};
+  \draw[->,machine,line width=.8pt] (wrap.south west) to[bend right=16] (U.east);
+  \node[checked, below=6mm of U, minimum width=106mm]
+    {$|s_{r,k}(e,z)|\le a_s\!\left(|e|+\sum_i|z_i|\right)+b_s$\\[-1pt]
+      \scriptsize and the wrapper is printed in linear time};
+\end{tikzpicture}

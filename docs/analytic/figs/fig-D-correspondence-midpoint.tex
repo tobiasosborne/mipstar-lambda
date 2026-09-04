@@ -1,0 +1,10 @@
+\begin{tikzpicture}[node distance=5mm]
+  \node[descbox,minimum width=3.8cm] (claim) {false midpoint claim\\$y\neq f^{2^n}(x)$};
+  \node[stage,right=of claim,minimum width=3.8cm] (terms) {\texttt{Ask} $\to$ \texttt{Coin}\\$\to$ recursive \texttt{Test}};
+  \node[checked,right=of terms,minimum width=3.8cm] (dp) {\texttt{sequential\_value}\\exact adaptive DP};
+  \node[checked,right=of dp,minimum width=3.0cm] (result) {$1-2^{-n}$\\$(1-2^{-n})^r$};
+  \draw[xform] (claim) -- (terms);
+  \draw[xform] (terms) -- (dp);
+  \draw[xform,check] (dp) -- (result);
+  \node[tag check,above=2mm of result] {C6,N1 PROVED};
+\end{tikzpicture}

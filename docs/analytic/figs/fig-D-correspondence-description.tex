@@ -1,0 +1,10 @@
+\begin{tikzpicture}[node distance=6mm]
+  \node[descbox,minimum width=4.1cm] (paper) {bounded decider\\$\operatorname{ser}(t)$ and answer tapes};
+  \node[stage,right=of paper,minimum width=4.2cm] (ir)
+    {\texttt{Quoted\{Decider\}}\\\texttt{BoundedTrace} $\to$ \texttt{Succinct5SAT}};
+  \node[citedbox,right=of ir,minimum width=4.2cm] (jl)
+    {\texttt{bounded\_trace}, \texttt{cook\_levin},\\\texttt{decouple5}: absent};
+  \draw[xform] (paper) -- (ir);
+  \draw[xform,dashed,cited] (ir) -- (jl);
+  \node[tag cited,above=2mm of jl] {CITED FRONT END};
+\end{tikzpicture}

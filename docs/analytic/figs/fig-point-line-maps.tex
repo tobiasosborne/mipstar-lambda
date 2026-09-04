@@ -1,0 +1,28 @@
+\begin{tikzpicture}[node distance=5mm]
+  \matrix (M) [matrix of nodes, row sep=4mm, column sep=4mm,
+    nodes={minimum height=1.05cm}] {
+    |[lbl,text=term,anchor=east]| $L_{\rm Point}$ &
+    |[descbox,minimum width=3.35cm]| $(u\mid s\mid v)$ &
+    |[stage,minimum width=4.9cm]| keep $u$; zero coordinate and direction &
+    |[checked,minimum width=3.35cm]| $(u\mid0\mid0)$ \\
+    |[lbl,text=term,anchor=east]| $L_{\rm ALine}$ &
+    |[descbox,minimum width=3.35cm]| $(u\mid s\mid v)$ &
+    |[stage,minimum width=4.9cm]| $L^{\rm lnf}_{e_{\chi(s)}}u$; retain bucket seed $s$ &
+    |[checked,minimum width=3.35cm]| $(u_0\mid s\mid0)$ \\
+    |[lbl,text=term,anchor=east]| $L_{\rm DLine}$ &
+    |[descbox,minimum width=3.35cm]| $(u\mid s\mid v)$ &
+    |[stage,minimum width=4.9cm]| $v'=\pi_{\chi(s)-1}(v)$; then $u_0=L^{\rm lnf}_{v'}u$ &
+    |[checked,minimum width=3.35cm]| $(u_0\mid s\mid v')$ \\
+  };
+  \foreach \r in {1,2,3}{
+    \draw[xform] (M-\r-2) -- (M-\r-3);
+    \draw[xform] (M-\r-3) -- (M-\r-4);
+  }
+  \node[lblsm,text=desc,above=2mm of M-1-2] {$V_{\rm pt}\mid V_{\rm coord}\mid V_{\rm dir}$};
+  \node[tag check,right=3mm of M-1-4] {LEVEL 1};
+  \node[tag check,right=3mm of M-2-4] {LEVEL 2};
+  \node[tag check,right=3mm of M-3-4] {LEVEL 3};
+  \node[citedbox,below=7mm of M,minimum width=9.1cm] (repair)
+    {source kernel basis omits $v=0$ \quad $\longrightarrow$ \quad project convention $L^{\rm lnf}_0=I$};
+  \node[tag cited,right=3mm of repair] {SOURCE REPAIR};
+\end{tikzpicture}

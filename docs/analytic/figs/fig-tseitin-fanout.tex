@@ -1,0 +1,35 @@
+\begin{tikzpicture}[node distance=6mm and 9mm]
+  \node[panel, minimum width=7.15cm, minimum height=4.6cm] (left) {};
+  \node[panel title] at ([xshift=3mm,yshift=-3mm]left.north west)
+    {literal formula tree: as we read the gadget};
+  \node[state, fill=desclt, draw=desc] at ([xshift=-2.35cm,yshift=4mm]left.center) (w) {$w_i$};
+  \node[descbox, minimum width=9mm, right=10mm of w] (g1) {$g_1$};
+  \node[descbox, minimum width=9mm, above=3mm of g1] (g2) {$g_2$};
+  \node[descbox, minimum width=9mm, below=3mm of g1] (gf) {$g_f$};
+  \draw[->,machine,line width=0.8pt] (w) -- (g1);
+  \draw[->,machine,line width=0.8pt] (w) -- (g2);
+  \draw[->,machine,line width=0.8pt] (w) -- (gf);
+  \node[lblsm, below=8mm of w, text=focus, align=center]
+    {$w_i$ appears twice in its own equivalence\\and twice per downstream use};
+  \node[checked, below=5mm of g1, minimum width=2.25cm] (occ)
+    {$\operatorname{occ}(w_i)=2+2f$};
+
+  \node[panel, right=6mm of left, minimum width=7.15cm, minimum height=4.6cm] (right) {};
+  \node[panel title] at ([xshift=3mm,yshift=-3mm]right.north west)
+    {bounded fan-out repair};
+  \node[state, fill=desclt, draw=desc] at ([xshift=-2.3cm,yshift=4mm]right.center) (wr) {$w_i$};
+  \node[descbox, right=7mm of wr] (cp) {copy gates\\fan-out $\leq2$};
+  \node[stage, right=7mm of cp] (uses) {$g_1,g_2,\ldots$};
+  \draw[->,machine,line width=0.8pt] (wr) -- (cp);
+  \draw[->,machine,line width=0.8pt] (cp) -- (uses);
+  \node[checked, below=7mm of cp, minimum width=4.0cm] (repair)
+    {$\delta_F\leq7,\qquad d\geq8$};
+  \node[lblsm, text=check, below=1mm of repair] {soundness term $(\delta_F+5d)m'/q$};
+
+  \node[citedbox, below=7mm of $(left.south)!0.5!(right.south)$,
+    minimum width=7.1cm] (paper) {source proposition: individual degree $\leq2$};
+  \node[checked, left=6mm of paper, minimum width=3.3cm] (measured)
+    {computed fixture\\degree can be $4$};
+  \node[tag cited, right=4mm of paper] {CITED};
+  \node[tag check, left=3mm of measured] {TESTED};
+\end{tikzpicture}

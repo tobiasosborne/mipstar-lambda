@@ -1,0 +1,28 @@
+\begin{tikzpicture}
+  \node[descbox, minimum width=34mm, minimum height=16mm] (V)
+    {$\overline V=(\overline S,\overline D)$\\[-1pt]\scriptsize finite source strings};
+  \node[checked, right=12mm of V, yshift=14mm, minimum width=48mm] (size)
+    {$|V|=\max\{|S|,|D|\}\le\lambda$};
+  \node[checked, right=12mm of V, minimum width=48mm] (sam)
+    {$\Time_S(n)\le n^\lambda$};
+  \node[checked, right=12mm of V, yshift=-14mm, minimum width=48mm] (dec)
+    {$\Time_D(n)\le n^\lambda$};
+  \draw[xform] (V.east) -- (size.west);
+  \draw[xform] (V.east) -- (sam.west);
+  \draw[xform] (V.east) -- (dec.west);
+
+  \draw[rule, line width=1pt] ([xshift=7mm]dec.east) -- ++(39mm,0);
+  \draw[rule] ([xshift=7mm,yshift=-1.5mm]dec.east) -- ++(0,3mm);
+  \draw[rule] ([xshift=20mm,yshift=-1.5mm]dec.east) -- ++(0,3mm);
+  \draw[rule] ([xshift=33mm,yshift=-1.5mm]dec.east) -- ++(0,3mm);
+  \draw[rule] ([xshift=46mm,yshift=-1.5mm]dec.east) -- ++(0,3mm);
+  \node[lblsm, below] at ([xshift=7mm,yshift=-1.5mm]dec.east) {1};
+  \node[lblsm, below] at ([xshift=20mm,yshift=-1.5mm]dec.east) {2};
+  \node[lblsm, below] at ([xshift=33mm,yshift=-1.5mm]dec.east) {3};
+  \node[lblsm, below] at ([xshift=46mm,yshift=-1.5mm]dec.east) {$\cdots$};
+  \fill[cited] ([xshift=7mm]dec.east) circle (1.2mm);
+  \node[lblsm, text=cited, above=1mm] at ([xshift=7mm]dec.east) {no condition};
+  \fill[focus] ([xshift=20mm]dec.east) circle (1.4mm);
+  \node[tag focus, above=1mm] at ([xshift=20mm]dec.east) {$n\ge2$ begins};
+  \node[lbl, above=7mm] at ([xshift=26mm]dec.east) {index ruler};
+\end{tikzpicture}

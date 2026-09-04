@@ -1,0 +1,31 @@
+\begin{tikzpicture}
+  \node[tnode] (fix) {$\mathsf{Fix}$};
+  \node[tnode, below=5mm of fix] (lam) {$\lambda C$};
+  \node[redex, below=5mm of lam] (iff) {$\mathsf{If}$};
+  \draw[tedge] (fix)--(lam); \draw[tedge] (lam)--(iff);
+
+  \node[tnode, below left=8mm and 20mm of iff] (halt) {$\mathsf{halt}$};
+  \node[tnode, below=8mm of iff] (out) {$\mathsf{out}$};
+  \node[tnode, below right=8mm and 20mm of iff] (self) {$\mathsf{self}$};
+  \draw[tedge] (iff)--node[above left,lblsm] {test} (halt);
+  \draw[tedge] (iff)--node[right,lblsm] {then} (out);
+  \draw[tedge] (iff)--node[above right,lblsm] {else} (self);
+  \node[tleaf, below=4mm of halt] (hc) {$C$}; \draw[tedge] (halt)--(hc);
+  \node[tleaf, below=4mm of out] (oc) {$C$}; \draw[tedge] (out)--(oc);
+
+  \node[tnode, below=4mm of self] (move) {$\mathsf{move}$};
+  \node[tleaf, below left=5mm and 9mm of move] (mc) {$C$};
+  \node[redex, below right=5mm and 9mm of move] (delta) {$\mathsf{TMDelta}$};
+  \node[tleaf, below left=4mm and 6mm of delta] (m) {$m$};
+  \node[tnode, below right=4mm and 6mm of delta] (view) {$\mathsf{view}$};
+  \node[tleaf, below=4mm of view] (vc) {$C$};
+  \draw[tedge] (self)--(move);
+  \draw[tedge] (move)--(mc); \draw[tedge] (move)--(delta);
+  \draw[tedge] (delta)--(m); \draw[tedge] (delta)--(view); \draw[tedge] (view)--(vc);
+
+  \node[checked, right=5mm of delta, text width=31mm]
+    {$\kappa_{\mathsf{TMDelta}}\le 8(|m|+k+2)$};
+  \draw[callout] ([xshift=1mm]delta.east)--++(8mm,0);
+  \node[lbl, text=term, above=3mm of fix]
+    {$\mathsf{loop}_m=\operatorname{Fix}(\lambda C.\,\cdots)$};
+\end{tikzpicture}

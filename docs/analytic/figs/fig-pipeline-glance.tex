@@ -1,0 +1,52 @@
+\begin{tikzpicture}[node distance=5mm and 4mm]
+  \node[descbox, minimum width=13mm] (v0) {$\langle V\rangle$};
+  \node[checked, right=of v0, minimum width=21mm] (intro)
+    {\textsf{Introspect}};
+  \node[descbox, right=of intro, minimum width=13mm] (v1)
+    {$\langle V^{(1)}\rangle$};
+  \node[checked, right=of v1, minimum width=25mm] (ans)
+    {\textsf{AnswerReduce}};
+  \node[descbox, right=of ans, minimum width=13mm] (v2)
+    {$\langle V^{(2)}\rangle$};
+  \node[checked, right=of v2, minimum width=18mm] (rep)
+    {\textsf{Repeat}};
+  \node[descbox, right=of rep, minimum width=16mm] (v3)
+    {$\langle V^{(3)}\rangle$};
+
+  \draw[xform] (v0) -- (intro);
+  \draw[xform] (intro) -- (v1);
+  \draw[xform] (v1) -- (ans);
+  \draw[xform] (ans) -- (v2);
+  \draw[xform] (v2) -- (rep);
+  \draw[xform] (rep) -- (v3);
+  \node[lbl, below=1.5mm of v3] {$=\Compress(\langle V\rangle,\lambda)$};
+
+  \node[citedbox, below=12mm of intro, text width=29mm] (ci)
+    {introspection\\[-1pt] soundness};
+  \node[citedbox, below=12mm of ans, text width=29mm] (ca)
+    {answer-reduction\\[-1pt] soundness};
+  \node[citedbox, below=12mm of rep, text width=25mm] (cr)
+    {repetition\\[-1pt] theorem};
+  \draw[cited, dashed, ->] (ci) -- (intro);
+  \draw[cited, dashed, ->] (ca) -- (ans);
+  \draw[cited, dashed, ->] (cr) -- (rep);
+  \node[tag check, anchor=west] at ([yshift=-4mm]v0.south west)
+    {EXECUTED ON FINITE DESCRIPTIONS};
+  \node[tag cited, anchor=west] at ([yshift=-4mm]ci.south west)
+    {CITED ANALYTIC GUARANTEES};
+
+  \node[stage, below=19mm of ca, minimum width=29mm] (halt)
+    {Halting verifier\\$V^{\mathrm h}=(S_L,d)$};
+  \node[descbox, right=10mm of halt, minimum width=20mm] (self)
+    {$\langle d\rangle$\\\scriptsize self code};
+  \node[checked, right=10mm of self, minimum width=31mm] (compress)
+    {$\Compress(\langle S_L,d\rangle,\lambda)$};
+  \draw[xform] (halt) -- node[xformlbl] {exposes} (self);
+  \draw[xform] (self) -- node[xformlbl] {in verifier} (compress);
+  \draw[->, focus, line width=1.2pt, rounded corners=4pt]
+    (compress.south) -- ++(0,-7mm) -| node[lblsm, below, pos=.25, text=focus]
+    {returned decider is run} (halt.south);
+  \draw[->, desc, line width=.9pt, rounded corners=4pt]
+    (self.north) |- node[lblsm, above, pos=.72, text=desc]
+    {literal feedback} ([yshift=5mm]halt.north) -- (halt.north);
+\end{tikzpicture}

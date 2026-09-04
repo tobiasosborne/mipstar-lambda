@@ -6,3 +6,11 @@
 
 # codex worker transcripts (large; regenerable)
 briefs/*.codex.log
+
+# analytic doc build dirs (lane compiles)
+docs/analytic/build/
+docs/analytic/*.aux
+docs/analytic/*.log
+docs/analytic/*.out
+docs/analytic/*.toc
+docs/analytic/*.lof

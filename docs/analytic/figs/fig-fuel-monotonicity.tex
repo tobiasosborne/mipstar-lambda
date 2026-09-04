@@ -1,0 +1,16 @@
+\begin{tikzpicture}
+  \begin{axis}[
+    house, width=.82\linewidth, height=.36\linewidth,
+    xmin=0,xmax=5.4,ymin=0,ymax=11,
+    xtick={0,1,2,3,4,5}, ytick={2,5,7,10},
+    xlabel={deterministic microstep (i)}, ylabel={remaining ambient fuel},
+    legend style={at={(.02,.02)},anchor=south west,font=\scriptsize\sffamily},
+  ]
+    \addplot[term,very thick,mark=*] coordinates {(0,7)(1,6)(2,5)(3,4)(4,3)(5,2)};
+    \addlegendentry{(f-i)}
+    \addplot[check,very thick,mark=square*] coordinates {(0,10)(1,9)(2,8)(3,7)(4,6)(5,5)};
+    \addlegendentry{(f+g-i), (g=3)}
+    \draw[<->,focus,line width=1.2pt] (axis cs:2,5) -- node[right,lblsm,text=term] {fixed gap (g)} (axis cs:2,8);
+    \node[checked,anchor=west] at (axis cs:5.05,3.5) {same (R)};
+  \end{axis}
+\end{tikzpicture}

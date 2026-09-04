@@ -1,0 +1,37 @@
+\begin{tikzpicture}[node distance=5mm and 8mm]
+  \node[bytes, minimum width=17mm] (code0) {01101};
+  \node[bytes, right=0pt of code0, minimum width=17mm] (code1) {11000};
+  \node[bytes, right=0pt of code1, minimum width=17mm] (code2) {10110};
+  \node[bytes, right=0pt of code2, minimum width=17mm] (code3) {00101};
+  \node[byteslbl, above=2mm of code0.north west, anchor=south west] (codelbl)
+    {read-only program region \(\langle M\rangle\)};
+  \node[cell, right=14mm of code3] (cq) {$q$};
+  \node[cell, right=0pt of cq] (cs0) {$0$};
+  \node[cell head, right=0pt of cs0] (cs1) {$1$};
+  \node[cell blank, right=0pt of cs1] (cs2) {$\sqcup$};
+  \node[cell, right=0pt of cs2] (ch) {$h$};
+  \node[head, below=.8mm of cs1] {};
+  \node[tapelbl, above=2mm of cq.north west, anchor=south west]
+    {encoded simulated configuration};
+
+  \node[ctrl, below=18mm of code2, xshift=18mm, minimum width=31mm] (uk)
+    {universal control\\$U_k$};
+  \node[checked, left=10mm of uk, text width=27mm] (lookup)
+    {1.\ scan code\\2.\ match \(\delta\)-row};
+  \node[checked, right=10mm of uk, text width=27mm] (update)
+    {3.\ rewrite config\\4.\ advance time};
+  \draw[->, desc, line width=.9pt] (code2.south) -- (lookup.north);
+  \draw[->, machine, line width=.9pt] (cs1.south) -- (update.north);
+  \draw[xform] (lookup) -- (uk);
+  \draw[xform] (uk) -- (update);
+  \draw[->, focus, line width=1.1pt, rounded corners=5pt]
+    (update.south) -- ++(0,-7mm) -| node[lblsm, below, pos=.27, text=focus]
+    {repeat once per simulated step} (lookup.south);
+
+  \node[stage, below=17mm of uk, minimum width=100mm, fill=focuslt, draw=focus] (cost)
+    {$T\ \text{steps of }M
+      \quad\Longrightarrow\quad
+      C_U\bigl(k|\langle M\rangle|\,|x|\,T\bigr)^{c_U}\ \text{steps of }U_k$};
+  \draw[callout] (cost) -- (uk);
+  \node[lblsm, right=4mm of cost] {$|x|=\sum_i|x_i|$};
+\end{tikzpicture}

@@ -1,0 +1,30 @@
+\begin{tikzpicture}
+  \node[ctrl, minimum width=28mm] (u) {$U_{\mathcal L}$};
+  \node[descbox, left=12mm of u] (d) {$d=\operatorname{ser}(t)$};
+  \node[fuel, right=12mm of u] (f) {binary \(f\)};
+  \draw[quote] (d)--(u); \draw[->,machine,line width=.8pt] (f)--(u);
+  \node[lbl,text=machine,below=7mm of u] (heaplabel) {WORK-TAPE HEAP};
+  \begin{scope}[start chain=going right,node distance=0pt]
+    \node[cell,on chain,minimum width=27mm,minimum height=12mm] (r1)
+      at ([xshift=-64mm,yshift=-4mm]heaplabel.south) {node: tag|kids};
+    \node[cell,on chain,minimum width=25mm,minimum height=12mm] (r2) {env: slots};
+    \node[cell,on chain,minimum width=27mm,minimum height=12mm] (r3) {kont: next};
+    \node[cell head,on chain,minimum width=22mm,minimum height=12mm] (r4) {fuel: 101};
+    \node[cell,on chain,minimum width=27mm,minimum height=12mm] (r5) {handle: j|pos};
+  \end{scope}
+  \node[head,below=1mm of r4] {};
+  \draw[brace] ([yshift=-5mm]r1.south west)--([yshift=-5mm]r5.south east)
+    node[midway,below=4mm,lblsm] {$O(|d|+|u|+f+1)$ cells after at most \(f\) microsteps};
+
+  \begin{scope}[start chain=going right,node distance=0pt]
+    \node[tapelbl,on chain] (inlbl) at ([xshift=-49mm,yshift=-24mm]r3.south) {input \(j\)};
+    \node[cell,on chain] (i1) {1};
+    \node[cell,on chain] (i2) {0};
+    \node[cell head,on chain] (i3) {1};
+    \node[cell,on chain] (i4) {$\cdots$};
+    \node[draw=cited,dashed,fill=citedlt,minimum width=32mm,minimum height=6.5mm,on chain,
+      font=\scriptsize\ttfamily,text=cited] (unread) {unread suffix};
+  \end{scope}
+  \node[head,below=1mm of i3] {};
+  \draw[callout] (r5.south) -- node[right,lblsm] {lazy head-and-position link} (i3.north);
+\end{tikzpicture}

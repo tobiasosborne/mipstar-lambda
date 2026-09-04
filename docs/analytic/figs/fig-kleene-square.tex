@@ -1,0 +1,33 @@
+\begin{tikzpicture}[node distance=7mm and 9mm]
+  \node[descbox, text width=48mm] (p)
+    {$p(z,x)$ computes \(s(z,z)\), then \(Q(s(z,z))\),\\
+     then universally simulates that code on \(x\)};
+  \node[checked, right=14mm of p, minimum width=24mm] (s)
+    {specialize\\\(s(p,p)\)};
+  \node[descbox, right=14mm of s, minimum width=30mm,
+        fill=focuslt, draw=focus] (eq)
+    {$e_Q:=s(p,p)$};
+  \draw[xform] (p) -- node[xformlbl] {two copies of \(p\)} (s);
+  \draw[xform] (s) -- node[xformlbl] {emit code} (eq);
+  \draw[->, desc, line width=.9pt, bend left=32] (eq.north) to
+    node[lblsm, above, text=desc] {its own specialized description}
+    (p.north);
+
+  \node[stage, below=18mm of p, minimum width=26mm, font=\scriptsize] (r1)
+    {$\varphi^{(k)}_{e_Q}(x)$};
+  \node[stage, right=1mm of r1, minimum width=28mm, font=\scriptsize] (r2)
+    {$\varphi^{(k)}_{s(p,p)}(x)$};
+  \node[stage, right=1mm of r2, minimum width=28mm, font=\scriptsize] (r3)
+    {$\varphi^{(k+1)}_p(p,x)$};
+  \node[stage, right=1mm of r3, minimum width=33mm, font=\scriptsize] (r4)
+    {$\varphi^{(k)}_{Q(s(p,p))}(x)$};
+  \node[stage, right=1mm of r4, minimum width=29mm, font=\scriptsize] (r5)
+    {$\varphi^{(k)}_{Q(e_Q)}(x)$};
+  \foreach \a/\b in {r1/r2,r2/r3,r3/r4,r4/r5}
+    \draw[<->, focus, line width=.9pt] (\a) -- node[lblsm, above, text=focus] {$=$} (\b);
+  \draw[->, desc, dashed] (eq.south) -- (r1.north);
+  \draw[->, machine, dashed] (p.south) -- (r3.north);
+  \node[checked, below=7mm of r3, minimum width=64mm] (fixed)
+    {$\varphi^{(k)}_{e_Q}=\varphi^{(k)}_{Q(e_Q)}$};
+  \draw[callout] (fixed) -- (r3);
+\end{tikzpicture}

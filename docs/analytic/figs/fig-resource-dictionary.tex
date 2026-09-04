@@ -1,0 +1,33 @@
+\begin{tikzpicture}
+  \node[panel, minimum width=46mm, minimum height=57mm, xshift=-48mm] (mp) {};
+  \node[panel title, text=machine] at ([xshift=2mm,yshift=-2mm]mp.north west)
+    {PAPER MACHINE};
+  \node[ctrl, below=9mm of mp.north] (D) {$D,S$};
+  \begin{scope}[start chain=going right,node distance=0pt]
+    \node[cell,on chain] (c1) at ([xshift=7mm,yshift=9mm]mp.south west) {$n$};
+    \node[cell,on chain] (c2) {$x$};
+    \node[cell,on chain] (c3) {$y$};
+    \node[cell,on chain] (c4) {$a$};
+    \node[cell,on chain] (c5) {$b$};
+  \end{scope}
+  \draw[->,machine] (c3.north)--(D.south);
+  \node[panel, minimum width=46mm, minimum height=57mm, xshift=48mm] (lp) {};
+  \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]lp.north west)
+    {\(\mathcal L\) TERM};
+  \node[tnode, below=9mm of lp.north] (apply) {$@$};
+  \node[tleaf, below left=5mm and 7mm of apply] (prog) {$D_{\mathcal L}$};
+  \node[tleaf, below right=5mm and 7mm of apply] (args) {$u$};
+  \draw[tedge] (apply)--(prog); \draw[tedge] (apply)--(args);
+  \node[fuel, below=7mm of apply] (fuel) {$f_D(n)$};
+
+  \draw[xform] ([yshift=13mm]lp.west)--node[above,xformlbl]
+    {compile} ([yshift=13mm]mp.east);
+  \node[checked, text width=46mm] at (0,13mm)
+    {$\Time_D(n)\le C_L(|D_{\mathcal L}|+f_D(n)+1)^6$};
+  \draw[xform] ([yshift=-13mm]mp.east)--node[below,xformlbl]
+    {interpret} ([yshift=-13mm]lp.west);
+  \node[checked, text width=43mm] at (0,-13mm)
+    {fuel \(c_D\,T(T+|u|)\)};
+  \node[descbox, below=5mm of mp] {$|D_{\mathcal L}|\le a_0|D|+b_0$};
+  \node[descbox, below=5mm of lp] {$|(U_{\mathcal L})_t|\le a_U|t|+b_U$};
+\end{tikzpicture}

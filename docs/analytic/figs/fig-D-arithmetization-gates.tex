@@ -1,0 +1,17 @@
+\begin{tikzpicture}[node distance=4mm and 5mm]
+  \matrix (G) [matrix of nodes,row sep=2.5mm,column sep=6mm,
+    nodes={minimum height=7mm}] {
+    |[stage,minimum width=2.8cm]| Boolean $\neg A$ &
+    |[checked,minimum width=3.4cm]| $1-A$ &
+    |[lbl,text=check]| agrees on $\{0,1\}$ \\
+    |[stage,minimum width=2.8cm]| Boolean $A\wedge B$ &
+    |[checked,minimum width=3.4cm]| $AB$ &
+    |[lbl,text=check]| agrees on $\{0,1\}^2$ \\
+    |[stage,minimum width=2.8cm]| Boolean $A\vee B$ &
+    |[checked,minimum width=3.4cm,fill=focuslt,draw=focus]| $A+B-AB$ &
+    |[lbl,text=check]| agrees on $\{0,1\}^2$ \\
+  };
+  \foreach \r in {1,2,3}{\draw[xform] (G-\r-1) -- (G-\r-2);}
+  \node[descbox,right=8mm of G-2-3,minimum width=3.7cm]
+    {$F=\bigwedge_i z_i$\\$\longmapsto F_{\rm arith}$};
+\end{tikzpicture}

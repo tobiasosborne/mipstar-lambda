@@ -1,0 +1,61 @@
+\begin{tikzpicture}
+  \matrix (g) [matrix of nodes, nodes={panel, minimum width=27mm, minimum height=31mm},
+    column sep=1.5mm, row sep=2mm] {
+    \node (bv) {}; & \node (hole) {}; & \node (lam) {}; & \node (app) {}; & \node (fix) {}; \\
+    \node (iff) {}; & \node (prim) {}; & \node (quote) {}; & \node (eval) {}; & \node (spec) {}; \\
+  };
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]bv.north west) {BoundVar};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]hole.north west) {Hole};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]lam.north west) {Lambda};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]app.north west) {Apply};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]fix.north west) {Fix};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]iff.north west) {If};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]prim.north west) {Prim};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]quote.north west) {Quote};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]eval.north west) {Eval};
+  \node[panel title] at ([xshift=1mm,yshift=-1mm]spec.north west) {Specialize};
+  \node[tnode] (bv-r) at ([yshift=2mm]bv.center) {$\mathrm{BV}(d,j)$};
+  \node[tnode, fill=focuslt, draw=focus, densely dashed] (hole-r) at ([yshift=2mm]hole.center) {$\circ\ h{:}A$};
+  \node[tnode] (lam-r) at ([yshift=2mm]lam.center) {$\lambda r$};
+  \node[tnode] (app-r) at ([yshift=2mm]app.center) {$@$};
+  \node[tnode] (fix-r) at ([yshift=2mm]fix.center) {$\mathsf{Fix}$};
+  \node[tnode] (iff-r) at ([yshift=2mm]iff.center) {$\mathsf{If}$};
+  \node[tnode] (prim-r) at ([yshift=2mm]prim.center) {$p,B$};
+  \node[tnode] (quote-r) at ([yshift=2mm]quote.center) {$\mathsf Q$};
+  \node[tnode] (eval-r) at ([yshift=2mm]eval.center) {$\mathsf E$};
+  \node[tnode] (spec-r) at ([yshift=2mm]spec.center) {$\mathsf{Sp}$};
+  \node[lblsm,text=term] at ([yshift=2mm]bv.south) {: $A$};
+  \node[lblsm,text=term] at ([yshift=2mm]hole.south) {: $A$};
+  \node[lblsm,text=term] at ([yshift=2mm]lam.south) {: $\vec A\to B$};
+  \node[lblsm,text=term] at ([yshift=2mm]app.south) {: $B$};
+  \node[lblsm,text=term] at ([yshift=2mm]fix.south) {: $A$};
+  \node[lblsm,text=term] at ([yshift=2mm]iff.south) {: $A$};
+  \node[lblsm,text=term] at ([yshift=2mm]prim.south) {: $B'$};
+  \node[lblsm,text=term] at ([yshift=2mm]quote.south) {: $\mathsf{Quoted}(A)$};
+  \node[lblsm,text=term] at ([yshift=2mm]eval.south) {: $B$};
+  \node[lblsm,text=term] at ([yshift=2mm]spec.south) {: $A$};
+  \node[tleaf, below left=3mm and 2mm of lam-r] (lamc) {$t$};
+  \draw[tedge] (lam-r)--(lamc);
+  \node[tleaf, below left=3mm and 2mm of app-r] (appc1) {$t$};
+  \node[tleaf, below right=3mm and 2mm of app-r] (appc2) {$t^*$};
+  \draw[tedge] (app-r)--(appc1); \draw[tedge] (app-r)--(appc2);
+  \node[tleaf, below=3mm of fix-r] (fixc) {$P$}; \draw[tedge] (fix-r)--(fixc);
+  \node[tleaf, below left=3mm and 5mm of iff-r] (ifc1) {$b$};
+  \node[tleaf, below=3mm of iff-r] (ifc2) {$t_1$};
+  \node[tleaf, below right=3mm and 5mm of iff-r] (ifc3) {$t_0$};
+  \draw[tedge] (iff-r)--(ifc1); \draw[tedge] (iff-r)--(ifc2); \draw[tedge] (iff-r)--(ifc3);
+  \node[tleaf, below left=3mm and 2mm of prim-r] (pc1) {$t$};
+  \node[tleaf, below right=3mm and 2mm of prim-r] (pc2) {$t^*$};
+  \draw[tedge] (prim-r)--(pc1); \draw[tedge] (prim-r)--(pc2);
+  \node[tleaf, below=3mm of quote-r] (qc) {$t$};
+  \draw[tedge] (quote-r)--node[right,lblsm] {Closed} (qc);
+  \node[tleaf, below left=3mm and 5mm of eval-r] (ec1) {$d$};
+  \node[tleaf, below=3mm of eval-r] (ec2) {$t^*$};
+  \node[tleaf, below right=3mm and 5mm of eval-r] (ec3) {$F$};
+  \draw[tedge] (eval-r)--(ec1); \draw[tedge] (eval-r)--(ec2); \draw[tedge] (eval-r)--(ec3);
+  \node[tleaf, below left=3mm and 2mm of spec-r] (sc1) {$d$};
+  \node[tleaf, below right=3mm and 2mm of spec-r] (sc2) {$\rho$};
+  \draw[tedge] (spec-r)--(sc1); \draw[tedge] (spec-r)--(sc2);
+  \node[checked, below=4mm of g, minimum width=.82\linewidth]
+    {AFFINE HOLES: every name \(h\) labels at most one amber socket};
+\end{tikzpicture}

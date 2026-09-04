@@ -1,0 +1,25 @@
+\begin{tikzpicture}[node distance=3.5mm]
+  \node[checked, minimum width=14.2cm, minimum height=1.2cm] (l1)
+    {\textbf{1 \quad algebraic identities under degree $\leq d$}\qquad
+     evaluate formula test and zero test at $z$};
+  \node[citedbox, below=of l1, minimum width=14.2cm, minimum height=1.2cm] (l2)
+    {\textbf{2 \quad low-degree enforcement}\qquad successful game $\Longrightarrow$
+     approximately consistent polynomial measurements};
+  \node[checked, below=of l2, minimum width=14.2cm, minimum height=1.2cm] (l3)
+    {\textbf{3 \quad random evaluation}\qquad finite-instance bounds computed;
+     identity implication uses Schwartz--Zippel};
+  \node[citedbox, below=of l3, minimum width=14.2cm, minimum height=1.2cm] (l4)
+    {\textbf{4 \quad quantum consistency and rigidity}\qquad transport one polynomial view back to the original verifier};
+  \draw[xform,dashed,cited] ([xshift=-4.6cm]l1.south) -- ([xshift=-4.6cm]l2.north);
+  \draw[xform,check] ([xshift=-4.6cm]l2.south) -- ([xshift=-4.6cm]l3.north);
+  \draw[xform,dashed,cited] ([xshift=-4.6cm]l3.south) -- ([xshift=-4.6cm]l4.north);
+  \node[tag check, left=4mm of l1] {EXECUTED};
+  \node[tag check, left=4mm of l3] {CHECKED};
+  \node[tag cited, left=4mm of l2] {CITED};
+  \node[tag cited, left=4mm of l4] {CITED};
+  \draw[dashed,cited,line width=1pt] ([xshift=-7.55cm]l1.north)
+    -- ([xshift=-7.55cm]l4.south);
+  \node[lblsm,fill=paper,text=cited,rotate=90] at
+    ($([xshift=-7.55cm]l1.north)!0.5!([xshift=-7.55cm]l4.south)$)
+    {evidence boundary};
+\end{tikzpicture}

@@ -1,0 +1,43 @@
+\begin{tikzpicture}
+  \node[tnode] (lam) {$\lambda(n,x,y,a,b)$};
+  \node[redex, below=5mm of lam] (iff) {$\mathsf{If}$};
+  \draw[tedge] (lam)--(iff);
+
+  \node[tnode, below left=7mm and 28mm of iff] (halt) {$\mathsf{halts\_within}$};
+  \node[tleaf, below left=4mm and 5mm of halt] (M) {$M$};
+  \node[tleaf, below right=4mm and 5mm of halt] (n) {$n$};
+  \draw[tedge] (iff)--(halt); \draw[tedge] (halt)--(M); \draw[tedge] (halt)--(n);
+  \node[tleaf, below=7mm of iff] (true) {$\mathsf{true}$};
+  \draw[tedge] (iff)--(true);
+
+  \node[tnode, below right=7mm and 25mm of iff] (eo) {$\mathsf{Eval}$};
+  \draw[tedge] (iff)--(eo);
+  \node[tnode, below left=7mm and 21mm of eo] (ans) {$\mathsf{ans}$};
+  \node[tleaf, below=7mm of eo] (args) {$(n,x,y,a,b)$};
+  \node[tnode, below right=7mm and 21mm of eo] (fuel) {$\mathsf{FuelBound}$};
+  \draw[tedge] (eo)--(ans); \draw[tedge] (eo)--(args); \draw[tedge] (eo)--(fuel);
+  \node[tleaf, below left=4mm and 4mm of fuel] (fn) {$n$};
+  \node[tleaf, below right=4mm and 4mm of fuel] (fL) {$L$};
+  \draw[tedge] (fuel)--(fn); \draw[tedge] (fuel)--(fL);
+
+  \node[tnode, below=6mm of ans] (ei) {$\mathsf{Eval}$};
+  \draw[tedge] (ans)--(ei);
+  \node[tnode, below=6mm of ei, xshift=-34mm] (qc) {$\mathsf{Quote}$};
+  \node[tnode, below=6mm of ei, xshift=2mm] (stat) {$\mathsf{tuple}$};
+  \node[tleaf, below=6mm of ei, xshift=32mm] (FC) {$F_C$};
+  \draw[tedge] (ei)--(qc); \draw[tedge] (ei)--(stat); \draw[tedge] (ei)--(FC);
+  \node[tleaf, below=4mm of qc, xshift=-3mm] (comp) {$\Compress$}; \draw[tedge] (qc)--(comp);
+
+  \node[tnode, below=11mm of stat, xshift=3mm] (pair) {$\mathsf{quoted\_pair}$};
+  \node[tleaf, below=5mm of stat, xshift=27mm] (litL) {$L$};
+  \draw[tedge] (stat)--(pair); \draw[tedge] (stat)--(litL);
+  \node[tnode, below left=5mm and 7mm of pair] (qs) {$\mathsf{Quote}$};
+  \node[redex, densely dashed, below right=5mm and 7mm of pair] (hole)
+    {$\mathsf{Hole}$};
+  \draw[tedge] (pair)--(qs); \draw[tedge] (pair)--(hole);
+  \node[tleaf, below=4mm of qs] (SL) {$S_L$}; \draw[tedge] (qs)--(SL);
+  \node[lblsm,text=term,below=2mm of hole] {$\mathsf{self\_code}:\mathsf{Quoted}(\mathsf{Decider})$};
+  \node[descbox, right=7mm of hole] (dml) {$D_{M,L}=\operatorname{YCode}(\Psi_{M,L})$};
+  \draw[quote] (hole)--(dml);
+  \node[lbl,text=term,above=3mm of lam] {$\Psi_{M,L}$};
+\end{tikzpicture}

@@ -1,0 +1,28 @@
+\begin{tikzpicture}
+  \node[panel, minimum width=63mm, minimum height=55mm, xshift=-38mm] (runp) {};
+  \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]runp.north west)
+    {RUNTIME UNFOLD};
+  \node[tnode, below=9mm of runp.north] (fix) {$\mathsf{Fix}$};
+  \node[tleaf, below=5mm of fix] (P) {$P$};
+  \draw[tedge] (fix)--(P);
+  \node[closure, below=8mm of P] (heap)
+    {\(\mathsf{self\_code}\mapsto\operatorname{Code}(\mathsf{Fix}\,P)\)};
+  \draw[bind] (heap.west) to[bend right=35] (P.west);
+  \node[redex, right=5mm of fix] {$c_Y=3$};
+  \node[lblsm, below=3mm of heap] {constant-size heap link};
+
+  \node[panel, minimum width=63mm, minimum height=55mm, xshift=38mm] (srcp) {};
+  \node[panel title, text=desc] at ([xshift=2mm,yshift=-2mm]srcp.north west)
+    {MATERIALIZED SOURCE};
+  \node[tnode, below=9mm of srcp.north] (sp) {$\mathsf{Specialize}$};
+  \node[tleaf, below left=6mm and 9mm of sp] (pp) {$P$};
+  \node[descbox, below right=6mm and 9mm of sp] (map)
+    {\(\mathsf{self\_code}\mapsto d_P\)};
+  \draw[tedge] (sp)--(pp); \draw[tedge] (sp)--(map);
+  \node[tnode,fill=focuslt,draw=focus,below=8mm of pp] (big) {\(d_P\)};
+  \draw[quote] (map.south) to[bend left=15] (big.east);
+  \draw[tedge] (pp)--node[left,lblsm] {replace hole} (big);
+  \node[lblsm, below=3mm of big] {finite copied subtree};
+  \draw[<->,desc,dashed,line width=.8pt] (runp.east)--node[above,lblsm,text=desc]
+    {same unfold equation} (srcp.west);
+\end{tikzpicture}

@@ -21,6 +21,15 @@ flag, and binary fuel.  If evaluation halts early, a fixed self-looping final
 state pads the trace to \(F+1\) rows.  This is the promised sequence of
 \((\text{term},\text{environment},\text{fuel})\) configurations, with the
 continuation and heap made explicit so that one-step validity is local.
+Figure~\ref{fig:trace-tableau} isolates the radius-one dependency inside that
+full padded history.
+
+\begin{figure}[H]
+\centering
+\input{figs/fig-trace-tableau.tex}
+\caption{The amber three-cell window in row \(C_i\) fixes the marked successor cell and moved head in \(C_{i+1}\).  Locality turns a fuel-bounded evaluation into finite constraints, while a halting self-loop supplies exactly \(F+1\) rows.}
+\label{fig:trace-tableau}
+\end{figure}
 
 To obtain a finite-alphabet tableau, compile the CEK evaluator and each charged
 primitive to a fixed multitape Turing machine \(\widehat U_{\mathcal L}\).
@@ -88,6 +97,13 @@ turn it into 3CNF with \(O(FW)\) variables and clauses.
 
 For the paper, the next theorem buys a small circuit describing an enormous
 bounded verifier tableau, which is the input expected by answer reduction.
+Figure~\ref{fig:succinct-circuit} follows one clause index through that circuit.
+\begin{figure}[t]
+\centering
+\input{figs/fig-succinct-circuit.tex}
+\caption{An \(O(\log F+\log\sigma)\)-bit index is decoded into one real initialization, format, transition, or acceptance clause.  Random access keeps the description polynomial in \(\log F\) even though the underlying tableau has \(F\) time rows.}
+\label{fig:succinct-circuit}
+\end{figure}
 \begin{theorem}[Succinct Cook--Levin for \(\mathcal L\)]
 \label{thm:l-succinct-sat}
 There is an algorithm which, on
@@ -156,6 +172,23 @@ direction follows because the initialization clauses force the two reserved
 blocks to be valid padded tape rows; the backward direction fills those blocks
 from the accepting trace.  This is the exact placement property needed when
 the two blocks are separated in \eqref{eq:decoupled-five}.
+Figure~\ref{fig:decoupled-5sat} makes the three kinds of constraints visible
+on the five equal-length blocks.
+\begin{figure}[t]
+\centering
+\input{figs/fig-decoupled-5sat.tex}
+\caption{Five power-of-two blocks separate the two answer tapes from three independently queried tableau assignments, with amber prefixes marking the first \(2F\) answer bits.  Copy, equality, and padding gadgets make the decoupled five-literal view equivalent to the original accepting trace.}
+\label{fig:decoupled-5sat}
+\end{figure}
+
+The one-read-per-block geometry of Figure~\ref{fig:D-five-block-read} is the
+point of the five-way split.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-five-block-read.tex}
+\caption{A decoupled clause reads exactly one addressed literal from each of \(a,b,u_3,u_4,u_5\), with the two answer blocks distinguished in rust.  Independent low-degree answers can now supply the five locations without pretending to be three reads of one shared assignment.}
+\label{fig:D-five-block-read}
+\end{figure}
 
 \subsection{From shared 3SAT data to decoupled 5SAT}
 
@@ -209,6 +242,15 @@ claim has been checked.  At the time of this note, no \code{bounded_trace},
 
 \subsection{Tseitin and arithmetization}
 
+Figure~\ref{fig:D-arithmetization-gates} previews the three gate replacements
+and their Boolean-cube contract as one local rewrite diagram.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-arithmetization-gates.tex}
+\caption{Negation, conjunction, and disjunction become \(1-A\), \(AB\), and the amber polynomial \(A+B-AB\), respectively.  These replacements preserve values on the Boolean cube while producing the formal polynomial consumed by the PCP layer.}
+\label{fig:D-arithmetization-gates}
+\end{figure}
+
 \begin{reminder}
 At this point the quoted verifier has already been reduced to a finite circuit
 describing local computation checks.  The transformations below manipulate
@@ -259,6 +301,14 @@ There is a discrepancy in the individual-degree bookkeeping as we read NW19;
 our reading may be wrong.  The source proposition states individual degree at
 most two for the Tseitin arithmetization.
 \gt{prop:tseitin-arith-degree}{ground-truth/gt-10-answer-reduction.tex}
+Figure~\ref{fig:tseitin-fanout} contrasts that cited statement with the
+literal-occurrence account and the bounded-fan-out repair.
+\begin{figure}[t]
+\centering
+\input{figs/fig-tseitin-fanout.tex}
+\caption{As we read the gate-equivalence formula, a wire used by \(f\) later gates contributes \(2+2f\) literal occurrences, and the two-gate fixture reaches individual degree four.  Bounded fan-out restores the conservative \(\delta_F\leq7\), \(d\geq8\) route without conflating a tested account with the cited source proposition.}
+\label{fig:tseitin-fanout}
+\end{figure}
 Reading the NW19 formula literally as a formula tree, arithmetization is
 multilinear in leaf occurrences, not necessarily in circuit wires.  The same
 wire can occur in several gate gadgets.  With the project's explicit output
@@ -281,6 +331,14 @@ Claim C8 is only \claim{C8}{TESTED}: the two-gate regression gives
 \[
 (2,0,0,0,2,2,0,0,0,0,6,4,4,4,4,3).
 \]
+Figure~\ref{fig:occurrence-vector} keeps the two measured vectors side by side
+and singles out the coordinates that exceed two.
+\begin{figure}[t]
+\centering
+\input{figs/fig-occurrence-vector.tex}
+\caption{The amber entries record individual degrees four and six in the two named, exactly traversed formula trees.  These fixture vectors support the occurrence diagnosis without promoting the general fan-out formula to a machine theorem.}
+\label{fig:occurrence-vector}
+\end{figure}
 The general occurrence formula is a written derivation, not a machine theorem.
 The downstream soundness repair is only \claim{C5}{SKETCH}.  With a symbolic
 bound \(\delta_F=\max_v\operatorname{occ}_v(F)\), the conservative formula-test
@@ -305,6 +363,14 @@ For \(M=2^m\) and \(a=(a_y)_{y\in\{0,1\}^m}\), define
 Then \(g_a(y)=a_y\) on the Boolean cube and \(a\mapsto g_a\) is linear.
 This is the low-degree code: the assignment is represented by the evaluation
 table of its unique multilinear extension.
+Figure~\ref{fig:interpolation-subcube} locates the Boolean data inside the
+ambient field and pairs it with the basic vanishing factor.
+\begin{figure}[t]
+\centering
+\input{figs/fig-interpolation-subcube.tex}
+\caption{Amber vertices carry the Boolean assignment values inside \(\mathbb F_q^m\), and the violet arrow produces their unique multilinear extension \(g_a\).  The factor \(z(1-z)\) vanishes exactly at the two Boolean axis points that generate the subcube ideal.}
+\label{fig:interpolation-subcube}
+\end{figure}
 \gt{sec:ld-encoding}{ground-truth/gt-03-prelim.tex}
 The Julia function \code{g_a} constructs the sparse polynomial; block
 coordinates are carried by \code{VarLayout} and \code{VarBlock};
@@ -351,6 +417,15 @@ coordinates \(1,\ldots,i-1\), the running remainder has degree at most one in
 those coordinates.
 \end{lemma}
 
+The concrete two-variable run in Figure~\ref{fig:boolean-ideal-rewrite} shows
+where the quotient and zero remainder are recorded.
+\begin{figure}[t]
+\centering
+\input{figs/fig-boolean-ideal-rewrite.tex}
+\caption{One rewrite peels a power of \(z_i\) into a lower power and a multiple of \(z_i(1-z_i)\), with no evaluation sampling.  For \(x^2y-xy\), the ordered run returns \(c_1=-y\), \(c_2=0\), and an exactly empty remainder.}
+\label{fig:boolean-ideal-rewrite}
+\end{figure}
+
 \begin{proof}
 Expanding the right-hand side of one rewrite gives
 \[
@@ -396,6 +471,14 @@ arithmetization.  It then checks exactly
  \beta_0=\sum_{j=1}^{m'}\beta_j z_j(1-z_j).
 \]
 These are the formula test and zero-on-subcube test.
+Figure~\ref{fig:pcp-local-verifier} draws the queried proof tables and keeps
+the two executed equalities above the cited low-degree boundary.
+\begin{figure}[t]
+\centering
+\input{figs/fig-pcp-local-verifier.tex}
+\caption{Point and line queries land in evaluation tables for \(g_1,\ldots,g_5,c_0,\ldots,c_{m'}\), while the green decider checks the two displayed identities at \(z\).  Those local checks are executable, but low-degree enforcement and quantum strategy extraction remain cited analytic input.}
+\label{fig:pcp-local-verifier}
+\end{figure}
 \gt{fig:pcpverifier}{ground-truth/gt-10-answer-reduction.tex}
 The Julia function \code{pcpverifier} executes these two equations on an
 already supplied \code{TseitinFormula} and view.  In TB2 it does not implement
@@ -406,6 +489,14 @@ degree checking, and stored certified views.
 \subsection{The four soundness layers}
 
 The four layers must not be collapsed.
+Figure~\ref{fig:four-layers} draws the evidence boundary through the four
+logically distinct steps.
+\begin{figure}[t]
+\centering
+\input{figs/fig-four-layers.tex}
+\caption{Green strata are computations or finite checks, while dashed slate strata are imported low-degree and quantum implications.  The boundary prevents successful local evaluations from being mistaken for a proof of soundness against arbitrary strategies.}
+\label{fig:four-layers}
+\end{figure}
 
 \paragraph{1. Algebraic soundness under a low-degree premise.}
 Assume every submitted \(g_i,c_j\) has individual degree at most \(d\).  If the
@@ -475,6 +566,15 @@ not test the theorem.  Current statuses reflect that separation: C3 is
 
 \subsection{The inductive object and its laws}
 
+Figure~\ref{fig:D-cl-base-step} previews the single inductive CL step before
+the full level diagram.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-cl-base-step.tex}
+\caption{A linear map acts on \(V_1\), and its actual output selects the continuation on the complementary register \(V_{>1}\).  This one-step constructor is the recursive source of every CL level and marginal law below.}
+\label{fig:D-cl-base-step}
+\end{figure}
+
 \begin{definition}[Conditionally linear function]
 Let \(V=\F^n\) with fixed coordinate-register subspaces.  The unique level-zero
 conditionally linear (CL) function is zero.  A level-\(\ell\) CL function
@@ -483,6 +583,14 @@ chooses complementary registers \(V_1\oplus V_{>1}=V\), applies a linear map
 level-\((\ell-1)\) CL function on \(V_{>1}\).  Its output is the sum of the
 first-stage and continuation outputs.
 \end{definition}
+Figure~\ref{fig:cl-inductive} unfolds this definition into its sequential
+factor registers, conditional choices, and two level laws.
+\begin{figure}[H]
+\centering
+\input{figs/fig-cl-inductive.tex}
+\caption{Each rust stage applies a linear map on one complementary register, while the labelled dependency lets earlier outputs select the next stage.  Marginals sum prefixes of stage outputs, concatenation adds levels, and direct sum takes their maximum.}
+\label{fig:cl-inductive}
+\end{figure}
 This is \code{def:cl-func} in
 \code{ground-truth/gt-04-cl.tex}.  Julia mirrors it with
 \code{AbstractCL}, \code{CLZero}, and \code{CLStep}.  The constructor verifies
@@ -535,6 +643,15 @@ lemmas.
 
 \subsection{Point and line maps}
 
+Figure~\ref{fig:point-line-maps} tracks the three register maps and the
+prefix projection \(\pi_{\chi(s)-1}\) explicitly.
+\begin{figure}[H]
+\centering
+\input{figs/fig-point-line-maps.tex}
+\caption{The point, axis-line, and diagonal-line maps act on the same \(V_{\rm pt}\oplus V_{\rm coord}\oplus V_{\rm dir}\) seed but retain different register data.  Their one-, two-, and three-level factorizations make the sampled geometry CL, with \(L^{\rm lnf}_0=I\) visibly marked as a source repair.}
+\label{fig:point-line-maps}
+\end{figure}
+
 For \(V=V_{\rm pt}\oplus V_{\rm coord}\oplus V_{\rm dir}\), write a seed as
 \((u,s,v)\in\F_q^m\times\F_q\times\F_q^m\).  Let
 \(L_v^{\rm lnf}\) be the canonical projection whose kernel is
@@ -573,6 +690,15 @@ not establish quantum low-degree soundness.
 
 \subsection{Types and the six-copy sampler}
 
+Figure~\ref{fig:six-copy-sampler} separates the five block-local tests from
+the sixth simultaneous proof test.
+\begin{figure}[H]
+\centering
+\input{figs/fig-six-copy-sampler.tex}
+\caption{Copies one through five test the five block polynomials individually, while copy six tests the complete \((g_1,\ldots,g_5,c_0,\ldots,c_{m'})\) bundle in dimension \(m'\).  The 18 point/axis-line/diagonal-line types share one ambient seed and a complete oriented type graph.}
+\label{fig:six-copy-sampler}
+\end{figure}
+
 A \emph{typed sampler} is a finite type-graph-indexed family of CL maps sharing
 one ambient seed space.  It first samples an oriented type edge and then pushes
 one uniform seed through the selected left/right maps.
@@ -597,8 +723,8 @@ and a complete type graph.  Copies 1--5 query one \(m\)-variate \(g_i\) each;
 copy 6 queries the bundle \((g_1,\ldots,g_5,c_0,\ldots,c_{m'})\) in dimension
 \(m'\).  The six-copy construction and its ambient direct sums are in
 \code{sec:ld-compiler} of
-\code{ground-truth/gt-10-answer-reduction.tex}.  The current code uses
-\code{PCPType}, \code{PCPRegisterLayout}, \code{PCPCLMap},
+\code{ground-truth/gt-10-answer-reduction.tex}.
+The current code uses \code{PCPType}, \code{PCPRegisterLayout}, \code{PCPCLMap},
 \code{PCPPaddedMap}, and \code{pcp_sampler}.  It carries a visible
 \grade{SOURCE\_REPAIR} for the copy-6 coordinate-register conflict between the
 displayed ambient space and the parser table.
@@ -644,6 +770,15 @@ executable; the quantum implication, detyping, and asymptotic theorem are
 
 \subsection{The structural hypothesis}
 
+Figure~\ref{fig:D-closure-gap} marks the exact inference that remains
+unavailable before the longer closure diagram.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-closure-gap.tex}
+\caption{Constructed local CL operations and finite typed shapes stop at the dashed arrow before compiler-wide closure of \(\mathcal Q\).  That missing implication is precisely the C7 structural conjecture rather than a consequence of the datatype alone.}
+\label{fig:D-closure-gap}
+\end{figure}
+
 \emph{Introspection} is the cited verifier transformation that makes encoded
 prover-side measurement information available to a smaller verifier while
 preserving a directed soundness contract.
@@ -673,6 +808,15 @@ introspection compiler.  The structural statement is exactly
 not implemented.  The present datatype makes several local closure laws
 legible, not the global compression theorem.
 
+Figure~\ref{fig:structural-hypothesis} separates those derived local laws from
+the global closure hypothesis they do not establish.
+\begin{figure}[H]
+\centering
+\input{figs/fig-structural-hypothesis.tex}
+\caption{Green branches are closure operations carried by the inductive CL datatype, whereas the dashed slate box is the stronger compiler-wide closure hypothesis C7.  The distinction blocks local concatenation and product laws from silently becoming an introspection or compression theorem.}
+\label{fig:structural-hypothesis}
+\end{figure}
+
 \section{Correspondence tables}
 
 The evidence grade describes the local certificate leaf.  The claim column is
@@ -681,8 +825,32 @@ certificate label when an adversarial verdict has not promoted the claim.
 \grade{CONSTRUCTED} means enforced by a constructor,
 \grade{CHECKED} means deterministic replay against an attached object, and
 \grade{CITED} means imported from the named ground-truth statement.
+Figure~\ref{fig:ladder} gives the status-bearing order of the tracer-bullet
+rungs, and Figure~\ref{fig:correspondence-map} compresses the six tables into
+one evidence map.
+\begin{figure}[t]
+\centering
+\input{figs/fig-ladder.tex}
+\caption{The tracer-bullet ladder advances from the tested polynomial and CL fixtures through typed answer reduction to the planned description, introspection, repetition, and compression compilers.  Status chips reproduce \texttt{claims/CLAIMS.md} at this writing and therefore describe claims, not implementation completeness.}
+\label{fig:ladder}
+\end{figure}
+\begin{figure}[t]
+\centering
+\input{figs/fig-correspondence-map.tex}
+\caption{Each row aligns a paper object with its current Julia representation and the narrowest evidence leaf actually available.  Green instance checks occupy the middle rungs, while missing front-end and compression implementations remain visibly cited.}
+\label{fig:correspondence-map}
+\end{figure}
 
 \subsection{Description front end (planned TB3)}
+
+Figure~\ref{fig:D-correspondence-description} records the currently absent
+description-to-SAT implementation without weakening the analytic interface.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-correspondence-description.tex}
+\caption{The paper's bounded decider passes through quoted and succinct IR sorts toward three named front-end operations that are still absent.  The dashed final arrow marks this row as a cited contract rather than an executed construction.}
+\label{fig:D-correspondence-description}
+\end{figure}
 
 \setlength{\tabcolsep}{1.5pt}
 \scriptsize
@@ -719,6 +887,15 @@ Lemma~\ref{lem:specialization}
 
 \subsection{Polynomial rung (TB0)}
 
+Figure~\ref{fig:D-correspondence-polynomial} compresses the polynomial table
+into the certificate path used on named fixtures.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-correspondence-polynomial.tex}
+\caption{Tseitin syntax flows into sparse polynomials, exact zero-basis division, and the two local PCP identities.  Green boxes are checked on named instances, while the separate dashed soundness leaf remains C5 \textsc{Sketch}.}
+\label{fig:D-correspondence-polynomial}
+\end{figure}
+
 \scriptsize
 \begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
 \toprule
@@ -753,6 +930,15 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 
 \subsection{CL and low-degree-test rung (TB1)}
 
+Figure~\ref{fig:D-correspondence-cl} places exact CL construction and histogram
+evidence before the cited low-degree theorem.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-correspondence-cl.tex}
+\caption{CL constructors realize the point and line maps at levels one, two, and three, and TB1 replays all \(32768\) shared seeds.  The final dashed transition to quantum low-degree soundness has no proof checker.}
+\label{fig:D-correspondence-cl}
+\end{figure}
+
 \scriptsize
 \begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
 \toprule
@@ -786,6 +972,15 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 \normalsize
 
 \subsection{Typed answer-reduction rung (TB2)}
+
+Figure~\ref{fig:D-correspondence-typed} follows typed sampler shape and guarded
+decider execution to their cited theorem boundary.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-correspondence-typed.tex}
+\caption{The 18-type sampler and guarded answer-reduced decider have constructed or finite-checked shapes.  Detyping and the quantum implication in \texttt{thm:ar} remain dashed at C4b \textsc{Conjecture} and C5 \textsc{Sketch}.}
+\label{fig:D-correspondence-typed}
+\end{figure}
 
 \scriptsize
 \begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
@@ -823,6 +1018,15 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 
 \subsection{Midpoint diagnostic (TB0.5)}
 
+Figure~\ref{fig:D-correspondence-midpoint} isolates the executable recurrence
+behind the two proved midpoint rows.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-correspondence-midpoint.tex}
+\caption{The \texttt{Ask}/\texttt{Coin}/\texttt{Test} recurrence is evaluated by an exact adaptive dynamic program.  Its one-copy and sequential-AND values are the proved C6 and N1 formulas, not claims about quantum parallel repetition.}
+\label{fig:D-correspondence-midpoint}
+\end{figure}
+
 \scriptsize
 \begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
 \toprule
@@ -842,6 +1046,15 @@ Analytic anchor & Analytic statement & IR sort & Implementation & Grade & Claim 
 \normalsize
 
 \subsection{Compression and fixed point (planned TB4)}
+
+Figure~\ref{fig:D-correspondence-compression} keeps the fixed-point mechanism
+distinct from the three cited compression transformations.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-correspondence-compression.tex}
+\caption{Introspection, answer reduction, and repetition compose syntactically into the planned \(\Compress\) row, but their soundness leaves remain dashed and the implementation is absent.  The amber fixed point supplies self-reference only; it does not discharge those analytic contracts.}
+\label{fig:D-correspondence-compression}
+\end{figure}
 
 \scriptsize
 \begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
@@ -871,6 +1084,14 @@ Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence} &
 
 The analytic content is the sequence of transformations and the implications
 attached to them.  The computer currently realizes a strict middle segment.
+Figure~\ref{fig:evidence-boundary} locates that middle segment inside the full
+transformation pipeline.
+\begin{figure}[H]
+\centering
+\input{figs/fig-evidence-boundary.tex}
+\caption{Green construction and replay stages sit below the boundary, while Cook--Levin asymptotics, low-degree extraction, rigidity, introspection, repetition, and compression remain dashed cited leaves above it.  Violet crossings indicate interfaces, not a promotion of finite certificates into analytic theorems.}
+\label{fig:evidence-boundary}
+\end{figure}
 
 \begin{center}
 \small
@@ -920,7 +1141,25 @@ and entanglement implications compose.  The relevant final statements are
 \code{fig:compress} and \code{thm:compression} in
 \code{ground-truth/gt-12-compression.tex}.
 
+Figure~\ref{fig:midpoint-diagnostic} plots the collapsing one-copy gap and the
+exact first six repetition counts used in the next diagnostic.
+\begin{figure}[t]
+\centering
+\input{figs/fig-midpoint-diagnostic.tex}
+\caption{The left bars approach value one as \(p_n=1-2^{-n}\), while the right bars give the exact repetition counts \(1,3,6,11,22,45\) needed to recover error at most one half.  The paired growth makes the \(\Theta(n2^n)\) sequential transcript cost visible and diagnoses why representation alone is insufficient.}
+\label{fig:midpoint-diagnostic}
+\end{figure}
+
 \subsection{The midpoint diagnostic}
+
+The fresh-coin split in Figure~\ref{fig:D-midpoint-coin} is the complete local
+move of the recursive verifier.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-midpoint-coin.tex}
+\caption{After the prover supplies \(z\), one fresh fair coin selects the left or right half-length orbit claim.  This single branching move yields the exact false-claim recurrence behind \(p_n=1-2^{-n}\).}
+\label{fig:D-midpoint-coin}
+\end{figure}
 
 The recursive midpoint verifier for \(y=f^{2^n}(x)\) asks for \(z\) and checks
 one of
@@ -945,6 +1184,15 @@ make that term self-referential, while the acceptance gap collapses too quickly
 for iteration.  Representability is easy; an iteratable, gap-preserving
 analytic transformation is the hard requirement.
 
+Figure~\ref{fig:final-accounting} closes the account at the fixed point itself,
+with the three analytic leaves kept visibly dashed.
+\begin{figure}[t]
+\centering
+\input{figs/fig-final-accounting.tex}
+\caption{The actual term \(\Psi_{M,L}\) places its self-code hole inside the quoted call to \(\Compress\), and the amber fixed point \(D_{M,L}=\operatorname{YCode}(\Psi_{M,L})\) closes that hole with constant overhead.  The executable algebraic middle does not discharge the three dashed leaves: low-degree soundness, rigidity/oracularization, and gap-preserving compression.}
+\label{fig:final-accounting}
+\end{figure}
+
 \subsection{Final accounting}
 
 The lambda reformulation removes none of the mathematically difficult leaves.
@@ -959,3 +1207,11 @@ gap-preserving compression theorem.  Those are analytic theorems, presently
 \grade{CITED}; they are neither consequences of homoiconicity nor conclusions
 of the finite computations reported here.
 
+Figure~\ref{fig:D-final-seal} leaves the document with the fixed point closed
+and the three analytic obligations still visibly open.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-final-seal.tex}
+\caption{The amber description \(D_{M,L}\) completes the syntactic self-reference, but each dashed arrow still crosses into a cited analytic theorem.  Closing those low-degree, rigidity/oracularization, and gap-preservation leaves—not another finite sample—is the remaining proof task.}
+\label{fig:D-final-seal}
+\end{figure}

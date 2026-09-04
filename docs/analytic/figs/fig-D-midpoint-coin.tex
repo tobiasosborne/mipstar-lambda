@@ -1,0 +1,15 @@
+\begin{tikzpicture}[node distance=7mm and 15mm]
+  \node[descbox,minimum width=3.2cm] (claim) {$y\stackrel{?}{=}f^{2^n}(x)$};
+  \node[stage,right=of claim,minimum width=2.6cm,fill=focuslt,draw=focus] (ask) {prover sends $z$};
+  \node[state,right=of ask,fill=focuslt,draw=focus] (coin) {$c$};
+  \node[checked,above right=5mm and 12mm of coin,minimum width=4.1cm] (left)
+    {$c=0:\ z\stackrel{?}{=}f^{2^{n-1}}(x)$};
+  \node[checked,below right=5mm and 12mm of coin,minimum width=4.1cm] (right)
+    {$c=1:\ y\stackrel{?}{=}f^{2^{n-1}}(z)$};
+  \draw[xform] (claim) -- (ask);
+  \draw[xform] (ask) -- (coin);
+  \draw[xform,check] (coin) -- node[above,lblsm] {$1/2$} (left);
+  \draw[xform,check] (coin) -- node[below,lblsm] {$1/2$} (right);
+  \node[lblsm,text=term,below=2mm of $(left.south)!0.5!(right.north)$]
+    {one fresh fair coin exposes exactly one half-length claim};
+\end{tikzpicture}

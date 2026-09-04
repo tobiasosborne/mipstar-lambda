@@ -1,0 +1,21 @@
+\begin{tikzpicture}[node distance=0mm]
+  \node[tnode] (x) {$x$};
+  \node[tnode,right=8mm of x] (f1) {$f$};
+  \node[tnode,right=8mm of f1] (f2) {$f$};
+  \node[tnode,right=8mm of f2] (dots) {$\cdots$};
+  \node[tnode,right=8mm of dots] (fn) {$f$};
+  \node[tleaf,right=8mm of fn] (out) {$f^n x$};
+  \draw[tedge,->] (x)--(f1);
+  \draw[tedge,->] (f1)--(f2);
+  \draw[tedge,->] (f2)--(dots);
+  \draw[tedge,->] (dots)--(fn);
+  \draw[tedge,->] (fn)--(out);
+  \draw[brace] ([yshift=-4mm]x.south west) --
+    node[lblsm,below=4mm] {$\overline n=\lambda f.\lambda x.f^n x$}
+    ([yshift=-4mm]out.south east);
+  \node[redex,above=10mm of fn] (extra) {$f$};
+  \draw[beta] (out.north) to[bend left=18] (extra.west);
+  \node[lblsm,above=2mm of extra] {$\mathsf{succ}$ adds the outer application};
+  \node[tleaf,right=8mm of extra] (succout) {$f^{n+1}x$};
+  \draw[tedge,->] (extra)--(succout);
+\end{tikzpicture}

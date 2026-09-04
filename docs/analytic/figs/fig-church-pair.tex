@@ -1,0 +1,17 @@
+\begin{tikzpicture}[node distance=8mm and 13mm]
+  \node[tleaf] (a) {$A$};
+  \node[tleaf,below=6mm of a] (b) {$B$};
+  \node[stage,draw=term,right=12mm of $(a)!0.5!(b)$] (pair)
+    {$\langle A,B\rangle=\lambda p.p\;A\;B$};
+  \draw[beta] (a.east) -- (pair.west);
+  \draw[beta] (b.east) -- (pair.west);
+  \node[tnode,right=16mm of pair,yshift=7mm] (fst) {$\mathsf{true}$};
+  \node[tnode,right=16mm of pair,yshift=-7mm] (snd) {$\mathsf{false}$};
+  \draw[beta] (pair.east) -- node[lblsm,above] {$\mathsf{fst}$} (fst.west);
+  \draw[beta] (pair.east) -- node[lblsm,below] {$\mathsf{snd}$} (snd.west);
+  \node[tleaf,draw=focus,line width=1pt,right=9mm of fst] (outa) {$A$};
+  \node[tleaf,draw=focus,line width=1pt,right=9mm of snd] (outb) {$B$};
+  \draw[beta] (fst)--(outa);
+  \draw[beta] (snd)--(outb);
+  \node[lbl,below=4mm of pair] {$p$ is the consumer: storage is behavior};
+\end{tikzpicture}

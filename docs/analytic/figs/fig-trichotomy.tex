@@ -1,0 +1,17 @@
+\begin{tikzpicture}
+  \node[closure, minimum width=32mm] (run) {$\operatorname{run}(t;f)$};
+  \node[fuel, below=5mm of run] (steps) {at most (f) microsteps};
+  \draw[beta] (run)--(steps);
+  \node[checked, below left=12mm and 7mm of steps, minimum width=38mm] (val)
+    {$\mathsf{Value}(v)$};
+  \node[draw=term,fill=termlt,rounded corners=2pt,inner sep=5pt,
+    below=12mm of steps, minimum width=38mm] (oof) {$\mathsf{OutOfFuel}$};
+  \node[bad,fill=white,rounded corners=2pt,inner sep=5pt,
+    below right=12mm and 7mm of steps, minimum width=38mm] (err)
+    {$\mathsf{TypeError}$};
+  \draw[beta] (steps)--node[above left,lblsm] {value returned} (val);
+  \draw[beta] (steps)--node[right,lblsm] {next charge unpaid} (oof);
+  \draw[->,bad,line width=.9pt] (steps)--node[above right,lblsm,text=bad]
+    {unique failed check} (err);
+  \node[lblsm, below=3mm of oof] {disjoint final tags; no host exception};
+\end{tikzpicture}

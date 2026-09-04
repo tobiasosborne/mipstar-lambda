@@ -1,0 +1,26 @@
+\begin{tikzpicture}[node distance=2.2mm and 12mm]
+  \node[stage,draw=machine,fill=machinelt,minimum width=36mm,minimum height=6mm,inner sep=2pt] (m1) {program};
+  \node[stage,draw=term,fill=termlt,minimum width=36mm,minimum height=6mm,inner sep=2pt,right=43mm of m1] (l1) {closed term};
+  \node[stage,draw=machine,fill=machinelt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of m1] (m2) {input tape contents};
+  \node[stage,draw=term,fill=termlt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of l1] (l2) {argument / tuple value};
+  \node[stage,draw=machine,fill=machinelt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of m2] (m3) {transitions and time};
+  \node[stage,draw=term,fill=termlt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of l2] (l3) {fuel / charged steps};
+  \node[stage,draw=machine,fill=machinelt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of m3] (m4) {$\langle M\rangle,\ |M|$};
+  \node[stage,draw=term,fill=termlt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of l3] (l4) {$\operatorname{ser}(t),\ |t|$};
+  \node[stage,draw=machine,fill=machinelt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of m4] (m5) {universal machine};
+  \node[stage,draw=term,fill=termlt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of l4] (l5) {evaluator};
+  \node[stage,draw=machine,fill=machinelt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of m5] (m6) {$s$-$m$-$n$ hardwiring};
+  \node[stage,draw=term,fill=termlt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of l5] (l6) {$\Specialize$};
+  \node[stage,draw=machine,fill=machinelt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of m6] (m7) {Kleene recursion};
+  \node[stage,draw=term,fill=termlt,minimum width=36mm,minimum height=6mm,inner sep=2pt,below=of l6] (l7) {$Y/Z/\mathsf{Fix}$};
+
+  \draw[xform] (m1)--node[xformlbl] {finite code}(l1);
+  \draw[xform] (m2)--node[xformlbl] {supply input}(l2);
+  \draw[xform] (m3)--node[xformlbl] {fixed polynomial}(l3);
+  \draw[xform] (m4)--node[xformlbl] {canonical bits}(l4);
+  \draw[xform] (m5)--node[xformlbl] {interpret}(l5);
+  \draw[xform] (m6)--node[xformlbl] {insert static data}(l6);
+  \draw[xform] (m7)--node[xformlbl] {finite fixed point}(l7);
+  \node[tag check,above=3mm of m1] {MACHINE BANK};
+  \node[tag focus,above=3mm of l1] {LAMBDA / IR BANK};
+\end{tikzpicture}

@@ -1,0 +1,39 @@
+\begin{tikzpicture}[node distance=7mm and 12mm]
+  \matrix (halt) [matrix of nodes,
+    nodes={config, minimum width=18mm, minimum height=8mm, anchor=center},
+    row sep=-\pgflinewidth, column sep=-\pgflinewidth,
+    ampersand replacement=\&] {
+    |[draw=none,fill=none,lblsm]| $H(e,x)$ \&
+    |[draw=none,fill=none,lblsm]| $x=e_1$ \&
+    |[draw=none,fill=none,lblsm]| $x=e_2$ \&
+    |[draw=none,fill=none,lblsm]| $x=d$ \\
+    |[draw=none,fill=none,lblsm]| $e=e_1$ \&
+    |[fill=focuslt,draw=focus]| $H(e_1,e_1)$ \&
+    $H(e_1,e_2)$ \& $H(e_1,d)$ \\
+    |[draw=none,fill=none,lblsm]| $e=e_2$ \&
+    $H(e_2,e_1)$ \&
+    |[fill=focuslt,draw=focus]| $H(e_2,e_2)$ \&
+    $H(e_2,d)$ \\
+    |[draw=none,fill=none,lblsm]| $e=d$ \&
+    $H(d,e_1)$ \& $H(d,e_2)$ \&
+    |[fill=focuslt,draw=focus,line width=1pt]| $H(d,d)$ \\
+  };
+  \draw[brace] ([yshift=4mm]halt-2-2.north west) --
+    ([yshift=4mm]halt-4-4.north east)
+    node[midway, above=4mm, lbl, text=focus] {self-input diagonal};
+
+  \node[checked, right=16mm of halt-4-4, text width=31mm] (flip)
+    {$D(z)$ asks $H(z,z)$\\[2pt]
+     \(0\mapsto\) halt\\
+     \(1\mapsto\) loop};
+  \draw[->, focus, line width=1.2pt] (halt-4-4) -- node[lblsm, above, text=focus]
+    {flip} (flip);
+  \node[bad, rounded corners=2pt, below left=9mm and 7mm of flip,
+        text width=29mm, align=center, inner sep=4pt] (zero)
+    {$H(d,d)=0$\\says \emph{does not halt}\\but \(D(d)\) halts};
+  \node[bad, rounded corners=2pt, below right=9mm and 7mm of flip,
+        text width=29mm, align=center, inner sep=4pt] (one)
+    {$H(d,d)=1$\\says \emph{halts}\\but \(D(d)\) loops};
+  \draw[->, bad, line width=.8pt] (flip) -- (zero);
+  \draw[->, bad, line width=.8pt] (flip) -- (one);
+\end{tikzpicture}

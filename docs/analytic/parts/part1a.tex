@@ -10,6 +10,23 @@ the finite text of one verifier, transform that text into another verifier,
 and arrange for a verifier to use a description of itself.  This part rebuilds
 that vocabulary from the ground up.  It is deliberately qualitative about
 polynomial overheads; the exact costed statements begin in Part~II.
+Figure~\ref{fig:pipeline-glance} gives the whole description-level pipeline
+and its fixed-point feedback at a glance, while Figure~\ref{fig:roadmap} maps
+the refresher objects to their resource-accounted counterparts.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-pipeline-glance}
+\caption{Green stages are finite source transformations, while dashed slate boxes mark the analytic guarantees they invoke and the amber return path closes the self-code loop.  The split keeps executable description manipulation visibly separate from cited soundness in the compression argument (after \code{fig:compress}).}
+\label{fig:pipeline-glance}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-roadmap}
+\caption{The upper path introduces machines, self-description, and lambda simulation before the lower path assigns sizes, costs, tableaux, and evidence grades.  The vertical arrows identify exactly which qualitative refresher each resource-accounted construction upgrades.}
+\label{fig:roadmap}
+\end{figure}
 
 \section{Turing machines in the form used by the paper}
 \label{sec:refresher-tm}
@@ -39,6 +56,15 @@ writes on the work and output tapes, and moves each head by at most one cell.
 The input tapes are read-only.  Adding separate accept and reject halting
 states, or allowing writes on input tapes, changes none of the computability
 or polynomial-overhead statements below.
+Figure~\ref{fig:tm-anatomy} fixes this multitape anatomy and the semantic roles
+of its heads, tapes, and finite control.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-tm-anatomy}
+\caption{Amber cells are the symbols read by the finite control, with arrows returning updates only to the work and output tapes.  This concrete separation of finite rule book from finitely used memory is the machine model simulated throughout the document.}
+\label{fig:tm-anatomy}
+\end{figure}
 
 A \emph{configuration} is a complete instantaneous description
 \[
@@ -67,6 +93,14 @@ If \(\delta(q,0)=(q',1,R)\), then
  (q',\ldots\sqcup\,1\,\underline 1\sqcup\ldots,h+1).
 \]
 Only the state, the scanned cell, and the head location have changed.
+Figure~\ref{fig:one-step} isolates those three changes in a literal tape move.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-one-step}
+\caption{The amber transition rewrites the scanned zero, changes \(q\) to \(q'\), and advances the head from \(h\) to \(h+1\).  Exposing exactly these three local changes is what later permits a computation history to be checked by bounded windows.}
+\label{fig:one-step}
+\end{figure}
 
 The machine \emph{halts} on input \(x\) if some \(C_T\) has state
 \(q_{\mathrm h}\).  Its output is the longest nonblank initial string on the
@@ -79,6 +113,15 @@ with value \(\infty\) if the set is empty.  We sometimes abbreviate this as
 \(\Time_M(x)\).  Notice the distinction between \emph{has not halted yet} and
 \emph{will never halt}; no finite observation of a run decides the latter in
 general.
+Figure~\ref{fig:config-path} contrasts the finite witness supplied by a
+halting configuration with an open-ended observed prefix.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-config-path}
+\caption{The upper deterministic path ends in \(q_{\mathrm h}\) and certifies the exact time \(T\), whereas the lower path fades beyond the last observed configuration \(C_t\).  The missing halt in a finite prefix cannot be promoted to a proof that the run never halts.}
+\label{fig:config-path}
+\end{figure}
 
 \paragraph{Why this matters here.}
 The compression argument repeatedly says that a generated verifier finishes
@@ -125,6 +168,16 @@ State & Scanned \((A,B,W,O)\) & Transition \\
 \end{tabularx}
 \end{center}
 
+Figure~\ref{fig:eq-machine-states} turns the five rows into a state diagram,
+including the totalizing catch-all path.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-eq-machine-states}
+\caption{The five numbered paths are exactly the equal-input, unequal-input, copy, halt, and catch-all rows of \(M_=\).  Reading the table as control flow makes totality and the three-step legal-input route visible at once.}
+\label{fig:eq-machine-states}
+\end{figure}
+
 The final row makes the table total and rejects malformed inputs.  On legal
 one-bit inputs the first step computes the equality bit on \(W\), the second
 copies it to \(O\), and the third enters the halt state.  For \(A=B=1\), the
@@ -144,6 +197,15 @@ i&q&A&B&W&O&\text{rule used}\\ \hline
 \]
 Thus \(M_{=}(1,1)=1\) and \(\Time_{M_=,(1,1)}=3\).  The same trace with
 work/output bit zero gives \(M_{=}(0,1)=0\).
+The tape-by-tape rendering in Figure~\ref{fig:eq-machine-trace} keeps every
+scanned location visible through the full run.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-eq-machine-trace}
+\caption{Four time rows track the \(A,B,W,O\) tapes of \(M_=\), with amber cells and triangles marking every scanned symbol and head.  The rule labels expose why equal inputs produce output one and reach \(q_{\mathrm h}\) after exactly three transitions.}
+\label{fig:eq-machine-trace}
+\end{figure}
 
 \paragraph{Why this matters here.}
 The example is intentionally mundane: a paper verifier is just a much larger
@@ -168,6 +230,15 @@ Here \(n\) is an index written in binary, \(x,y\) are the two questions, and
 five-tuple.  Its paper-level time at index \(n\) is the worst case over the
 other four strings.  A normal-form verifier is a pair \(V=(S,D)\), where the
 sampler \(S\) produces the questions and \(D\) checks the answers.
+Figure~\ref{fig:verifier-normal-form} draws that interface without bundling
+away any of the decider's five inputs.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-verifier-normal-form}
+\caption{The sampler sends \(x,y\) to the two provers, while the total decider receives the copied questions together with \(n\) and returned answers \(a,b\).  This five-port interface is the normal form preserved by the later source transformations.}
+\label{fig:verifier-normal-form}
+\end{figure}
 
 \paragraph{Why this matters here.}
 The five inputs are not later bundled by sleight of hand.  When we translate a
@@ -198,6 +269,15 @@ useful physics analogy is that a description is like a written Hamiltonian,
 not its spectrum.  The actual definition is the serialized state set and
 transition table, and an algorithm may inspect those bits without solving the
 machine's behavior.
+Figure~\ref{fig:description-bits} makes the syntax--behavior distinction
+concrete for the five-row equality machine.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-description-bits}
+\caption{A prefix-free strip stores the state alphabet and all five transition rows of \(M_=\), with field boundaries remaining available to a parser.  Like a written Hamiltonian rather than its spectrum, \(\langle M_=\rangle\) records finite syntax rather than the machine's full behavior.}
+\label{fig:description-bits}
+\end{figure}
 
 \paragraph{Why this matters here.}
 The size bound \(|V|\leq\lambda\) constrains the verifier's source code, not
@@ -210,6 +290,14 @@ The code of \(M_=\) contains tags for the three states and the five rows above.
 A compiler can prepend a wrapper saying ``run this code, but reject after
 three simulated steps.''  It produces new finite code without having to
 decide any semantic property of \(M_=\).
+The compilation itself is drawn in Figure~\ref{fig:timeout-wrapper}.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-timeout-wrapper}
+\caption{The compiler copies \(\langle M_=\rangle\) beside a literal three-step counter whose exhausted branch rejects.  Producing this bounded wrapper is a terminating syntactic operation and never requires deciding the wrapped machine's unbounded behavior.}
+\label{fig:timeout-wrapper}
+\end{figure}
 
 A verifier description is the ordered pair
 \(\langle V\rangle=(\langle S\rangle,\langle D\rangle)\).  In
@@ -245,6 +333,15 @@ there are universal constants \(C_U,c_U\geq1\) such that a \(T\)-step run of a
 \]
 No particular exponent is sacred.  What matters is that the overhead is one
 fixed polynomial after the encodings have been fixed.
+Figure~\ref{fig:universal-machine} exposes the read--lookup--update loop behind
+this quantitative simulation statement.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-universal-machine}
+\caption{The fixed control of \(U_k\) alternates between a read-only program region and the encoded simulated configuration, matching one \(\delta\)-row before each update.  Iterating this real lookup loop yields the single fixed-polynomial overhead used by generated verifiers.}
+\label{fig:universal-machine}
+\end{figure}
 
 \paragraph{Why this matters here.}
 Generated verifiers call old verifiers as subroutines.  Their finite source
@@ -275,6 +372,15 @@ Print a wrapper containing one literal copy of \(e,z_1,\ldots,z_r\).  On input
 \(x\), the wrapper forms the tuple
 \((e,z_1,\ldots,z_r,x)\) and invokes the universal machine; printing this
 wrapper is itself a terminating, effective source transformation.
+Figure~\ref{fig:smn} shows exactly which slots become source literals and
+which remain live ports.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-smn}
+\caption{The \(s_{r,k}\) compiler moves \(e,z_1,\ldots,z_r\) into a literal byte region while preserving \(x_1,\ldots,x_k\) as run-time inputs.  The resulting wrapper realizes parameter fixing by one finite source transformation followed by universal simulation.}
+\label{fig:smn}
+\end{figure}
 
 \paragraph{Why this matters here.}
 Hardwiring is the bridge from ``this value is supplied at run time'' to ``this
@@ -317,6 +423,16 @@ that \(D(d)\) halts; but Step 3 says that it loops forever.  The two possible
 output bits both yield contradictions.  Therefore no such total \(H\) exists.
 \end{proof}
 
+Figure~\ref{fig:diagonal} places the two contradictory cases directly beside
+the self-input entry that \(D\) flips.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-diagonal}
+\caption{The amber diagonal specializes \(H(e,x)\) to self-inputs, and \(D\) reverses the highlighted value \(H(d,d)\).  Both possible bits terminate in a red contradiction, so no total table-filling decider \(H\) can exist.}
+\label{fig:diagonal}
+\end{figure}
+
 This proof does not say that a particular long run can never be understood.
 It says there is no single terminating algorithm which answers the halting
 question correctly for every program-description/input pair.
@@ -335,6 +451,16 @@ For a fixed \(M,x\), simulate one more step at each stage \(t=0,1,2,\ldots\).
 If \(M(x)\) halts after \(T\) steps, stage \(T\) witnesses it.  If it never
 halts, this search itself never returns.  That one-sided behavior is the
 ``RE'' side of the theorem's computability interface.
+
+Figure~\ref{fig:semidecision} separates the finite yes-witness from the
+deliberately absent no-return.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-semidecision}
+\caption{Stage \(T\) supplies a finite halting witness on the upper timeline, while the lower search extends forever without producing a negative answer.  This asymmetric stopping behavior is exactly the recursively enumerable interface used by the Halting verifier.}
+\label{fig:semidecision}
+\end{figure}
 
 \section{Programs which obtain their own descriptions}
 \label{sec:refresher-kleene}
@@ -363,6 +489,15 @@ may depend on that very description.
 Every total computable transformation \(Q\) of \(k\)-input program codes has
 an effectively constructible behavioral fixed point \(e_Q\).
 \end{theorem}
+The self-specialization square and its four equalities are laid out in
+Figure~\ref{fig:kleene-square}.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-kleene-square}
+\caption{Two literal copies of \(p\) enter specialization to create \(e_Q=s(p,p)\), whose run follows the five expressions joined by four amber equalities.  The commuting construction turns apparent circularity into finite code generation plus ordinary universal simulation.}
+\label{fig:kleene-square}
+\end{figure}
 
 \begin{proof}
 Use parameter fixing for one static and \(k\) live arguments.  Write \(s(z,w)\)
@@ -408,6 +543,14 @@ wrapper.  Its fixed point \(e_Q\) satisfies
 \(\varphi_{e_Q}=\varphi_{Q(e_Q)}\), so running \(e_Q\) prints \(e_Q\) itself.
 The theorem has built a quine without requiring the source printer to know its
 own final address in advance.
+Figure~\ref{fig:quine} traces the identical finite string from code to output.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-quine}
+\caption{Specializing the source printer at its own generated code produces \(e_Q\), whose output tape contains the same finite description \(\langle e_Q\rangle\).  The returning amber arrow emphasizes behavioral self-reproduction without requiring a source string of infinite regress.}
+\label{fig:quine}
+\end{figure}
 
 \subsection{The paper's
 \texorpdfstring{\(\mathcal F(\mathcal F,M,L,\ldots)\)}
@@ -418,7 +561,8 @@ eight-input machine
 \[
  \mathcal F(f,m,L,n,x,y,a,b).
 \]
-Its first action is a computable source transformation: hardwire
+After its initial \(n\)-step simulation has not halted, its first source action
+is computable: hardwire
 \((f,m,L)\) into the first three slots of \(\mathcal F\)'s template, obtaining
 a five-input decider description \(d\).  It pairs \(d\) with a sampler
 description, invokes \(\Compress\) on that verifier description, and runs the
@@ -429,6 +573,15 @@ resulting decider on \((n,x,y,a,b)\).  The published call is
 After the first three arguments have been fixed, the produced \(d\) is exactly
 the description of the five-input program currently being run.  Hence the
 verifier passed to \(\Compress\) contains its own decider code.
+Figure~\ref{fig:halt-f-construction} follows both the bounded-halting shortcut
+and the complete feedback path through \(\Compress\).
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-halt-f-construction}
+\caption{The eight-input machine first accepts a witnessed \(n\)-step halt; otherwise it hardwires \((f,m,L)\), feeds the resulting self-code \(d\) into \((S_L,d)\), compresses, and runs the returned decider.  Green boxes are executed source operations while the dashed slate box is the cited game-theoretic guarantee (after \code{fig:halt_f}).}
+\label{fig:halt-f-construction}
+\end{figure}
 
 \paragraph{Why this matters here.}
 This is Kleene's construction with the diagonal substitution exposed as
@@ -450,4 +603,3 @@ Substituting \(f=\langle\mathcal F\rangle\) gives
 \]
 which is the recursion-theorem equation with the compiler operation written
 out rather than hidden under the symbol \(s\).
-

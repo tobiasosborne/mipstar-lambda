@@ -1,0 +1,14 @@
+\begin{tikzpicture}[level distance=9mm,
+  level 1/.style={sibling distance=25mm},
+  level 2/.style={sibling distance=16mm},
+  level 3/.style={sibling distance=12mm}]
+  \node[tnode] (c1) {$C$}
+    child[tedge] {node[tleaf] {$A$}}
+    child[tedge] {node[tnode] (c2) {$C$}
+      child[tedge] {node[tleaf] {$B$}}
+      child[tedge] {node[tleaf,draw=focus,line width=1pt] (z) {$Z$}}
+    };
+  \node[stage,draw=term,left=22mm of c1] (list) {$[A,B]\;C\;Z$};
+  \draw[beta] (list.east) -- node[xformlbl] {fold} (c1.west);
+  \node[lbl,below=3mm of z] {right-associated tail};
+\end{tikzpicture}

@@ -1,0 +1,70 @@
+\begin{tikzpicture}
+  \matrix (trace) [matrix of nodes,
+    nodes={cell, anchor=center},
+    row sep=3.2mm,
+    column sep=-\pgflinewidth,
+    ampersand replacement=\&] {
+    |[draw=none,fill=none,lblsm]| time \&
+    |[draw=none,fill=none,lblsm]| state \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $A_0$ \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $A_1$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $B_0$ \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $B_1$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $W_0$ \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $W_1$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $O_0$ \&
+    |[draw=none,fill=none,tapelbl,anchor=center]| $O_1$ \&
+    |[draw=none,fill=none,lblsm,minimum width=28mm,anchor=west]| rule used \\
+    |[draw=none,fill=none,lblsm]| $t=0$ \&
+    |[state initial]| $q_0$ \&
+    |[cell head]| $1$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $1$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $\sqcup$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $\sqcup$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,lblsm,minimum width=28mm,anchor=west]| equal-input row \\
+    |[draw=none,fill=none,lblsm]| $t=1$ \&
+    |[state]| $q_1$ \&
+    |[cell]| $1$ \& |[cell head]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell]| $1$ \& |[cell head]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $1$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $\sqcup$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,lblsm,minimum width=28mm,anchor=west]| copy row, $r=1$ \\
+    |[draw=none,fill=none,lblsm]| $t=2$ \&
+    |[state initial]| $q_0$ \&
+    |[cell]| $1$ \& |[cell head]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell]| $1$ \& |[cell head]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $1$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $1$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,lblsm,minimum width=28mm,anchor=west]| halt row, $r=1$ \\
+    |[draw=none,fill=none,lblsm]| $t=3$ \&
+    |[state halt]| $q_{\mathrm h}$ \&
+    |[cell]| $1$ \& |[cell head]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell]| $1$ \& |[cell head]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $1$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,minimum width=2.5mm]| \&
+    |[cell head]| $1$ \& |[cell blank]| $\sqcup$ \&
+    |[draw=none,fill=none,lblsm,minimum width=28mm,anchor=west]| halted \\
+  };
+  \foreach \r/\c in {2/3,2/6,2/9,2/12,3/4,3/7,3/9,3/12,
+                     4/4,4/7,4/9,4/12,5/4,5/7,5/9,5/12}
+    \node[head, below=.5mm of trace-\r-\c] {};
+  \draw[brace] ([xshift=-3mm]trace-2-1.north west) --
+    ([xshift=-3mm]trace-5-1.south west)
+    node[midway, left=4mm, lblsm, align=right] {three\\transitions};
+  \node[checked, below=5mm of trace-5-9, minimum width=47mm]
+    {$M_{=}(1,1)=1\qquad \Time_{M_=,(1,1)}=3$};
+\end{tikzpicture}

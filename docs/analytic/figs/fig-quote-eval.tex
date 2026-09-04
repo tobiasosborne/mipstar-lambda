@@ -1,0 +1,21 @@
+\begin{tikzpicture}
+  \node[descbox, minimum width=30mm] (bytes) {$d=\operatorname{ser}(t)$\\[-1pt]\scriptsize canonical bytes};
+  \node[checked, right=8mm of bytes, minimum width=35mm] (decode)
+    {check $+$ decode\\[-1pt]\scriptsize $h(d,u)=3+|d|+|\operatorname{enc}(u)|$};
+  \node[closure, right=8mm of decode, minimum width=27mm] (c0) {$C_0(t,u;f)$};
+  \node[closure, right=7mm of c0] (c1) {$C_1$};
+  \node[closure, right=7mm of c1] (cc) {$\cdots$};
+  \node[checked, right=7mm of cc] (R) {$R$};
+  \draw[quote] (bytes)--(decode);
+  \draw[xform] (decode)--(c0);
+  \draw[beta] (c0)--(c1); \draw[beta] (c1)--(cc); \draw[beta] (cc)--(R);
+  \node[tnode, below=18mm of bytes] (term) {$t$};
+  \node[closure, right=53mm of term, minimum width=27mm] (d0) {$C_0(t,u;f)$};
+  \node[closure, right=7mm of d0] (d1) {$C_1$};
+  \node[closure, right=7mm of d1] (dc) {$\cdots$};
+  \node[checked, right=7mm of dc] (dR) {$R$};
+  \draw[beta] (term)--node[above,lblsm] {direct Apply} (d0);
+  \draw[beta] (d0)--(d1); \draw[beta] (d1)--(dc); \draw[beta] (dc)--(dR);
+  \draw[callout,dashed] (c0)--node[right,lblsm] {identical state} (d0);
+  \draw[callout,dashed] (c1)--(d1); \draw[callout,dashed] (R)--(dR);
+\end{tikzpicture}

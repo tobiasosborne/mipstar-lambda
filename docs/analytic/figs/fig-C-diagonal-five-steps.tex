@@ -1,0 +1,22 @@
+\begin{tikzpicture}
+  \matrix (steps) [matrix of nodes, row sep=2.5mm,
+    nodes={checked,minimum width=105mm,anchor=center}] {
+    \node (s1) {1.\ run \(\mathcal M\) for \(n\) steps
+      \(\quad\overset{\mathsf{halts}}{\longrightarrow}\quad\) \textbf{accept}};\\
+    \node (s2) {2.\ hardwire \((\overline{\mathcal F},\overline M,L)\)
+      \(\quad\longrightarrow\quad\overline D\)};\\
+    \node (s3) {3.\ \(\overline S=\ComputeSampler(L)\)};\\
+    \node (s4) {4.\ \(\overline{V^{\rm compr}}=
+      \Compress((\overline S,\overline D),L)\)};\\
+    \node (s5) {5.\ run \(D^{\rm compr}(n,x,y,a,b)\)};\\
+  };
+  \foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5} {
+    \draw[xform] (\a)--(\b);
+  }
+  \node[redex, left=5mm of s2] (self) {\(\overline{\mathcal F}\)};
+  \draw[quote] (self)--(s2);
+  \node[citedbox, right=6mm of s4, text width=24mm] (cite)
+    {\textsf{CITED}\\compression theorem};
+  \draw[callout] (s4.east)--(cite.west);
+  \node[tag focus, right=4mm of s1] {EARLY HALT BRANCH};
+\end{tikzpicture}

@@ -1,0 +1,14 @@
+\begin{tikzpicture}[node distance=4mm]
+  \matrix (B) [matrix of nodes,column sep=2mm,
+    nodes={descbox,minimum width=2.1cm,minimum height=8mm}] {
+    |[descbox,fill=termlt,draw=term]| $a_{i_1}^{o_1}$ &
+    |[descbox,fill=termlt,draw=term]| $b_{i_2}^{o_2}$ &
+    |[descbox]| $(u_3)_{i_3}^{o_3}$ &
+    |[descbox]| $(u_4)_{i_4}^{o_4}$ &
+    |[descbox]| $(u_5)_{i_5}^{o_5}$ \\
+  };
+  \node[checked,below=6mm of B,minimum width=9.2cm] (clause)
+    {one five-literal clause: exactly one addressed bit from each block};
+  \foreach \i in {1,...,5}{\draw[xform] (B-1-\i.south) -- (clause.north);}
+  \node[tag focus,right=3mm of clause] {NO SHARED READ};
+\end{tikzpicture}

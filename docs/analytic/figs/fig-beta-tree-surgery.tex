@@ -1,0 +1,26 @@
+\begin{tikzpicture}[node distance=8mm and 9mm]
+  \node[redex] (at) {$@$};
+  \node[tnode,below left=8mm and 10mm of at] (lam) {$\lambda x$};
+  \node[tleaf,below=7mm of lam] (tbody) {$t$};
+  \node[tleaf,below left=7mm and 5mm of tbody] (xone) {$x$};
+  \node[tleaf,below right=7mm and 5mm of tbody] (xtwo) {$x$};
+  \node[tnode,below right=8mm and 10mm of at] (u) {$u$};
+  \draw[tedge] (at)--(lam) (at)--(u) (lam)--(tbody)
+    (tbody)--(xone) (tbody)--(xtwo);
+  \draw[bind] (lam.west) to[bend right=44] (xone.west);
+  \draw[bind] (lam.east) to[bend left=44] (xtwo.east);
+  \node[tag focus,above=2mm of at] {REDEX};
+
+  \node[tleaf,right=43mm of at] (tout) {$t$};
+  \node[tnode,below left=13mm and 7mm of tout] (uone) {$u$};
+  \node[tnode,below right=13mm and 7mm of tout] (utwo) {$u$};
+  \draw[tedge] (tout)--(uone) (tout)--(utwo);
+  \node[lbl,above=2mm of tout] {$t[x:=u]$};
+  \draw[beta] (at.east) -- node[xformlbl] {$\beta$} (tout.west);
+  \draw[quote] (u.east) to[bend right=20] (uone.west);
+  \node[lblsm,below=2mm of u] {copy $u$ to each free $x$};
+  \begin{scope}[on background layer]
+    \node[panel,fit=(at)(xone)(u)(xtwo),inner sep=4mm] {};
+    \node[panel,fit=(tout)(uone)(utwo),inner sep=4mm] {};
+  \end{scope}
+\end{tikzpicture}

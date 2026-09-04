@@ -1,0 +1,33 @@
+\begin{tikzpicture}[node distance=6mm and 8mm]
+  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries] (yeslabel)
+    {IF \(M(x)\) HALTS};
+  \node[config, below=3mm of yeslabel] (y0) {$t=0$};
+  \node[config, right=of y0] (y1) {$t=1$};
+  \node[config, right=of y1] (y2) {$t=2$};
+  \node[lbl, right=of y2] (ydots) {$\cdots$};
+  \node[config, right=of ydots] (ytm) {$t=T-1$};
+  \node[checked, right=of ytm, fill=focuslt, draw=focus, minimum width=29mm] (witness)
+    {$t=T$\\halt witnessed};
+  \foreach \a/\b in {y0/y1,y1/y2,y2/ydots,ydots/ytm,ytm/witness}
+    \draw[->, machine, line width=.8pt] (\a) -- (\b);
+
+  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries,
+        below=18mm of y0.south, anchor=west] (nolabel)
+    {IF \(M(x)\) NEVER HALTS};
+  \node[config, below=3mm of nolabel] (n0) {$t=0$};
+  \node[config, right=of n0] (n1) {$t=1$};
+  \node[config, right=of n1] (n2) {$t=2$};
+  \node[lbl, right=of n2] (ndots) {$\cdots$};
+  \node[config, right=of ndots] (nt) {$t$};
+  \node[config, right=of nt] (ntp) {$t+1$};
+  \node[lbl, right=of ntp, text=machine] (more) {$\cdots$};
+  \foreach \a/\b in {n0/n1,n1/n2,n2/ndots,ndots/nt,nt/ntp,ntp/more}
+    \draw[->, machine, line width=.8pt] (\a) -- (\b);
+  \draw[->, machine, line width=.8pt, opacity=.55] (more) -- ++(17mm,0);
+  \node[bad, rounded corners=2pt, below=5mm of ntp, text width=32mm,
+        align=center, inner sep=4pt, font=\scriptsize\sffamily] (return)
+    {the search has no negative return};
+  \draw[callout] (return) -- (ntp);
+  \node[descbox, below=16mm of ndots, minimum width=85mm] (re)
+    {recursively enumerable: a finite accepting witness exists exactly on the yes side};
+\end{tikzpicture}

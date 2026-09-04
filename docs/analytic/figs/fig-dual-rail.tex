@@ -1,0 +1,49 @@
+\begin{tikzpicture}
+  \node[panel, minimum width=.96\linewidth, minimum height=30mm] (p) {};
+  \node[panel title] at ([xshift=2mm,yshift=-2mm]p.north west)
+    {FIVE COMPONENTS BECOME ONE SELF-DELIMITING TAPE};
+  \matrix (plain) [matrix of nodes, nodes={descbox, inner sep=3pt},
+    column sep=3mm, anchor=north] at ([yshift=-7mm]p.north) {
+    $\operatorname{bin}(n)=10$ & $x=0$ & $y=1$ & $a=10$ & $b=01$ \\
+  };
+  \node[lblsm, text=desc, below=1mm of plain] {$0\mapsto 01\qquad 1\mapsto10\qquad \text{end component}\mapsto00$};
+  \begin{scope}[start chain=going right, node distance=0pt]
+    \node[tapelbl, on chain] (tl) at ([xshift=5mm,yshift=-3mm]p.west) {$\operatorname{enc}_5$};
+    \node[cell, minimum width=4.4mm, on chain] (e1) {1};
+    \node[cell, minimum width=4.4mm, on chain] (e2) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e3) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e4) {1};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e5) {0};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e6) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e7) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e8) {1};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e9) {0};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e10) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e11) {1};
+    \node[cell, minimum width=4.4mm, on chain] (e12) {0};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e13) {0};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e14) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e15) {1};
+    \node[cell, minimum width=4.4mm, on chain] (e16) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e17) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e18) {1};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e19) {0};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e20) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e21) {0};
+    \node[cell, minimum width=4.4mm, on chain] (e22) {1};
+    \node[cell, minimum width=4.4mm, on chain] (e23) {1};
+    \node[cell, minimum width=4.4mm, on chain] (e24) {0};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e25) {0};
+    \node[cell, minimum width=4.4mm, fill=focuslt, draw=focus, on chain] (e26) {0};
+  \end{scope}
+  \draw[brace] ([yshift=-1mm]e1.south west) -- ([yshift=-1mm]e6.south east)
+    node[midway,below=3mm,lblsm] {$\operatorname{bin}(n)$};
+  \draw[brace] ([yshift=-1mm]e7.south west) -- ([yshift=-1mm]e10.south east)
+    node[midway,below=3mm,lblsm] {$x$};
+  \draw[brace] ([yshift=-1mm]e11.south west) -- ([yshift=-1mm]e14.south east)
+    node[midway,below=3mm,lblsm] {$y$};
+  \draw[brace] ([yshift=-1mm]e15.south west) -- ([yshift=-1mm]e20.south east)
+    node[midway,below=3mm,lblsm] {$a$};
+  \draw[brace] ([yshift=-1mm]e21.south west) -- ([yshift=-1mm]e26.south east)
+    node[midway,below=3mm,lblsm] {$b$};
+\end{tikzpicture}

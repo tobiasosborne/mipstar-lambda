@@ -1,0 +1,21 @@
+\begin{tikzpicture}[node distance=8mm and 10mm]
+  \node[tnode] (lam) {$\mathsf{Lambda}$};
+  \node[tleaf,below=8mm of lam] (var) {$\mathsf{BoundVar}(0)$};
+  \draw[tedge] (lam)--(var);
+  \node[lbl,above=2mm of lam] {canonical syntax tree};
+
+  \node[bytes,right=25mm of lam] (btag) {$\mathrm{tag}_{\lambda}$};
+  \node[bytes,right=0pt of btag] (vtag) {$\mathrm{tag}_{\rm var}$};
+  \node[bytes,right=0pt of vtag] (idx) {$\nu(0)$};
+  \node[byteslbl,below=2mm of vtag] {prefix-free fields of $\operatorname{ser}(t)$};
+  \draw[quote] (lam.east) -- node[lblsm,above] {quote} (btag.west);
+
+  \node[stage,draw=desc,below=13mm of btag] (eval) {evaluator $+$ argument $A$};
+  \node[tleaf,right=10mm of eval,draw=focus,line width=1pt] (aval) {$A$};
+  \draw[beta] (eval)--node[lblsm,above] {evaluate}(aval);
+  \node[stage,draw=desc,below=8mm of eval] (copy) {copy bytes};
+  \node[descbox,right=10mm of copy] (code) {$\operatorname{ser}(t)$};
+  \draw[quote] (copy)--node[lblsm,above] {reproduce code}(code);
+  \draw[xform] ($(btag.south)!0.5!(idx.south)$) |- (eval.north);
+  \draw[xform] ($(btag.south)!0.5!(idx.south)$) |- (copy.north);
+\end{tikzpicture}

@@ -1,0 +1,17 @@
+\begin{tikzpicture}[node distance=7mm and 12mm]
+  \node[stage] (src) {$ (\lambda x.\lambda y.x)\;y $};
+  \node[lbl,left=2mm of src] {free argument};
+
+  \node[stage,bad,below left=12mm and 10mm of src] (wrong) {$\lambda y.y$};
+  \draw[->,bad,line width=.9pt] (src) -- node[lblsm,left,text=bad]
+    {naive substitution} (wrong);
+  \node[tag focus,below=2mm of wrong,text=bad] {CAPTURED};
+
+  \node[stage,below right=10mm and 8mm of src] (alpha)
+    {$ (\lambda x.\lambda z.x)\;y $};
+  \node[stage,below=8mm of alpha] (good) {$\lambda z.y$};
+  \draw[beta] (src) -- node[lblsm,right] {$=_\alpha$} (alpha);
+  \draw[beta] (alpha) -- node[lblsm,right] {$\beta$} (good);
+  \node[tag check,below=2mm of good] {FREE $y$ SURVIVES};
+  \node[draw=focus,rounded corners=1pt,fit=(alpha),inner sep=1pt] {};
+\end{tikzpicture}

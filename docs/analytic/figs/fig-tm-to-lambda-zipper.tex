@@ -1,0 +1,30 @@
+\begin{tikzpicture}[node distance=7mm and 9mm]
+  \node[lbl,text=machine] (beforelbl) {tape before: $(L,s,R)$};
+  \matrix (before) [matrix of nodes,below=2mm of beforelbl,
+    column sep=-\pgflinewidth,nodes in empty cells] {
+    |[cell blank]| $\sqcup$ & |[cell]| $a$ & |[cell]| $b$ &
+    |[cell head]| $s$ & |[cell]| $c$ & |[cell]| $d$ & |[cell blank]| $\sqcup$ \\
+  };
+  \node[head,below=1mm of before-1-4] {};
+  \node[lblsm,below=5mm of before-1-2] {$L=[b,a,\ldots]$};
+  \node[lblsm,below=5mm of before-1-4] {focus $s$};
+  \node[lblsm,below=5mm of before-1-6] {$R=[c,d,\ldots]$};
+
+  \node[lbl,text=machine,right=18mm of beforelbl] (afterlbl)
+    {move right: $(s{:}L,c,R')$};
+  \matrix (after) [matrix of nodes,below=2mm of afterlbl,
+    column sep=-\pgflinewidth,nodes in empty cells] {
+    |[cell blank]| $\sqcup$ & |[cell]| $a$ & |[cell]| $b$ &
+    |[cell]| $s$ & |[cell head]| $c$ & |[cell]| $d$ & |[cell blank]| $\sqcup$ \\
+  };
+  \node[head,below=1mm of after-1-5] {};
+  \draw[->,machine,line width=1pt] (before.east) -- (after.west);
+
+  \node[descbox,below=14mm of $(before.south)!0.5!(after.south)$] (table)
+    {hardwired $\langle M\rangle$\\[-1pt]\scriptsize lookup $(q,s)\mapsto(q',s',D)$};
+  \node[stage,draw=term,left=13mm of table] (cfg) {configuration tuple};
+  \node[stage,draw=term,right=13mm of table] (next) {next tuple};
+  \draw[xform] (cfg)--node[xformlbl] {read view}(table);
+  \draw[xform] (table)--node[xformlbl] {list update}(next);
+  \draw[beta] (next.south) to[bend left=26] node[lblsm,below] {fixed recursive loop} (cfg.south);
+\end{tikzpicture}

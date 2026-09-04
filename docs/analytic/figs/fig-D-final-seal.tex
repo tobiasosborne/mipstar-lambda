@@ -1,0 +1,12 @@
+\begin{tikzpicture}[node distance=5mm]
+  \node[descbox,fill=focuslt,draw=focus,minimum width=4.0cm] (fixed)
+    {$D_{M,L}=\operatorname{YCode}(\Psi_{M,L})$};
+  \node[citedbox,right=of fixed,minimum width=3.2cm] (ldt) {low-degree\\soundness};
+  \node[citedbox,right=of ldt,minimum width=3.2cm] (rigid) {rigidity /\\oracularization};
+  \node[citedbox,right=of rigid,minimum width=3.2cm] (gap) {gap-preserving\\compression};
+  \draw[xform,dashed,cited] (fixed) -- (ldt);
+  \draw[xform,dashed,cited] (ldt) -- (rigid);
+  \draw[xform,dashed,cited] (rigid) -- (gap);
+  \node[tag cited,below=2mm of $(ldt.south)!0.5!(rigid.south)$]
+    {SELF-REFERENCE IS CLOSED; ANALYTIC LEAVES REMAIN OPEN};
+\end{tikzpicture}

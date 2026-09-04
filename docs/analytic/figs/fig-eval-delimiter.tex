@@ -1,0 +1,22 @@
+\begin{tikzpicture}
+  \node[closure, minimum width=111mm, minimum height=31mm] (ambient) {};
+  \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]ambient.north west)
+    {AMBIENT RUN: budget $f$};
+  \node[draw=term,fill=white,rounded corners=2pt,minimum width=82mm,minimum height=18mm,
+    below=7mm of ambient.north] (inner) {};
+  \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]inner.north west)
+    {EVAL DELIMITER: requested budget $F$};
+  \matrix (ticks) [matrix of nodes, nodes={fuel,minimum width=13mm},
+    column sep=4mm] at (inner.center) {
+    \node (i0) {$F$}; & \node (i1) {$F-1$}; & \node (i2) {$F-2$}; &
+    \node (id) {$\cdots$}; & \node (ik) {$F-k$}; \\
+  };
+  \foreach \a/\b in {i0/i1,i1/i2,i2/id,id/ik} {\draw[beta] (\a)--(\b);}
+  \matrix (outerticks) [matrix of nodes, nodes={lblsm,text=term},column sep=10mm,
+    below=3mm of ambient] {
+    $f-2$ & $f-3$ & $f-4$ & $\cdots$ & $f-2-k$ \\
+  };
+  \node[tag focus, above=2mm of ambient] {INSTALL $+$ REMOVE COST TWO};
+  \draw[brace] ([xshift=3mm]ambient.south west)--([xshift=-3mm]ambient.south east)
+    node[midway,below=4mm,lbl] {each inner microstep decrements both counters};
+\end{tikzpicture}

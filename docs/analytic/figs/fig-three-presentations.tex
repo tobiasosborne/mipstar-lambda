@@ -1,0 +1,19 @@
+\begin{tikzpicture}
+  \node[ctrl, minimum width=58mm] (paper)
+    {$\mathcal F(\overline{\mathcal F},\overline M,L,n,x,y,a,b)$\\[-1pt]
+     \scriptsize published eight-input presentation};
+  \node[descbox, below=30mm of paper, xshift=-43mm, minimum width=48mm] (kleene)
+    {$e_Q=s(p,p)$\\[-1pt]\scriptsize Kleene fixed point};
+  \node[closure, below=30mm of paper, xshift=43mm, minimum width=48mm] (ycode)
+    {$D_{M,L}=\operatorname{YCode}(\Psi_{M,L})$\\[-1pt]\scriptsize IR fixed point};
+  \draw[<->,desc,line width=1pt] (paper)--node[pos=.72,sloped,above,lblsm,text=desc]
+    {hardwire} (kleene);
+  \draw[<->,ink,line width=1pt] (paper)--node[pos=.72,sloped,above,lblsm]
+    {translate} (ycode);
+  \draw[<->,term,line width=1pt] (kleene)--node[below,lblsm,text=term]
+    {same self-code substitution} (ycode);
+  \node[checked, below=7mm of paper, text width=54mm]
+    {same partial function on \((n,x,y,a,b)\)};
+  \node[descbox, below=8mm of kleene, xshift=38mm, minimum width=91mm]
+    {all three sizes are \(O(|M|+\log L+1)\)};
+\end{tikzpicture}

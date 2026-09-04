@@ -1,0 +1,32 @@
+\begin{tikzpicture}[node distance=8mm and 0mm]
+  \node[descbox, minimum width=20mm, minimum height=13mm] (machine)
+    {$M_=$\\[-1pt]\scriptsize three states, five rows};
+  \node[bytes, right=13mm of machine, minimum width=14mm] (qbits) {001\,11};
+  \node[bytes, right=0pt of qbits, minimum width=14mm] (gbits) {010\,01};
+  \node[bytes, right=0pt of gbits, minimum width=15mm] (d1) {00\,1101};
+  \node[bytes, right=0pt of d1, minimum width=15mm] (d2) {01\,0011};
+  \node[bytes, right=0pt of d2, minimum width=15mm] (d3) {10\,1010};
+  \node[bytes, right=0pt of d3, minimum width=15mm] (d4) {11\,0110};
+  \node[bytes, right=0pt of d4, minimum width=15mm] (d5) {00\,0001};
+  \draw[quote] (machine) -- node[lblsm, above, text=desc] {serialize} (qbits);
+  \node[byteslbl, below=2mm of qbits] {$Q$};
+  \node[byteslbl, below=2mm of gbits] {$\Gamma$};
+  \node[byteslbl, below=2mm of d1] {$\delta_1$};
+  \node[byteslbl, below=2mm of d2] {$\delta_2$};
+  \node[byteslbl, below=2mm of d3] {$\delta_3$};
+  \node[byteslbl, below=2mm of d4] {$\delta_4$};
+  \node[byteslbl, below=2mm of d5] {$\delta_5$};
+  \draw[brace] ([yshift=9mm]qbits.north west) -- ([yshift=9mm]d5.north east)
+    node[midway, above=4mm, lbl, text=desc] {prefix-free $\langle M_=\rangle$};
+
+  \node[descbox, below=19mm of d2, xshift=-21mm, text width=43mm] (ham)
+    {written Hamiltonian\\[-1pt]\scriptsize finite coefficients};
+  \node[bad, rounded corners=2pt, right=18mm of ham, text width=43mm,
+        align=center, inner sep=5pt] (spectrum)
+    {spectrum\\[-1pt]\scriptsize full behavior};
+  \draw[xform] (d2.south) -- (ham.north);
+  \draw[bad, line width=1.1pt] ([xshift=-4mm]spectrum.west) --
+    ([xshift=4mm]spectrum.east);
+  \node[lblsm, below=3mm of ham] {syntax available to an algorithm};
+  \node[lblsm, below=3mm of spectrum, text=bad] {not encoded extensionally};
+\end{tikzpicture}

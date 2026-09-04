@@ -1,0 +1,23 @@
+\begin{tikzpicture}
+  \node[ctrl, minimum width=25mm, minimum height=31mm] (D) {$D$\\[-1pt]\scriptsize five-input decider};
+  \foreach \yy/\lab/\a/\b/\c in {16/$n$/1/0/1,8/$x$/0/1/{\sqcup},0/$y$/1/1/0,-8/$a$/0/0/1,-16/$b$/1/0/{\sqcup}} {
+    \begin{scope}[start chain=going right,node distance=0pt]
+      \node[tapelbl,on chain] (l\yy) at ([xshift=-65mm,yshift=\yy mm]D.center) {\lab};
+      \node[cell head,on chain] (h\yy) {$\a$};
+      \node[cell,on chain] {$\b$};
+      \node[cell,on chain] {$\c$};
+      \node[cell blank,on chain] {$\sqcup$};
+    \end{scope}
+    \node[head,below=1mm of h\yy] {};
+    \draw[->,machine,line width=.7pt] ([xshift=1mm]h\yy.east) -- (D.west|-h\yy.east);
+  }
+  \begin{scope}[start chain=going right,node distance=0pt]
+    \node[tapelbl,on chain] (ol) at ([xshift=22mm]D.east) {output};
+    \node[cell head,on chain] (o1) {1};
+    \node[cell blank,on chain] {$\sqcup$};
+    \node[cell blank,on chain] {$\sqcup$};
+  \end{scope}
+  \node[head,below=1mm of o1] {};
+  \draw[->,machine,line width=.8pt] (D.east)--(ol.west);
+  \node[checked, below=7mm of D, xshift=41mm] {halts with exactly one bit};
+\end{tikzpicture}

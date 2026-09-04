@@ -1,0 +1,21 @@
+\begin{tikzpicture}
+  \matrix (r) [matrix of nodes, row sep=2.5mm, column sep=11mm,
+    nodes in empty cells, nodes={anchor=west}] {
+    \node[closure, minimum width=42mm] (clo) {closure\\[-1pt]\scriptsize body pointer (+eta)}; &
+      \node[stage, minimum width=72mm] (cloc) {evaluator only}; \\
+    \node[descbox, minimum width=42mm] (quo) {quoted syntax\\[-1pt]\scriptsize canonical bytes}; &
+      \node[stage, minimum width=72mm] (quoc) {Eval \(\cdot\) specializer \(\cdot\) compiler \(\cdot\) \(\Compress\)}; \\
+    \node[descbox, minimum width=42mm] (cir) {Boolean circuit\\[-1pt]\scriptsize finite named DAG}; &
+      \node[stage, minimum width=72mm] (circ) {succinct-clause evaluator \(\cdot\) Tseitin}; \\
+    \node[ctrl, minimum width=42mm] (uni) {$U_{\mathcal L}$\\[-1pt]\scriptsize fixed evaluator}; &
+      \node[stage, minimum width=72mm] (unic) {timeouts \(\cdot\) bounded traces}; \\
+    \node[descbox, minimum width=42mm] (spe) {Specialize result\\[-1pt]\scriptsize rewritten syntax}; &
+      \node[stage, minimum width=72mm] (spec) {source transformations}; \\
+  };
+  \foreach \a/\b in {clo/cloc,quo/quoc,cir/circ,uni/unic,spe/spec}
+    \draw[xform] (\a.east)--(\b.west);
+  \node[lbl, rotate=90, left=3mm of r] {representation};
+  \node[lbl, above=2mm of cloc] {legitimate consumer};
+  \node[bad, rounded corners=2pt, inner sep=3pt, below=3mm of r]
+    {A runtime closure is not project bytes; source consumers require canonical syntax.};
+\end{tikzpicture}

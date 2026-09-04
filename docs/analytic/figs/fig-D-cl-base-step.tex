@@ -1,0 +1,13 @@
+\begin{tikzpicture}[node distance=5mm]
+  \node[descbox,minimum width=2.7cm] (split) {$V=V_1\oplus V_{>1}$};
+  \node[checked,right=of split,minimum width=2.9cm] (first) {$x^{V_1}\xrightarrow{A}x^{L_1}$};
+  \node[stage,right=of first,minimum width=3.6cm,draw=focus,fill=focuslt] (choose)
+    {choose $L_{>1,x^{L_1}}$\\from the first output};
+  \node[checked,right=of choose,minimum width=3.8cm] (sum)
+    {$L(x)=x^{L_1}+L_{>1,x^{L_1}}(x^{V_{>1}})$};
+  \draw[xform] (split) -- (first);
+  \draw[xform,check] (first) -- (choose);
+  \draw[xform] (choose) -- (sum);
+  \node[lblsm,text=term,below=3mm of $(first.south)!0.5!(choose.south)$]
+    {linear action first; conditional choice second};
+\end{tikzpicture}

@@ -1,0 +1,19 @@
+\begin{tikzpicture}[node distance=7mm and 9mm]
+  \node[descbox, minimum width=3.4cm] (power) {$a u z_i^e$\\$e\geq2$};
+  \node[checked, right=of power, minimum width=5.5cm] (step)
+    {$a u z_i^{e-1}-a u z_i^{e-2}\,z_i(1-z_i)$};
+  \draw[xform] (power) -- node[xformlbl] {one exact rewrite} (step);
+  \node[panel, below=11mm of $(power.south)!0.5!(step.south)$,
+    minimum width=10.6cm, minimum height=2.7cm] (example) {};
+  \node[panel title] at ([xshift=3mm,yshift=-3mm]example.north west)
+    {two-variable run};
+  \node[descbox] at ([xshift=-3.4cm,yshift=-3mm]example.center) (f) {$f=x^2y-xy$};
+  \node[stage, right=7mm of f] (expand) {$xy-y\,x(1-x)-xy$};
+  \node[checked, right=7mm of expand] (result)
+    {$f=(-y)\operatorname{zero}(x)+0\operatorname{zero}(y)+\boxed{0}$};
+  \draw[xform] (f) -- (expand);
+  \draw[xform] (expand) -- (result);
+  \node[tag check, below=2mm of result] {REMAINDER ZERO};
+  \node[lblsm, below=7mm of example]
+    {$c_1=-y,\quad c_2=0,\quad r=0$ \qquad coefficient dictionaries agree exactly};
+\end{tikzpicture}

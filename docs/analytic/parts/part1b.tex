@@ -18,6 +18,15 @@ A variable occurrence is \emph{bound} if it lies inside a matching
 Changing a bound name consistently is \emph{alpha-renaming}:
 \(\lambda x.x=_{\alpha}\lambda z.z\).  It changes typography, not the term's
 binding structure.
+Figure~\ref{fig:term-tree-scope} makes that unchanged binding structure
+visible as an edge from binder to occurrence.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-term-tree-scope.tex}
+\caption{The tree for $\lambda x.(x\;y)$ links the binder to its bound $x$ while amber isolates the free $y$.  Scope is structural, so consistent renaming changes labels without changing this graph.}
+\label{fig:term-tree-scope}
+\end{figure}
 
 Application associates to the left and abstraction extends to the right, so
 \(f\;a\;b\) means \((f\;a)\;b\), while \(\lambda x.f\;x\) means
@@ -27,6 +36,15 @@ Application associates to the left and abstraction extends to the right, so
 \]
 where substitution replaces the free occurrences of \(x\) in \(t\) and first
 alpha-renames binders when necessary to avoid capture.
+Figure~\ref{fig:beta-tree-surgery} reads beta reduction literally as tree
+surgery.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-beta-tree-surgery.tex}
+\caption{The amber application is cut away and the argument subtree $u$ is spliced into every free $x$-leaf of $t$.  This concrete operation is the term-level model for later code specialization.}
+\label{fig:beta-tree-surgery}
+\end{figure}
 
 \paragraph{Why this matters here.}
 Hardwiring a machine input and applying a function are both forms of
@@ -53,6 +71,14 @@ Rename the inner binder first:
  \longrightarrow_\beta\lambda z.y.
 \]
 The surviving \(y\) is free, as it must be.
+The two outcomes are contrasted in Figure~\ref{fig:capture}.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-capture.tex}
+\caption{Naive substitution captures the argument's free $y$ in red, whereas alpha-renaming the inner binder preserves it.  Capture avoidance is the scope invariant required when code is inserted below binders.}
+\label{fig:capture}
+\end{figure}
 
 A \emph{beta-redex} is a subterm of the form \((\lambda x.t)u\).  A
 \emph{normal form} contains no beta-redex.  Some terms have none: with
@@ -62,6 +88,14 @@ theorem states that if one term reduces by different paths to \(u\) and \(v\),
 then \(u\) and \(v\) have a common reduct.  In particular, a normal form, if
 it exists, is unique up to alpha-renaming.  We use this theorem as orientation
 and do not prove it here.
+The cited joining property is isolated in Figure~\ref{fig:confluence}.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-confluence.tex}
+\caption{Two reduction paths from $s$ close to a common reduct $w$ in the Church--Rosser diamond.  The dashed slate boundary records that confluence is cited orientation, not an executed project check.}
+\label{fig:confluence}
+\end{figure}
 
 \paragraph{Why this matters here.}
 Confluence says that the mathematical result does not depend on which redex
@@ -79,6 +113,15 @@ under normal order, which reduces the leftmost outermost redex first and never
 evaluates the unused argument.  Call-by-value first tries to turn \(\Omega\)
 into a value and therefore loops.  This difference is exactly why the usual
 \(Y\) combinator needs an eta-delayed cousin under call-by-value.
+Figure~\ref{fig:normal-vs-cbv} puts the terminating and looping schedules on
+the same starting term.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-normal-vs-cbv.tex}
+\caption{Normal order discards the unused $\Omega$ and reaches $I$, while call-by-value enters the self-loop $\Omega\to\Omega$.  Evaluation strategy therefore changes the operational resource story even when confluence governs completed reductions.}
+\label{fig:normal-vs-cbv}
+\end{figure}
 
 \subsection{Church data: behavior as representation}
 
@@ -110,6 +153,15 @@ Define
  \to_\beta\mathsf{false}\;A\;B
  \to_\beta B.
 \]
+Figure~\ref{fig:church-bool-if} draws both Church booleans as two-port
+selectors and follows the false branch of this conditional.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-church-bool-if.tex}
+\caption{$\mathsf{true}$ and $\mathsf{false}$ route the same two continuations to opposite outputs, with $\mathsf{if}\;\mathsf{false}\;A\;B$ selecting $B$.  A Church bit is therefore its elimination behavior, exactly the interface later implemented by a primitive conditional.}
+\label{fig:church-bool-if}
+\end{figure}
 
 \paragraph{Why the conditional matters here.}
 Every decider is built from branches on parsed bits, timeout tests, and local
@@ -128,6 +180,15 @@ Writing \(\langle A,B\rangle=\mathsf{pair}\;A\;B\),
  \mathsf{fst}\;\langle A,B\rangle
  \to_\beta\mathsf{true}\;A\;B\to_\beta A.
 \]
+The packing and two projections appear together in
+Figure~\ref{fig:church-pair}.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-church-pair.tex}
+\caption{The Church pair stores $A$ and $B$ by passing both to a consumer $p$, while $\mathsf{true}$ and $\mathsf{false}$ project opposite components.  Primitive tuples later preserve this interface while giving projection an explicit small cost.}
+\label{fig:church-pair}
+\end{figure}
 
 \paragraph{Why pairs matter here.}
 Machine configurations, verifier descriptions, and sampler/decider outputs
@@ -158,6 +219,15 @@ Define
  \to_\beta\lambda f.\lambda x.f(\overline2 f x)
  \to_\beta\lambda f.\lambda x.f(f(fx))=\overline3.
 \]
+Figure~\ref{fig:church-numeral} exposes the iteration spine and the one extra
+application installed by successor.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-church-numeral.tex}
+\caption{A Church numeral is an $n$-stage application spine from $x$ to $f^n x$, and successor adds the amber outer $f$.  The drawing separates representability by iteration from the binary storage used for efficient resource bounds.}
+\label{fig:church-numeral}
+\end{figure}
 
 \paragraph{Why successor matters here.}
 It is the simplest example of a computable map on an encoding.  Later
@@ -197,6 +267,15 @@ Each \(\Phi\)-step maps \(\langle j-1,j\rangle\) to
  \xrightarrow{\mathsf{fst}}2.
 \]
 Hence \(\mathsf{pred}\;\overline3\to_\beta^*\overline2\).
+The lagging-register invariant is visible step by step in
+Figure~\ref{fig:pred-ladder}.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-pred-ladder.tex}
+\caption{Three $\Phi$-steps advance $\langle0,0\rangle$ to $\langle2,3\rangle$, after which $\mathsf{fst}$ exposes the predecessor $2$ in amber.  The auxiliary left register turns backward-looking predecessor into a local forward update.}
+\label{fig:pred-ladder}
+\end{figure}
 
 \paragraph{Why predecessor matters here.}
 A timeout counts down, so total bounded simulation needs a predecessor and a
@@ -217,6 +296,15 @@ satisfies
 \[
  [A,B]\;C\;Z\longrightarrow_\beta^* C\;A\;(C\;B\;Z).
 \]
+Figure~\ref{fig:list-fold} displays the resulting right-associated application
+spine.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-list-fold.tex}
+\caption{Folding $[A,B]$ with $C$ and $Z$ builds the right-leaning tree $C\;A\;(C\;B\;Z)$.  This functional sequence shape becomes the tapes, environments, and continuation stacks of the resource evaluator.}
+\label{fig:list-fold}
+\end{figure}
 
 \paragraph{Why lists matter here.}
 Tapes, syntax children, environments, and continuation stacks are all finite
@@ -254,6 +342,15 @@ The promised equation is a direct beta calculation:
 \]
 There is no recursive name in the finite syntax of \(Y\); recursion appears
 when two copies are applied.
+Figure~\ref{fig:y-derivation} follows the hole equation into that finite seed
+and then watches the seed grow only by reduction.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-y-derivation.tex}
+\caption{The fixed-point equation is solved by self-application, yielding finite $Y$ syntax whose reduction grows the tree $F(YF),F(F(YF)),\ldots$.  Recursion is produced by running the seed rather than by storing an infinite or recursively named term.}
+\label{fig:y-derivation}
+\end{figure}
 
 \paragraph{Why this matters here.}
 The lambda fixed point is the term-level analogue of Kleene's theorem.  Both
@@ -276,6 +373,15 @@ reduction, \(YF\;\overline3\) unfolds only when the selected branch needs it:
 \]
 Here the arithmetic names abbreviate their Church encodings; every displayed
 arrow stands for their finite beta reductions.
+The demanded recursive call at each level is picked out in
+Figure~\ref{fig:factorial-unfold}.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-factorial-unfold.tex}
+\caption{Normal order exposes one amber $YF$ call per numeral level, descending from $3$ to the base case before returning $6$.  Selective unfolding is what prevents the recursive branch from being evaluated before it is needed.}
+\label{fig:factorial-unfold}
+\end{figure}
 
 Call-by-value evaluates an argument before entering the function body, so
 \(YF\) tries to expand itself forever.  Eta-delay the recursive occurrence:
@@ -299,6 +405,15 @@ thunked.  With
 \]
 only the selected branch is applied to the dummy value \(I\), and
 \(ZF_v\;\overline3\to_\beta^*\overline6\) under call-by-value.
+Figure~\ref{fig:y-vs-z-cbv} locates the operational difference at the
+eta-delaying lambda.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-y-vs-z-cbv.tex}
+\caption{Under call-by-value, $YF$ repeatedly demands its recursive argument, while $ZF$ parks the same demand beneath the amber abstraction $\lambda u$.  The delayed branch unfolds only when a concrete argument arrives, making $Z$ the appropriate fixed point for the project evaluator.}
+\label{fig:y-vs-z-cbv}
+\end{figure}
 
 \paragraph{Why evaluation strategy matters here.}
 The project evaluator is deterministic call-by-value, so its fixed-point
@@ -331,6 +446,15 @@ In \(\lambda.\lambda.(1\;0)\), applying the outer function to \(A\) and the
 inner function to \(B\) creates environment frames \([B],[A]\).  Index zero
 selects \(B\); index one crosses one frame and selects \(A\).  The body is
 therefore \(A\;B\), just as the named term says.
+Figure~\ref{fig:de-bruijn} aligns the named binders, binder distances, and
+environment frames.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-de-bruijn.tex}
+\caption{The named tree $\lambda x.\lambda y.x\;y$ and the canonical tree $\lambda.\lambda.(1\;0)$ have the same binding arcs, while frames $[B],[A]$ resolve indices $0,1$ to $B,A$.  Lexical distance makes alpha-equivalent terms serialize identically and turns lookup into explicit frame traversal.}
+\label{fig:de-bruijn}
+\end{figure}
 
 To \emph{quote} a term is to treat its syntax rather than its value as data.
 A term is a finite ordered tree: each node has a constructor tag
@@ -355,6 +479,15 @@ The named identity terms \(\lambda x.x\) and \(\lambda z.z\) both become the
 de Bruijn tree \(\mathsf{Lambda}(\mathsf{BoundVar}(0))\).  Quoting either
 produces the same canonical bytes.  Evaluating those bytes on \(A\) returns
 \(A\); copying the bytes returns code, not \(A\).
+The two consumers of the same quotation diverge exactly as
+Figure~\ref{fig:quotation} records.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-quotation.tex}
+\caption{The identity tree quotes through a violet wavy arrow to canonical prefix-free fields, which an evaluator maps with $A$ to $A$ while a copier returns the fields themselves.  Quotation reifies finite syntax without confusing code with the value obtained by running it.}
+\label{fig:quotation}
+\end{figure}
 
 \section{Church--Turing as an engineering statement}
 \label{sec:refresher-engineering}
@@ -383,6 +516,15 @@ For \(M_=\), the recursive loop starts from the four-tape tuple, looks up the
 equal-input row, then the copy row, then the halt row.  Three loop iterations
 produce the Church-level bit one, with fixed overhead for tuple and list
 operations.
+Figure~\ref{fig:tm-to-lambda-zipper} draws the one-cell zipper update used by
+each such loop iteration.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-tm-to-lambda-zipper.tex}
+\caption{A right move rethreads the focused tape cell $s$ from the zipper's right edge onto $L$ and focuses $c$, while a fixed loop consults the one hardwired copy of $\langle M\rangle$.  Local list updates simulate machine steps without duplicating the transition table.}
+\label{fig:tm-to-lambda-zipper}
+\end{figure}
 
 \paragraph{Lambda term to Turing machine.}
 Write a fixed evaluator whose work tape stores the parsed syntax tree, an
@@ -402,6 +544,14 @@ For the quoted term \((\lambda x.x)\;1\), the evaluator parses an application
 node, builds the identity closure, places the bit in its environment, looks up
 index zero, and emits one.  A Turing machine can represent every one of those
 finite records on its work tape.
+Those records occupy explicit regions in Figure~\ref{fig:lambda-to-tm-layout}.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-lambda-to-tm-layout.tex}
+\caption{The evaluator's work tape contains a parsed application, environment, focused continuation frame, and binary fuel counter as four concrete finite regions.  Fixed state routines can therefore simulate every charged evaluation rule with polynomial overhead.}
+\label{fig:lambda-to-tm-layout}
+\end{figure}
 
 The promised dictionary is therefore:
 \begin{center}
@@ -425,6 +575,15 @@ finite behavioral fixed point \\
 \bottomrule
 \end{tabularx}
 \end{center}
+Figure~\ref{fig:dictionary-bridge} turns the same seven rows into explicit
+compiler spans between the two representations.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-dictionary-bridge.tex}
+\caption{Seven labelled spans pair the machine bank with its lambda/IR counterpart, from finite programs and inputs through interpreters, specialization, and fixed points.  The bridge records semantic agreement plus linear-size and fixed-polynomial overhead rather than step-for-step identity.}
+\label{fig:dictionary-bridge}
+\end{figure}
 
 \paragraph{What the dictionary does not say.}
 It does not assert step-for-step equality, equal constants, or equal
@@ -463,6 +622,15 @@ own computation.  Answer reduction constructs a bounded-trace circuit and
 then a PCP-style verifier.  Repetition constructs several coordinated copies
 and an acceptance rule.  The composite is \(\Compress\).  Polynomial
 bookkeeping proves that its output is still a legal bounded verifier.
+The three terminating code transformations and their analytic boundary are
+separated in Figure~\ref{fig:pipeline-stages}.
+
+\begin{figure}[ht]
+\centering
+\input{figs/fig-pipeline-stages.tex}
+\caption{The green description pipeline embeds code, builds the bounded-trace PCP verifier, and coordinates copies before stopping at a dashed evidence boundary.  Executing these finite transformations constructs the game but does not establish the cited quantum completeness and soundness theorem.}
+\label{fig:pipeline-stages}
+\end{figure}
 
 \paragraph{Why the fixed point enters.}
 For a supplied machine \(M\) and level parameter \(L\), the Halting verifier
@@ -501,3 +669,11 @@ soundness argument.  The paper needs both layers: computability theory with
 polynomial bookkeeping on the outside, and the genuinely quantum analytic
 theorems on the inside.  The resource-accounted description language in
 Part~II is designed for the first layer and records exactly where it must call
+upon the cited second layer, as Figure~\ref{fig:two-layers} makes explicit.
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-two-layers.tex}
+\caption{The green outer ring executes quotation, hardwiring, evaluation, and polynomial bookkeeping around a dashed slate core of LDT soundness, rigidity, oracularization, and entanglement bounds.  Keeping this evidence boundary visible prevents source-level mechanization from being mistaken for a proof of the quantum analytic theorems.}
+\label{fig:two-layers}
+\end{figure}

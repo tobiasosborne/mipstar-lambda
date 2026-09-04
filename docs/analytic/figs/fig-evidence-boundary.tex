@@ -1,0 +1,29 @@
+\begin{tikzpicture}[node distance=4mm and 4mm]
+  \draw[dashed,cited,line width=1pt] (-7.5,0) -- (7.5,0);
+  \node[lblsm,fill=paper,text=cited] at (0,0) {evidence boundary};
+  \node[tag check,anchor=south west] at (-7.5,0.15) {EXECUTED / CHECKED BELOW};
+  \node[tag cited,anchor=north west] at (-7.5,-0.15) {CITED ABOVE};
+
+  \node[citedbox,minimum width=2.4cm] at (-6.0,1.15) (quote) {quoted verifier\\$\langle V\rangle$};
+  \node[citedbox,minimum width=2.4cm] at (-3.0,1.15) (cl) {Cook--Levin\\asymptotics};
+  \node[citedbox,minimum width=2.4cm] at (0,1.15) (ldt) {low-degree\\extraction};
+  \node[citedbox,minimum width=2.4cm] at (3.0,1.15) (rigid) {rigidity /\\oracularization};
+  \node[citedbox,minimum width=2.4cm] at (6.0,1.15) (compress) {introspection\\repetition / compression};
+  \draw[xform,dashed,cited] (quote) -- (cl);
+  \draw[xform,dashed,cited] (cl) -- (ldt);
+  \draw[xform,dashed,cited] (ldt) -- (rigid);
+  \draw[xform,dashed,cited] (rigid) -- (compress);
+
+  \node[checked,minimum width=2.4cm] at (-4.5,-1.25) (syntax) {circuit / Tseitin\\syntax};
+  \node[checked,minimum width=2.4cm] at (-1.5,-1.25) (poly) {$F_{\rm arith},g_i,c_i$\\coefficient replay};
+  \node[checked,minimum width=2.4cm] at (1.5,-1.25) (maps) {point / line maps\\CL marginals};
+  \node[checked,minimum width=2.4cm] at (4.5,-1.25) (guard) {finite guarded\\PCP decider};
+  \draw[xform,check] (syntax) -- (poly);
+  \draw[xform,check] (poly) -- (maps);
+  \draw[xform,check] (maps) -- (guard);
+  \draw[quote] (cl.south) -- (syntax.north);
+  \draw[quote] (poly.north) -- (ldt.south);
+  \draw[quote] (guard.north) -- (rigid.south);
+  \node[descbox,fill=focuslt,draw=focus,below=7mm of poly,minimum width=6.6cm]
+    {finite certificates cross no theorem boundary by themselves};
+\end{tikzpicture}

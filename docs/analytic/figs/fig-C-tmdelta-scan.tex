@@ -1,0 +1,18 @@
+\begin{tikzpicture}
+  \node[descbox, minimum width=25mm] (m) {$m=\overline M$\\[-1pt]\scriptsize table bytes};
+  \matrix (tab) [matrix of nodes, right=10mm of m, row sep=1mm,
+    nodes={draw=machine,minimum width=55mm,minimum height=7mm,anchor=center}] {
+    \node[fill=white] (r1) {$(q_0,0,\sqcup)\mapsto(q_1,1,R)$};\\
+    \node[fill=focuslt,draw=focus,line width=1pt] (r2) {$(q_i,1,\sqcup)\mapsto(q_{i+1},0,R)$};\\
+    \node[fill=white] (r3) {$(q_h,\ast,\ast)\mapsto\mathsf{halt}$};\\
+  };
+  \node[ctrl, right=10mm of tab, minimum width=31mm] (delta)
+    {$\mathsf{TMDelta}$\\[-1pt]\scriptsize validate \(+\) scan};
+  \draw[quote] (m)--(tab);
+  \draw[->,machine,line width=.8pt] (tab)--(delta);
+  \node[checked, below=7mm of delta, minimum width=55mm] (next)
+    {$(q_{i+1},\mathrm{write}\ 0,\mathrm{move}\ R)$};
+  \draw[->,machine,line width=.8pt] (delta)--(next);
+  \node[lbl, below=6mm of tab]
+    {charge \(\kappa_{\mathsf{TMDelta}}\le8(|m|+k+2)\)};
+\end{tikzpicture}

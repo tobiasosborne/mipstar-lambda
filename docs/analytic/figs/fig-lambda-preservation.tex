@@ -1,0 +1,24 @@
+\begin{tikzpicture}
+  \node[panel, minimum width=66mm, minimum height=59mm, xshift=-37mm] (left) {};
+  \node[panel title, text=machine] at ([xshift=2mm,yshift=-2mm]left.north west)
+    {MACHINE \(\longrightarrow\) TERM};
+  \node[stage, below=8mm of left.north] (l0) {$T\le n^\lambda$};
+  \node[stage, below=5mm of l0] (l1) {$8c_0n^\lambda\cdot n^\lambda\cdot9n^\lambda$};
+  \node[checked, below=5mm of l1, text width=52mm] (l2)
+    {$72c_0n^{3\lambda}\le
+      n^{(3+\lceil\log_2(72c_0)\rceil)\lambda}$};
+  \draw[xform] (l0)--(l1); \draw[xform] (l1)--(l2);
+
+  \node[panel, minimum width=66mm, minimum height=59mm, xshift=37mm] (right) {};
+  \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]right.north west)
+    {TERM \(\longrightarrow\) MACHINE};
+  \node[stage, below=8mm of right.north] (r0) {$f(n)\le n^\lambda$};
+  \node[stage, below=5mm of r0] (r1) {$C_L(\lambda+n^\lambda+1)^6$};
+  \node[checked, below=5mm of r1, text width=52mm] (r2)
+    {$C_L(3n^\lambda)^6\le
+      n^{(6+\lceil\log_2(C_L3^6)\rceil)\lambda}$};
+  \draw[xform] (r0)--(r1); \draw[xform] (r1)--(r2);
+  \node[redex, below=5mm of left.south east, xshift=37mm] (A) {$A$};
+  \node[lbl, left=3mm of A] {choose one universal exponent};
+  \node[checked, right=3mm of A] {\(\lambda\)-bounded \(\Longleftrightarrow\) \(A\lambda\)-bounded};
+\end{tikzpicture}

@@ -1,0 +1,38 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \matrix (T) [matrix of nodes, row sep=-\pgflinewidth,
+    column sep=-\pgflinewidth,
+    nodes={cell, minimum width=1.34cm, minimum height=6.3mm}] {
+    |[draw=none,fill=none,lbl,text=machine]| $C_0$ &
+    |[cell blank]| $\vdash$ & |[cell head]| $\langle q_0,s_0\rangle$ &
+    $u_0$ & $F$ & |[cell blank]| $\sqcup$ & |[cell blank]| $\sqcup$ & |[cell blank]| $\cdots$ \\
+    |[draw=none,fill=none,lbl,text=machine]| $\vdots$ &
+    |[cell blank]| $\vdash$ & $\cdots$ & $\gamma_{j-1}$ & $\gamma_j$ & $\gamma_{j+1}$ & $\cdots$ & |[cell blank]| $\sqcup$ \\
+    |[draw=none,fill=none,lbl,text=machine]| $C_i$ &
+    |[cell blank]| $\vdash$ & $\cdots$ & |[cell,fill=focuslt,draw=focus]| $a$ &
+    |[cell head]| $\langle q,b\rangle$ & |[cell,fill=focuslt,draw=focus]| $c$ & $d$ & |[cell blank]| $\sqcup$ \\
+    |[draw=none,fill=none,lbl,text=machine]| $C_{i+1}$ &
+    |[cell blank]| $\vdash$ & $\cdots$ & $a$ & |[cell,fill=focuslt,draw=focus]| $b'$ &
+    |[cell head]| $\langle q',c\rangle$ & $d$ & |[cell blank]| $\sqcup$ \\
+    |[draw=none,fill=none,lbl,text=machine]| $\vdots$ &
+    |[cell blank]| $\vdash$ & $\cdots$ & $\cdots$ & $\cdots$ & $\cdots$ & $\cdots$ & |[cell blank]| $\sqcup$ \\
+    |[draw=none,fill=none,lbl,text=machine]| $C_r$ &
+    |[cell blank]| $\vdash$ & |[cell head,fill=checklt,draw=check]| $\langle q_h,1\rangle$ &
+    $\sqcup$ & $\sqcup$ & $\sqcup$ & $\sqcup$ & |[cell blank]| $\sqcup$ \\
+    |[draw=none,fill=none,lbl,text=machine]| $C_F$ &
+    |[cell blank]| $\vdash$ & |[cell,fill=checklt,draw=check]| $\langle q_h,1\rangle$ &
+    $\sqcup$ & $\sqcup$ & $\sqcup$ & $\sqcup$ & |[cell blank]| $\sqcup$ \\
+  };
+  \node[head] at ([yshift=-2.4mm]T-3-5.south) {};
+  \node[head] at ([yshift=-2.4mm]T-4-6.south) {};
+  \node[panel, draw=focus, fill=focuslt, fit=(T-3-4)(T-3-6), inner sep=1.5pt] (win) {};
+  \node[lblsm, text=term, above=1mm of win] {radius-one window $(j-1,j,j+1)$};
+  \draw[->, machine, line width=1pt] ([xshift=1mm]win.east) -- ++(1.0,0)
+    |- ([xshift=1mm]T-4-5.east)
+    node[pos=.22, above, lblsm, text=machine] {$\tau$};
+  \draw[brace] ([xshift=2mm]T-6-8.north east) -- ([xshift=2mm]T-7-8.south east)
+    node[midway,right=3mm,lblsm,align=left] {self-looping\\padding};
+  \node[lblsm, text=desc, anchor=west] at ([xshift=2mm]T-1-8.east)
+    {code, input, heap, stack, fuel};
+  \node[lblsm, text=machine, align=center, below=7mm of T]
+    {one paired head/state marker per track \quad $\bullet$ \quad fixed endmarkers \quad $\bullet$ \quad time runs downward};
+\end{tikzpicture}

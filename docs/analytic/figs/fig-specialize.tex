@@ -1,0 +1,21 @@
+\begin{tikzpicture}
+  \node[tnode] (a1) {$@$};
+  \node[tnode, below left=7mm and 13mm of a1] (p1) {$p$};
+  \node[tnode,fill=focuslt,draw=focus,densely dashed,
+    below right=7mm and 13mm of a1] (h1) {$\circ\ h{:}A$};
+  \draw[tedge] (a1)--(p1); \draw[tedge] (a1)--(h1);
+  \node[lbl,text=term,above=2mm of a1] {partial (P)};
+  \node[descbox, right=20mm of h1] (rho) {$\rho(h)=\sigma(h)$\\[-1pt]\scriptsize closed, sort (A)};
+  \draw[quote] (h1)--node[above,lblsm,text=desc] {prefix visit} (rho);
+  \node[tnode, right=25mm of a1] (a2) {$@$};
+  \node[tnode, below left=7mm and 13mm of a2] (p2) {$p$};
+  \node[tnode,fill=focuslt,draw=focus,below right=7mm and 13mm of a2] (l2) {$\lambda$};
+  \node[tleaf, below=5mm of l2] (v2) {$t$};
+  \draw[tedge] (a2)--(p2); \draw[tedge] (a2)--(l2); \draw[tedge] (l2)--(v2);
+  \node[lbl,text=term,above=2mm of a2] {$\operatorname{Specialize}(P,\rho)$};
+  \draw[beta] ([xshift=3mm]rho.east) to[bend right=18] ([xshift=-3mm]l2.west);
+  \node[checked, below=12mm of rho, minimum width=104mm]
+    {$|P|-|\operatorname{Hole}(h,A)|+|\sigma(h)|\quad\le\quad|P|+|\sigma(h)|$};
+  \node[lblsm, below=2mm of p1] {unchanged subtree};
+  \node[lblsm, below=2mm of p2] {copied verbatim};
+\end{tikzpicture}

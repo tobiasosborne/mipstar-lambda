@@ -1,0 +1,13 @@
+\begin{tikzpicture}[node distance=7mm]
+  \node[stage,draw=term] (p00) {$\langle\overline0,\overline0\rangle$};
+  \node[stage,draw=term,right=of p00] (p01) {$\langle\overline0,\overline1\rangle$};
+  \node[stage,draw=term,right=of p01] (p12) {$\langle\overline1,\overline2\rangle$};
+  \node[stage,draw=term,right=of p12] (p23) {$\langle\overline2,\overline3\rangle$};
+  \node[redex,right=of p23,minimum width=9mm,rounded corners=2pt] (two) {$\overline2$};
+  \draw[beta] (p00)--node[xformlbl] {$\Phi$}(p01);
+  \draw[beta] (p01)--node[xformlbl] {$\Phi$}(p12);
+  \draw[beta] (p12)--node[xformlbl] {$\Phi$}(p23);
+  \draw[beta] (p23)--node[xformlbl] {$\mathsf{fst}$}(two);
+  \node[lbl,below=5mm of p12] {the right register counts; the left trails by one};
+  \draw[brace] ([yshift=-2mm]p00.south west) -- ([yshift=-2mm]p23.south east);
+\end{tikzpicture}

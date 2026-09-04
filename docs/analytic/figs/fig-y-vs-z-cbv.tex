@@ -1,0 +1,27 @@
+\begin{tikzpicture}[node distance=7mm and 9mm]
+  \node[stage,draw=term] (yf) {$YF$};
+  \node[stage,draw=term,below=8mm of yf] (yone) {$F(YF)$};
+  \node[stage,bad,below=8mm of yone] (ytwo) {$F(F(YF))$};
+  \draw[beta] (yf)--(yone);
+  \draw[->,bad,line width=.9pt] (yone)--(ytwo);
+  \draw[->,bad,line width=.9pt] (ytwo.west) to[out=190,in=170,looseness=2]
+    node[lblsm,left,text=bad] {argument demanded again} (yone.west);
+  \begin{scope}[on background layer]
+    \node[panel,fit=(yf)(yone)(ytwo),inner sep=5mm] (ypanel) {};
+  \end{scope}
+  \node[panel title] at ([xshift=2mm,yshift=-2mm]ypanel.north west) {$Y$ UNDER CBV};
+
+  \node[stage,draw=term,right=34mm of yf] (zf) {$ZF$};
+  \node[stage,draw=term,below=8mm of zf] (zone)
+    {$F(\tikz[baseline=-.5ex]\node[redex,minimum width=16mm,rounded corners=2pt] {$\lambda u.(ZF)u$};)$};
+  \node[stage,draw=term,below=9mm of zone] (zarg) {$\bigl(\lambda u.(ZF)u\bigr)\;a$};
+  \node[stage,draw=term,below=7mm of zarg] (zgo) {$(ZF)\;a$};
+  \draw[beta] (zf)--(zone);
+  \draw[beta] (zone)--node[lblsm,right] {argument $a$ arrives}(zarg);
+  \draw[beta] (zarg)--(zgo);
+  \begin{scope}[on background layer]
+    \node[panel,fit=(zf)(zone)(zarg)(zgo),inner sep=5mm] (zpanel) {};
+  \end{scope}
+  \node[panel title] at ([xshift=2mm,yshift=-2mm]zpanel.north west) {$Z$ UNDER CBV};
+  \node[tag focus,right=2mm of zone] {$\eta$-DELAY};
+\end{tikzpicture}

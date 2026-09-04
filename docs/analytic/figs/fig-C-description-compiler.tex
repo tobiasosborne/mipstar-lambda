@@ -1,0 +1,21 @@
+\begin{tikzpicture}
+  \node[descbox, minimum width=27mm] (v0)
+    {$\overline V=(\overline S,\overline D)$};
+  \node[descbox, right=10mm of v0, minimum width=25mm] (v1)
+    {$\overline{V^{(1)}}$\\[-1pt]\scriptsize level \(9\)};
+  \node[descbox, right=10mm of v1, minimum width=25mm] (v2)
+    {$\overline{V^{(2)}}$};
+  \node[descbox, right=10mm of v2, minimum width=25mm] (v3)
+    {$\overline{V^{(3)}}$\\[-1pt]\scriptsize level \(9\)};
+  \draw[xform] (v0)--node[xformlbl,align=center]
+    {\(\ComputeIntroVerifier\)\\[-1pt]\scriptsize \((\overline V,\lambda,9)\)} (v1);
+  \draw[xform] (v1)--node[xformlbl,align=center]
+    {\(\ComputeAnsVerifier\)\\[-1pt]\scriptsize \((\lambda,\mu,\gamma)\)} (v2);
+  \draw[xform] (v2)--node[xformlbl,align=center]
+    {\(\ComputeParrepVerifier\)\\[-1pt]\scriptsize \((\lambda,\tau)\)} (v3);
+  \node[checked, below=11mm of v1, text width=51mm] (exec)
+    {\textsf{EXECUTED}: scan and assemble finite source strings};
+  \node[citedbox, below=11mm of v3, text width=44mm] (cite)
+    {\textsf{CITED}: analytic compression guarantees};
+  \draw[xform] (exec)--node[below,lblsm] {evidence boundary} (cite);
+\end{tikzpicture}

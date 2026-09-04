@@ -1,0 +1,31 @@
+\begin{tikzpicture}[node distance=8mm and 11mm]
+  \node[descbox, minimum width=18mm, fill=focuslt, draw=focus] (z) {$z$};
+  \node[checked, right=13mm of z, minimum width=24mm] (q)
+    {$Q$\\source printer};
+  \node[descbox, right=13mm of q, minimum width=43mm] (qz)
+    {$Q(z)=\langle\texttt{print literal }z\rangle$};
+  \draw[xform] (z) -- (q);
+  \draw[xform] (q) -- (qz);
+  \node[lbl, above=3mm of q] {compile time};
+
+  \node[descbox, below=20mm of z, minimum width=24mm] (eq)
+    {$\langle e_Q\rangle$};
+  \node[ctrl, right=21mm of eq, minimum width=26mm] (run)
+    {run \(e_Q\)};
+  \node[cell head, right=16mm of run] (out0) {$0$};
+  \node[cell, right=0pt of out0] (out1) {$1$};
+  \node[cell, right=0pt of out1] (out2) {$1$};
+  \node[cell, right=0pt of out2] (out3) {$0$};
+  \node[cell blank, right=0pt of out3] (out4) {$\cdots$};
+  \node[head, below=.8mm of out0] {};
+  \draw[->, machine, line width=.8pt] (eq) -- (run);
+  \draw[->, machine, line width=.8pt] (run) -- (out0);
+  \draw[brace] ([yshift=4mm]out0.north west) -- ([yshift=4mm]out4.north east)
+    node[midway, above=4mm, lblsm] {output tape \(=\langle e_Q\rangle\)};
+  \draw[quote] (eq.west) to[bend left=52]
+    node[lblsm, left, text=desc] {$z=e_Q=s(p,p)$} (z.west);
+  \draw[->, focus, line width=1.1pt, bend right=32] (out4.south) to
+    node[lblsm, below, text=focus] {same finite string} (eq.south);
+  \node[checked, below=10mm of run, minimum width=62mm]
+    {$\varphi_{e_Q}=\varphi_{Q(e_Q)}$};
+\end{tikzpicture}

@@ -1,0 +1,24 @@
+\begin{tikzpicture}
+  \node[descbox] (q) {$q$\\\\[-1pt]\scriptsize computes total \(Q\)};
+  \node[checked, right=11mm of q, minimum width=40mm] (makep)
+    {assemble \(G(z,x)\)\\\\[-1pt]\scriptsize \(s+Q+U_k\)};
+  \node[descbox, right=11mm of makep] (p)
+    {$p$\\\\[-1pt]\scriptsize \(|p|\le a_1|q|+b_1\)};
+  \draw[xform] (q)--(makep); \draw[xform] (makep)--(p);
+  \node[descbox, below=9mm of p, xshift=-16mm] (p1) {$p$};
+  \node[descbox, below=9mm of p, xshift=16mm] (p2) {$p$};
+  \draw[quote] (p)--(p1); \draw[quote] (p)--(p2);
+  \node[checked, below=9mm of p, xshift=-61mm] (hard) {$s(\,\cdot\,,\,\cdot\,)$};
+  \draw[xform] (p1.west)--(hard.east); \draw[xform] (p2.west) to[bend left=18] (hard.south);
+  \node[descbox, below=8mm of hard] (e) {$e_Q=s(p,p)$};
+  \draw[xform] (hard)--(e);
+
+  \node[checked, right=13mm of e, text width=72mm] (bound)
+    {$|e_Q|\le 2a_s|p|+b_s
+      \le 2a_sa_1|q|+(2a_sb_1+b_s)$};
+  \draw[xform] (e)--(bound);
+  \node[closure, below=9mm of bound, minimum width=112mm] (chain)
+    {$\varphi_{e_Q}(x)=\varphi_p(p,x)
+      =\varphi_{Q(s(p,p))}(x)=\varphi_{Q(e_Q)}(x)$};
+  \draw[beta] (e.south) to[bend right=15] (chain.west);
+\end{tikzpicture}

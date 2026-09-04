@@ -1,0 +1,23 @@
+\begin{tikzpicture}[node distance=7mm and 8mm]
+  \node[stage,draw=term] (goal) {$f=F(\,\tikz[baseline=-.5ex]\node[redex,minimum size=4.5mm] {$f$};\,)$};
+  \node[stage,draw=term,right=of goal] (self) {$h\;h=F(h\;h)$};
+  \node[stage,draw=term,right=of self] (hdef) {$h=\lambda x.F(x\;x)$};
+  \draw[beta] (goal)--node[xformlbl] {$f:=h\;h$}(self);
+  \draw[beta] (self)--node[xformlbl] {choose}(hdef);
+
+  \node[descbox,below=12mm of self] (ysrc)
+    {$Y=\lambda F.(\lambda x.F(xx))(\lambda x.F(xx))$\\[-1pt]
+     \scriptsize finite syntax; no recursive name};
+  \draw[quote] (hdef.south) to[bend left=15] node[lblsm,right] {assemble} (ysrc.east);
+
+  \node[tnode,below left=12mm and 18mm of ysrc] (yf) {$F$};
+  \node[tleaf,below=7mm of yf] (leaf) {$YF$};
+  \draw[tedge] (yf)--(leaf);
+  \node[tnode,right=26mm of yf] (ff) {$F$};
+  \node[tnode,below=7mm of ff] (ff2) {$F$};
+  \node[tleaf,below=7mm of ff2] (leaf2) {$YF$};
+  \draw[tedge] (ff)--(ff2) (ff2)--(leaf2);
+  \draw[beta] (ysrc.south west) -- node[lblsm,left] {$YF\to F(YF)$} (yf.north);
+  \draw[beta] (yf.east) -- node[lblsm,above] {unfold once more} (ff.west);
+  \node[tag focus,below=2mm of leaf2] {THE SAME FINITE SEED};
+\end{tikzpicture}

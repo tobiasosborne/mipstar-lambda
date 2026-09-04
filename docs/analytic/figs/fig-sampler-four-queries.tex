@@ -1,0 +1,32 @@
+\begin{tikzpicture}
+  \node[ctrl, minimum width=25mm, minimum height=25mm] (S) {$S$\\[-1pt]\scriptsize six input tapes};
+  \node[lbl, text=machine, above=2mm of S] {$n$ fixes $\F_{q(n)}^{s(n)}$};
+
+  \node[stage, left=17mm of S, yshift=18mm, minimum width=43mm] (qd)
+    {$(n,\mathsf{dimension})$};
+  \node[stage, left=17mm of S, yshift=-18mm, minimum width=43mm] (qm)
+    {$(n,w,\mathsf{marginal},j,z)$};
+  \node[stage, right=17mm of S, yshift=18mm, minimum width=48mm] (ql)
+    {$(n,w,\mathsf{linear},j,u,y)$};
+  \node[stage, right=17mm of S, yshift=-18mm, minimum width=48mm] (qf)
+    {$(n,w,\mathsf{factor},j,u)$};
+
+  \draw[->,machine,line width=.8pt] (qd.east) -- (S.west|-qd.east);
+  \draw[->,machine,line width=.8pt] (qm.east) -- (S.west|-qm.east);
+  \draw[->,machine,line width=.8pt] (ql.west) -- (S.east|-ql.west);
+  \draw[->,machine,line width=.8pt] (qf.west) -- (S.east|-qf.west);
+
+  \node[checked, below=5mm of qd, minimum width=43mm] (ad) {$s(n)$};
+  \node[checked, above=5mm of qm, minimum width=43mm] (am) {$L^{w,n}_{\le j}(z)$};
+  \node[checked, below=5mm of ql, minimum width=48mm] (al) {$L^{w,n}_{j,u}(y)$};
+  \node[checked, above=5mm of qf, minimum width=48mm] (af)
+    {$\mathbf 1[V^{w,n}_{j,u}]\in\{0,1\}^{s(n)}$};
+  \draw[->,machine,line width=.8pt] (S.west|-ad.east) -- (ad.east);
+  \draw[->,machine,line width=.8pt] (S.west|-am.east) -- (am.east);
+  \draw[->,machine,line width=.8pt] (S.east|-al.west) -- (al.west);
+  \draw[->,machine,line width=.8pt] (S.east|-af.west) -- (af.west);
+
+  \node[tag check, below=4mm of S] {EXECUTED INTERFACES};
+  \node[lblsm, below=1mm of qm] {$w\in\{\mathrm A,\mathrm B\}$};
+  \node[lblsm, below=1mm of qf] {$1\le j\le\ell$};
+\end{tikzpicture}
