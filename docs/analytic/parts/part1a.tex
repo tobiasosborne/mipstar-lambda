@@ -1,0 +1,453 @@
+
+\clearpage
+\part{A refresher on computability, from the paper's viewpoint}
+\label{part:refresher}
+\setlength{\parskip}{0.30em}
+
+The outermost layer of the argument is classical computation.  Before any
+low-degree test or entangled strategy appears, the proof must be able to take
+the finite text of one verifier, transform that text into another verifier,
+and arrange for a verifier to use a description of itself.  This part rebuilds
+that vocabulary from the ground up.  It is deliberately qualitative about
+polynomial overheads; the exact costed statements begin in Part~II.
+
+\section{Turing machines in the form used by the paper}
+\label{sec:refresher-tm}
+
+\subsection{Programs, configurations, and one step}
+
+A Turing machine separates two things which ordinary mathematical notation
+often blends together: a finite rule book and an unbounded but finitely used
+memory.  For one tape, a convenient formal tuple is
+\[
+ M=(Q,\Sigma,\Gamma,\delta,q_0,q_{\mathrm h}),
+\]
+where \(Q\) is a finite set of control states, \(q_0\in Q\) is the initial
+state, \(q_{\mathrm h}\in Q\) is the halting state,
+\(\Sigma=\{0,1\}\) is the input alphabet,
+\(\Gamma\supseteq\Sigma\cup\{\sqcup\}\) is a finite tape alphabet with blank
+symbol \(\sqcup\notin\Sigma\), and
+\[
+ \delta:(Q\setminus\{q_{\mathrm h}\})\times\Gamma
+ \longrightarrow Q\times\Gamma\times\{L,S,R\}
+\]
+is the transition function.  We take tapes to be indexed by \(\N\), so a
+left move at cell zero leaves the head at zero.  The paper uses a multitape
+version: a \(k\)-input machine has \(k\) input tapes, one work tape, and one
+output tape.  Its transition reads all scanned symbols, changes the state,
+writes on the work and output tapes, and moves each head by at most one cell.
+The input tapes are read-only.  Adding separate accept and reject halting
+states, or allowing writes on input tapes, changes none of the computability
+or polynomial-overhead statements below.
+
+A \emph{configuration} is a complete instantaneous description
+\[
+ C=(q,T_1,h_1,\ldots,T_{k+2},h_{k+2}):
+\]
+the current state, the contents \(T_i:\N\to\Gamma\) of every tape, and the
+head locations \(h_i\in\N\).  Only finitely many cells are nonblank in every
+reachable configuration.  The notation \(C\vdash_M C'\) means that one
+application of \(\delta\) changes \(C\) into \(C'\).  Thus a computation is
+not a metaphor: it is the uniquely determined path
+\(C_0\vdash_M C_1\vdash_M C_2\vdash_M\cdots\) in the graph of configurations.
+
+\paragraph{Why this matters here.}
+Later, Cook--Levin replaces a bounded computation by local constraints on
+adjacent configurations.  That replacement works because one step looks only
+at the finite control and the cells under the heads.  The enormous object is
+the history; the local dynamical law \(\delta\) is finite.  This is close to a
+lattice model with a fixed local update rule, except that the update is
+deterministic and the head positions are part of the state.
+
+\paragraph{Worked one-step example.}
+If \(\delta(q,0)=(q',1,R)\), then
+\[
+ (q,\ldots\sqcup\,\underline 0\,1\sqcup\ldots,h)
+ \ \vdash_M\ 
+ (q',\ldots\sqcup\,1\,\underline 1\sqcup\ldots,h+1).
+\]
+Only the state, the scanned cell, and the head location have changed.
+
+The machine \emph{halts} on input \(x\) if some \(C_T\) has state
+\(q_{\mathrm h}\).  Its output is the longest nonblank initial string on the
+output tape.  We write \(M(x)\) for that string and \(M(x)=\bot\) if the path
+never reaches \(q_{\mathrm h}\).  The instance running time is
+\[
+ \Time_{M,x}:=\min\{T:C_T\text{ has state }q_{\mathrm h}\},
+\]
+with value \(\infty\) if the set is empty.  We sometimes abbreviate this as
+\(\Time_M(x)\).  Notice the distinction between \emph{has not halted yet} and
+\emph{will never halt}; no finite observation of a run decides the latter in
+general.
+
+\paragraph{Why this matters here.}
+The compression argument repeatedly says that a generated verifier finishes
+within a supplied bound.  That is a statement about the number of transitions
+on every relevant input, not merely about the mathematical function obtained
+after ignoring time.  A timeout wrapper may safely reject after \(T\) steps,
+because it is counting the very transitions used in the definition above.
+
+\paragraph{Worked timing example.}
+For the transition just displayed, if the new state \(q'\) is the halt state,
+then the initial configuration is assigned time one.  A timeout of zero
+rejects without applying the transition; a timeout of one obtains the output.
+
+\subsection{A complete two-state equality machine}
+
+Here is a small instance in the paper's multitape style.  The machine has two
+one-bit input tapes \(A,B\), a work tape \(W\), and an output tape \(O\).  It
+has two nonhalting states \(q_0,q_1\), plus the designated state
+\(q_{\mathrm h}\).  A table entry lists
+\((\hbox{next state};\hbox{new }W,\hbox{new }O;
+  \hbox{moves of }A,B,W,O)\).
+Rows are tested from top to bottom; they are disjoint except for the last
+catch-all row, so the table specifies every possible scanned tuple.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{P{0.09\textwidth}P{0.24\textwidth}X}
+\toprule
+State & Scanned \((A,B,W,O)\) & Transition \\
+\midrule
+\(q_0\) & \((0,0,\sqcup,\sqcup)\) or
+          \((1,1,\sqcup,\sqcup)\)
+ & \((q_1;1,\sqcup;R,R,S,S)\) \\
+\(q_0\) & \((0,1,\sqcup,\sqcup)\) or
+          \((1,0,\sqcup,\sqcup)\)
+ & \((q_1;0,\sqcup;R,R,S,S)\) \\
+\(q_1\) & \((\sqcup,\sqcup,r,\sqcup)\), \(r\in\{0,1\}\)
+ & \((q_0;r,r;S,S,S,S)\) \\
+\(q_0\) & \((\sqcup,\sqcup,r,r)\), \(r\in\{0,1\}\)
+ & \((q_{\mathrm h};r,r;S,S,S,S)\) \\
+\(q_0,q_1\) & every tuple not covered above
+ & \((q_{\mathrm h};0,0;S,S,S,S)\) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The final row makes the table total and rejects malformed inputs.  On legal
+one-bit inputs the first step computes the equality bit on \(W\), the second
+copies it to \(O\), and the third enters the halt state.  For \(A=B=1\), the
+full three-step trace, showing the scanned cells, is
+\[
+\begin{array}{c|c|c|c|c|c|l}
+i&q&A&B&W&O&\text{rule used}\\ \hline
+0&q_0&\underline1&\underline1&\underline\sqcup&\underline\sqcup
+  &\text{equal-input row}\\
+1&q_1&1\underline\sqcup&1\underline\sqcup&\underline1&\underline\sqcup
+  &\text{copy row with }r=1\\
+2&q_0&1\underline\sqcup&1\underline\sqcup&\underline1&\underline1
+  &\text{halt row with }r=1\\
+3&q_{\mathrm h}&1\underline\sqcup&1\underline\sqcup&\underline1&\underline1
+  &\text{halted.}
+\end{array}
+\]
+Thus \(M_{=}(1,1)=1\) and \(\Time_{M_=,(1,1)}=3\).  The same trace with
+work/output bit zero gives \(M_{=}(0,1)=0\).
+
+\paragraph{Why this matters here.}
+The example is intentionally mundane: a paper verifier is just a much larger
+finite transition table whose output bit says accept or reject.  Statements
+about a verifier's code, time, or simulation refer to this concrete object,
+even when the paper describes it in higher-level pseudocode.
+
+\subsection{Several inputs and the verifier convention}
+
+Writing \(M(x_1,\ldots,x_k)\) means that \(x_i\) initially occupies the
+initial cells of input tape \(i\), with all other cells blank and all heads at
+zero.  Multiple tapes are convenient interfaces, not a stronger model: a
+one-tape machine can store a self-delimiting encoding of all tapes and their
+head markers and simulate one multitape step with polynomial overhead.
+
+The paper's \emph{decider} is a total five-input machine
+\[
+ D(n,x,y,a,b)\in\{0,1\}.
+\]
+Here \(n\) is an index written in binary, \(x,y\) are the two questions, and
+\(a,b\) are the two answers.  Total means that \(D\) halts on every such
+five-tuple.  Its paper-level time at index \(n\) is the worst case over the
+other four strings.  A normal-form verifier is a pair \(V=(S,D)\), where the
+sampler \(S\) produces the questions and \(D\) checks the answers.
+
+\paragraph{Why this matters here.}
+The five inputs are not later bundled by sleight of hand.  When we translate a
+decider to a lambda term, its argument is a five-component encoded tuple; when
+we translate back, those components initialize five separate tapes.  The
+worst-case convention is what lets a resource bound hold independently of
+unread suffixes of arbitrarily long answer strings.
+
+\paragraph{Worked verifier example.}
+Let \(S\) always ask the one-bit questions \(x=y=0\), and let \(D\) ignore
+\(n,x,y\) and run \(M_=\) on the first bits of \(a,b\).  Then the players are
+accepted exactly when their one-bit answers agree, and the decision stage
+takes three transitions plus fixed input-parsing overhead.
+
+\subsection{Descriptions are finite data}
+
+Because \(Q,\Gamma\), and \(\delta\) are finite, we may serialize them with a
+fixed prefix-free convention.  The resulting bit string is the machine
+description \(\langle M\rangle\); the paper also writes \(\overline M\).
+Its length in bits is
+\[
+ |M|:=|\langle M\rangle|.
+\]
+Malformed strings are assigned a fixed rejecting machine, so every bit string
+still has a defined interpretation.  The encoding is syntactic: extensionally
+equivalent machines may have different codes, sizes, and running times.  A
+useful physics analogy is that a description is like a written Hamiltonian,
+not its spectrum.  The actual definition is the serialized state set and
+transition table, and an algorithm may inspect those bits without solving the
+machine's behavior.
+
+\paragraph{Why this matters here.}
+The size bound \(|V|\leq\lambda\) constrains the verifier's source code, not
+the number of functions extensionally equivalent to it.  Transformations such
+as introspection and answer reduction copy, scan, hardwire, and simulate that
+source.  They cannot be defined merely on a black-box input/output relation.
+
+\paragraph{Worked description example.}
+The code of \(M_=\) contains tags for the three states and the five rows above.
+A compiler can prepend a wrapper saying ``run this code, but reject after
+three simulated steps.''  It produces new finite code without having to
+decide any semantic property of \(M_=\).
+
+A verifier description is the ordered pair
+\(\langle V\rangle=(\langle S\rangle,\langle D\rangle)\).  In
+\code{fig:compress}, \(\Compress\) literally receives
+\((\langle V\rangle,\lambda)\), constructs descriptions for introspection,
+answer reduction, and parallel repetition, and returns the description of a
+new verifier.  This is why it is meaningful for \(\Compress\) to take ``a
+verifier'' as input: it takes the finite string naming the verifier's rules,
+not an infinite table of all possible plays.
+
+\section{Universality: one machine can interpret all machines}
+\label{sec:refresher-universality}
+
+\subsection{The universal machine}
+
+Fix an encoding of tuples and programs.  A universal machine \(U_k\) is a
+single machine satisfying
+\[
+ U_k(\langle M\rangle,x_1,\ldots,x_k)=M(x_1,\ldots,x_k)
+\]
+whenever the right side halts, and diverging when that simulated run diverges.
+Operationally, \(U_k\) keeps the code of \(M\) on a read-only region, stores an
+encoded simulated configuration, finds the matching transition-table entry,
+and updates the encoding.  Universality therefore says that descriptions can
+be used as ordinary input data.
+
+The paper needs the quantitative version.  With its dual-rail tuple encoding,
+there are universal constants \(C_U,c_U\geq1\) such that a \(T\)-step run of a
+\(k\)-input machine is reproduced within
+\[
+ C_U\bigl(k|\langle M\rangle||x|T\bigr)^{c_U},
+ \qquad |x|=\sum_i|x_i|.
+\]
+No particular exponent is sacred.  What matters is that the overhead is one
+fixed polynomial after the encodings have been fixed.
+
+\paragraph{Why this matters here.}
+Generated verifiers call old verifiers as subroutines.  Their finite source
+contains the universal interpreter plus the old description; it does not
+contain a separate hand-compiled copy of every possible transition.  The
+polynomial overhead is later absorbed into a new resource exponent.
+
+\paragraph{Worked universal simulation.}
+On input \((\langle M_=\rangle,1,0)\), \(U_2\) parses the five table rows,
+builds the initial four-tape configuration, and simulates the three transitions
+above.  It outputs zero.  The interpreter is fixed; changing the two input
+bits or replacing \(\langle M_=\rangle\) changes only its data.
+
+\subsection{Parameter fixing: the
+\texorpdfstring{\(s\)-\(m\)-\(n\)}{s-m-n} theorem}
+
+The notation \(s\)-\(m\)-\(n\) packages a simple compiler operation.  If
+program \(e\) expects \(r+k\) arguments, there is a total computable function
+\(s_{r,k}\) on bit strings such that
+\[
+ \varphi^{(k)}_{s_{r,k}(e,z_1,\ldots,z_r)}(x_1,\ldots,x_k)
+ =\varphi^{(r+k)}_e(z_1,\ldots,z_r,x_1,\ldots,x_k).
+\]
+The left program has the first \(r\) values hardwired into its source.
+
+\paragraph{Proof idea in two lines.}
+Print a wrapper containing one literal copy of \(e,z_1,\ldots,z_r\).  On input
+\(x\), the wrapper forms the tuple
+\((e,z_1,\ldots,z_r,x)\) and invokes the universal machine; printing this
+wrapper is itself a terminating, effective source transformation.
+
+\paragraph{Why this matters here.}
+Hardwiring is the bridge from ``this value is supplied at run time'' to ``this
+value is part of the verifier description.''  Compression constantly fixes a
+verifier, a level, or a time exponent while leaving \((n,x,y,a,b)\) as the
+live inputs.  Part~II calls the corresponding operation \(\Specialize\).
+
+\paragraph{Worked specialization.}
+Apply \(s_{1,1}\) to the two-input equality machine and the static bit \(1\).
+The resulting one-input program has code
+\(e_1=s_{1,1}(\langle M_=\rangle,1)\) and satisfies
+\(\varphi_{e_1}(a)=M_=(1,a)\).  Thus it is the one-bit identity test, even
+though its source is a universal-simulation wrapper rather than a newly
+invented transition table.
+
+\subsection{Why the Halting problem is undecidable}
+
+Let
+\[
+ \mathsf{HALT}=\{(\langle M\rangle,x):M(x)\neq\bot\}.
+\]
+The Halting problem asks for a total decider \(H\) for this set.  The obstruction
+is diagonalization, and it is worth seeing every step.
+
+\begin{proof}[Diagonal proof]
+Assume, for contradiction, that \(H(e,x)\) always halts and returns one exactly
+when the program described by \(e\) halts on \(x\).  Construct a one-input
+machine \(D\) as follows on input \(z\):
+\begin{enumerate}
+\item Run \(H(z,z)\).
+\item If \(H\) returns zero, halt.
+\item If \(H\) returns one, loop forever.
+\end{enumerate}
+This is a legitimate finite program because \(H\) was assumed to be a total
+subroutine.  Let \(d=\langle D\rangle\) and run \(D(d)\).
+
+If \(H(d,d)=0\), then by the specification of \(H\), \(D(d)\) does not halt;
+but Step 2 says that it halts.  If \(H(d,d)=1\), then the specification says
+that \(D(d)\) halts; but Step 3 says that it loops forever.  The two possible
+output bits both yield contradictions.  Therefore no such total \(H\) exists.
+\end{proof}
+
+This proof does not say that a particular long run can never be understood.
+It says there is no single terminating algorithm which answers the halting
+question correctly for every program-description/input pair.
+
+\paragraph{Why this matters here.}
+The \(\mathrm{MIP}^*=\mathrm{RE}\) construction reduces the behavior of an
+arbitrary machine to the value of a nonlocal game.  Its Halting verifier is
+given \(\langle M\rangle\), embeds and simulates that description, and asks
+whether bounded prefixes of the computation are consistent.  It does not
+contain an impossible halting decider; rather, the infinite family of game
+instances reflects the recursively enumerable process of eventually seeing a
+halt.
+
+\paragraph{Worked semidecision.}
+For a fixed \(M,x\), simulate one more step at each stage \(t=0,1,2,\ldots\).
+If \(M(x)\) halts after \(T\) steps, stage \(T\) witnesses it.  If it never
+halts, this search itself never returns.  That one-sided behavior is the
+``RE'' side of the theorem's computability interface.
+
+\section{Programs which obtain their own descriptions}
+\label{sec:refresher-kleene}
+
+The diagonal argument used a program on its own code.  Kleene's second
+recursion theorem turns that move into a general construction.  In its most
+useful form here:
+
+\begin{quote}
+Every total computable transformation of programs has a program that behaves
+like its own transform.
+\end{quote}
+
+More formally, if \(Q\) is a total computable map from descriptions of
+\(k\)-input programs to descriptions of \(k\)-input programs, then there is a
+description \(e_Q\) such that
+\[
+ \varphi^{(k)}_{e_Q}=\varphi^{(k)}_{Q(e_Q)}.
+\]
+This is behavioral equality, not necessarily literal equality of bit strings.
+
+For the paper, this theorem buys a finite verifier description whose behavior
+may depend on that very description.
+\begin{theorem}[Kleene's second recursion theorem, refresher form]
+\label{thm:refresher-kleene}
+Every total computable transformation \(Q\) of \(k\)-input program codes has
+an effectively constructible behavioral fixed point \(e_Q\).
+\end{theorem}
+
+\begin{proof}
+Use parameter fixing for one static and \(k\) live arguments.  Write \(s(z,w)\)
+for the code obtained by fixing the first input of a suitable \((k+1)\)-input
+program \(z\) to the literal \(w\); hence
+\[
+ \varphi^{(k)}_{s(z,w)}(x)=\varphi^{(k+1)}_z(w,x).
+\]
+Now define the partial computable function
+\[
+ g(z,x):=\varphi^{(k)}_{Q(s(z,z))}(x).
+\]
+There is a finite \((k+1)\)-input program \(p\) for \(g\): on \((z,x)\), it
+computes \(s(z,z)\), runs the total transformer \(Q\) on that string, and
+universally simulates the resulting program on \(x\).  Set
+\(e_Q:=s(p,p)\).  Then, for every \(x\),
+\[
+\begin{aligned}
+ \varphi^{(k)}_{e_Q}(x)
+ &=\varphi^{(k)}_{s(p,p)}(x)\\
+ &=\varphi^{(k+1)}_p(p,x)\\
+ &=\varphi^{(k)}_{Q(s(p,p))}(x)\\
+ &=\varphi^{(k)}_{Q(e_Q)}(x).
+\end{aligned}
+\]
+If the last computation diverges, each displayed partial computation diverges
+for the same reason; if it halts, all return the same output.  Thus the
+partial functions are equal on every input.  Every source-manipulating step
+used to construct \(e_Q\) terminates, so the fixed point is effective.
+\end{proof}
+
+\paragraph{Why this matters here.}
+The Halting verifier must pass its own decider description into \(\Compress\).
+The theorem says that this is ordinary program construction, not a circular
+definition requiring an infinite source string.  It also separates two facts:
+constructing the fixed-point code terminates, while running the partial
+program denoted by that code may or may not terminate.
+
+\paragraph{Worked quine-like example.}
+Let \(Q(z)\) be the code of the zero-input program ``print the literal string
+\(z\).''  The transformation \(Q\) is total because it merely prints a
+wrapper.  Its fixed point \(e_Q\) satisfies
+\(\varphi_{e_Q}=\varphi_{Q(e_Q)}\), so running \(e_Q\) prints \(e_Q\) itself.
+The theorem has built a quine without requiring the source printer to know its
+own final address in advance.
+
+\subsection{The paper's
+\texorpdfstring{\(\mathcal F(\mathcal F,M,L,\ldots)\)}
+{F(F,M,L,...)} construction}
+
+The paper writes the fixed point in an unrolled form.  Begin with an
+eight-input machine
+\[
+ \mathcal F(f,m,L,n,x,y,a,b).
+\]
+Its first action is a computable source transformation: hardwire
+\((f,m,L)\) into the first three slots of \(\mathcal F\)'s template, obtaining
+a five-input decider description \(d\).  It pairs \(d\) with a sampler
+description, invokes \(\Compress\) on that verifier description, and runs the
+resulting decider on \((n,x,y,a,b)\).  The published call is
+\[
+ \mathcal F(\langle\mathcal F\rangle,\langle M\rangle,L,n,x,y,a,b).
+\]
+After the first three arguments have been fixed, the produced \(d\) is exactly
+the description of the five-input program currently being run.  Hence the
+verifier passed to \(\Compress\) contains its own decider code.
+
+\paragraph{Why this matters here.}
+This is Kleene's construction with the diagonal substitution exposed as
+pseudocode.  The transformation \(Q\) says ``insert the candidate code into a
+verifier, compress it, then run the returned decider.''  The
+\(\mathcal F(\mathcal F,\ldots)\) trick supplies \(s(p,p)\) directly.  An
+earlier version of the paper invoked Kleene's recursion theorem explicitly;
+the published presentation changes the notation, not the computability fact.
+
+\paragraph{Worked schematic expansion.}
+Suppress the fixed parameters \(M,L\) and denote the five live inputs by
+\(u\).  For a proposed self-description \(f\), put
+\(d_f=\operatorname{hardwire}(\langle\mathcal F\rangle,f)\).
+Substituting \(f=\langle\mathcal F\rangle\) gives
+\[
+ d_{\langle\mathcal F\rangle}(u)
+ =\mathcal F(\langle\mathcal F\rangle,u)
+ =Q(d_{\langle\mathcal F\rangle})(u),
+\]
+which is the recursion-theorem equation with the compiler operation written
+out rather than hidden under the symbol \(s\).
+

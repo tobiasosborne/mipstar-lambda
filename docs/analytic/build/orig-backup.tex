@@ -1,0 +1,3109 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs,longtable,tabularx,array}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlength{\emergencystretch}{3em}
+\urlstyle{tt}
+
+\newcommand{\F}{\mathbb F}
+\newcommand{\N}{\mathbb N}
+\newcommand{\IR}{\mathsf{IR}}
+\newcommand{\Time}{\operatorname{TIME}}
+\newcommand{\Eval}{\operatorname{Eval}}
+\newcommand{\Quote}{\operatorname{Quote}}
+\newcommand{\Specialize}{\operatorname{Specialize}}
+\newcommand{\Compress}{\mathsf{Compress}}
+\newcommand{\Introspect}{\mathsf{Introspect}}
+\newcommand{\AnswerReduce}{\mathsf{AnswerReduce}}
+\newcommand{\Repeat}{\mathsf{Repeat}}
+\newcommand{\ComputeIntroVerifier}{\mathsf{ComputeIntroVerifier}}
+\newcommand{\ComputeAnsVerifier}{\mathsf{ComputeAnsVerifier}}
+\newcommand{\ComputeParrepVerifier}{\mathsf{ComputeParrepVerifier}}
+\newcommand{\ComputeSampler}{\mathsf{ComputeSampler}}
+\newcommand{\poly}{\operatorname{poly}}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+\newcommand{\gt}[2]{\footnote{Ground truth: \code{#1} in \code{#2}.}}
+\newcommand{\grade}[1]{\textsc{\MakeLowercase{#1}}}
+\newcommand{\constructed}{\grade{CONSTRUCTED}}
+\newcommand{\claim}[2]{\code{#1}: \textsc{#2}}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+\newenvironment{reminder}{%
+  \par\smallskip\noindent\begin{minipage}{\linewidth}%
+  \hrule\medskip\small\textbf{Reminder. }\ignorespaces
+}{%
+  \par\medskip\hrule\end{minipage}\smallskip\par
+}
+
+\title{Analytic Underpinnings of the Symbolic Answer-Reduction Pipeline}
+\author{}
+\date{4 September 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The objects manipulated by answer reduction are finite descriptions of
+machines, circuits, formulas, polynomials, samplers, and verifiers.  The Julia
+prototype realizes part of the corresponding analytic chain as typed
+transformations of explicit intermediate representations.  It constructs
+finite-field polynomials and conditionally linear samplers, and it checks
+coefficient identities, degree accounts, dependency blocks, marginal laws,
+and finite-instance histograms.  The operator-algebraic and compression
+theorems remain imported.  This note makes
+the description-level Turing-machine--lambda-calculus correspondence precise,
+identifies the fixed point, and records the evidence boundary at every rung.
+Part~I is a self-contained computability refresher for readers returning to
+Turing machines and lambda calculus after a long interval; Part~II then puts
+exact resource bounds on the same ideas.
+\end{abstract}
+
+\tableofcontents
+
+\clearpage
+\part{A refresher on computability, from the paper's viewpoint}
+\label{part:refresher}
+\setlength{\parskip}{0.30em}
+
+The outermost layer of the argument is classical computation.  Before any
+low-degree test or entangled strategy appears, the proof must be able to take
+the finite text of one verifier, transform that text into another verifier,
+and arrange for a verifier to use a description of itself.  This part rebuilds
+that vocabulary from the ground up.  It is deliberately qualitative about
+polynomial overheads; the exact costed statements begin in Part~II.
+
+\section{Turing machines in the form used by the paper}
+\label{sec:refresher-tm}
+
+\subsection{Programs, configurations, and one step}
+
+A Turing machine separates two things which ordinary mathematical notation
+often blends together: a finite rule book and an unbounded but finitely used
+memory.  For one tape, a convenient formal tuple is
+\[
+ M=(Q,\Sigma,\Gamma,\delta,q_0,q_{\mathrm h}),
+\]
+where \(Q\) is a finite set of control states, \(q_0\in Q\) is the initial
+state, \(q_{\mathrm h}\in Q\) is the halting state,
+\(\Sigma=\{0,1\}\) is the input alphabet,
+\(\Gamma\supseteq\Sigma\cup\{\sqcup\}\) is a finite tape alphabet with blank
+symbol \(\sqcup\notin\Sigma\), and
+\[
+ \delta:(Q\setminus\{q_{\mathrm h}\})\times\Gamma
+ \longrightarrow Q\times\Gamma\times\{L,S,R\}
+\]
+is the transition function.  We take tapes to be indexed by \(\N\), so a
+left move at cell zero leaves the head at zero.  The paper uses a multitape
+version: a \(k\)-input machine has \(k\) input tapes, one work tape, and one
+output tape.  Its transition reads all scanned symbols, changes the state,
+writes on the work and output tapes, and moves each head by at most one cell.
+The input tapes are read-only.  Adding separate accept and reject halting
+states, or allowing writes on input tapes, changes none of the computability
+or polynomial-overhead statements below.
+
+A \emph{configuration} is a complete instantaneous description
+\[
+ C=(q,T_1,h_1,\ldots,T_{k+2},h_{k+2}):
+\]
+the current state, the contents \(T_i:\N\to\Gamma\) of every tape, and the
+head locations \(h_i\in\N\).  Only finitely many cells are nonblank in every
+reachable configuration.  The notation \(C\vdash_M C'\) means that one
+application of \(\delta\) changes \(C\) into \(C'\).  Thus a computation is
+not a metaphor: it is the uniquely determined path
+\(C_0\vdash_M C_1\vdash_M C_2\vdash_M\cdots\) in the graph of configurations.
+
+\paragraph{Why this matters here.}
+Later, Cook--Levin replaces a bounded computation by local constraints on
+adjacent configurations.  That replacement works because one step looks only
+at the finite control and the cells under the heads.  The enormous object is
+the history; the local dynamical law \(\delta\) is finite.  This is close to a
+lattice model with a fixed local update rule, except that the update is
+deterministic and the head positions are part of the state.
+
+\paragraph{Worked one-step example.}
+If \(\delta(q,0)=(q',1,R)\), then
+\[
+ (q,\ldots\sqcup\,\underline 0\,1\sqcup\ldots,h)
+ \ \vdash_M\ 
+ (q',\ldots\sqcup\,1\,\underline 1\sqcup\ldots,h+1).
+\]
+Only the state, the scanned cell, and the head location have changed.
+
+The machine \emph{halts} on input \(x\) if some \(C_T\) has state
+\(q_{\mathrm h}\).  Its output is the longest nonblank initial string on the
+output tape.  We write \(M(x)\) for that string and \(M(x)=\bot\) if the path
+never reaches \(q_{\mathrm h}\).  The instance running time is
+\[
+ \Time_{M,x}:=\min\{T:C_T\text{ has state }q_{\mathrm h}\},
+\]
+with value \(\infty\) if the set is empty.  We sometimes abbreviate this as
+\(\Time_M(x)\).  Notice the distinction between \emph{has not halted yet} and
+\emph{will never halt}; no finite observation of a run decides the latter in
+general.
+
+\paragraph{Why this matters here.}
+The compression argument repeatedly says that a generated verifier finishes
+within a supplied bound.  That is a statement about the number of transitions
+on every relevant input, not merely about the mathematical function obtained
+after ignoring time.  A timeout wrapper may safely reject after \(T\) steps,
+because it is counting the very transitions used in the definition above.
+
+\paragraph{Worked timing example.}
+For the transition just displayed, if the new state \(q'\) is the halt state,
+then the initial configuration is assigned time one.  A timeout of zero
+rejects without applying the transition; a timeout of one obtains the output.
+
+\subsection{A complete two-state equality machine}
+
+Here is a small instance in the paper's multitape style.  The machine has two
+one-bit input tapes \(A,B\), a work tape \(W\), and an output tape \(O\).  It
+has two nonhalting states \(q_0,q_1\), plus the designated state
+\(q_{\mathrm h}\).  A table entry lists
+\((\hbox{next state};\hbox{new }W,\hbox{new }O;
+  \hbox{moves of }A,B,W,O)\).
+Rows are tested from top to bottom; they are disjoint except for the last
+catch-all row, so the table specifies every possible scanned tuple.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{P{0.09\textwidth}P{0.24\textwidth}X}
+\toprule
+State & Scanned \((A,B,W,O)\) & Transition \\
+\midrule
+\(q_0\) & \((0,0,\sqcup,\sqcup)\) or
+          \((1,1,\sqcup,\sqcup)\)
+ & \((q_1;1,\sqcup;R,R,S,S)\) \\
+\(q_0\) & \((0,1,\sqcup,\sqcup)\) or
+          \((1,0,\sqcup,\sqcup)\)
+ & \((q_1;0,\sqcup;R,R,S,S)\) \\
+\(q_1\) & \((\sqcup,\sqcup,r,\sqcup)\), \(r\in\{0,1\}\)
+ & \((q_0;r,r;S,S,S,S)\) \\
+\(q_0\) & \((\sqcup,\sqcup,r,r)\), \(r\in\{0,1\}\)
+ & \((q_{\mathrm h};r,r;S,S,S,S)\) \\
+\(q_0,q_1\) & every tuple not covered above
+ & \((q_{\mathrm h};0,0;S,S,S,S)\) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The final row makes the table total and rejects malformed inputs.  On legal
+one-bit inputs the first step computes the equality bit on \(W\), the second
+copies it to \(O\), and the third enters the halt state.  For \(A=B=1\), the
+full three-step trace, showing the scanned cells, is
+\[
+\begin{array}{c|c|c|c|c|c|l}
+i&q&A&B&W&O&\text{rule used}\\ \hline
+0&q_0&\underline1&\underline1&\underline\sqcup&\underline\sqcup
+  &\text{equal-input row}\\
+1&q_1&1\underline\sqcup&1\underline\sqcup&\underline1&\underline\sqcup
+  &\text{copy row with }r=1\\
+2&q_0&1\underline\sqcup&1\underline\sqcup&\underline1&\underline1
+  &\text{halt row with }r=1\\
+3&q_{\mathrm h}&1\underline\sqcup&1\underline\sqcup&\underline1&\underline1
+  &\text{halted.}
+\end{array}
+\]
+Thus \(M_{=}(1,1)=1\) and \(\Time_{M_=,(1,1)}=3\).  The same trace with
+work/output bit zero gives \(M_{=}(0,1)=0\).
+
+\paragraph{Why this matters here.}
+The example is intentionally mundane: a paper verifier is just a much larger
+finite transition table whose output bit says accept or reject.  Statements
+about a verifier's code, time, or simulation refer to this concrete object,
+even when the paper describes it in higher-level pseudocode.
+
+\subsection{Several inputs and the verifier convention}
+
+Writing \(M(x_1,\ldots,x_k)\) means that \(x_i\) initially occupies the
+initial cells of input tape \(i\), with all other cells blank and all heads at
+zero.  Multiple tapes are convenient interfaces, not a stronger model: a
+one-tape machine can store a self-delimiting encoding of all tapes and their
+head markers and simulate one multitape step with polynomial overhead.
+
+The paper's \emph{decider} is a total five-input machine
+\[
+ D(n,x,y,a,b)\in\{0,1\}.
+\]
+Here \(n\) is an index written in binary, \(x,y\) are the two questions, and
+\(a,b\) are the two answers.  Total means that \(D\) halts on every such
+five-tuple.  Its paper-level time at index \(n\) is the worst case over the
+other four strings.  A normal-form verifier is a pair \(V=(S,D)\), where the
+sampler \(S\) produces the questions and \(D\) checks the answers.
+
+\paragraph{Why this matters here.}
+The five inputs are not later bundled by sleight of hand.  When we translate a
+decider to a lambda term, its argument is a five-component encoded tuple; when
+we translate back, those components initialize five separate tapes.  The
+worst-case convention is what lets a resource bound hold independently of
+unread suffixes of arbitrarily long answer strings.
+
+\paragraph{Worked verifier example.}
+Let \(S\) always ask the one-bit questions \(x=y=0\), and let \(D\) ignore
+\(n,x,y\) and run \(M_=\) on the first bits of \(a,b\).  Then the players are
+accepted exactly when their one-bit answers agree, and the decision stage
+takes three transitions plus fixed input-parsing overhead.
+
+\subsection{Descriptions are finite data}
+
+Because \(Q,\Gamma\), and \(\delta\) are finite, we may serialize them with a
+fixed prefix-free convention.  The resulting bit string is the machine
+description \(\langle M\rangle\); the paper also writes \(\overline M\).
+Its length in bits is
+\[
+ |M|:=|\langle M\rangle|.
+\]
+Malformed strings are assigned a fixed rejecting machine, so every bit string
+still has a defined interpretation.  The encoding is syntactic: extensionally
+equivalent machines may have different codes, sizes, and running times.  A
+useful physics analogy is that a description is like a written Hamiltonian,
+not its spectrum.  The actual definition is the serialized state set and
+transition table, and an algorithm may inspect those bits without solving the
+machine's behavior.
+
+\paragraph{Why this matters here.}
+The size bound \(|V|\leq\lambda\) constrains the verifier's source code, not
+the number of functions extensionally equivalent to it.  Transformations such
+as introspection and answer reduction copy, scan, hardwire, and simulate that
+source.  They cannot be defined merely on a black-box input/output relation.
+
+\paragraph{Worked description example.}
+The code of \(M_=\) contains tags for the three states and the five rows above.
+A compiler can prepend a wrapper saying ``run this code, but reject after
+three simulated steps.''  It produces new finite code without having to
+decide any semantic property of \(M_=\).
+
+A verifier description is the ordered pair
+\(\langle V\rangle=(\langle S\rangle,\langle D\rangle)\).  In
+\code{fig:compress}, \(\Compress\) literally receives
+\((\langle V\rangle,\lambda)\), constructs descriptions for introspection,
+answer reduction, and parallel repetition, and returns the description of a
+new verifier.  This is why it is meaningful for \(\Compress\) to take ``a
+verifier'' as input: it takes the finite string naming the verifier's rules,
+not an infinite table of all possible plays.
+
+\section{Universality: one machine can interpret all machines}
+\label{sec:refresher-universality}
+
+\subsection{The universal machine}
+
+Fix an encoding of tuples and programs.  A universal machine \(U_k\) is a
+single machine satisfying
+\[
+ U_k(\langle M\rangle,x_1,\ldots,x_k)=M(x_1,\ldots,x_k)
+\]
+whenever the right side halts, and diverging when that simulated run diverges.
+Operationally, \(U_k\) keeps the code of \(M\) on a read-only region, stores an
+encoded simulated configuration, finds the matching transition-table entry,
+and updates the encoding.  Universality therefore says that descriptions can
+be used as ordinary input data.
+
+The paper needs the quantitative version.  With its dual-rail tuple encoding,
+there are universal constants \(C_U,c_U\geq1\) such that a \(T\)-step run of a
+\(k\)-input machine is reproduced within
+\[
+ C_U\bigl(k|\langle M\rangle||x|T\bigr)^{c_U},
+ \qquad |x|=\sum_i|x_i|.
+\]
+No particular exponent is sacred.  What matters is that the overhead is one
+fixed polynomial after the encodings have been fixed.
+
+\paragraph{Why this matters here.}
+Generated verifiers call old verifiers as subroutines.  Their finite source
+contains the universal interpreter plus the old description; it does not
+contain a separate hand-compiled copy of every possible transition.  The
+polynomial overhead is later absorbed into a new resource exponent.
+
+\paragraph{Worked universal simulation.}
+On input \((\langle M_=\rangle,1,0)\), \(U_2\) parses the five table rows,
+builds the initial four-tape configuration, and simulates the three transitions
+above.  It outputs zero.  The interpreter is fixed; changing the two input
+bits or replacing \(\langle M_=\rangle\) changes only its data.
+
+\subsection{Parameter fixing: the
+\texorpdfstring{\(s\)-\(m\)-\(n\)}{s-m-n} theorem}
+
+The notation \(s\)-\(m\)-\(n\) packages a simple compiler operation.  If
+program \(e\) expects \(r+k\) arguments, there is a total computable function
+\(s_{r,k}\) on bit strings such that
+\[
+ \varphi^{(k)}_{s_{r,k}(e,z_1,\ldots,z_r)}(x_1,\ldots,x_k)
+ =\varphi^{(r+k)}_e(z_1,\ldots,z_r,x_1,\ldots,x_k).
+\]
+The left program has the first \(r\) values hardwired into its source.
+
+\paragraph{Proof idea in two lines.}
+Print a wrapper containing one literal copy of \(e,z_1,\ldots,z_r\).  On input
+\(x\), the wrapper forms the tuple
+\((e,z_1,\ldots,z_r,x)\) and invokes the universal machine; printing this
+wrapper is itself a terminating, effective source transformation.
+
+\paragraph{Why this matters here.}
+Hardwiring is the bridge from ``this value is supplied at run time'' to ``this
+value is part of the verifier description.''  Compression constantly fixes a
+verifier, a level, or a time exponent while leaving \((n,x,y,a,b)\) as the
+live inputs.  Part~II calls the corresponding operation \(\Specialize\).
+
+\paragraph{Worked specialization.}
+Apply \(s_{1,1}\) to the two-input equality machine and the static bit \(1\).
+The resulting one-input program has code
+\(e_1=s_{1,1}(\langle M_=\rangle,1)\) and satisfies
+\(\varphi_{e_1}(a)=M_=(1,a)\).  Thus it is the one-bit identity test, even
+though its source is a universal-simulation wrapper rather than a newly
+invented transition table.
+
+\subsection{Why the Halting problem is undecidable}
+
+Let
+\[
+ \mathsf{HALT}=\{(\langle M\rangle,x):M(x)\neq\bot\}.
+\]
+The Halting problem asks for a total decider \(H\) for this set.  The obstruction
+is diagonalization, and it is worth seeing every step.
+
+\begin{proof}[Diagonal proof]
+Assume, for contradiction, that \(H(e,x)\) always halts and returns one exactly
+when the program described by \(e\) halts on \(x\).  Construct a one-input
+machine \(D\) as follows on input \(z\):
+\begin{enumerate}
+\item Run \(H(z,z)\).
+\item If \(H\) returns zero, halt.
+\item If \(H\) returns one, loop forever.
+\end{enumerate}
+This is a legitimate finite program because \(H\) was assumed to be a total
+subroutine.  Let \(d=\langle D\rangle\) and run \(D(d)\).
+
+If \(H(d,d)=0\), then by the specification of \(H\), \(D(d)\) does not halt;
+but Step 2 says that it halts.  If \(H(d,d)=1\), then the specification says
+that \(D(d)\) halts; but Step 3 says that it loops forever.  The two possible
+output bits both yield contradictions.  Therefore no such total \(H\) exists.
+\end{proof}
+
+This proof does not say that a particular long run can never be understood.
+It says there is no single terminating algorithm which answers the halting
+question correctly for every program-description/input pair.
+
+\paragraph{Why this matters here.}
+The \(\mathrm{MIP}^*=\mathrm{RE}\) construction reduces the behavior of an
+arbitrary machine to the value of a nonlocal game.  Its Halting verifier is
+given \(\langle M\rangle\), embeds and simulates that description, and asks
+whether bounded prefixes of the computation are consistent.  It does not
+contain an impossible halting decider; rather, the infinite family of game
+instances reflects the recursively enumerable process of eventually seeing a
+halt.
+
+\paragraph{Worked semidecision.}
+For a fixed \(M,x\), simulate one more step at each stage \(t=0,1,2,\ldots\).
+If \(M(x)\) halts after \(T\) steps, stage \(T\) witnesses it.  If it never
+halts, this search itself never returns.  That one-sided behavior is the
+``RE'' side of the theorem's computability interface.
+
+\section{Programs which obtain their own descriptions}
+\label{sec:refresher-kleene}
+
+The diagonal argument used a program on its own code.  Kleene's second
+recursion theorem turns that move into a general construction.  In its most
+useful form here:
+
+\begin{quote}
+Every total computable transformation of programs has a program that behaves
+like its own transform.
+\end{quote}
+
+More formally, if \(Q\) is a total computable map from descriptions of
+\(k\)-input programs to descriptions of \(k\)-input programs, then there is a
+description \(e_Q\) such that
+\[
+ \varphi^{(k)}_{e_Q}=\varphi^{(k)}_{Q(e_Q)}.
+\]
+This is behavioral equality, not necessarily literal equality of bit strings.
+
+For the paper, this theorem buys a finite verifier description whose behavior
+may depend on that very description.
+\begin{theorem}[Kleene's second recursion theorem, refresher form]
+\label{thm:refresher-kleene}
+Every total computable transformation \(Q\) of \(k\)-input program codes has
+an effectively constructible behavioral fixed point \(e_Q\).
+\end{theorem}
+
+\begin{proof}
+Use parameter fixing for one static and \(k\) live arguments.  Write \(s(z,w)\)
+for the code obtained by fixing the first input of a suitable \((k+1)\)-input
+program \(z\) to the literal \(w\); hence
+\[
+ \varphi^{(k)}_{s(z,w)}(x)=\varphi^{(k+1)}_z(w,x).
+\]
+Now define the partial computable function
+\[
+ g(z,x):=\varphi^{(k)}_{Q(s(z,z))}(x).
+\]
+There is a finite \((k+1)\)-input program \(p\) for \(g\): on \((z,x)\), it
+computes \(s(z,z)\), runs the total transformer \(Q\) on that string, and
+universally simulates the resulting program on \(x\).  Set
+\(e_Q:=s(p,p)\).  Then, for every \(x\),
+\[
+\begin{aligned}
+ \varphi^{(k)}_{e_Q}(x)
+ &=\varphi^{(k)}_{s(p,p)}(x)\\
+ &=\varphi^{(k+1)}_p(p,x)\\
+ &=\varphi^{(k)}_{Q(s(p,p))}(x)\\
+ &=\varphi^{(k)}_{Q(e_Q)}(x).
+\end{aligned}
+\]
+If the last computation diverges, each displayed partial computation diverges
+for the same reason; if it halts, all return the same output.  Thus the
+partial functions are equal on every input.  Every source-manipulating step
+used to construct \(e_Q\) terminates, so the fixed point is effective.
+\end{proof}
+
+\paragraph{Why this matters here.}
+The Halting verifier must pass its own decider description into \(\Compress\).
+The theorem says that this is ordinary program construction, not a circular
+definition requiring an infinite source string.  It also separates two facts:
+constructing the fixed-point code terminates, while running the partial
+program denoted by that code may or may not terminate.
+
+\paragraph{Worked quine-like example.}
+Let \(Q(z)\) be the code of the zero-input program ``print the literal string
+\(z\).''  The transformation \(Q\) is total because it merely prints a
+wrapper.  Its fixed point \(e_Q\) satisfies
+\(\varphi_{e_Q}=\varphi_{Q(e_Q)}\), so running \(e_Q\) prints \(e_Q\) itself.
+The theorem has built a quine without requiring the source printer to know its
+own final address in advance.
+
+\subsection{The paper's
+\texorpdfstring{\(\mathcal F(\mathcal F,M,L,\ldots)\)}
+{F(F,M,L,...)} construction}
+
+The paper writes the fixed point in an unrolled form.  Begin with an
+eight-input machine
+\[
+ \mathcal F(f,m,L,n,x,y,a,b).
+\]
+Its first action is a computable source transformation: hardwire
+\((f,m,L)\) into the first three slots of \(\mathcal F\)'s template, obtaining
+a five-input decider description \(d\).  It pairs \(d\) with a sampler
+description, invokes \(\Compress\) on that verifier description, and runs the
+resulting decider on \((n,x,y,a,b)\).  The published call is
+\[
+ \mathcal F(\langle\mathcal F\rangle,\langle M\rangle,L,n,x,y,a,b).
+\]
+After the first three arguments have been fixed, the produced \(d\) is exactly
+the description of the five-input program currently being run.  Hence the
+verifier passed to \(\Compress\) contains its own decider code.
+
+\paragraph{Why this matters here.}
+This is Kleene's construction with the diagonal substitution exposed as
+pseudocode.  The transformation \(Q\) says ``insert the candidate code into a
+verifier, compress it, then run the returned decider.''  The
+\(\mathcal F(\mathcal F,\ldots)\) trick supplies \(s(p,p)\) directly.  An
+earlier version of the paper invoked Kleene's recursion theorem explicitly;
+the published presentation changes the notation, not the computability fact.
+
+\paragraph{Worked schematic expansion.}
+Suppress the fixed parameters \(M,L\) and denote the five live inputs by
+\(u\).  For a proposed self-description \(f\), put
+\(d_f=\operatorname{hardwire}(\langle\mathcal F\rangle,f)\).
+Substituting \(f=\langle\mathcal F\rangle\) gives
+\[
+ d_{\langle\mathcal F\rangle}(u)
+ =\mathcal F(\langle\mathcal F\rangle,u)
+ =Q(d_{\langle\mathcal F\rangle})(u),
+\]
+which is the recursion-theorem equation with the compiler operation written
+out rather than hidden under the symbol \(s\).
+
+\section{Lambda calculus from scratch}
+\label{sec:refresher-lambda}
+
+Turing machines make state and local time explicit.  Lambda calculus makes
+substitution and composition explicit.  We start with its untyped core,
+because fixed-point combinators live there naturally, and only later return to
+the typed, fuelled language used by the project.
+
+\subsection{Terms, scope, and beta reduction}
+
+A lambda term is generated by
+\[
+ t ::= x \mid (\lambda x.t) \mid (t\;t).
+\]
+A variable occurrence is \emph{bound} if it lies inside a matching
+\(\lambda x\); otherwise it is \emph{free}.  For example, in
+\(\lambda x.(x\;y)\), the occurrence of \(x\) is bound and \(y\) is free.
+Changing a bound name consistently is \emph{alpha-renaming}:
+\(\lambda x.x=_{\alpha}\lambda z.z\).  It changes typography, not the term's
+binding structure.
+
+Application associates to the left and abstraction extends to the right, so
+\(f\;a\;b\) means \((f\;a)\;b\), while \(\lambda x.f\;x\) means
+\(\lambda x.(f\;x)\).  The computational rule is beta reduction,
+\[
+ (\lambda x.t)\;u\longrightarrow_\beta t[x:=u],
+\]
+where substitution replaces the free occurrences of \(x\) in \(t\) and first
+alpha-renames binders when necessary to avoid capture.
+
+\paragraph{Why this matters here.}
+Hardwiring a machine input and applying a function are both forms of
+substitution.  Our later \(\Specialize\) operation is the source-code version:
+it fills typed holes while preserving scope.  Being precise about bound and
+free variables is what prevents a verifier description from changing meaning
+when code is inserted under a binder.
+
+\paragraph{Worked reduction 1.}
+The identity combinator \(I=\lambda x.x\) satisfies
+\[
+ (\lambda x.x)\;((\lambda z.z)\;w)
+ \longrightarrow_\beta (\lambda z.z)\;w
+ \longrightarrow_\beta w.
+\]
+
+\paragraph{Worked reduction 2: avoiding capture.}
+Naively substituting \(y\) for \(x\) in
+\((\lambda x.\lambda y.x)\;y\) would incorrectly bind the free \(y\).
+Rename the inner binder first:
+\[
+ (\lambda x.\lambda y.x)\;y
+ =_\alpha(\lambda x.\lambda z.x)\;y
+ \longrightarrow_\beta\lambda z.y.
+\]
+The surviving \(y\) is free, as it must be.
+
+A \emph{beta-redex} is a subterm of the form \((\lambda x.t)u\).  A
+\emph{normal form} contains no beta-redex.  Some terms have none: with
+\(\Omega=(\lambda x.xx)(\lambda x.xx)\), one has
+\(\Omega\to_\beta\Omega\) forever.  The Church--Rosser, or confluence,
+theorem states that if one term reduces by different paths to \(u\) and \(v\),
+then \(u\) and \(v\) have a common reduct.  In particular, a normal form, if
+it exists, is unique up to alpha-renaming.  We use this theorem as orientation
+and do not prove it here.
+
+\paragraph{Why this matters here.}
+Confluence says that the mathematical result does not depend on which redex
+is chosen, provided reduction reaches a normal form.  Resource accounting is
+stricter: different strategies may take very different numbers of steps, and
+one may diverge while another reaches the answer.  The project therefore
+fixes an evaluator instead of treating all beta paths as operationally equal.
+
+\paragraph{Worked strategy example.}
+For \(K=\lambda x.\lambda y.x\),
+\[
+ K\;I\;\Omega\longrightarrow_\beta I
+\]
+under normal order, which reduces the leftmost outermost redex first and never
+evaluates the unused argument.  Call-by-value first tries to turn \(\Omega\)
+into a value and therefore loops.  This difference is exactly why the usual
+\(Y\) combinator needs an eta-delayed cousin under call-by-value.
+
+\subsection{Church data: behavior as representation}
+
+Pure lambda calculus has no primitive bits, tuples, or integers.  Church
+encodings represent data by what eliminator it applies.  These encodings are
+not the project's efficient runtime representation; they show that the bare
+calculus is computationally expressive.
+
+\paragraph{Booleans.}
+Define
+\[
+ \mathsf{true}=\lambda t.\lambda f.t,
+ \qquad \mathsf{false}=\lambda t.\lambda f.f.
+\]
+They choose the first or second continuation.  For example,
+\(\mathsf{true}\;A\;B\to_\beta A\), whereas
+\(\mathsf{false}\;A\;B\to_\beta B\).
+
+\paragraph{Why booleans matter here.}
+A verifier ultimately returns one acceptance bit.  In the resource language
+we use a primitive bit sort, but its conditional has precisely the selection
+behavior exhibited by these terms.
+
+\paragraph{If--then--else.}
+Define
+\(\mathsf{if}=\lambda b.\lambda t.\lambda e.b\;t\;e\).  Then
+\[
+ \mathsf{if}\;\mathsf{false}\;A\;B
+ \to_\beta\mathsf{false}\;A\;B
+ \to_\beta B.
+\]
+
+\paragraph{Why the conditional matters here.}
+Every decider is built from branches on parsed bits, timeout tests, and local
+predicates.  Fixing their evaluation order makes ``the branch not taken''
+operationally meaningful, especially when it contains a recursive call.
+
+\paragraph{Pairs.}
+Let
+\[
+ \mathsf{pair}=\lambda a.\lambda b.\lambda p.p\;a\;b,
+ \quad \mathsf{fst}=\lambda p.p\;\mathsf{true},
+ \quad \mathsf{snd}=\lambda p.p\;\mathsf{false}.
+\]
+Writing \(\langle A,B\rangle=\mathsf{pair}\;A\;B\),
+\[
+ \mathsf{fst}\;\langle A,B\rangle
+ \to_\beta\mathsf{true}\;A\;B\to_\beta A.
+\]
+
+\paragraph{Why pairs matter here.}
+Machine configurations, verifier descriptions, and sampler/decider outputs
+are finite products.  The project gives tuples primitive storage so that
+projection has an explicit small cost, but the lambda interface is the same.
+
+\paragraph{Numerals.}
+The Church numeral \(n\) is
+\[
+ \overline n=\lambda f.\lambda x.f^n x,
+ \quad
+ \overline0=\lambda f.\lambda x.x,
+ \quad
+ \overline2=\lambda f.\lambda x.f(fx).
+\]
+It represents iteration: \(\overline2\;s\;z\to_\beta s(sz)\).
+
+\paragraph{Why numerals matter here.}
+An index \(n\), a timeout, and a fuel counter are all iterated control data.
+Church numerals prove representability, while binary primitive naturals in
+Part~II prevent a unary blow-up in the resource bounds.
+
+\paragraph{Successor.}
+Define
+\(\mathsf{succ}=\lambda n.\lambda f.\lambda x.f(nfx)\).  Then
+\[
+ \mathsf{succ}\;\overline2
+ \to_\beta\lambda f.\lambda x.f(\overline2 f x)
+ \to_\beta\lambda f.\lambda x.f(f(fx))=\overline3.
+\]
+
+\paragraph{Why successor matters here.}
+It is the simplest example of a computable map on an encoding.  Later
+compilers similarly build a new syntax tree around an old one and prove a
+size increase, rather than treating the new program as an abstract function.
+
+\paragraph{Addition.}
+Define
+\(\mathsf{add}=\lambda m.\lambda n.\lambda f.\lambda x.mf(nfx)\).  Thus
+\[
+ \mathsf{add}\;\overline1\;\overline2\;f\;x
+ \to_\beta \overline1 f(\overline2 f x)
+ \to_\beta f(f(fx)),
+\]
+so the result is \(\overline3\).
+
+\paragraph{Why addition matters here.}
+Fuel bounds and encoded addresses are assembled from smaller bounds.  This
+example reminds us that arithmetic is itself computation; Part~II uses
+efficient binary primitives and charges for their reference machines.
+
+\paragraph{Predecessor by the pair trick.}
+Predecessor is subtler because a Church numeral only says ``iterate.''  Let
+\[
+ \Phi=\lambda p.\mathsf{pair}\;(\mathsf{snd}\;p)
+                 \;(\mathsf{succ}(\mathsf{snd}\;p)),
+ \qquad
+ \mathsf{pred}=\lambda n.\mathsf{fst}
+   (n\;\Phi\;(\mathsf{pair}\;\overline0\;\overline0)).
+\]
+Each \(\Phi\)-step maps \(\langle j-1,j\rangle\) to
+\(\langle j,j+1\rangle\).  The complete small calculation for three is
+\[
+ \langle0,0\rangle\xrightarrow{\Phi}\langle0,1\rangle
+ \xrightarrow{\Phi}\langle1,2\rangle
+ \xrightarrow{\Phi}\langle2,3\rangle
+ \xrightarrow{\mathsf{fst}}2.
+\]
+Hence \(\mathsf{pred}\;\overline3\to_\beta^*\overline2\).
+
+\paragraph{Why predecessor matters here.}
+A timeout counts down, so total bounded simulation needs a predecessor and a
+zero test even when the simulated program diverges.  The pair construction is
+a miniature instance of adding auxiliary state to make a desired update
+locally computable.
+
+\paragraph{Lists.}
+Define a fold encoding
+\[
+ \mathsf{nil}=\lambda c.\lambda z.z,
+ \qquad
+ \mathsf{cons}=\lambda h.\lambda t.\lambda c.\lambda z.
+                    c\;h\;(t\;c\;z).
+\]
+Then the list \([A,B]=\mathsf{cons}\;A\;(\mathsf{cons}\;B\;\mathsf{nil})\)
+satisfies
+\[
+ [A,B]\;C\;Z\longrightarrow_\beta^* C\;A\;(C\;B\;Z).
+\]
+
+\paragraph{Why lists matter here.}
+Tapes, syntax children, environments, and continuation stacks are all finite
+sequences with potentially unbounded length.  A functional list supplies the
+shape; the resource IR adds heap pointers and charged operations so that the
+cost of traversing it is visible.
+
+\subsection{Recursion from self-application}
+
+Suppose \(F\) maps a proposed recursive procedure to its body.  We want a term
+\(f\) satisfying
+\[
+ f=Ff.
+\]
+Think of the occurrence of \(f\) on the right as a hole.  If the desired term
+can be written as self-application \(h\;h\), then the equation asks for
+\(h\;h=F(h\;h)\).  Choose
+\[
+ h=\lambda x.F(x\;x).
+\]
+Substituting this \(h\) into \(h\;h\) yields the fixed-point combinator
+\[
+ Y=\lambda F.(\lambda x.F(x\;x))(\lambda x.F(x\;x)).
+\]
+The promised equation is a direct beta calculation:
+\[
+\begin{aligned}
+ Y\;F
+ &\longrightarrow_\beta
+ (\lambda x.F(xx))(\lambda x.F(xx))\\
+ &\longrightarrow_\beta
+ F\bigl((\lambda x.F(xx))(\lambda x.F(xx))\bigr)\\
+ &=F(YF).
+\end{aligned}
+\]
+There is no recursive name in the finite syntax of \(Y\); recursion appears
+when two copies are applied.
+
+\paragraph{Why this matters here.}
+The lambda fixed point is the term-level analogue of Kleene's theorem.  Both
+build a finite object whose unfolding supplies that object's own behavior.
+Our IR will make the analogous code link explicit and constant-size, because
+blindly expanding \(YF\) would obscure description length and fuel.
+
+\paragraph{Worked fixed point.}
+Take \(F=\lambda r.\lambda n.\mathsf{if}\;(\mathsf{iszero}\;n)
+\;\overline1\;(\mathsf{mul}\;n\;(r(\mathsf{pred}\;n)))\).  Under normal-order
+reduction, \(YF\;\overline3\) unfolds only when the selected branch needs it:
+\[
+\begin{aligned}
+ YF\;3&\to F(YF)\;3\\
+ &\to 3\cdot(YF\;2)
+ \to 3\cdot2\cdot(YF\;1)\\
+ &\to3\cdot2\cdot1\cdot(YF\;0)
+ \to3\cdot2\cdot1\cdot1=6.
+\end{aligned}
+\]
+Here the arithmetic names abbreviate their Church encodings; every displayed
+arrow stands for their finite beta reductions.
+
+Call-by-value evaluates an argument before entering the function body, so
+\(YF\) tries to expand itself forever.  Eta-delay the recursive occurrence:
+\[
+ Z=\lambda F.
+ (\lambda x.F(\lambda u.xxu))
+ (\lambda x.F(\lambda u.xxu)).
+\]
+Now
+\[
+ ZF\to_\beta F(\lambda u.(ZF)u),
+\]
+and the recursive computation remains under a lambda until an actual argument
+arrives.  Under call-by-value the conditional branches must likewise be
+thunked.  With
+\[
+ F_v=\lambda r.\lambda n.
+ \bigl(\mathsf{if}\;(\mathsf{iszero}\;n)\;
+   (\lambda u.\overline1)\;
+   (\lambda u.\mathsf{mul}\;n\;(r(\mathsf{pred}\;n)))\bigr)\;I,
+\]
+only the selected branch is applied to the dummy value \(I\), and
+\(ZF_v\;\overline3\to_\beta^*\overline6\) under call-by-value.
+
+\paragraph{Why evaluation strategy matters here.}
+The project evaluator is deterministic call-by-value, so its fixed-point
+constructor must behave like \(Z\), not raw \(Y\).  Once the strategy is
+fixed, ``number of reductions'' becomes an honest resource that can be
+translated to Turing-machine time.
+
+\subsection{De Bruijn indices and quotation}
+
+Names are pleasant for handwriting but awkward for a compiler: alpha-equal
+terms have many spellings, and substitution must keep inventing fresh names.
+De Bruijn notation replaces a bound occurrence by the number of binders
+between it and its binder, counting the nearest binder as zero.  Thus
+\[
+ \lambda x.\lambda y.x\;y
+ \quad\text{becomes}\quad
+ \lambda.\lambda.(1\;0).
+\]
+Both \(\lambda a.\lambda b.a\;b\) and
+\(\lambda x.\lambda y.x\;y\) serialize to the same tree.
+
+\paragraph{Why this matters here.}
+The IR needs canonical bytes and capture-free specialization.  De Bruijn
+indices remove alpha-renaming from the representation: a variable is a
+lexical address, and inserting a closed term cannot capture one of its free
+names because it has none.
+
+\paragraph{Worked index lookup.}
+In \(\lambda.\lambda.(1\;0)\), applying the outer function to \(A\) and the
+inner function to \(B\) creates environment frames \([B],[A]\).  Index zero
+selects \(B\); index one crosses one frame and selects \(A\).  The body is
+therefore \(A\;B\), just as the named term says.
+
+To \emph{quote} a term is to treat its syntax rather than its value as data.
+A term is a finite ordered tree: each node has a constructor tag
+(variable, lambda, application, and so on), finite payloads, and finitely many
+children.  Prefix-free integer and byte encodings serialize that tree to a
+unique bit string \(\operatorname{ser}(t)\).  We define
+\[
+ |t|:=|\operatorname{ser}(t)|.
+\]
+Quotation does not claim to compute what \(t\) will do.  It merely reifies the
+finite tree so an evaluator or compiler can inspect it.
+
+\paragraph{Why this matters here.}
+\(\Compress\) must accept code, measure its length, insert static parameters,
+and return new code.  A runtime closure with a hidden host-language
+environment is not adequate; a quoted, closed tree is.  Quotation is the
+lambda-calculus version of writing \(\langle M\rangle\) on a universal
+machine's input tape.
+
+\paragraph{Worked quotation.}
+The named identity terms \(\lambda x.x\) and \(\lambda z.z\) both become the
+de Bruijn tree \(\mathsf{Lambda}(\mathsf{BoundVar}(0))\).  Quoting either
+produces the same canonical bytes.  Evaluating those bytes on \(A\) returns
+\(A\); copying the bytes returns code, not \(A\).
+
+\section{Church--Turing as an engineering statement}
+\label{sec:refresher-engineering}
+
+The Church--Turing thesis is often remembered as a slogan about which
+functions are computable.  Here we need a more prosaic engineering reading:
+the two concrete programming media can compile into one another, and the
+compilers preserve both finite descriptions and feasible bounds up to fixed
+polynomials.
+
+\paragraph{Turing machine to lambda term.}
+Represent each tape as a functional zipper, represent a configuration as a
+tuple, and write a fixed recursive loop which reads the hardwired transition
+table and produces the next configuration.  One machine step becomes a
+bounded collection of list, tuple, and table operations.  The term contains
+one copy of \(\langle M\rangle\), so its serialized size is linear in
+\(|M|\); a \(T\)-step machine run becomes a polynomial number of evaluator
+steps.  Theorem~\ref{thm:tm-to-l} gives the formal bound.
+
+\paragraph{Why this direction matters here.}
+It shows that replacing a paper verifier by an \(\mathcal L\)-term loses none
+of its behavior and makes no hidden exponential copy of its transition table.
+
+\paragraph{Worked direction.}
+For \(M_=\), the recursive loop starts from the four-tape tuple, looks up the
+equal-input row, then the copy row, then the halt row.  Three loop iterations
+produce the Church-level bit one, with fixed overhead for tuple and list
+operations.
+
+\paragraph{Lambda term to Turing machine.}
+Write a fixed evaluator whose work tape stores the parsed syntax tree, an
+environment, a continuation stack, and a fuel counter.  Each evaluation rule
+is a finite transition routine.  A run using \(F\) charged reductions is
+simulated in time polynomial in the code length, input length, and \(F\).
+Hardwiring the quoted term into this evaluator gives a machine description
+linear in the serialized term.  Theorem~\ref{thm:l-to-tm} makes this precise.
+
+\paragraph{Why this direction matters here.}
+The paper's theorems are stated for Turing-machine verifiers.  Compiling a
+resource-accounted term back to that model is what licenses using the lambda
+IR without silently changing the theorem being applied.
+
+\paragraph{Worked direction.}
+For the quoted term \((\lambda x.x)\;1\), the evaluator parses an application
+node, builds the identity closure, places the bit in its environment, looks up
+index zero, and emits one.  A Turing machine can represent every one of those
+finite records on its work tape.
+
+The promised dictionary is therefore:
+\begin{center}
+\small
+\begin{tabularx}{0.94\textwidth}{P{0.29\textwidth}P{0.29\textwidth}X}
+\toprule
+Turing-machine notion & Lambda/IR notion & Operative correspondence \\
+\midrule
+Program & Closed term & Finite rule table versus finite syntax tree \\
+Input tape contents & Argument term/value & Tuple components keep the inputs
+separate \\
+Machine transitions and time & Fuel/charged reduction steps & Each simulates
+the other with fixed polynomial overhead \\
+\(\langle M\rangle\), \(|M|\) & Serialized quoted tree, \(|t|\) & Canonical
+finite data and its bit length \\
+Universal machine & Evaluator & One fixed program interprets supplied code \\
+\(s\)-\(m\)-\(n\) hardwiring & \(\Specialize\) & A computable map from code
+and static data to new code \\
+Kleene recursion theorem & \(Y\)/\(Z\), or the IR's \(\mathsf{Fix}\) & A
+finite behavioral fixed point \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{What the dictionary does not say.}
+It does not assert step-for-step equality, equal constants, or equal
+description strings.  It asserts a pair of explicit compilers, semantic
+agreement on each input, linear description growth, and polynomial running
+time overhead.  Those are exactly the invariants needed when an exponent
+\(\lambda\) is enlarged by a universal constant.
+
+\section{Why this machinery appears in a paper about entangled provers}
+\label{sec:refresher-why}
+
+A nonlocal game is an analytic object: its value optimizes over strategies,
+and in the entangled setting those strategies use states and measurements.
+Nevertheless, the \emph{outer construction} of the game is algorithmic.  The
+compression theorem starts from the finite description of a normal-form
+verifier \(V=(S,D)\), together with a resource exponent \(\lambda\), and
+returns another finite verifier description.  Its hypotheses constrain both
+\(|V|\) and worst-case running times.  Consequently, extensional statements
+such as ``\(D\) decides the same predicate'' are not enough: the proof must
+know which code is embedded, how long it is, and how expensive its universal
+simulation will be.
+
+At the description level, the main pipeline is
+\[
+ \langle V\rangle
+ \xrightarrow{\ \Introspect\ }
+ \langle V^{(1)}\rangle
+ \xrightarrow{\ \AnswerReduce\ }
+ \langle V^{(2)}\rangle
+ \xrightarrow{\ \Repeat\ }
+ \langle V^{(3)}\rangle.
+\]
+Each arrow is a terminating computable map on finite strings.  Introspection
+embeds a description so a verifier can check a smaller representation of its
+own computation.  Answer reduction constructs a bounded-trace circuit and
+then a PCP-style verifier.  Repetition constructs several coordinated copies
+and an acceptance rule.  The composite is \(\Compress\).  Polynomial
+bookkeeping proves that its output is still a legal bounded verifier.
+
+\paragraph{Why the fixed point enters.}
+For a supplied machine \(M\) and level parameter \(L\), the Halting verifier
+must arrange that its decider is the one appearing inside the verifier fed to
+\(\Compress\).  This is a fixed-point equation on descriptions.  Kleene's
+theorem, the explicit \(\mathcal F(\mathcal F,M,L,\ldots)\) program, and the
+lambda fixed-point constructor are three presentations of the same outer
+operation.  The point is not mystical self-awareness: it is a finite compiler
+which prints code containing an appropriate code literal.
+
+\paragraph{Worked pipeline fragment.}
+Suppose the input decider has code \(d\).  Answer reduction first constructs a
+succinct circuit whose hardwired local transition rule is read from \(d\).
+It then emits a new decider code \(d'\) that reconstructs and checks the
+corresponding local constraints.  The transformation \(d\mapsto d'\) can be
+run by a Turing machine, and its time and output length can be bounded before
+either decider is executed.  Compression composes several transformations of
+exactly this kind.
+
+\paragraph{What is not computability theory.}
+The dictionary stops at the boundary between constructing a game and proving
+what quantum strategies can do in it.  The low-degree test's soundness,
+rigidity of observables, state-dependent approximation estimates,
+oracularization against entangled strategies, entanglement-dimension bounds,
+and the quantitative preservation of completeness and soundness are analytic
+statements.  They do not follow from universality, quotation, or a fixed-point
+theorem.  A lambda implementation can expose the verifier transformation and
+check finite algebraic identities; it cannot by that fact alone prove the
+operator-algebraic leaves.
+
+\paragraph{Why this separation matters here.}
+It prevents two opposite mistakes.  One is to treat source manipulation as
+informal and accidentally hide a noncomputable or super-polynomial step.  The
+other is to imagine that a clean self-interpreter settles the quantum
+soundness argument.  The paper needs both layers: computability theory with
+polynomial bookkeeping on the outside, and the genuinely quantum analytic
+theorems on the inside.  The resource-accounted description language in
+Part~II is designed for the first layer and records exactly where it must call
+the second.
+
+\clearpage
+\setlength{\parskip}{0.55em}
+\part{Resource-accounted analytic underpinnings}
+\label{part:accounted}
+
+\section{The paper's machine model and its intensional obligations}
+\label{sec:paper-machines}
+
+\subsection{Machines, inputs, time, and descriptions}
+
+We first repeat the conventions on which the later change of description
+language depends.  This is necessary because the change is intensional: it
+must preserve programs, bounds, and programs which inspect other programs,
+not only partial functions.
+
+\begin{reminder}
+Section~\ref{sec:refresher-tm} distinguished the finite transition table from
+its run.  In this part, \(\overline M\) is that table's canonical bit string,
+\(|M|\) is its bit length, and \(\Time_{M,x}\) counts transitions of the run.
+\end{reminder}
+
+\begin{definition}[The paper's Turing-machine convention]
+\label{def:paper-tm}
+A \(k\)-input Turing machine has \(k\) input tapes, one work tape,
+and one output tape.  Tapes are one-way infinite, indexed by \(\N\), and use
+\(\{0,1,\sqcup\}\).  Work and output tapes are initially blank.  If the
+machine halts, its output is the longest nonblank initial string on the output
+tape, with the all-blank output interpreted as the one-bit string \(0\).  On
+\(x=(x_1,\ldots,x_k)\), write \(M(x)\) for this string and write \(M(x)=\bot\)
+if it never halts.  Its instance time
+\(\Time_{M,x}\in\N\cup\{\infty\}\) is the number of transitions to the halt
+state.
+
+Every machine has canonical binary code \(\overline M\).  The code lists its
+finite states and transition table using a fixed reasonable encoding; its bit
+length is \(|\overline M|\), abbreviated \(|M|\).  For a bit string
+\(\alpha\), \([\alpha]_k\) is the \(k\)-input machine described by \(\alpha\)
+(with the fixed convention for malformed strings).  Tuples are encoded by
+\(\operatorname{enc}_k\): each data bit is replaced by
+\(0\mapsto01\), \(1\mapsto10\), and each component ends in \(00\).  Thus
+\(|\operatorname{enc}_k(x)|=2\sum_i|x_i|+2k\), and encoding takes linear time.
+\end{definition}
+
+This is the model in the Turing-machine subsection of the paper.
+\gt{sec:tms}{ground-truth/gt-03-prelim.tex}  Its universal-machine convention
+is quantitative.  For each \(k\) there is a fixed one-tape \(U_k\), and
+universal constants \(C_U,c_U\geq1\), such that if \([\alpha]_k(x)\) halts in
+\(T\) steps then \(U_k(\operatorname{enc}_{k+1}(\alpha,x))\) produces the same
+answer within
+\[
+ C_U\bigl(k|\alpha||x|T\bigr)^{c_U},
+ \qquad |x|:=\sum_i|x_i|.
+\]
+The paper also assumes that a high-level machine which invokes a fixed
+submachine has description length linear in the embedded submachine code.
+Hardwiring a string \(z\) into one input of \(M\) is an effective source
+transformation \(s(M,z)\); its output description has length
+\(O(|M|+|z|+1)\), is produced in time \(O(|M|+|z|+1)\), and incurs polynomial
+simulation overhead.  A timeout wrapper counts down in binary: before the
+one-tape simulation it uses \(O(T\log T)\) time and \(O(|M|)\) description
+length.  These are conventions, not exact equalities between particular
+machine encodings.
+
+\begin{definition}[Decider]
+\label{def:paper-decider}
+A decider is a five-input machine \(D\) which halts with one bit on every
+\((n,x,y,a,b)\), where \(n\) is a positive integer in binary and
+\(x,y,a,b\in\{0,1\}^*\).  The first input is the \emph{index}, and
+\[
+ \Time_D(n)=\max_{x,y,a,b}\Time_{D,(n,x,y,a,b)}.
+\]
+The maximum is understood in \(\N\cup\{\infty\}\); a finite bound means that
+the machine cannot spend time reading arbitrarily remote symbols of the four
+unrestricted input tapes.  Output \(1\) is acceptance and \(0\) is rejection.
+\end{definition}
+
+This is exactly \code{def:decider}.
+\gt{def:decider}{ground-truth/gt-05-games-normalform.tex}
+
+\begin{definition}[Conditionally linear sampler]
+\label{def:paper-sampler}
+A sampler \(S\) is a six-input Turing machine.  On index \(n\) its legal modes
+are
+\[
+\begin{array}{ll}
+(n,\mathsf{dimension}),&
+(n,w,\mathsf{marginal},j,z),\\
+(n,w,\mathsf{linear},j,u,y),&
+(n,w,\mathsf{factor},j,u),
+\end{array}
+\]
+where \(w\in\{\mathrm A,\mathrm B\}\).  Its outputs must describe the ambient
+dimension, the \(j\)-th marginal, the conditional linear map, and the
+coordinate indicator of its factor space for a pair of level-\(\ell\) CL
+functions over \(\F_{q(n)}^{s(n)}\).  The paper writes \(\Time_S(n)\) for the
+number of steps before \(S\) halts on index \(n\), i.e. the worst legal call
+at that index.  Inputs and outputs which denote integers, finite-field
+elements, vectors, and modes are represented by fixed binary conventions.
+\end{definition}
+
+This transcribes \code{def:sampler}; its four interfaces and the fact that no
+call uses more than six tapes are explicit in the source.
+\gt{def:sampler}{ground-truth/gt-04-cl.tex}
+
+\begin{definition}[Normal form and \(\lambda\)-boundedness]
+\label{def:paper-lambda}
+A normal-form verifier is \(V=(S,D)\), where \(S\) is a CL sampler with field
+size \(q(n)=2\) and \(D\) is a decider.  Its description length and level are
+\[
+ |V|=\max\{|S|,|D|\},\qquad
+ \operatorname{level}(V)=\operatorname{level}(S).
+\]
+For an integer \(\lambda\geq1\), \(V\) is \(\lambda\)-bounded exactly when
+\[
+ |V|\leq\lambda,qquad
+ \Time_S(n)\leq n^\lambda,qquad
+ \Time_D(n)\leq n^\lambda\quad(n\geq2).
+\]
+No bound is required at \(n=1\).
+\end{definition}
+
+These are \code{def:normal-ver} and \code{def:lambda}.
+\gt{def:normal-ver, def:lambda}{ground-truth/gt-05-games-normalform.tex}
+In the game \(V_n\), question and answer alphabets are padded to lengths
+\(\Time_S(n)\) and \(\Time_D(n)\), respectively.  The maximum-over-all-inputs
+definition above is therefore stronger than a promise only about strings of
+those lengths.
+
+\subsection{What a verifier description means}
+
+\begin{reminder}
+A description is syntax as data, not an oracle for behavior.  The distinction
+was illustrated by the code of the equality machine in
+Section~\ref{sec:refresher-tm}; it is now used in anger because compilers scan,
+copy, and hardwire verifier code.
+\end{reminder}
+
+A ``description of a verifier'' is the ordered pair
+\((\overline S,\overline D)\) of canonical machine strings.  It is neither an
+oracle for the functions computed by \(S,D\) nor an equivalence class of
+programs.  An algorithm receiving it may count its bits, copy it, reject it as
+malformed, put it on the input tape of a universal simulator, and manufacture
+a new string with parts of it hardwired.  Two extensionally equal deciders can
+have different \(|D|\), running times, and behavior under those source
+transformations.
+
+The compression theorem makes this interface literal.  There is a
+polynomial-time machine \(\Compress\) whose input is
+\((\overline V,\lambda)\), with \(\overline V=(\overline S,\overline D)\), and
+whose output is the description of a nine-level verifier.  It calls, in order,
+\begin{align*}
+ \overline{V^{(1)}}&=\ComputeIntroVerifier(\overline V,\lambda,9),\\
+ \overline{V^{(2)}}&=\ComputeAnsVerifier
+      (\overline{V^{(1)}},\lambda,\mu,\gamma),\\
+ \overline{V^{(3)}}&=\ComputeParrepVerifier
+      (\overline{V^{(2)}},\lambda,\tau).
+\end{align*}
+Each call returns another pair of machine descriptions.
+\gt{fig:compress, thm:compression}{ground-truth/gt-12-compression.tex}
+Likewise, \code{thm:ar} states that \(\ComputeAnsVerifier\) ``outputs the
+description of the answer reduced verifier,'' and its proof separately builds
+the sampler and decider descriptions.
+\gt{thm:ar}{ground-truth/gt-10-answer-reduction.tex}
+
+\subsection{Universal and source-level obligations}
+
+\begin{reminder}
+Universality and \(s\)-\(m\)-\(n\), reviewed in
+Section~\ref{sec:refresher-universality}, justify calling a supplied program
+and fixing some of its arguments.  Every use below must additionally pay for
+the universal simulation and for printing the specialized description.
+\end{reminder}
+
+The following list is the bookkeeping that a homoiconic description language
+must discharge.  Calling the syntax ``lambda calculus'' removes none of these
+obligations.
+
+\begin{enumerate}
+\item \textbf{Simulation and timeouts.}  Every high-level instruction which
+calls \(S\), \(D\), or a generated verifier uses a universal machine, with the
+polynomial overhead and timeout counter from \code{sec:tms}.  Hardwiring must
+produce finite code with the asserted length.
+
+\item \textbf{Introspection.}  The introspection decider contains the
+description of the original sampler and invokes that sampler to obtain its
+dimension, marginals, linear maps, and factor spaces.  The source constructs a
+constant-size raw universal decider and then hardwires
+\((\overline V,\lambda,\ell)\); it first scans \(|V|\) and replaces an
+overlong description by a trivial verifier.  Thus introspection consumes the
+sampler description, not merely its induced distribution.
+\gt{lem:intro-decider-complexity, thm:introspection}{ground-truth/gt-08-introspection.tex}
+
+\item \textbf{Answer reduction.}  In Step 1 of \code{fig:pcpverifier}, the
+answer-reduced decider computes
+\[
+ \mathsf{Circuit}=\mathsf{PaddedSuccinctDecider}
+   (\overline D,n,T,Q,\sigma,x,y)
+\]
+from the \emph{description} of \(D\).  The Cook--Levin circuit depends on the
+transition table even though it is much smaller than the computation tableau.
+The construction uses \(|D|\leq\sigma\) quantitatively.
+\gt{fig:pcpverifier, prop:standard-succinct-sat}{ground-truth/gt-10-answer-reduction.tex}
+
+\item \textbf{Compiler composition.}  The three machines displayed in the
+preceding subsection traverse and assemble source descriptions.  The proof
+that \(\Compress\) is polynomial time uses their running times.  The
+independence of the compressed sampler is also a statement about which source
+strings are embedded in its output.
+
+\item \textbf{Self-reference.}  In the Halting section, the eight-input
+machine \(\mathcal F\) is run as
+\[
+ \mathcal F(\overline{\mathcal F},\overline M,
+             \lambda,n,x,y,a,b).
+\]
+It constructs the five-input program obtained by hardwiring its first three
+arguments, pairs that decider description with a computed sampler description,
+and passes the pair to \(\Compress\).  This is a source-level diagonalization,
+not recursive invocation alone.
+\gt{fig:halt_f}{ground-truth/gt-12-compression.tex}
+\end{enumerate}
+
+Sections~\ref{sec:resource-lambda}--\ref{sec:self-reference} construct one
+description language which meets precisely these obligations.  The point is
+not Church--Turing equivalence; the point is a costed equivalence between
+finite, inspectable descriptions.
+
+\section{A lambda calculus with resources}
+\label{sec:resource-lambda}
+
+\subsection{Syntax, phases, and canonical bytes}
+
+\begin{reminder}
+The bare calculus of Section~\ref{sec:refresher-lambda} had variables,
+abstraction, application, beta reduction, and quotation.  The language
+\(\mathcal L\) below is a typed, call-by-value engineering IR: de Bruijn
+addresses make binding canonical, and explicit fuel makes evaluation cost a
+first-class quantity.
+\end{reminder}
+
+Fix a finite set of ground sorts including \(\mathsf{Bit}\),
+\(\mathsf{Nat}\), \(\mathsf{Bytes}\), \(\mathsf{Tuple}\),
+\(\mathsf{MachineDesc}\), and \(\mathsf{Quoted}(A)\).  Function sorts are
+finite products followed by a result sort.  The raw terms of the description
+language \(\mathcal L\) are
+\[
+\begin{split}
+t ::= {}& \operatorname{BoundVar}(d,j)
+ \mid \operatorname{Hole}(h,A)
+ \mid \operatorname{Lambda}(r,t)
+ \mid \operatorname{Apply}(t,t^*)
+ \mid \operatorname{Fix}(t)\\
+&\mid \operatorname{If}(t,t,t)
+ \mid \operatorname{Prim}(p,B,t^*)
+ \mid \operatorname{Quote}(\operatorname{Closed}(t))\\
+&\mid \operatorname{Eval}(t_{\rm code},t^*,F)
+ \mid \operatorname{Specialize}(t_{\rm code},\rho).
+\end{split}
+\tag{8.1}\label{eq:l-grammar}
+\]
+Here \(t^*\) is a finite ordered list.  \(\operatorname{BoundVar}(d,j)\)
+addresses slot \(j\) of the environment frame \(d\) binders outward; hence
+alpha-conversion is absent from the representation.  A hole is a named,
+typed, static substitution site, not a dynamic variable.  We impose the
+\emph{affine-hole discipline}: each hole name occurs at most once.  Reuse of
+static data is expressed by binding it once and using de Bruijn variables.
+\(F\) is either \(\operatorname{FuelLiteral}(m)\) or a closed arithmetic term
+\(\operatorname{FuelBound}(t_n,t_\lambda)\).
+
+Each primitive name \(p\) has a total type contract, a deterministic reference
+machine, and a natural-valued charge \(\kappa_p(v_1,\ldots,v_r)\).  The
+serialized annotation \(B\) proves
+\(\kappa_p(v)\leq B(|v_1|,\ldots,|v_r|)\).  The registry contains the usual
+finite byte, bit, tuple, list, comparison, and arithmetic operations, as well
+as the bounded machine-table operation used in
+Theorem~\ref{thm:tm-to-l}.  A primitive is not an oracle: its reference
+machine runs in at most
+\(c_p(1+\kappa_p+\sum_i|v_i|)^{e_p}\) Turing steps, with \(c_p,e_p\) fixed in
+the language definition.
+
+The sorting judgment \(\Gamma;H\vdash t:A\) is the ordinary simply typed
+call-by-value judgment for variables, abstraction, application, and
+conditionals, extended as follows.  \(H\) records affine holes;
+\(\Quote\) requires a scoped closed term with empty \(H\);
+\(\Specialize\) requires an environment covering exactly \(H\) with terms of
+the declared sorts; \(\Eval\) requires quoted code, arguments matching the
+quoted function sort, and natural fuel.  \(\operatorname{Fix}(P)\) requires a partial body
+\(P:A\) with the single hole
+\(\mathsf{self\_code}:\mathsf{Quoted}(A)\), and closes that hole.  We write
+\(P\{A\}\) for sorted syntax, \(\operatorname{Closed}(P)\) for empty variable
+and hole contexts, and \(\operatorname{Quoted}\{A\}\) for its canonical bytes.
+Raw ill-sorted syntax is retained so that the evaluator can return
+\(\mathsf{TypeError}\) rather than throw a host exception.
+
+\begin{definition}[Canonical serialization]
+\label{def:l-serialization}
+Let \(\nu(m)=1^\ell0b\), where \(b\) is the \(\ell\)-bit binary expansion of
+\(m+1\) and \(\ell=\lfloor\log_2(m+1)\rfloor+1\).  Thus
+\(|\nu(m)|=2\ell+1\), and \(\nu\) is prefix-free.  Encode a byte string \(z\)
+as \(\nu(|z|)z\).  Encode a term by a four-bit constructor tag followed, in
+the order displayed in \eqref{eq:l-grammar}, by \(\nu\)-encoded integer and
+string fields, the encoded child count, and the recursive child encodings.
+Sorts, primitive contracts, fuel expressions, and static environments use the
+same rule with fixed tags and lexicographically ordered field names.  No node
+contains a redundant subtree length.
+
+The resulting map \(\operatorname{ser}\) is injective and self-delimiting.
+For a term or code value \(t\), define \(|t|:=|\operatorname{ser}(t)|\) in
+bits.  This is the description length used below.
+\end{definition}
+
+Prefix-freeness of \(\nu\) determines the end of every field; arities determine
+the number of recursive parses.  Induction on the first constructor tag
+therefore gives a unique parse.  In particular, description size is a number
+computed from syntax, not the size of a runtime closure.
+
+The operative representations are:
+\begin{center}
+\begin{tabular}{P{0.19\textwidth}P{0.34\textwidth}P{0.35\textwidth}}
+\toprule
+Object & Contents & Legitimate consumer \\
+\midrule
+Closure & Body pointer and runtime environment & Evaluator only; it has no
+canonical project byte string \\
+Quoted syntax & Canonical bytes of closed \(\mathcal L\) syntax & Evaluator,
+specializer, compiler, and \(\Compress\) \\
+Circuit & Finite Boolean DAG with named input blocks & Succinct clause
+evaluator and Tseitin transformation \\
+Universal evaluator & One fixed program interpreting quoted syntax & Timeout
+and bounded-trace construction \\
+Specialization & Capture-free code-to-code replacement & Source
+transformations; its result is syntax, not a closure \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Small-step semantics and fuel}
+
+\begin{reminder}
+Normal form alone does not specify the cost of reaching it.  Recall the term
+\(K I\Omega\): normal order terminates and call-by-value does not.  We now fix
+one deterministic call-by-value transition system, so a fuel count denotes a
+particular run rather than an arbitrary beta-reduction path.
+\end{reminder}
+
+We use a deterministic call-by-value CEK machine.  A runtime closure is
+\([\lambda r.t,\eta]\), where \(\eta=(\eta_0,\eta_1,\ldots)\) is a stack of
+frames and \(\eta_d[j]\) supplies \(\operatorname{BoundVar}(d,j)\).  Other
+values are canonical ground data and \(\operatorname{Code}(t)\) for closed
+syntax.  A configuration is
+\[
+ C=\langle q,\eta,K,H,f\rangle,
+\]
+where \(q\) is the current term or value, \(K\) is a continuation stack,
+\(H\) is an append-only heap for lists, tuples, closures, and syntax pointers,
+and \(f\in\N\) is remaining fuel.  Arguments are evaluated left to right.
+
+For reference, the contractions after all indicated subterms have become
+values are the following.  The notation \(C\longrightarrow_k C'\) means that
+the transition has charge \(k\); continuations and heaps not shown are carried
+unchanged.
+\[
+\begin{array}{rcll}
+\langle\operatorname{BoundVar}(d,j),\eta,K,H,f\rangle
+ &\longrightarrow_1&\langle\eta_d[j],\eta,K,H,f-1\rangle
+ &\text{if the address exists},\\
+\langle\operatorname{Lambda}(r,t),\eta,K,H,f\rangle
+ &\longrightarrow_1&\langle[\lambda r.t,\eta],\eta,K,H,f-1\rangle,&\\
+\langle\operatorname{Apply}([\lambda r.t,\eta],\vec v),K,H,f\rangle
+ &\longrightarrow_1&\langle t,(\vec v)::\eta,K,H,f-1\rangle
+ &(|\vec v|=r),\\
+\langle\operatorname{If}(1,v_1,v_0),K,H,f\rangle
+ &\longrightarrow_1&\langle v_1,K,H,f-1\rangle,&\\
+\langle\operatorname{If}(0,v_1,v_0),K,H,f\rangle
+ &\longrightarrow_1&\langle v_0,K,H,f-1\rangle,&\\
+\langle\operatorname{Prim}(p,B,\vec v),K,H,f\rangle
+ &\longrightarrow_{\kappa_p(\vec v)}&
+ \langle p(\vec v),K,H,f-\kappa_p(\vec v)\rangle,&\\
+\langle\operatorname{Quote}(\operatorname{Closed}(t)),K,H,f\rangle
+ &\longrightarrow_1&\langle\operatorname{Code}(t),K,H,f-1\rangle.&
+\end{array}
+\tag{8.2}\label{eq:cek-core}
+\]
+An absent variable address, failed primitive contract, nonbit condition,
+wrong application arity, or noncode argument to Eval/Specialize has the sole
+successor \(\mathsf{TypeError}\) at charge one.  Evaluation contexts supply
+the omitted rules: for example, Apply first pushes a frame remembering its
+unevaluated arguments, evaluates the operator, then evaluates each argument
+from left to right.  Thus the display specifies contractions while the context
+discipline specifies their unique order.
+
+All administrative CEK transitions cost one unit.  They include variable
+lookup, creating a closure, pushing or popping one continuation frame,
+selecting a Boolean branch, and returning a value.  Beta reduction of
+\(\operatorname{Apply}([\lambda r.t,\eta],v_1,\ldots,v_r)\) costs one and
+continues with \(t\) in environment
+\(((v_1,\ldots,v_r),\eta_0,\eta_1,\ldots)\).  A wrong arity, applying a
+nonclosure, or using a nonbit condition takes one transition to
+\(\mathsf{TypeError}\).  A residual \(\operatorname{Hole}\) does the same.
+\(\operatorname{Quote}(\operatorname{Closed}(t))\) takes one transition to the
+syntax pointer \(\operatorname{Code}(t)\); serialization was performed when
+the enclosing description was admitted, so this transition does not copy
+\(|t|\) bits.
+
+After its arguments have become values,
+\(\operatorname{Prim}(p,B,v_1,\ldots,v_r)\) costs exactly
+\(\kappa_p(v_1,\ldots,v_r)\geq1\).  If the contract or dynamic sorts fail it
+uses one unit and returns \(\mathsf{TypeError}\).  For purposes of the local
+semantics, a charge \(k\) is expanded into \(k\) deterministic microsteps of
+the primitive reference machine; thus every microstep consumes one fuel unit.
+
+\(\operatorname{Specialize}(\operatorname{Code}(P),\rho)\) first checks the
+sort and coverage of \(\rho\), then traverses \(P\) in prefix order.  It uses
+\(1+|P|+\sum_h|\rho(h)|\) fuel and returns the code value of the substituted
+term, or \(\mathsf{TypeError}\).  \(\operatorname{Eval}\) evaluates its code,
+arguments, and fuel expression, installs a delimiter holding the requested
+inner budget, and runs the same CEK transition relation inside it.  Installing
+and removing that delimiter costs two units.  Each inner microstep decrements
+both the inner budget and the ambient budget.  Exhausting either produces
+\(\mathsf{OutOfFuel}\).
+
+Finally, \(\operatorname{Fix}(P)\) is a value of the result sort of \(P\).
+When it is applied to arguments \(u\), one unfolding transition installs the
+static binding
+\[
+ \mathsf{self\_code}\longmapsto
+ \operatorname{Code}(\operatorname{Fix}(P))
+\]
+and evaluates \(P\) with the same arguments.  This is a constant-size heap
+link, not a serialization of a recursively expanded tree.  Including the
+application and binding frames, an unfolding costs the fixed constant
+\(c_Y=3\).  The corresponding fully specialized syntax can be materialized by
+\(\Specialize\) when a source consumer asks for it.
+
+If a transition has charge \(k\) and \(f<k\), its unique successor is
+\(\mathsf{OutOfFuel}\); otherwise the successor has counter \(f-k\).  A final
+configuration is exactly one of
+\[
+ \mathsf{Value}(v),\qquad \mathsf{OutOfFuel},\qquad
+ \mathsf{TypeError}.
+\]
+We write \(\operatorname{run}(t;f)\) for this result.  For closed function
+syntax \(t\) and an argument tuple \(u\),
+\(\operatorname{eval}_{\mathcal L}(t,u;f)\) abbreviates the run of
+\(\operatorname{Apply}(t,\overline u)\), where \(\overline u\) is the literal
+value syntax.  Results do not record unused fuel.
+
+For the paper, the next theorem buys a unique bounded-evaluation trace for
+each quoted verifier call, which can later be encoded by Cook--Levin.
+\begin{theorem}[Determinism and outcome trichotomy]
+\label{thm:l-determinism}
+Every nonfinal configuration with positive fuel has at most one successor.
+For every closed raw term and finite initial fuel, evaluation terminates in
+exactly one of \(\mathsf{Value}(v)\), \(\mathsf{OutOfFuel}\), or
+\(\mathsf{TypeError}\).
+\end{theorem}
+
+\begin{proof}
+The current control item is either a term, a value, or a primitive microstate.
+Constructor tags are disjoint.  For a term tag, the evaluation-context rule
+selects the leftmost child not yet represented by a value; if there is one,
+exactly one continuation frame is pushed.  If all children are values, exactly
+one contraction above applies.  Variable addresses select at most one frame
+and slot.  Primitive reference machines and their contracts are deterministic
+by definition.  The Boolean and arity tests have disjoint success and error
+cases.  The same reasoning applies to the unique top Eval delimiter and to the
+single self-code binding of Fix.  Hence two distinct successors cannot exist.
+
+Every nonfinal transition consumes at least one unit.  Starting from fuel
+\(f\), at most \(f\) transitions or primitive microsteps can occur before a
+value or error is returned; if neither has occurred, the next requested step
+returns out-of-fuel.  The three final tags are disjoint, and determinism makes
+the reached tag unique.
+\end{proof}
+
+For the paper, the next theorem buys safe enlargement of a proved timeout:
+extra fuel cannot change a completed verifier answer.
+\begin{theorem}[Fuel monotonicity]
+\label{thm:fuel-monotonicity}
+If \(\operatorname{run}(t;f)=R\) with
+\(R\neq\mathsf{OutOfFuel}\), then
+\(\operatorname{run}(t;f+g)=R\) for every \(g\geq0\).  More precisely, if the
+first run uses \(c\leq f\) units, the second uses the same \(c\) transitions
+and leaves \(g+(f-c)\) units.
+\end{theorem}
+
+\begin{proof}
+Induct on the \(c\) transitions of the terminating run.  At step \(i\), the
+larger-fuel run has exactly \(g\) more ambient fuel and, inside each Eval
+delimiter, exactly the same inner budget as the smaller run.  The smaller run
+can pay the uniquely determined charge \(k_i\), so the larger run can pay it
+as well.  Determinism gives the same nonfuel successor data, and subtraction
+preserves the difference \(g\).  After \(c\) steps the larger run therefore
+reaches the same final tag and value.  No operational rule branches on the
+numeric fuel except the insufficient-fuel rule, which was not selected in the
+smaller run.
+\end{proof}
+
+\subsection{Quotation, evaluation, and specialization}
+
+\begin{reminder}
+Quotation turns a finite syntax tree into data; specialization is the lambda
+counterpart of \(s\)-\(m\)-\(n\).  Neither operation decides what the quoted
+program computes.  It only parses or rewrites its canonical tree.
+\end{reminder}
+
+External evaluation of bytes must pay for decoding even though an internal
+Quote is a syntax pointer.  Define
+\[
+ h(d,u)=3+|d|+|\operatorname{enc}(u)|.
+\]
+The quoted evaluator \(\Eval_{\mathcal L}(d,u;F)\) checks and decodes \(d\),
+installs the argument tuple, and then runs the CEK machine.  By definition the
+front-end scan uses exactly \(h(d,u)\) fuel; malformed code returns
+\(\mathsf{TypeError}\) during that scan.
+
+For the paper, the next theorem buys the right to replace execution of a term
+by execution of its transmitted description while charging for decoding.
+\begin{theorem}[Quote/Eval equation with explicit overhead]
+\label{thm:quote-eval}
+Let \(t\) be a closed function term, let \(d=\operatorname{ser}(t)\), and let
+\(u\) have the required argument sorts.  For every \(f\geq0\),
+\[
+ \Eval_{\mathcal L}(\Quote(t),u;f+h(d,u))
+   =\operatorname{eval}_{\mathcal L}(t,u;f).
+\tag{8.3}\label{eq:quote-eval}
+\]
+Here the left side takes the canonical bytes denoted by \(\Quote(t)\).  If the
+right side uses \(c\leq f\) units and returns a value or type error, the left
+side uses exactly \(h(d,u)+c\).  If it requests a \((f+1)\)-st unit, both sides
+return out-of-fuel after their respective budgets are exhausted.
+\end{theorem}
+
+\begin{proof}
+The prefix decoder is inverse to serialization by
+Definition~\ref{def:l-serialization}; hence after its fixed scan the left
+machine holds the same syntax tree \(t\), literal arguments, empty lexical
+environment, and application continuation as the right machine.  The left
+counter is then exactly \(f\).  From this point the two configurations are
+identical.  Theorem~\ref{thm:l-determinism} gives identical successors until a
+final outcome.  The front-end accounts for the stated additional
+\(h(d,u)\) units and no other rule differs.
+\end{proof}
+
+\begin{lemma}[Capture-free specialization and its size]
+\label{lem:specialization}
+Let \(P\) be well-scoped partial syntax satisfying the affine-hole discipline,
+and let \(\sigma\) map every hole of \(P\) to closed, sort-correct syntax.
+There is a unique term \(\Specialize(P,\sigma)\), it has no holes, it preserves
+the sort of \(P\), and
+\[
+ |\Specialize(P,\sigma)|
+ \leq |P|+\sum_{h\in\operatorname{dom}\sigma}|\sigma(h)|.
+\tag{8.4}\label{eq:specialize-size}
+\]
+The construction takes at most \(1+|P|+\sum_h|\sigma(h)|\) CEK microsteps.
+\end{lemma}
+
+\begin{proof}
+Traverse \(P\) in prefix order.  Copy every nonhole tag and payload unchanged.
+At \(\operatorname{Hole}(h,A)\), check the unique table entry, check its sort,
+and emit \(\sigma(h)\).  The inserted term is closed, so its de Bruijn indices
+refer to no binder in \(P\); indices in the surrounding syntax are also
+unchanged.  Thus no variable can be captured.  Induction on \(P\) proves sort
+preservation, because the hole and replacement have the same sort at the only
+new case.  Coverage removes every hole, and deterministic traversal gives
+uniqueness.
+
+Serialization has no ancestor subtree-length fields.  Replacing the one
+occurrence of \(h\) deletes a nonempty encoded Hole node and inserts exactly
+\(|\sigma(h)|\) bits.  Since distinct affine holes have disjoint occurrences,
+\[
+ |\Specialize(P,\sigma)|
+ =|P|-\sum_h|\operatorname{Hole}(h,A_h)|+\sum_h|\sigma(h)|,
+\]
+which implies \eqref{eq:specialize-size}.  One scan step per input or emitted
+bit, plus the initial check, gives the time bound.  Without the affine-hole
+discipline the correct last term would sum once per hole occurrence; this is
+why the discipline is part of the formal system.
+\end{proof}
+
+\section{Simulation theorems: the machine--term bridge}
+\label{sec:simulation}
+
+\begin{reminder}
+Section~\ref{sec:refresher-engineering} gave the two compiler ideas and warned
+that Church--Turing equivalence alone says nothing quantitative.  This section
+supplies the description-length and running-time inequalities needed by the
+compression theorem.
+\end{reminder}
+
+\subsection{From the paper's machines to
+\texorpdfstring{\(\mathcal L\)}{L}}
+
+We use explicit functional tapes and one bounded table primitive.  A tape is a
+zipper \((L,s,R)\): \(L\) is the reversed list strictly left of the head,
+\(s\in\{0,1,\sqcup\}\) is the scanned symbol, and \(R\) is the list strictly
+right of it with implicit blank tail.  A right move maps
+\((L,s,rR')\) to \((sL,r,R')\), taking \(r=\sqcup\) when \(R\) is empty; a
+left move is symmetric.  These are fixed list primitives of charge at most
+four.  A configuration is a tuple of the finite control state and the
+\(k+2\) zippers for input, work, and output tapes.
+
+For a machine description \(m\), the primitive
+\(\mathsf{TMDelta}(m,q,s_1,\ldots,s_{k+2})\) scans the encoded transition table
+and returns the next state, written symbols, and head motions.  Its declared
+charge is
+\[
+ \kappa_{\mathsf{TMDelta}}\leq 8(|m|+k+2).
+\]
+The primitive validates \(m\); malformed descriptions use a fixed rejecting
+transition.  Its implementation is an ordinary finite table scan.  Thus the
+description of the table remains data of length \(|m|\), rather than being
+duplicated into a nest of conditionals.
+
+Let \(\mathsf{init}_k\) parse the \(k\)-tuple encoding into input zippers and
+blank work/output zippers, and let \(\mathsf{out}\) read the longest nonblank
+output prefix.  Define
+\[
+\begin{split}
+ \mathsf{loop}_m={}&\operatorname{Fix}\bigl(
+  \lambda C.\ \operatorname{If}(\mathsf{halt}(C),\mathsf{out}(C),\\[-2pt]
+ &\hspace{8em}\mathsf{self}(\mathsf{move}(
+       C,\mathsf{TMDelta}(m,\mathsf{view}(C)))))\bigr),\\
+ \langle\!\langle M\rangle\!\rangle={}&\lambda z.\mathsf{loop}_{\overline M}
+                  (\mathsf{init}_k(z)).
+\end{split}
+\tag{9.1}\label{eq:tm-interpreter-term}
+\]
+Here \(\mathsf{self}\) is the closure obtained from the Fix self-code link;
+equivalently it is \(\Eval\) of that link with the next configuration.  All
+other displayed operations are fixed primitives with the stated list
+representation.
+
+For the paper, the next theorem buys a lambda description for every original
+sampler or decider without changing its answers or hiding a size blow-up.
+\begin{theorem}[TM to \(\mathcal L\), with resources]
+\label{thm:tm-to-l}
+There are universal constants \(a_0,b_0,c_0\geq1\) such that for every
+\(k\)-input machine \(M\), \eqref{eq:tm-interpreter-term} is a closed term and
+\[
+ |\langle\!\langle M\rangle\!\rangle|\leq a_0|M|+b_0.
+\]
+If \(M(x_1,\ldots,x_k)\) halts within \(T\geq1\) transitions, then
+\[
+ \Eval_{\mathcal L}\!\left(
+   \Quote(\langle\!\langle M\rangle\!\rangle),
+   \langle x_1,\ldots,x_k\rangle;
+   c_M T(T+|x|)\right)=M(x_1,\ldots,x_k),
+\tag{9.2}\label{eq:tm-to-l-bound}
+\]
+where \(|x|=\sum_i|x_i|\) and one may take
+\(c_M=c_0(|M|+k+1)\).  The tuple on the left is the same dual-rail encoding as
+in Definition~\ref{def:paper-tm}.  In particular, a decider receives exactly
+\[
+ \langle\operatorname{bin}(n),x,y,a,b\rangle_{\mathcal L},
+ \qquad
+ \operatorname{enc}_{\mathcal L}\bigl(\langle\operatorname{bin}(n),x,y,a,b
+   \rangle_{\mathcal L}\bigr)
+ =\operatorname{enc}_5(\operatorname{bin}(n),x,y,a,b),
+\]
+and the five components initialize five separate input zippers.
+\end{theorem}
+
+\begin{proof}
+The term contains one copy of \(\overline M\), the fixed interpreter body, and
+self-delimiting constructor overhead.  Each input bit in \(\overline M\)
+contributes a fixed number of serialized bits, so constants \(a_0,b_0\)
+independent of \(M\) give the size bound.
+
+Initialization scans the dual-rail input once.  For valid input it consumes at
+most \(c_0(|x|+k+1)\) units and produces exactly the paper's initial tapes.
+Assume inductively that the functional configuration before loop iteration
+\(i\) represents the machine configuration after \(i\) transitions.  The
+views return the same scanned symbols.  The table primitive selects the unique
+transition of \(M\), and each zipper update writes the selected symbol and
+moves in the selected direction.  Therefore the next functional configuration
+represents the machine configuration after \(i+1\) transitions.  This proves
+the simulation invariant for \(0\leq i\leq T\).
+
+One loop iteration, including the fixed-point unfolding, table scan, tuple
+operations, and \(k+2\) zipper updates, uses at most
+\(c_0(|M|+k+1)\) units.  No visited zipper has more than \(|x|+T\) explicit
+cells.  The final output scan therefore uses at most
+\(c_0(|x|+T+1)\) units.  Adding initialization, \(T\) iterations, output, and
+the quote/decode overhead from Theorem~\ref{thm:quote-eval} gives at most
+\[
+ c_0(|M|+k+1)\bigl(|x|+1+T\bigr)+
+ c_0(|M|+k+1)T.
+\]
+For \(T\geq1\), both \(|x|+T+1\) and \(T\) are at most
+\(2T(T+|x|)\).  Increasing the universal choice of \(c_0\) by a factor four
+makes this no greater than the fuel in \eqref{eq:tm-to-l-bound}.  The invariant
+and the definition of \(\mathsf{out}\) then give the same output string.  The
+explicit quadratic form is deliberately conservative; the zipper simulation
+itself is linear in \(T\) apart from the hardwired table scan.
+\end{proof}
+
+\subsection{From \texorpdfstring{\(\mathcal L\)}{L} to the paper's machines}
+
+For the paper, the next theorem buys a route back from the IR to the exact
+Turing-machine model in which verifier bounds and compression are stated.
+\begin{theorem}[A universal evaluator for \(\mathcal L\)]
+\label{thm:l-to-tm}
+There is a fixed three-input Turing machine \(U_{\mathcal L}\), of description
+length \(b_U=O(1)\), and a universal constant \(C_L\geq1\), such that on input
+\((d,u,f)\) it returns the same value, out-of-fuel, or type-error result as
+\(\Eval_{\mathcal L}(d,u;f)\), and
+\[
+ \Time_{U_{\mathcal L}}(d,u,f)
+ \leq C_L\bigl(|d|+|u|+f+1\bigr)^6.
+\tag{9.3}\label{eq:l-to-tm-bound}
+\]
+Given closed \(t\), hardwiring \(d=\operatorname{ser}(t)\) produces a machine
+\((U_{\mathcal L})_t\) with
+\[
+ |(U_{\mathcal L})_t|\leq a_U|t|+b_U.
+\]
+On the paper's separate input tapes it may represent each argument by a lazy
+head-and-position handle.  Consequently, a run with fuel \(f\) accesses at
+most \(f\) symbols of those tapes and has the refined bound
+\(C_L(|t|+f+1)^6\), independent of unread suffixes.  Hence a total decider term
+with fuel schedule \(f_D(n)\) is a decider in the paper's sense and
+\[
+ \Time_D(n)\leq C_L(|t|+f_D(n)+1)^6.
+\tag{9.4}\label{eq:decider-term-time}
+\]
+\end{theorem}
+
+\begin{proof}
+The machine first checks the prefix serialization and writes node records on a
+work-tape heap.  It stores a node address, environment-frame addresses,
+continuation records, and binary fuel counters.  During at most \(f\)
+microsteps the heap acquires at most a fixed number of records per step, so its
+length is at most \(c(|d|+|u|+f+1)\) for a universal \(c\).  A conservative
+single-tape implementation finds a record by a full scan, performs binary
+address arithmetic, and returns to the simulated head in at most the square of
+that length.  Decoding, \(f\) simulated steps, and final serialization are
+therefore bounded by a universal constant times the fourth power of the
+length.  Converting the fixed multitape implementation to the paper's
+one-tape convention and allowing the paper's polynomial universal-simulation
+overhead is bounded by the sixth power after increasing \(C_L\).  This proves
+\eqref{eq:l-to-tm-bound}.  Primitive microstates use their fixed reference
+machines and have charged running time; their polynomial exponents were fixed
+when \(\mathcal L\) was fixed and are included in the exponent six (or, for a
+different registry, in another fixed exponent).
+
+The simulator description contains only the parser, CEK transition table,
+primitive registry, and serializers, so its length is \(b_U\), independent of
+\(d,u,f\).  The paper's hardwiring convention embeds \(d\) once and gives the
+linear description bound.  For separate input tapes, a handle stores a tape
+number and head position.  One microstep can move such a head by at most the
+work performed during that charged step, so no more than \(f\) input symbols
+can be inspected.  Removing the untouched encoded suffixes from the preceding
+storage account yields the refined bound.  Taking a maximum over all
+\((x,y,a,b)\) now proves \eqref{eq:decider-term-time}; arbitrarily long unread
+suffixes do not affect it.
+\end{proof}
+
+\subsection{The resource dictionary}
+
+\begin{reminder}
+The qualitative dictionary in Section~\ref{sec:refresher-engineering} matched
+machine time with reduction fuel and machine code with serialized syntax.  The
+table below is the quantitative version: it records the polynomials rather
+than merely asserting that simulations exist.
+\end{reminder}
+
+For a term program, let \(s_t=|t|\) and let \(f_t(n)\) be a proved fuel
+schedule which suffices for every legal call at index \(n\).  The translations
+above give the following dictionary.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{P{0.18\textwidth}P{0.28\textwidth}X}
+\toprule
+Paper quantity & \(\mathcal L\) counterpart & Quantitative relation \\
+\midrule
+\(\Time_D(n)\) & decider fuel \(f_D(n)\) & Term to TM:
+\(\Time_D(n)\leq C_L(|D_{\mathcal L}|+f_D(n)+1)^6\).  TM to term:
+fuel \(c_DT(T+|u|)\). \\
+\(\Time_S(n)\) & maximum sampler-mode fuel \(f_S(n)\) & Same two bounds,
+taking the maximum over the dimension, marginal, linear, and factor calls. \\
+\(|D|\) & \(|\operatorname{ser}(D_{\mathcal L})|\) & Each translation is
+linear: at most \(a_0|D|+b_0\) or \(a_U|D_{\mathcal L}|+b_U\). \\
+\(|S|\) & \(|\operatorname{ser}(S_{\mathcal L})|\) & The same linear bounds;
+static CL tables and source descriptions are counted once. \\
+\(\lambda\)-bounded & size at most \(\lambda\), fuel at most \(n^\lambda\) &
+Preserved in both directions as \(A\lambda\)-bounded for a universal integer
+\(A\), as proved below. \\
+Threshold \(n\geq C_0\) & same semantic index condition & Translation does not
+change \(n\); resource estimates may replace it by
+\(n\geq\max\{C_0,2\}\), never hide it in \(\poly\). \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+For the paper, the next theorem buys invariance of the verifier class under a
+change of programming language, after one universal rescaling of \(\lambda\).
+\begin{theorem}[Preservation of \(\lambda\)-boundedness]
+\label{thm:lambda-preservation}
+Fix the encodings and primitive registry above.  There is a universal integer
+\(A\geq1\) such that:
+\begin{enumerate}
+\item translating any \(\lambda\)-bounded paper verifier term-by-term with
+Theorem~\ref{thm:tm-to-l} gives an \(A\lambda\)-bounded
+\(\mathcal L\)-verifier;
+\item compiling any \(\lambda\)-bounded \(\mathcal L\)-verifier with
+Theorem~\ref{thm:l-to-tm} gives an \(A\lambda\)-bounded paper verifier.
+\end{enumerate}
+The translation preserves the verifier's index and its input/output function.
+\end{theorem}
+
+\begin{proof}
+For the first direction, \(|M|\leq\lambda\) and the size theorem gives
+\(|\langle\!\langle M\rangle\!\rangle|\leq(a_0+b_0)\lambda\), since \(\lambda\geq1\).
+At index \(n\geq2\), the paper machine runs for \(T\leq n^\lambda\).  It can
+inspect or emit at most \(T\) tape symbols.  Across at most six input tapes the
+portion relevant to the computation therefore has encoded length at most
+\(8n^\lambda\), after increasing the constant to cover \(\log n\) and mode
+tags.  Also
+\(c_M\leq c_0(\lambda+7)\leq8c_0n^\lambda\).  Theorem~\ref{thm:tm-to-l}
+then requires at most
+\[
+ 8c_0n^\lambda\cdot n^\lambda\cdot9n^\lambda
+ =72c_0n^{3\lambda}
+ \leq n^{(3+\lceil\log_2(72c_0)\rceil)\lambda}.
+\]
+The last inequality uses \(n\geq2\) and \(\lambda\geq1\).  It applies to
+both the sampler and decider.
+
+For the second direction, hardwiring gives description size at most
+\((a_U+b_U)\lambda\).  With fuel at most \(n^\lambda\), the lazy-input form of
+\eqref{eq:decider-term-time} is at most
+\[
+ C_L(\lambda+n^\lambda+1)^6
+ \leq C_L(3n^\lambda)^6
+ \leq n^{(6+\lceil\log_2(C_L3^6)\rceil)\lambda}.
+\]
+We used \(\lambda\leq2^\lambda\leq n^\lambda\).  The same calculation holds
+for every sampler mode.  Taking \(A\) to be the maximum of the four displayed
+description and exponent coefficients proves both assertions.  Semantics is
+preserved by Theorems~\ref{thm:tm-to-l} and~\ref{thm:l-to-tm}; neither
+translation changes the binary index.
+\end{proof}
+
+The constants \(a_0,b_0,c_0,a_U,b_U,C_L\), fixed arities, serialization tags,
+and the universal simulation exponent are absorbed when the paper writes
+\(O(\cdot)\) or \(\poly(\cdot)\): they are universal after the two languages
+are fixed.  The particular \(|D|,|S|\), a supplied \(\lambda\), a fuel or time
+parameter, and hardwired \(|M|\) are \emph{arguments} of those polynomials and
+cannot be hidden as universal constants.  Nor can the semantic threshold
+\(C_0\), the change from \(\lambda\) to \(A\lambda\), or constants appearing
+inside completeness and soundness inequalities be erased by \(\poly\)
+notation.
+
+\section{Self-reference as a construction on descriptions}
+\label{sec:self-reference}
+
+\begin{reminder}
+Kleene's theorem in Section~\ref{sec:refresher-kleene} produced a behavioral
+fixed point by applying a parameter-fixing compiler to its own code.  We now
+repeat that construction with explicit description-size bounds and identify
+it with the paper's diagonal verifier.
+\end{reminder}
+
+\subsection{The recursion theorem with size accounting}
+
+Let \(\varphi_e^{(k)}\) be the partial function of the \(k\)-input paper
+machine with description \(e\).  We use equality of partial functions only in
+the conclusion; every operation in the construction acts on strings.
+
+\begin{lemma}[The \(s\)-\(m\)-\(n\) operation]
+\label{lem:smn}
+For every \(r,k\geq1\) there is a total source transformer \(s_{r,k}\) such
+that
+\[
+ \varphi_{s_{r,k}(e,z_1,\ldots,z_r)}^{(k)}(x)
+ =\varphi_e^{(r+k)}(z_1,\ldots,z_r,x).
+\]
+Under the paper's hardwiring convention there are constants
+\(a_s,b_s\), depending only on \(r,k\), for which
+\[
+ |s_{r,k}(e,z)|\leq a_s\bigl(|e|+\textstyle\sum_i|z_i|\bigr)+b_s,
+\]
+and the output code is computed in time linear in the right-hand side.
+\end{lemma}
+
+\begin{proof}
+Output the fixed wrapper which writes
+\(\operatorname{enc}_{r+k+1}(e,z_1,\ldots,z_r,x)\) on its work tape and invokes
+the universal machine \(U_{r+k}\).  The wrapper contains one copy of each
+static bit and constant code for tuple encoding and universal simulation.  It
+therefore has the displayed linear length and can be printed in linear time.
+The universal-machine theorem gives the stated partial-function equation on
+halting inputs; on a nonhalting input both sides simulate the same machine
+forever.
+\end{proof}
+
+For the paper, the next theorem buys self-reference while keeping the fixed
+point's source length linear in the source transformer.
+\begin{theorem}[Kleene's second recursion theorem, paper model]
+\label{thm:kleene-two}
+Let \(Q\) be a total computable transformation from descriptions of
+\(k\)-input machines to descriptions of \(k\)-input machines.  There is an
+effectively constructible description \(e_Q\) such that
+\[
+ \varphi_{e_Q}^{(k)}=\varphi_{Q(e_Q)}^{(k)}.
+\tag{10.1}\label{eq:kleene-fixed}
+\]
+If \(q\) is a description of the machine computing \(Q\), then, for constants
+\(a_K,b_K\) fixed by \(k\) and the encodings,
+\[
+ |e_Q|\leq a_K|q|+b_K,
+\]
+and \(e_Q\) is constructed in time polynomial in \(|q|\).
+\end{theorem}
+
+\begin{proof}
+By Lemma~\ref{lem:smn}, let \(s(z,z)\) denote the description obtained by
+hardwiring two copies of \(z\) into the first two inputs of a suitable
+\((k+2)\)-input machine.  Define the partial computable function
+\[
+ G(z,x)=\varphi_{Q(s(z,z))}^{(k)}(x).
+\]
+A machine for \(G\) first computes the finite string \(s(z,z)\), runs the total
+code transformer \(Q\) on it, and universally evaluates the resulting
+\(k\)-input code on \(x\).  Let \(p\) be its description and set
+\(e_Q=s(p,p)\).  Then for every \(x\), including the case in which the final
+computation diverges,
+\[
+ \varphi_{e_Q}^{(k)}(x)
+ =\varphi_p^{(k+1)}(p,x)
+ =\varphi_{Q(s(p,p))}^{(k)}(x)
+ =\varphi_{Q(e_Q)}^{(k)}(x),
+\]
+which proves \eqref{eq:kleene-fixed}.
+
+The program \(p\) contains one copy of \(q\) and fixed code for \(s\) and the
+universal evaluator, so \(|p|\leq a_1|q|+b_1\).  Applying the linear size bound
+of Lemma~\ref{lem:smn} to \(s(p,p)\) gives
+\(|e_Q|\leq2a_s a_1|q|+(2a_sb_1+b_s)\).  These are the asserted
+\(a_K,b_K\).  Printing the two wrappers and executing the total hardwiring
+transformations takes polynomial time under the paper's conventions.
+\end{proof}
+
+\subsection{The call-by-value Z combinator and YCode}
+
+\begin{reminder}
+Raw \(Y\) unfolds too early under call-by-value; Section~\ref{sec:refresher-lambda}
+derived the eta-delayed \(Z\) combinator.  The constructor below realizes that
+delay as a typed, constant-size self-code link.
+\end{reminder}
+
+For orientation, call-by-value lambda calculus uses
+\[
+ Z=\lambda f.(\lambda x.f(\lambda u.xx u))
+                 (\lambda x.f(\lambda u.xx u)),
+\]
+rather than the call-by-name \(Y\), because eager evaluation of \(Yf\) unfolds
+before supplying an argument.  This untyped term has constant size, but it
+does not itself provide a canonical code value of the fixed point.  Our typed
+description constructor does.
+
+For a partial body \(P\) with its one distinguished quoted hole, define
+\[
+ \operatorname{YCode}(P):=\operatorname{Fix}(P),\qquad
+ d_P:=\Quote(\operatorname{YCode}(P)).
+\]
+The source equation is
+\[
+ \operatorname{unfold}(\operatorname{YCode}(P))
+ =\Specialize(P,\{\mathsf{self\_code}\mapsto d_P\}).
+\tag{10.2}\label{eq:ycode-source}
+\]
+It is an equation between finite descriptions.  Its right side is produced on
+demand by Lemma~\ref{lem:specialization}; the runtime evaluator instead uses a
+constant-size environment link.
+
+For the paper, the next theorem buys an operational self-code equation whose
+unfolding cost and serialized size are both explicit.
+\begin{theorem}[Description-level fixed-point equation]
+\label{thm:ycode}
+For every well-sorted \(P\), argument tuple \(u\), and \(f\geq c_Y=3\),
+\[
+ \operatorname{eval}_{\mathcal L}(\operatorname{YCode}(P),u;f)
+ =\operatorname{eval}_{\mathcal L}\!\left(
+   \Specialize(P,\{\mathsf{self\_code}\mapsto d_P\}),u;f-c_Y\right).
+\tag{10.3}\label{eq:ycode-eval}
+\]
+Equivalently, if \(f_P\) is the code transformer represented by \(P\), the
+right side is conventionally written
+\(\operatorname{eval}_{\mathcal L}(f_P(\operatorname{YCode}(f_P)),u;
+f-c_Y)\).  Moreover
+\[
+ |\operatorname{YCode}(P)|=|P|+c_{\rm fix}
+\]
+for the fixed four-bit Fix tag and its fixed sort annotation
+\(c_{\rm fix}=O(1)\).
+\end{theorem}
+
+\begin{proof}
+The unique Fix application rule performs three administrative actions: push
+the application frame, install the self-code heap link, and enter \(P\).  The
+resulting control, ordinary environment, and continuation are the same as for
+the specialized body; a lookup of the sole hole follows the installed link and
+therefore returns \(d_P\).  Subsequent transitions coincide by
+Theorem~\ref{thm:l-determinism}.  Exactly three units have been consumed, which
+proves \eqref{eq:ycode-eval}, including matching out-of-fuel and type-error
+outcomes.  Canonical serialization of Fix writes its fixed tag and annotation
+followed by one copy of the serialization of \(P\); it never expands the
+self-code link.  This proves the size equality.
+\end{proof}
+
+\subsection{The paper's explicit diagonal program}
+
+\begin{reminder}
+The expression \(\mathcal F(\mathcal F,M,L,\ldots)\) is the recursion theorem
+unrolled: hardwiring the first copy of \(\mathcal F\) manufactures the
+five-input decider whose code is then supplied to \(\Compress\).
+\end{reminder}
+
+Let \(M:P\{\mathsf{MachineDesc}\}\) and
+\(L:P\{\mathsf{Level}\}\) be closed literal terms, let \(S_L\) be the sampler
+description returned by \(\ComputeSampler(L)\), and let \(n,x,y,a,b\) be the
+five bound inputs.  The partial body corresponding to \code{fig:halt_f} is
+\[
+\begin{split}
+ \Psi_{M,L}=\lambda(n,x,y,a,b).\ \operatorname{If}(&
+  \operatorname{Prim}(\mathsf{halts\_within},M,n),\ \mathsf{true},\\
+ &\operatorname{Eval}(
+   \operatorname{ans}(\operatorname{Eval}(
+      \Quote(\Compress),\\[-2pt]
+ &\quad (\operatorname{quoted\_pair}(\Quote(S_L),
+       \operatorname{Hole}(\mathsf{self\_code},
+          \mathsf{Quoted}(\mathsf{Decider}))),L),F_C)),\\[-2pt]
+ &\quad(n,x,y,a,b),\operatorname{FuelBound}(n,L))).
+\end{split}
+\tag{10.4}\label{eq:psi-ml}
+\]
+The finite-fuel symbol \(F_C\) is any proved bound for the terminating
+\(\Compress\) call; \(\operatorname{ans}\) selects the returned decider
+description.  Define
+\[
+ D_{M,L}=\operatorname{YCode}(\Psi_{M,L}),\qquad
+ V_{M,L}=(S_L,\Quote(D_{M,L})).
+\tag{10.5}\label{eq:dml}
+\]
+
+For the paper, the next theorem buys the identification of the published
+\(\mathcal F\) trick, Kleene's theorem, and the IR fixed-point constructor.
+\begin{theorem}[Equivalence of the three fixed-point presentations]
+\label{thm:fixed-point-equivalence}
+The following are translations of the same description-level construction:
+\begin{enumerate}
+\item the paper's explicit
+\(\mathcal F(\overline{\mathcal F},\overline M,L,n,x,y,a,b)\);
+\item the Kleene fixed point of the transformer which hardwires
+\((\overline M,L)\) and inserts the resulting decider code into \(\Compress\);
+\item the closed description \(D_{M,L}\) in \eqref{eq:dml}.
+\end{enumerate}
+Under the simulations of Section~\ref{sec:simulation}, their deciders compute
+the same partial function.  Their description lengths are all
+\(O(|M|+\log L+1)\), and their running times differ by a polynomial in
+\(|M|,\log L,n\), the invoked fuel bounds, and the invoked machine times.
+\end{theorem}
+
+\begin{proof}
+In the paper, Step 2 of \(\mathcal F\) applies the hardwiring operation to the
+eight-input code supplied in its first argument.  When that argument is
+\(\overline{\mathcal F}\), the resulting five-input code is precisely the code
+of the outer decider
+\(D(n,x,y,a,b)=\mathcal F(\overline{\mathcal F},\overline M,L,n,x,y,a,b)\).
+Thus the string given to \(\Compress\) is its own decider description.  This
+is the concrete \(s\)-\(m\)-\(n\) operation of Lemma~\ref{lem:smn} with the
+diagonal argument already chosen.
+
+Alternatively, let \(Q(e)\) output the code which performs the halting test and,
+on failure, applies \(\Compress\) to \((S_L,e)\) and runs the returned decider.
+Theorem~\ref{thm:kleene-two} gives \(e_Q\) with
+\(\varphi_{e_Q}=\varphi_{Q(e_Q)}\), which is exactly the behavior just
+described.  Equation~\eqref{eq:ycode-source} performs the same substitution
+with \(e_Q\) represented by \(d_P\); Theorem~\ref{thm:ycode} proves the
+operational equation for \(D_{M,L}\).  Translating it to a machine with
+Theorem~\ref{thm:l-to-tm}, or translating \(\mathcal F\) with
+Theorem~\ref{thm:tm-to-l}, preserves that behavior.
+
+The displayed term contains one copy of \(M\), one binary literal \(L\), and
+fixed code for the remaining operations.  Theorem~\ref{thm:ycode} therefore
+gives \(|D_{M,L}|=O(|M|+\log L+1)\).  The paper's hardwiring and the size
+calculation in Theorem~\ref{thm:kleene-two} give the same bound for the first
+two forms.  Finally, the two simulation theorems replace each bounded call by a
+fixed polynomial overhead.  Composition of finitely many such polynomials is
+a polynomial in the listed quantities, proving the time statement.
+\end{proof}
+
+The paper notes that an earlier version used Kleene's recursion theorem and
+that its published presentation uses \(\mathcal F\) explicitly.
+\gt{fig:halt_f}{ground-truth/gt-12-compression.tex}  Theorem~\ref{thm:fixed-point-equivalence}
+explains why those presentations differ in notation rather than in the
+description passed to compression.
+
+What must \(\Compress\) do with the quoted body?  It first applies
+\(\Specialize\) to the static verifier and parameter holes, obtaining closed
+syntax with the size bound of Lemma~\ref{lem:specialization}.  It then traverses
+that syntax to build the descriptions for introspection, answer reduction, and
+repetition, and it records the resulting byte lengths and fuel bounds.  It
+never asks whether two terms compute the same function.  Such extensional
+equality is neither available nor needed.  This self-reference is not the hard
+part: it supplies no low-degree soundness, rigidity, repetition, or gap
+preservation.  Those remain the substantive cited theorems.
+
+\section{Cook--Levin for \texorpdfstring{\(\mathcal L\)}{L}-descriptions}
+\label{sec:l-cook-levin}
+
+\begin{reminder}
+A machine run is a path of configurations under one local transition rule;
+Section~\ref{sec:refresher-tm} introduced this viewpoint.  Here the same idea
+is applied to the fixed universal evaluator, turning a fuel-bounded lambda run
+into locally checkable tableau data.
+\end{reminder}
+
+\subsection{A local encoding of bounded evaluation}
+
+For closed \(t\), input \(u\), and fuel \(F\), the \emph{bounded trace} is
+\[
+ \mathcal T(t,u,F)=(C_0,C_1,\ldots,C_r),\qquad r\leq F,
+\]
+where \(C_0\) is the initial CEK configuration and each \(C_{i+1}\) is its
+unique small-step successor.  A row records the current term pointer,
+environment-frame pointers, continuation, heap, primitive microstate, outcome
+flag, and binary fuel.  If evaluation halts early, a fixed self-looping final
+state pads the trace to \(F+1\) rows.  This is the promised sequence of
+\((\text{term},\text{environment},\text{fuel})\) configurations, with the
+continuation and heap made explicit so that one-step validity is local.
+
+To obtain a finite-alphabet tableau, compile the CEK evaluator and each charged
+primitive to a fixed multitape Turing machine \(\widehat U_{\mathcal L}\).
+The read-only code track contains \(\operatorname{ser}(t)\); input tracks hold
+lazy argument tapes; work tracks hold the environment, heap, stack, and fuel.
+Pointer arithmetic, traversal, and a primitive of charge \(k\) are expanded
+into their elementary head moves.  One microstep changes the finite control,
+the cells under the heads, and the head positions by at most one.
+
+\begin{lemma}[Transition-window lemma]
+\label{lem:transition-window}
+There is a finite alphabet \(\Gamma_{\mathcal L}\), a fixed number \(r_0\) of
+tracks, and a Boolean function
+\[
+ \tau:\bigl(\Gamma_{\mathcal L}^{3}\bigr)^{r_0}
+       \times Q_{\mathcal L}\longrightarrow
+       \Gamma_{\mathcal L}^{r_0}\times Q_{\mathcal L}
+\]
+with the following property.  For every nonboundary cell \(j\), the symbols in
+cell \(j\) of row \(i+1\), together with the next finite-control state, are
+determined by the radius-one windows
+\((j-1,j,j+1)\) of row \(i\) and the current control state.  Boundary cells use
+a fixed endmarker version of the same rule.  Conversely, if two consecutive
+rows have one head marker on each track, agree with \(\tau\) at every window,
+and have valid endmarkers, then the second row is exactly the successor of the
+first under the small-step semantics.
+\end{lemma}
+
+\begin{proof}
+Encode a head by pairing the tape symbol with one of the finitely many machine
+states when that head is the active head, and use a separate finite-control
+track for the other heads.  In one transition, a cell farther than one position
+from every head is copied.  At a head cell, the transition table determines the
+written symbol and next state from the old state and scanned symbols.  At its
+left and right neighbors, the table determines whether the head marker enters;
+it cannot enter any other cell because heads move by at most one.  These cases
+depend only on the three displayed cells on each track.  They are mutually
+exclusive once the old row has one head per track, and therefore define the
+finite function \(\tau\).  Endmarkers replace missing neighbors by a fixed
+boundary symbol.
+
+For the converse, consider each track.  Away from the unique old head, the
+local copy case forces equality.  In the three-cell neighborhood of that head,
+the transition case forces the unique symbol write, direction, and new head
+position specified by the machine table.  The local rules also force all other
+cells not to acquire a head.  Repeating this argument for every track and
+using the shared finite-control component gives precisely one transition of
+\(\widehat U_{\mathcal L}\).  Primitive execution and CEK operations introduce
+no exceptional case because they were compiled into the same elementary
+machine steps.  The correspondence between those microstates and the weighted
+semantics was part of the construction in Section~\ref{sec:resource-lambda}.
+\end{proof}
+
+\subsection{The succinct 3SAT circuit}
+
+Let the row width be \(W\).  In \(F\) microsteps no head visits beyond the
+initial code and input plus \(F\) cells, so
+\(W=O(|t|+|u|+F)\).  Introduce Boolean variables for the constant-size binary
+encoding of every tableau cell and control-state bit.  The formula asserts:
+the initial row contains \(t,u,F\); every row and track has the prescribed
+format and head marker; each adjacent pair obeys every transition window; and
+the last row is accepting.  Each assertion involves a constant window except
+binary addressing and the initial read-only strings.  Fixed Tseitin gadgets
+turn it into 3CNF with \(O(FW)\) variables and clauses.
+
+For the paper, the next theorem buys a small circuit describing an enormous
+bounded verifier tableau, which is the input expected by answer reduction.
+\begin{theorem}[Succinct Cook--Levin for \(\mathcal L\)]
+\label{thm:l-succinct-sat}
+There is an algorithm which, on
+\((t,n,F,Q,\sigma,x,y)\), where \(|t|\leq\sigma\) and \(|x|,|y|\leq Q\),
+outputs a Boolean circuit \(C_{t,n,F,Q,\sigma,x,y}\) deciding membership of an
+indexed signed clause in a 3CNF formula \(\Phi\).  Its index width is
+\(O(\log F+\log\sigma)\), its size and construction time are
+\[
+ \poly(\log n,\log F,Q,\sigma),
+\tag{11.1}\label{eq:l-succinct-size}
+\]
+and for every pair of answer strings \(a,b\) the formula is satisfiable with
+the prescribed input bits if and only if
+\(\Eval_{\mathcal L}(\Quote(t),(n,x,y,a,b);F)\) accepts.  Holding the public
+input fixed, the transition component of the circuit has size
+\(\poly(\log F,|t|)\); the \(Q\) term in \eqref{eq:l-succinct-size} is solely
+the hardwired initialization data \(x,y\).
+\end{theorem}
+
+\begin{proof}
+Given a clause index, the circuit first decodes whether the requested clause is
+an initialization, uniqueness/format, transition, or acceptance clause.  Row
+and column numbers use \(O(\log F+\log W)\) bits.  For a transition clause it
+computes the addresses of a radius-one window and evaluates the finite truth
+table \(\tau\) from Lemma~\ref{lem:transition-window}; binary addition,
+comparison, and multiplexing have size polynomial in those address lengths.
+For an initialization clause it selects a bit of the canonical code or public
+input.  A balanced selector for a hardwired string has size linear in
+\(|t|+Q+\log n\).  Format and final-state clauses use fixed truth tables.
+Finally it emits the three variable addresses and signs of the selected
+3CNF gadget.  This proves the circuit and construction bounds.  Since
+\(W=O(|t|+Q+F)\), \(\log W=O(\log F+\log\sigma+\log(Q+1))\), which is absorbed
+by \eqref{eq:l-succinct-size} under \(Q\leq F\), as in the paper.
+
+If evaluation accepts, assign every tableau variable from its unique bounded
+trace and every Tseitin variable from its gadget value.  Initialization,
+transition, and acceptance clauses are then satisfied.  Conversely, any
+satisfying assignment contains the prescribed initial row.  Induction on the
+row number and the converse part of Lemma~\ref{lem:transition-window} forces
+each later row to be the unique evaluator successor.  The final clauses force
+that trace to accept.  The prescribed answer bits occupy the initial answer
+tapes, so the equivalence holds for each \(a,b\).
+\end{proof}
+
+This is the \(\mathcal L\)-description restatement of
+\code{prop:standard-succinct-sat}.  The paper's version takes \(D,n,T,Q,
+\sigma,x,y\), reserves the first \(2T\) encoded positions for each answer, and
+has size \(\poly(\log n,\log T,Q,\sigma)\).
+\gt{prop:standard-succinct-sat}{ground-truth/gt-10-answer-reduction.tex}
+Theorem~\ref{thm:l-to-tm} gives the same proposition by compilation; the proof
+above shows directly why a lambda evaluation trace has the required locality.
+
+More explicitly, use the paper's tape-alphabet encoding
+\(\operatorname{enc}_\Gamma(0)=00\),
+\(\operatorname{enc}_\Gamma(1)=01\),
+\(\operatorname{enc}_\Gamma(\sqcup)=10\), and reserve \(2F\) bits in the
+tableau assignment for each answer tape.  For every
+\(a,b\in\{0,1\}^{2F}\), the resulting formula has an extension \(c\) if and
+only if there are prefixes \(a',b'\), of lengths at most \(F\), such that
+\[
+ a=\operatorname{enc}_\Gamma(a',\sqcup^{F-|a'|}),\qquad
+ b=\operatorname{enc}_\Gamma(b',\sqcup^{F-|b'|}),
+\]
+and the term accepts \((n,x,y,a',b')\) within fuel \(F\).  The forward
+direction follows because the initialization clauses force the two reserved
+blocks to be valid padded tape rows; the backward direction fills those blocks
+from the accepting trace.  This is the exact placement property needed when
+the two blocks are separated in \eqref{eq:decoupled-five}.
+
+\subsection{From shared 3SAT data to decoupled 5SAT}
+
+The paper removes two undesirable features before low-degree encoding.  A
+3SAT clause reads three locations of one tableau assignment, while three
+low-degree answers need not be restrictions of one assignment.  Also, the
+strings \(a,b\) are embedded inside that assignment, whereas the later sampler
+must query them as independent blocks.  Make five assignments
+\(a,b,u_3,u_4,u_5\) and impose clauses of the form
+\[
+ a_{i_1}^{o_1}\vee b_{i_2}^{o_2}\vee
+ (u_3)_{i_3}^{o_3}\vee (u_4)_{i_4}^{o_4}\vee
+ (u_5)_{i_5}^{o_5}.
+\tag{11.2}\label{eq:decoupled-five}
+\]
+The original 3SAT clauses are applied to \(u_3\); constant-size five-literal
+gadgets enforce \(u_3=u_4=u_5\), copy the first \(2F\) encoded answer bits to
+\(a,b\), and pad unused positions by the alternating blank encoding.  Each
+gadget is indexed by comparisons and additions on
+\(O(\log F+\log\sigma)\)-bit addresses, so it adds only that many gates.
+Therefore the succinct decoupled circuit retains the bound
+\eqref{eq:l-succinct-size}.  Its padded form makes all five blocks have one
+common power-of-two length.  A satisfying five-tuple restricts to a satisfying
+trace assignment, and a satisfying trace extends by copying and padding; this
+proves the required if-and-only-if.
+\gt{sec:succinct-deciders}{ground-truth/gt-10-answer-reduction.tex}
+
+The intended analytic chain is
+\[
+\begin{split}
+\mathtt{Quoted\{Decider\}}
+&\xrightarrow{\ \mathtt{bounded\_trace}\ }
+ \mathtt{BoundedTrace}\\
+\mathtt{BoundedTrace}
+&\xrightarrow{\ \mathtt{cook\_levin}\ }
+ \mathtt{Succinct3SAT}\\
+\mathtt{Succinct3SAT}
+&\xrightarrow{\ \mathtt{decouple5}\ }
+ \mathtt{SuccinctDecoupled5SAT}
+\\
+\mathtt{SuccinctDecoupled5SAT}
+&\xrightarrow{\ \mathrm{padding}\ }
+ \mathtt{PaddedSuccinctDecoupled5SAT}.
+\end{split}
+\]
+These are the transformations planned for TB3 in \code{briefs/23-tb3.md}.
+That brief is planned work, not evidence that the functions exist or that any
+claim has been checked.  At the time of this note, no \code{bounded_trace},
+\code{cook_levin}, or \code{decouple5} implementation is present in
+\code{src/}; the general contracts remain \grade{CITED}.
+
+\subsection{Tseitin and arithmetization}
+
+\begin{reminder}
+At this point the quoted verifier has already been reduced to a finite circuit
+describing local computation checks.  The transformations below manipulate
+that circuit description; they are computable source maps, while their
+low-degree and quantum soundness consequences are separate analytic claims.
+\end{reminder}
+
+Given a Boolean circuit \(C\) with gates \(g_i\), Tseitin introduces a wire
+variable \(w_i\) and an equivalence formula
+\[
+ z_i=(g_i(x,w)\wedge w_i)\vee
+     (\neg g_i(x,w)\wedge\neg w_i),
+ \qquad F=\bigwedge_i z_i.
+\]
+The required contract is
+\(C(x)=1\) iff there exists \(w\) with \(F(x,w)=1\), with size and
+construction time \(O(|C|)\).\gt{def:tseitin}{ground-truth/gt-10-answer-reduction.tex}
+The project follows the explicit gate-equivalence form in
+\code{ground-truth/nw19/nw19-tseitin-arith.tex} and also conjoins the output
+literal \(w_{\rm out}\), so the stored formula explicitly asserts acceptance.
+That convention is marked \grade{SOURCE\_REPAIR}; it is not silently attributed
+to the source.
+
+The Julia constructors \code{Circuit}, \code{Input}, \code{Gate},
+\code{NotGate}, \code{AndGate}, and \code{OrGate} make the finite DAG and its
+topological order explicit.  The function \code{tseitin} returns
+\code{Checked{TseitinFormula,CertNode}}.  Its replay recomputes the formula's
+occurrence vector; it does not, by that replay alone, establish the general
+Cook--Levin or Tseitin semantic equivalence.  Those implications are exhausted
+only on the small TB0 fixture and remain cited in general.
+
+Arithmetization recursively applies
+\[
+  \neg A\mapsto 1-A,\qquad
+  A\wedge B\mapsto AB,\qquad
+  A\vee B\mapsto A+B-AB.
+\]
+It agrees with the Boolean formula on the Boolean cube.
+\gt{def:formula-arithmetization}{ground-truth/gt-10-answer-reduction.tex}
+The related NW19 rule is \code{def:arithmetization} in
+\code{ground-truth/nw19/nw19-tseitin-arith.tex}.  Julia's \code{arith_q}
+returns a sparse formal \code{Poly}; its \code{ArithTseitin} certificate checks
+support degrees against a structural bound.
+
+\subsection{The occurrence-vector discrepancy}
+
+There is a discrepancy in the individual-degree bookkeeping as we read NW19;
+our reading may be wrong.  The source proposition states individual degree at
+most two for the Tseitin arithmetization.
+\gt{prop:tseitin-arith-degree}{ground-truth/gt-10-answer-reduction.tex}
+Reading the NW19 formula literally as a formula tree, arithmetization is
+multilinear in leaf occurrences, not necessarily in circuit wires.  The same
+wire can occur in several gate gadgets.  With the project's explicit output
+literal, the count we compute is
+\[
+ \operatorname{occ}(x_j)=2\operatorname{fanout}(x_j),\qquad
+ \operatorname{occ}(w_i)=2+2\operatorname{fanout}(w_i)
+       +\mathbf 1_{i=\mathrm{out}},
+\]
+and structural induction gives
+\[
+ \deg_v(F_{\rm arith})\leq \operatorname{occ}_v(F).
+\]
+The function \code{tseitin_occurrence_account} computes this vector;
+\code{occurrences} independently traverses the formula; and \code{arith_q}
+compares the structural account with actual sparse support.
+
+Claim C8 is only \claim{C8}{TESTED}: the two-gate regression gives
+\((2,2,2,4,3)\), and the 16-variable TB0 formula attains
+\[
+(2,0,0,0,2,2,0,0,0,0,6,4,4,4,4,3).
+\]
+The general occurrence formula is a written derivation, not a machine theorem.
+The downstream soundness repair is only \claim{C5}{SKETCH}.  With a symbolic
+bound \(\delta_F=\max_v\operatorname{occ}_v(F)\), the conservative formula-test
+term becomes \((\delta_F+5d)m'/q\), and
+\code{P_formula_structural} is an additional obligation.  Under an explicit
+fanout-reduction hypothesis, \(\operatorname{fanout}_{\max}\leq2\) gives
+\(\delta_F\leq7\) with the output literal, and \(d\geq8\) suffices for the
+individual-degree construction bound.  Absorption into the asymptotic
+parameter choice still needs the stated growth hypotheses; it is not promoted
+by the two finite computations.
+
+\section{The low-degree PCP as algebra}
+
+\subsection{Interpolation and the vanishing polynomial}
+
+For \(M=2^m\) and \(a=(a_y)_{y\in\{0,1\}^m}\), define
+\[
+ \operatorname{ind}_{m,y}(x)=
+ \prod_{j:y_j=1}x_j\prod_{j:y_j=0}(1-x_j),\qquad
+ g_a(x)=\sum_y a_y\operatorname{ind}_{m,y}(x).
+\]
+Then \(g_a(y)=a_y\) on the Boolean cube and \(a\mapsto g_a\) is linear.
+This is the low-degree code: the assignment is represented by the evaluation
+table of its unique multilinear extension.
+\gt{sec:ld-encoding}{ground-truth/gt-03-prelim.tex}
+The Julia function \code{g_a} constructs the sparse polynomial; block
+coordinates are carried by \code{VarLayout} and \code{VarBlock};
+\code{dependency_blocks} recomputes the actual support dependency.
+
+For five satisfying blocks, let \(g_i\) be their multilinear extensions and
+write \(z=(x_1,\ldots,x_5,o,w)\in\F_q^{m'}\).  The central analytic object is
+\[
+ c_0(z)=F_{\rm arith}(z)
+        \prod_{i=1}^{5}\bigl(g_i(x_i)-o_i\bigr).
+\]
+On a Boolean point, either \(F_{\rm arith}=0\), or the indicated clause is
+present and at least one factor \(g_i(x_i)-o_i\) vanishes.  Hence \(c_0\)
+vanishes on \(\{0,1\}^{m'}\).  The code executes the product in
+\code{build_c0}; the \code{BuildC0} certificate replays the structural and
+actual degree accounts.  The implication from a satisfying decoupled instance
+to Boolean-cube vanishing is checked only on the TB0 fixture and cited in
+general.\gt{thm:pcp-decider}{ground-truth/gt-10-answer-reduction.tex}
+
+\subsection{Division by the Boolean ideal}
+
+Let \(z_i(1-z_i)=z_i-z_i^2\).  The ground-truth basis proposition says that a
+degree-bounded polynomial vanishing on the Boolean cube lies in the ideal
+generated by these \(m'\) polynomials.
+\gt{prop:zero-basis}{ground-truth/gt-10-answer-reduction.tex}
+The implementation uses the following deterministic monomial rewrite.
+
+\begin{lemma}[Executable zero-basis rewrite]
+For a coefficient \(a\), a monomial \(u\) independent of the displayed power,
+and \(e\geq2\),
+\[
+ a u z_i^e
+ \longmapsto
+ a u z_i^{e-1}-a u z_i^{e-2}\,z_i(1-z_i).
+\]
+Iterating in a fixed variable and monomial order yields polynomials \(c_i\) and
+a remainder \(r\), multilinear in every variable, such that
+\[
+ c_0=\sum_{i=1}^{m'}c_i z_i(1-z_i)+r.
+\]
+If the coordinate degree vector of \(c_0\) is \(D\), then
+\(\deg_j(c_i)\leq D_j\), \(\deg_i(c_i)\leq\max(D_i-2,0)\), and after reducing
+coordinates \(1,\ldots,i-1\), the running remainder has degree at most one in
+those coordinates.
+\end{lemma}
+
+\begin{proof}
+Expanding the right-hand side of one rewrite gives
+\[
+ a u z_i^{e-1}-a u z_i^{e-2}(z_i-z_i^2)=a u z_i^e.
+\]
+Thus every step preserves the coefficient polynomial after adding the recorded
+quotient contribution.  It lowers the current exponent to one and places
+power \(e-2\) in the quotient, proving the degree bounds.  Induction over the
+ordered coordinates gives the displayed decomposition and a final
+multilinear remainder.  If \(c_0\) vanishes on the Boolean cube, then so does
+\(r\); uniqueness of multilinear interpolation on \(\{0,1\}^{m'}\) makes
+\(r=0\).  This is the constructive division used in the proof of
+\code{prop:zero-basis} in
+\code{ground-truth/gt-10-answer-reduction.tex}.
+\end{proof}
+
+\code{zero_basis_decompose} stores every step as \code{RewriteStep} inside a
+\code{ZeroDecomposition}.  \code{verify_rewrite_step} replays the scalar
+identity, and \code{verify_zero_decomposition} reconstructs the entire right
+side as a normalized coefficient dictionary.  Promotion to a zero certificate
+also requires empty remainder.  This is stronger than checking the equality at
+sampled points, but it remains an instance certificate, not a proof of the PCP
+soundness theorem.
+
+\subsection{PCP view and local verifier}
+
+A \emph{PCP view} at \(z\) is
+\[
+ \operatorname{ev}_z(\Pi)=
+ (g_1(x_1),\ldots,g_5(x_5),c_0(z),c_1(z),\ldots,c_{m'}(z)).
+\]
+The proof object is the tuple of evaluation tables for those polynomials.
+The labels are \code{def:pcp-proof} and \code{def:pcp-eval} in
+\code{ground-truth/gt-10-answer-reduction.tex}.  Julia represents them by
+\code{PCPProof} and \code{PCPView}; \code{ev_z} refuses a \(g_i\) whose actual
+support escapes block \(X_i\).
+
+The verifier first reconstructs the succinct circuit, Tseitin formula, and
+arithmetization.  It then checks exactly
+\[
+ \beta_0=F_{\rm arith}(z)\prod_{i=1}^5(\alpha_i-o_i),
+ \qquad
+ \beta_0=\sum_{j=1}^{m'}\beta_j z_j(1-z_j).
+\]
+These are the formula test and zero-on-subcube test.
+\gt{fig:pcpverifier}{ground-truth/gt-10-answer-reduction.tex}
+The Julia function \code{pcpverifier} executes these two equations on an
+already supplied \code{TseitinFormula} and view.  In TB2 it does not implement
+the figure's preceding reconstruction steps; the formula is construction-time
+data.  \code{build_pcp} combines upstream certificates, coefficient division,
+degree checking, and stored certified views.
+
+\subsection{The four soundness layers}
+
+The four layers must not be collapsed.
+
+\paragraph{1. Algebraic soundness under a low-degree premise.}
+Assume every submitted \(g_i,c_j\) has individual degree at most \(d\).  If the
+formula-test polynomials are unequal, their difference has total degree at most
+\((\delta_F+5d)m'\) under the occurrence-vector account.  If the zero-test
+polynomials are unequal, their difference has total degree at most
+\((2+d)m'\).  Schwartz--Zippel states that unequal polynomials of total degree
+at most \(\Delta\) agree at a uniform point of \(\F_q^{m'}\) with probability
+at most \(\Delta/q\).
+\gt{lem:schwartz-zippel}{ground-truth/gt-03-prelim.tex}
+Consequently
+\[
+ \Pr[\text{false formula identity}]
+ \leq \frac{(\delta_F+5d)m'}{q},\qquad
+ \Pr[\text{false zero identity}]
+ \leq \frac{(2+d)m'}{q}.
+\]
+The paper's displayed first numerator uses \(2+5d\); the structural project
+obligation substitutes the measured \(\delta_F\) under the discrepancy stated
+above.  The field size enters nowhere mysteriously: \(q=2^k\) is chosen so
+both fractions are below the acceptance threshold \(1/2\), together with the
+other PCP parameter obligations.  The first structural inequality is extra to
+the literal \code{def:pcpparams} predicate in the present project.
+
+If acceptance is greater than \(1/2\) and both upper bounds are below
+\(1/2\), each sampled equality is therefore a polynomial identity.  The zero
+identity makes \(c_0\) vanish on the Boolean cube; the formula identity then
+decodes five Boolean assignments satisfying the decoupled formula, and hence an
+accepting bounded computation.  This conditional theorem is
+\code{thm:pcp-decider} in
+\code{ground-truth/gt-10-answer-reduction.tex}.  Its current project status is
+\claim{C5}{SKETCH}, not CHECKED.
+
+\paragraph{2. Enforcement of the low-degree premise.}
+The simultaneous low-degree game queries points, axis-parallel lines, and
+diagonal lines.  Its classical decider checks consistency of a point value with
+a claimed line restriction.\gt{fig:ld-decider}{ground-truth/gt-07-ldt.tex}
+The theorem extracting approximately consistent low-individual-degree
+polynomial measurements from a successful quantum strategy is
+\code{lem:ld-soundness} in \code{ground-truth/gt-07-ldt.tex}.  It is
+\grade{CITED}.  Running \code{ld_decider} on honest finite inputs does not prove
+this extraction theorem.
+
+\paragraph{3. Polynomial identity from random evaluation.}
+This is exactly the Schwartz--Zippel step above, used twice with two different
+degree bounds.  The local program checks evaluations.  The analytic theorem
+turns an acceptance probability into formal identity, provided the degree and
+field-size premises hold.  No sample count can replace that implication.
+
+\paragraph{4. Quantum consistency and rigidity.}
+Answer reduction must connect different players' point and line answers to the
+same polynomial measurements, control disturbance, and transport the result
+back to the original verifier.  Those operator estimates use low-degree
+soundness, typed consistency transformations, and later rigidity arguments.  They
+are imported in the soundness contract of \code{thm:ar} in
+\code{ground-truth/gt-10-answer-reduction.tex}; none is a sparse-polynomial
+identity.
+
+The computer adds exactly this: on a named instance it constructs the
+polynomials, executes the division, compares normalized coefficients, computes
+degree and dependency vectors, and evaluates the two local equations.  It does
+not test the theorem.  Current statuses reflect that separation: C3 is
+\textsc{TESTED}, C5 is \textsc{SKETCH}, C1 and C2 remain
+\textsc{CONJECTURE}, and C8 is \textsc{TESTED} only on its two named circuits.
+
+\section{The typed layer: conditionally linear functions}
+
+\subsection{The inductive object and its laws}
+
+\begin{definition}[Conditionally linear function]
+Let \(V=\F^n\) with fixed coordinate-register subspaces.  The unique level-zero
+conditionally linear (CL) function is zero.  A level-\(\ell\) CL function
+chooses complementary registers \(V_1\oplus V_{>1}=V\), applies a linear map
+\(A:V_1\to V_1\), and, conditional only on \(A(x^{V_1})\), selects a
+level-\((\ell-1)\) CL function on \(V_{>1}\).  Its output is the sum of the
+first-stage and continuation outputs.
+\end{definition}
+This is \code{def:cl-func} in
+\code{ground-truth/gt-04-cl.tex}.  Julia mirrors it with
+\code{AbstractCL}, \code{CLZero}, and \code{CLStep}.  The constructor verifies
+disjoint factor/rest coordinate sets, a matrix acting inside the factor, a
+fixed child level, and exact coverage of the rest register.  Thus an inhabitant
+of \code{CLStep} has a constructed level; linearity is carried by the matrix,
+not inferred from samples.
+
+The marginal \(L_{\leq k}\) is the sum of the first \(k\) stage outputs,
+together with their factor spaces and linear maps.  This is the decomposition
+of \code{lem:cl-kth} in
+\code{ground-truth/gt-04-cl.tex}.  Julia's \code{marginal_k} returns a
+\code{CLMarginal}; \code{sum_stage_outputs} recomputes its value.
+
+\begin{lemma}[Level laws]
+Let \(L\) be level \(k\), let every continuation \(R_u\) be level \(\ell\),
+and let \(L_j\) act on pairwise disjoint registers at levels \(\ell_j\).
+Then
+\[
+ \operatorname{level}(\operatorname{concatenate}(L,R))=k+\ell,
+ \qquad
+ \operatorname{level}\!\left(\bigoplus_jL_j\right)=\max_j\ell_j.
+\]
+For CL distributions \(S_1,S_2\), their product, formed by direct-summing the
+left maps and the right maps on independent seed registers, has level the
+maximum of the two levels.
+\end{lemma}
+
+\begin{proof}
+For concatenation, induct on the outer constructor of \(L\).  At level zero,
+grafting \(R_0\) supplies exactly \(\ell\) stages.  At a \code{CLStep}, retain
+its first linear stage and apply the induction hypothesis to each child; this
+gives \(1+(k-1+\ell)=k+\ell\).  This is the construction in
+\code{lem:cl-concat} of \code{ground-truth/gt-04-cl.tex}.
+
+For direct sum, pad each component by zero stages to
+\(r=\max_j\ell_j\).  At stage \(i\), use the direct sum of the components'
+stage matrices on the direct sum of their factor registers.  The continuation
+depends only on the tuple of earlier outputs, hence remains CL.  Induction on
+\(r\) proves the law, matching \code{lem:cl-func-prod} in
+\code{ground-truth/gt-04-cl.tex}.  A distribution product applies this law
+separately to its left and right maps, so its level is the same maximum.
+\end{proof}
+
+The code functions are \code{concatenate}, \code{direct_sum},
+\code{distribution}, and \code{product}.  Their type constructions carry the
+level laws.  The stronger structural hypothesis that all compiler operations
+of interest close inside one useful algebra is not implied by these individual
+lemmas.
+
+\subsection{Point and line maps}
+
+For \(V=V_{\rm pt}\oplus V_{\rm coord}\oplus V_{\rm dir}\), write a seed as
+\((u,s,v)\in\F_q^m\times\F_q\times\F_q^m\).  Let
+\(L_v^{\rm lnf}\) be the canonical projection whose kernel is
+\(\operatorname{span}(v)\), so \(L_v^{\rm lnf}u\) is a canonical representative
+of the affine line \(u+\F_qv\).
+\gt{def:cl-canonical}{ground-truth/gt-03-prelim.tex}
+The line-representative use is \code{def:line-representative} in
+\code{ground-truth/gt-07-ldt.tex}.  Define \(\chi(s)\) by splitting the fixed
+integer representatives of \(\F_q\) into \(m\) equal buckets; this requires
+\(m\mid q\).  With \(\pi_{i-1}\) zeroing the first \(i-1\) coordinates,
+\[
+\begin{aligned}
+L_{\rm Point}(u,s,v)&=(u,0,0),\\
+L_{\rm ALine}(u,s,v)&=(L_{e_{\chi(s)}}^{\rm lnf}u,s,0),\\
+L_{\rm DLine}(u,s,v)&=(L_{\pi_{\chi(s)-1}(v)}^{\rm lnf}u,
+                         s,\pi_{\chi(s)-1}(v)).
+\end{aligned}
+\]
+Their levels are respectively one, two, and three by their stage
+factorizations.\gt{sec:ld-game}{ground-truth/gt-07-ldt.tex}
+The implementation names are \code{L_Point}, \code{L_ALine},
+\code{L_DLine}, \code{L_lnf}, \code{chi}, and \code{pi_prefix}.  Since the
+source's kernel-basis definition does not cover \(v=0\), the code uses
+\(L_0^{\rm lnf}=I\) and marks the convention \grade{SOURCE\_REPAIR}.
+
+The distribution \(\mu_{L,R}\) pushes one uniform shared seed through the two
+maps.\gt{def:cl-dist}{ground-truth/gt-04-cl.tex}
+For \((q,m)=(8,2)\), TB1 enumerates all \(8^5=32768\) seeds.  The
+axis-line/point histogram has support 512, and the diagonal-line/point
+histogram has support 18432, including the zero directions.  Both agree
+entry-for-entry with separately transcribed formulas for
+\code{lem:alnf} and \code{lem:dlnf} in
+\code{ground-truth/gt-07-ldt.tex}; every marginal is replayed.  This finite
+statement is \claim{C4a}{TESTED}.  It is not a statistical argument and does
+not establish quantum low-degree soundness.
+
+\subsection{Types and the six-copy sampler}
+
+A \emph{typed sampler} is a finite type-graph-indexed family of CL maps sharing
+one ambient seed space.  It first samples an oriented type edge and then pushes
+one uniform seed through the selected left/right maps.
+\gt{def:typed-sampler}{ground-truth/gt-06-types.tex}
+Its induced distribution is \code{def:typed-sampler-sample} in the same file.
+Julia's \code{TypedSampler} checks exact type coverage, a common field and seed
+dimension, graph endpoints, and a padded common level.
+
+\emph{Detyping} encodes the external graph choice into an untyped CL
+distribution by a rejection-sampling construction.  It adds two levels,
+preserves value-one completeness, and changes soundness error by
+\(16^{|\mathrm{Type}|}\).\gt{lem:detyping-verifiers}{ground-truth/gt-06-types.tex}
+The Julia function \code{detype} returns \code{CitedDetypedVerifier}; the
+certificate is deliberately \grade{CITED}.  For the 54 answer-reduction types,
+the displayed factor is \(16^{54}\), not an executed estimate.
+
+The answer-reduction PCP sampler has the 18 types
+\[
+ \{\mathrm{Point}_i,\mathrm{ALine}_i,\mathrm{DLine}_i:1\leq i\leq6\}
+\]
+and a complete type graph.  Copies 1--5 query one \(m\)-variate \(g_i\) each;
+copy 6 queries the bundle \((g_1,\ldots,g_5,c_0,\ldots,c_{m'})\) in dimension
+\(m'\).  The six-copy construction and its ambient direct sums are in
+\code{sec:ld-compiler} of
+\code{ground-truth/gt-10-answer-reduction.tex}.  The current code uses
+\code{PCPType}, \code{PCPRegisterLayout}, \code{PCPCLMap},
+\code{PCPPaddedMap}, and \code{pcp_sampler}.  It carries a visible
+\grade{SOURCE\_REPAIR} for the copy-6 coordinate-register conflict between the
+displayed ambient space and the parser table.
+
+\emph{Oracularization} is the typed transformation in which the isolated
+roles receive the original left or right CL image while an oracle role receives
+the common seed and can reconstruct both; the code name is
+\code{oracularize_sampler}.  Its theorem contract is \grade{CITED}.
+\gt{sec:orac-def}{ground-truth/gt-09-oracularization.tex}
+The typed
+answer-reduced sampler is the product of this three-role family with the
+18-type PCP family.  \code{typed_sampler_product} produces 54 types and
+combines levels by a maximum.  The code constructs the product and checks its
+shape, but C4b remains \textsc{CONJECTURE}: the latest TB2 critic held promotion
+because the lazy \code{PCPCLMap}'s stage depth was not itself enough to make
+the full CL decomposition a constructor-level fact.  Local certificate labels
+must not be confused with a promoted claim.
+
+The typed decider implements the five guarded checks of
+\code{fig:decider-pcp}: global consistency, input consistency, input low degree,
+proof encoding (individual and simultaneous low degree), and the PCP game
+check.\gt{fig:decider-pcp}{ground-truth/gt-10-answer-reduction.tex}
+The Julia names are \code{TypedAnswerReducedDecider},
+\code{typed_answer_reduced_decider}, \code{LDParams}, \code{ld_decider}, and
+\code{PCPGameCall}.  \code{answer_reduce_pcp} constructs the typed verifier of
+level \(\max(\ell,3)\) on its fixture and attaches explicit assumptions.
+
+The full theorem contract is conditional:
+\[
+\begin{array}{ll}
+\textsc{Assume:}&V\text{ is an }\ell\text{-level normal-form verifier},\\
+&T(n)=(2^{\lambda n})^\mu,\quad Q(n)=(\lambda n)^\mu,\\
+&\Time_D(n)\leq T(n),\quad \Time_S(n)\leq Q(n);\\[2pt]
+\textsc{Prove:}&\AnswerReduce(V)\text{ has level }\max\{\ell+2,5\},\\
+&\text{the stated polynomial runtimes and directed completeness,}\\
+&\text{soundness, and entanglement implications.}
+\end{array}
+\]
+This is \code{thm:ar} in
+\code{ground-truth/gt-10-answer-reduction.tex}.  The finite guarded decider is
+executable; the quantum implication, detyping, and asymptotic theorem are
+\grade{CITED}.
+
+\subsection{The structural hypothesis}
+
+\emph{Introspection} is the cited verifier transformation that makes encoded
+prover-side measurement information available to a smaller verifier while
+preserving a directed soundness contract.
+\gt{thm:introspection}{ground-truth/gt-08-introspection.tex}
+\emph{Anchoring} inserts special anchor questions with positive probability;
+\emph{parallel repetition} runs several copies with an AND acceptance
+condition against possibly correlated strategies.  Their combined repetition
+contract is cited from \code{thm:repetition} in
+\code{ground-truth/gt-11-parallel-repetition.tex}.
+
+The relevant closure equations are
+\[
+ \Introspect(\mathcal Q)\subseteq\mathcal Q,
+ \qquad \mathsf{PCPCompose}(\mathcal Q)\subseteq\mathcal Q,
+ \qquad \mathcal Q\times\mathcal Q\subseteq\mathcal Q.
+\]
+Concatenation, direct sum, the shared-seed distribution, and product are visibly
+CL-preserving in the base inductive datatype.  Affine restriction is linear
+after earlier stages choose a direction, and random-point identity tests are
+pushforwards of a shared uniform seed.  Typed graph choice is external, and the
+cited detyping transformation moves it back into two further CL levels.
+
+This does not characterize every admissible query distribution, prove that a
+generic PCPP can be expressed in the algebra, or prove closure under the full
+introspection compiler.  The structural statement is exactly
+\claim{C7}{CONJECTURE}.  Introspection soundness and normal-form closure are
+not implemented.  The present datatype makes several local closure laws
+legible, not the global compression theorem.
+
+\section{Correspondence tables}
+
+The evidence grade describes the local certificate leaf.  The claim column is
+the current status in \code{claims/CLAIMS.md}; it can remain weaker than a
+certificate label when an adversarial verdict has not promoted the claim.
+\grade{CONSTRUCTED} means enforced by a constructor,
+\grade{CHECKED} means deterministic replay against an attached object, and
+\grade{CITED} means imported from the named ground-truth statement.
+
+\subsection{Description front end (planned TB3)}
+
+\setlength{\tabcolsep}{1.5pt}
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{sec:tms}\newline\code{gt-03-prelim.tex}
+& Machine conventions in Definition~\ref{def:paper-tm}; costed bridge in
+Theorems~\ref{thm:tm-to-l}--\ref{thm:l-to-tm}
+& \code{Quoted{A}} & \code{Quote}, \code{Eval}, \code{Specialize}
+& \grade{CITED}; absent & none \\
+\code{def:decider}\newline\code{gt-05-games-normalform.tex}
+& Five-input format in Definition~\ref{def:paper-decider}; bounds preserved by
+Theorem~\ref{thm:lambda-preservation} & \code{Quoted{Decider}}
+& \code{description_size} & \grade{CITED}; absent & none \\
+\code{DESIGN} \S1.1
+& Determinism, fuel, quotation, and specialization:
+Theorems~\ref{thm:l-determinism}--\ref{thm:quote-eval} and
+Lemma~\ref{lem:specialization}
+& \code{ClosedProgram}, \code{Quoted} & \code{Eval}, \code{specialize}
+& analytic only; absent & none \\
+\code{prop:standard-succinct-sat}\newline\code{gt-10-answer-reduction.tex}
+& Transition locality (Lemma~\ref{lem:transition-window}) and succinct 3SAT
+(Theorem~\ref{thm:l-succinct-sat}) & \code{BoundedTrace}, \code{Succinct3SAT}
+& \code{bounded_trace}, \code{cook_levin} & \grade{CITED}; absent & none \\
+\code{sec:succinct-deciders}\newline\code{gt-10-answer-reduction.tex}
+& Three shared reads become five independent blocks &
+\code{SuccinctDecoupled5SAT} & \code{decouple5} & \grade{CITED}; absent & none \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Polynomial rung (TB0)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{def:tseitin}\newline\code{gt-10-answer-reduction.tex}
+& Circuit becomes a linear-size formula with auxiliary wires &
+\code{Circuit}, \code{TseitinFormula} & \code{tseitin}, \code{occurrences}
+& \grade{CHECKED} occurrence & C2 \textsc{Conj.} \\
+\code{def:formula-arithmetization}\newline\code{gt-10-answer-reduction.tex}
+& Boolean connectives become a formal polynomial & \code{Poly}
+& \code{arith_q}, \code{actual_degrees} & \grade{CHECKED} & C8 \textsc{Tested} \\
+\code{sec:ld-encoding}\newline\code{gt-03-prelim.tex}
+& Assignment becomes its multilinear extension & \code{Poly}
+& \code{g_a}, \code{dependency_blocks} & \constructed/\newline\grade{Checked}
+& C3 \textsc{Tested} \\
+\code{prop:zero-basis}\newline\code{gt-10-answer-reduction.tex}
+& Divide by \(z_i(1-z_i)\) and require zero remainder &
+\code{ZeroDecomposition} & \code{zero_basis_decompose},
+\code{verify_zero_decomposition} & \grade{CHECKED} & C2 \textsc{Conj.} \\
+\code{fig:pcpverifier}\newline\code{gt-10-answer-reduction.tex}
+& Check formula and zero identities at one view & \code{PCPView}
+& \code{pcpverifier} & \grade{CHECKED} finite views & C1 \textsc{Conj.} \\
+\code{thm:pcp-decider}\newline\code{gt-10-answer-reduction.tex}
+& Acceptance \(>1/2\) decodes an accepting trace, assuming low degree &
+\code{PCPProof} & \code{build_pcp}, \code{parameter_policy}
+& \grade{CITED}/\newline\grade{Checked} parts & C5 \textsc{Sketch} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{CL and low-degree-test rung (TB1)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{def:cl-func}\newline\code{gt-04-cl.tex}
+& CL functions are inductive conditional linear stages & \code{AbstractCL}
+& \code{CLZero}, \code{CLStep}, \code{level} & \constructed
+& C4a \textsc{Tested} \\
+\code{lem:cl-kth}\newline\code{gt-04-cl.tex}
+& A marginal is the sum of the first \(k\) stages & \code{CLMarginal}
+& \code{marginal_k}, \code{sum_stage_outputs} & \grade{CHECKED}
+& C4a \textsc{Tested} \\
+\code{lem:cl-concat}, \code{lem:cl-func-prod}\newline\code{gt-04-cl.tex}
+& Concatenation adds levels; direct sum takes a maximum & \code{AbstractCL}
+& \code{concatenate}, \code{direct_sum}, \code{product}
+& \constructed & C7 \textsc{Conj.} \\
+\code{lem:alnf}, \code{lem:dlnf}\newline\code{gt-07-ldt.tex}
+& CL pushforwards equal the line/point distributions & \code{CLDistribution}
+& \code{L_Point}, \code{L_ALine}, \code{L_DLine}, \code{histogram}
+& \grade{CHECKED} TB1 & C4a \textsc{Tested} \\
+\code{fig:ld-decider}\newline\code{gt-07-ldt.tex}
+& Point/line answer consistency and degree format & \code{LDParams}
+& \code{ld_decider}, \code{restrict} & \grade{CHECKED} fixture & C4a \textsc{Tested} \\
+\code{lem:ld-soundness}\newline\code{gt-07-ldt.tex}
+& Successful quantum strategy yields polynomial measurements & theorem leaf
+& no proof checker & \grade{CITED} & C5 \textsc{Sketch} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Typed answer-reduction rung (TB2)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{def:typed-sampler}\newline\code{gt-06-types.tex}
+& A type graph selects a pair of CL maps sharing one seed & \code{TypedSampler}
+& \code{TypedSampler}, \code{sample}, \code{pad_level}
+& \constructed\ base & C4b \textsc{Conj.} \\
+\code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
+& Six low-degree copies form an 18-type family & \code{PCPCLMap}
+& \code{pcp_sampler}, \code{intrinsic_pcp_levels}
+& local \grade{CHECKED}; held & C4b \textsc{Conj.} \\
+\code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
+& Product with the oracularized sampler has 54 types &
+\code{TypedProductCL} & \code{oracularize_sampler},
+\code{typed_sampler_product} & \grade{CHECKED} shape; theorem cited
+& C4b \textsc{Conj.} \\
+\code{fig:decider-pcp}\newline\code{gt-10-answer-reduction.tex}
+& Five guarded checks connect input, proof, low degree, and PCP &
+\code{TypedAnswer}\newline\code{ReducedDecider} & \code{typed_answer_reduced_decider}
+& \grade{CHECKED} finite paths & no current row \\
+\code{lem:detyping-verifiers}\newline\code{gt-06-types.tex}
+& Remove types at cost \(+2\) levels and \(16^{54}\) soundness factor &
+\code{CitedDetyped}\newline\code{Verifier} & \code{detype} & \grade{CITED} & C4b \textsc{Conj.} \\
+\code{thm:ar}\newline\code{gt-10-answer-reduction.tex}
+& Conditional complexity, completeness, soundness, entanglement contract &
+\code{TypedAnswer}\newline\code{ReducedVerifier} & \code{answer_reduce_pcp},
+\code{AnswerReduce} & \grade{Checked}/\newline\grade{Cited} & C5 \textsc{Sketch} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Midpoint diagnostic (TB0.5)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Analytic anchor & Analytic statement & IR sort & Implementation & Grade & Claim \\
+\midrule
+\endhead
+\code{handoff.md}\newline midpoint diagnostic
+& False level-\(n\) claim has value \(1-2^{-n}\) under the stated orbit condition
+& \code{Test/Ask/Coin} terms & \code{toys/midpoint}
+& proof plus exact tests & C6 \textsc{Proved} \\
+\code{toys/midpoint/PROOF.md}
+& Sequential \(r\)-copy AND value is \((1-2^{-n})^r\); constant gap costs
+\(\Theta(2^n)\) copies & exact dynamic program & \code{sequential_value}
+& proof plus exact tests & N1 \textsc{Proved} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Compression and fixed point (planned TB4)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{fig:compress}\newline\code{gt-12-compression.tex}
+& \(\Repeat\circ\AnswerReduce\circ\Introspect\) &
+\code{ClosedProgram}\newline\code{{Compressor}} & \code{Compress} & \grade{CITED}; absent
+& C7 \textsc{Conj.} \\
+\code{thm:compression}\newline\code{gt-12-compression.tex}
+& Nine-level gap-preserving compression with dimension bound & contract tree
+& no current implementation & \grade{CITED} & C7 \textsc{Conj.} \\
+\code{fig:halt_f}\newline\code{gt-12-compression.tex}
+& Self-application, Kleene, and YCode coincide by
+Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence} &
+\code{PartialProgram}, \code{Quoted} & \code{Hole}, \code{Specialize},
+\code{Fix}/\code{YCode} & \grade{CITED}; absent & none \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\section{What is analytic and what is computed}
+
+\subsection{The evidence boundary}
+
+The analytic content is the sequence of transformations and the implications
+attached to them.  The computer currently realizes a strict middle segment.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{P{0.20\textwidth}P{0.35\textwidth}X}
+\toprule
+Class & Present content & What would be required to move the boundary \\
+\midrule
+Executed constructions
+& Circuit/Tseitin syntax; formula arithmetization; multilinear extensions;
+\(c_0\); zero-basis quotients; point/line maps; typed products; guarded TB2
+decider
+& Scale-independent front end for quoted programs and a constructor-faithful
+lazy CL stage representation for the PCP sampler \\
+Certified identities
+& Normalized coefficient equality; zero remainder; structural and actual
+degrees; dependency blocks; CL marginals; TB1 exact histograms; finite parser
+and branch checks
+& General semantic certificates connecting trace, SAT, Tseitin, and
+arithmetization, plus promotion through adversarial verdicts \\
+Cited analytic leaves
+& Cook--Levin asymptotics; general Tseitin semantics; PCP soundness;
+low-degree extraction; oracularization; detyping; introspection; rigidity;
+anchored repetition; compression
+& Formal proofs over quantified machines, distributions, Hilbert spaces,
+measurements, approximation metrics, and asymptotic bounds---not more finite
+samples \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Lean or another proof assistant could check the algebraic core once finite
+fields, sparse polynomials, interpolation, and polynomial division are
+formalized.  That would move the general zero-basis identity and degree lemmas
+from prose to proof terms.  It would not by itself certify
+\code{lem:ld-soundness}: that leaf requires a library for finite-dimensional
+Hilbert spaces, POVMs, state-dependent distances, tensor-code tests, and the
+quantitative extraction argument.  Rigidity and oracularization require the
+same operator layer.  Detyping additionally needs a formal probability and
+rejection-sampling argument with the \(16^{|\mathrm{Type}|}\) loss.
+
+Anchoring and parallel repetition are combined in \(\Repeat\) and are
+theorem-backed rather than executed here.  Introspection and compression would
+require a still broader object: a
+formal semantics for quoted verifier descriptions, resource bounds under
+specialization and universal evaluation, and a proof that the directed value
+and entanglement implications compose.  The relevant final statements are
+\code{fig:compress} and \code{thm:compression} in
+\code{ground-truth/gt-12-compression.tex}.
+
+\subsection{The midpoint diagnostic}
+
+The recursive midpoint verifier for \(y=f^{2^n}(x)\) asks for \(z\) and checks
+one of
+\[
+ z=f^{2^{n-1}}(x),\qquad y=f^{2^{n-1}}(z)
+\]
+with a fresh fair coin.  It has a compact fixed-point description and perfect
+completeness.  Under the orbit-prefix condition stated in C6, the exact optimum
+for a false claim is nevertheless
+\[
+ p_n=1-2^{-n}.
+\]
+Claim C6 is \textsc{PROVED}.  For adaptive sequential AND repetition, N1 is
+also \textsc{PROVED} and gives value \((1-2^{-n})^r\); reaching error at most
+\(1/2\) requires \(r=\Theta(2^n)\), hence \(\Theta(n2^n)\) transcript cost in
+the stated unit-cost model.  Neither claim concerns quantum parallel repetition
+or the actual \(\Compress\) operator.
+
+The diagnostic isolates the point of the whole construction.  A recursive
+term can represent an exponentially long computation, and a fixed point can
+make that term self-referential, while the acceptance gap collapses too quickly
+for iteration.  Representability is easy; an iteratable, gap-preserving
+analytic transformation is the hard requirement.
+
+\subsection{Final accounting}
+
+The lambda reformulation removes none of the mathematically difficult leaves.
+It makes quotation, hardwiring, description size, timeout, and self-reference
+explicit in one syntax.  The polynomial IR makes the Cook--Levin-to-PCP middle
+visible as actual algebra, and the CL datatype exposes several sampler closure
+laws.  What remains unchanged is the proof that high success in the typed
+quantum game yields consistent low-degree polynomial measurements, survives
+oracularization and detyping with the stated quantitative loss, survives
+introspection and anchored parallel repetition, and composes into the
+gap-preserving compression theorem.  Those are analytic theorems, presently
+\grade{CITED}; they are neither consequences of homoiconicity nor conclusions
+of the finite computations reported here.
+
+\end{document}

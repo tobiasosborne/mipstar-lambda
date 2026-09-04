@@ -1,0 +1,127 @@
+% figstyle.tex — the single visual system for docs/analytic.
+% Every figure in the document uses ONLY the colours, node styles and arrow
+% styles defined here.  Do not define colours or styles inside a figure file.
+% Semantic roles (see FIGURES.md §1):
+%   machine  — Turing-machine side (tapes, states, δ, configurations, time)
+%   term     — lambda side (terms, trees, redexes, closures, fuel)
+%   desc     — descriptions as finite data (⟨M⟩, ser(t), quoted code, bytes)
+%   check    — what the prototype EXECUTES / CHECKS
+%   cited    — what remains a CITED analytic theorem (quantum soundness etc.)
+%   focus    — the one thing the eye should land on (scanned cell, current redex)
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,matrix,calc,
+  shapes.geometric,shapes.multipart,shapes.symbols,decorations.pathreplacing,
+  decorations.markings,decorations.pathmorphing,chains,scopes,quotes,cd,trees,
+  automata,patterns,patterns.meta,shadows.blur}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[skins,breakable]{tcolorbox}
+\usepackage[font=small,labelfont={sf,bf},labelsep=period,textfont={sf},
+  justification=justified,singlelinecheck=false]{caption}
+\usepackage{float}
+
+% ---- palette (warm paper, warm ink; two same-lightness accents + violet + slate)
+\definecolor{paper}{HTML}{FBF8F2}   % page-like fill for panels
+\definecolor{ink}{HTML}{22201C}     % near-black, warm
+\definecolor{inkmute}{HTML}{6B665E} % secondary text
+\definecolor{rule}{HTML}{D9D3C7}    % hairlines, grids, tape borders
+\definecolor{machine}{HTML}{1F6F78} % teal      — Turing side
+\definecolor{machinelt}{HTML}{DCEEF0}
+\definecolor{term}{HTML}{B5561D}    % rust      — lambda side
+\definecolor{termlt}{HTML}{F7E4D6}
+\definecolor{desc}{HTML}{5B4B8A}    % violet    — descriptions / quoted bytes
+\definecolor{desclt}{HTML}{E6E1F1}
+\definecolor{check}{HTML}{3D7A3A}   % green     — executed / checked
+\definecolor{checklt}{HTML}{DFEEDC}
+\definecolor{cited}{HTML}{8A857C}   % slate     — cited analytic theorem
+\definecolor{citedlt}{HTML}{ECE9E2}
+\definecolor{focus}{HTML}{F2C14E}   % amber     — the scanned cell / current redex
+\definecolor{focuslt}{HTML}{FBEFC9}
+\definecolor{bad}{HTML}{B03A2E}     % red       — error / TypeError / wrong path
+
+% ---- global TikZ defaults
+\tikzset{
+  every picture/.style={line width=0.6pt, ink, font=\small\sffamily, >=Latex},
+  every node/.style={text=ink},
+  % text weights
+  lbl/.style={font=\footnotesize\sffamily, text=inkmute},
+  lblsm/.style={font=\scriptsize\sffamily, text=inkmute},
+  math/.style={font=\small},
+  % ---- Turing-machine vocabulary
+  cell/.style={draw=rule, fill=white, minimum width=6.5mm, minimum height=6.5mm,
+    inner sep=0pt, font=\small\ttfamily, anchor=west},
+  cell blank/.style={cell, text=inkmute},
+  cell head/.style={cell, fill=focuslt, draw=focus, line width=0.9pt},
+  head/.style={isosceles triangle, isosceles triangle apex angle=60, shape border rotate=90,
+    fill=machine, draw=none, minimum height=2.2mm, minimum width=2.6mm, inner sep=0pt},
+  tapelbl/.style={lbl, anchor=east, text=machine},
+  state/.style={circle, draw=machine, line width=0.8pt, fill=machinelt, minimum size=8mm,
+    inner sep=1pt, font=\small},
+  state halt/.style={state, double, double distance=1.2pt},
+  state initial/.style={state, fill=white},
+  ctrl/.style={draw=machine, line width=0.8pt, fill=machinelt, rounded corners=1.5pt,
+    inner sep=4pt, align=center},
+  config/.style={draw=machine, fill=white, rounded corners=1pt, inner sep=3pt},
+  step/.style={->, machine, line width=0.8pt},
+  % ---- lambda vocabulary
+  tnode/.style={circle, draw=term, fill=termlt, minimum size=6.5mm, inner sep=0.5pt,
+    font=\small},
+  tleaf/.style={tnode, fill=white},
+  redex/.style={tnode, fill=focuslt, draw=focus, line width=1pt},
+  tedge/.style={draw=term, line width=0.7pt},
+  bind/.style={->, term, dashed, line width=0.6pt, bend left=40, shorten >=1pt},
+  beta/.style={->, term, line width=1pt, shorten >=2pt, shorten <=2pt},
+  closure/.style={draw=term, fill=termlt, rounded corners=2pt, inner sep=4pt, align=left},
+  fuel/.style={draw=term, fill=white, rounded corners=1pt, inner sep=2pt,
+    font=\footnotesize\ttfamily, text=term},
+  % ---- descriptions / bytes
+  descbox/.style={draw=desc, line width=0.8pt, fill=desclt, rounded corners=2pt,
+    inner sep=5pt, align=center},
+  bytes/.style={draw=desc, fill=white, minimum height=5mm, inner sep=1.5pt,
+    font=\scriptsize\ttfamily, text=desc, anchor=west},
+  byteslbl/.style={lblsm, text=desc},
+  quote/.style={->, desc, line width=0.9pt, decorate,
+    decoration={snake, amplitude=0.4mm, segment length=2.5mm, post length=1.5mm}},
+  % ---- transformations and pipeline
+  xform/.style={->, ink, line width=1.1pt, shorten >=2pt, shorten <=2pt},
+  xformlbl/.style={lbl, above, midway, text=ink, font=\footnotesize\sffamily\bfseries},
+  stage/.style={draw=ink, line width=0.8pt, fill=paper, rounded corners=2pt,
+    inner sep=6pt, align=center, minimum height=10mm},
+  checked/.style={draw=check, line width=0.9pt, fill=checklt, rounded corners=2pt,
+    inner sep=4pt, align=center},
+  citedbox/.style={draw=cited, line width=0.8pt, fill=citedlt, rounded corners=2pt,
+    inner sep=4pt, align=center, dash pattern=on 3pt off 1.5pt},
+  tag check/.style={font=\scriptsize\sffamily\bfseries, text=check},
+  tag cited/.style={font=\scriptsize\sffamily\bfseries, text=cited},
+  tag focus/.style={font=\scriptsize\sffamily\bfseries, text=term},
+  % ---- annotation
+  note/.style={lbl, align=left, text width=3.2cm},
+  callout/.style={->, inkmute, line width=0.5pt, shorten >=1pt},
+  brace/.style={decorate, decoration={brace, amplitude=3pt}, inkmute, line width=0.5pt},
+  panel/.style={draw=rule, fill=paper, rounded corners=3pt, inner sep=6pt},
+  panel title/.style={font=\footnotesize\sffamily\bfseries, text=inkmute, anchor=north west},
+  bad/.style={draw=bad, text=bad},
+}
+
+% ---- pgfplots house style
+\pgfplotsset{
+  house/.style={
+    width=0.62\linewidth, height=0.36\linewidth,
+    axis line style={rule}, tick style={rule}, ticklabel style={font=\scriptsize\sffamily},
+    label style={font=\footnotesize\sffamily, text=inkmute},
+    legend style={font=\scriptsize\sffamily, draw=none, fill=none},
+    grid=major, grid style={rule, dotted},
+    cycle list={{machine, mark=*}, {term, mark=square*}, {desc, mark=triangle*}, {check, mark=diamond*}},
+  },
+}
+
+% ---- figure conventions
+% \begin{figure}[t] \centering <tikzpicture> \caption{...} \label{fig:...} \end{figure}
+% Captions: one sentence saying what the eye should see, then one sentence saying
+% why it matters for the argument.  No "Figure shows".
+\setlength{\textfloatsep}{14pt plus 2pt minus 2pt}
+\setlength{\intextsep}{12pt plus 2pt minus 2pt}
+
+% legend chips usable in captions: \chip{machine} etc.
+\newcommand{\chip}[1]{\tikz[baseline=-0.6ex]\fill[#1] (0,0) rectangle (1.2ex,1.2ex);}

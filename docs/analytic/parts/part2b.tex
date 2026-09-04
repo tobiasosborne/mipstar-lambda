@@ -1,0 +1,961 @@
+\section{Cook--Levin for \texorpdfstring{\(\mathcal L\)}{L}-descriptions}
+\label{sec:l-cook-levin}
+
+\begin{reminder}
+A machine run is a path of configurations under one local transition rule;
+Section~\ref{sec:refresher-tm} introduced this viewpoint.  Here the same idea
+is applied to the fixed universal evaluator, turning a fuel-bounded lambda run
+into locally checkable tableau data.
+\end{reminder}
+
+\subsection{A local encoding of bounded evaluation}
+
+For closed \(t\), input \(u\), and fuel \(F\), the \emph{bounded trace} is
+\[
+ \mathcal T(t,u,F)=(C_0,C_1,\ldots,C_r),\qquad r\leq F,
+\]
+where \(C_0\) is the initial CEK configuration and each \(C_{i+1}\) is its
+unique small-step successor.  A row records the current term pointer,
+environment-frame pointers, continuation, heap, primitive microstate, outcome
+flag, and binary fuel.  If evaluation halts early, a fixed self-looping final
+state pads the trace to \(F+1\) rows.  This is the promised sequence of
+\((\text{term},\text{environment},\text{fuel})\) configurations, with the
+continuation and heap made explicit so that one-step validity is local.
+
+To obtain a finite-alphabet tableau, compile the CEK evaluator and each charged
+primitive to a fixed multitape Turing machine \(\widehat U_{\mathcal L}\).
+The read-only code track contains \(\operatorname{ser}(t)\); input tracks hold
+lazy argument tapes; work tracks hold the environment, heap, stack, and fuel.
+Pointer arithmetic, traversal, and a primitive of charge \(k\) are expanded
+into their elementary head moves.  One microstep changes the finite control,
+the cells under the heads, and the head positions by at most one.
+
+\begin{lemma}[Transition-window lemma]
+\label{lem:transition-window}
+There is a finite alphabet \(\Gamma_{\mathcal L}\), a fixed number \(r_0\) of
+tracks, and a Boolean function
+\[
+ \tau:\bigl(\Gamma_{\mathcal L}^{3}\bigr)^{r_0}
+       \times Q_{\mathcal L}\longrightarrow
+       \Gamma_{\mathcal L}^{r_0}\times Q_{\mathcal L}
+\]
+with the following property.  For every nonboundary cell \(j\), the symbols in
+cell \(j\) of row \(i+1\), together with the next finite-control state, are
+determined by the radius-one windows
+\((j-1,j,j+1)\) of row \(i\) and the current control state.  Boundary cells use
+a fixed endmarker version of the same rule.  Conversely, if two consecutive
+rows have one head marker on each track, agree with \(\tau\) at every window,
+and have valid endmarkers, then the second row is exactly the successor of the
+first under the small-step semantics.
+\end{lemma}
+
+\begin{proof}
+Encode a head by pairing the tape symbol with one of the finitely many machine
+states when that head is the active head, and use a separate finite-control
+track for the other heads.  In one transition, a cell farther than one position
+from every head is copied.  At a head cell, the transition table determines the
+written symbol and next state from the old state and scanned symbols.  At its
+left and right neighbors, the table determines whether the head marker enters;
+it cannot enter any other cell because heads move by at most one.  These cases
+depend only on the three displayed cells on each track.  They are mutually
+exclusive once the old row has one head per track, and therefore define the
+finite function \(\tau\).  Endmarkers replace missing neighbors by a fixed
+boundary symbol.
+
+For the converse, consider each track.  Away from the unique old head, the
+local copy case forces equality.  In the three-cell neighborhood of that head,
+the transition case forces the unique symbol write, direction, and new head
+position specified by the machine table.  The local rules also force all other
+cells not to acquire a head.  Repeating this argument for every track and
+using the shared finite-control component gives precisely one transition of
+\(\widehat U_{\mathcal L}\).  Primitive execution and CEK operations introduce
+no exceptional case because they were compiled into the same elementary
+machine steps.  The correspondence between those microstates and the weighted
+semantics was part of the construction in Section~\ref{sec:resource-lambda}.
+\end{proof}
+
+\subsection{The succinct 3SAT circuit}
+
+Let the row width be \(W\).  In \(F\) microsteps no head visits beyond the
+initial code and input plus \(F\) cells, so
+\(W=O(|t|+|u|+F)\).  Introduce Boolean variables for the constant-size binary
+encoding of every tableau cell and control-state bit.  The formula asserts:
+the initial row contains \(t,u,F\); every row and track has the prescribed
+format and head marker; each adjacent pair obeys every transition window; and
+the last row is accepting.  Each assertion involves a constant window except
+binary addressing and the initial read-only strings.  Fixed Tseitin gadgets
+turn it into 3CNF with \(O(FW)\) variables and clauses.
+
+For the paper, the next theorem buys a small circuit describing an enormous
+bounded verifier tableau, which is the input expected by answer reduction.
+\begin{theorem}[Succinct Cook--Levin for \(\mathcal L\)]
+\label{thm:l-succinct-sat}
+There is an algorithm which, on
+\((t,n,F,Q,\sigma,x,y)\), where \(|t|\leq\sigma\) and \(|x|,|y|\leq Q\),
+outputs a Boolean circuit \(C_{t,n,F,Q,\sigma,x,y}\) deciding membership of an
+indexed signed clause in a 3CNF formula \(\Phi\).  Its index width is
+\(O(\log F+\log\sigma)\), its size and construction time are
+\[
+ \poly(\log n,\log F,Q,\sigma),
+\tag{11.1}\label{eq:l-succinct-size}
+\]
+and for every pair of answer strings \(a,b\) the formula is satisfiable with
+the prescribed input bits if and only if
+\(\Eval_{\mathcal L}(\Quote(t),(n,x,y,a,b);F)\) accepts.  Holding the public
+input fixed, the transition component of the circuit has size
+\(\poly(\log F,|t|)\); the \(Q\) term in \eqref{eq:l-succinct-size} is solely
+the hardwired initialization data \(x,y\).
+\end{theorem}
+
+\begin{proof}
+Given a clause index, the circuit first decodes whether the requested clause is
+an initialization, uniqueness/format, transition, or acceptance clause.  Row
+and column numbers use \(O(\log F+\log W)\) bits.  For a transition clause it
+computes the addresses of a radius-one window and evaluates the finite truth
+table \(\tau\) from Lemma~\ref{lem:transition-window}; binary addition,
+comparison, and multiplexing have size polynomial in those address lengths.
+For an initialization clause it selects a bit of the canonical code or public
+input.  A balanced selector for a hardwired string has size linear in
+\(|t|+Q+\log n\).  Format and final-state clauses use fixed truth tables.
+Finally it emits the three variable addresses and signs of the selected
+3CNF gadget.  This proves the circuit and construction bounds.  Since
+\(W=O(|t|+Q+F)\), \(\log W=O(\log F+\log\sigma+\log(Q+1))\), which is absorbed
+by \eqref{eq:l-succinct-size} under \(Q\leq F\), as in the paper.
+
+If evaluation accepts, assign every tableau variable from its unique bounded
+trace and every Tseitin variable from its gadget value.  Initialization,
+transition, and acceptance clauses are then satisfied.  Conversely, any
+satisfying assignment contains the prescribed initial row.  Induction on the
+row number and the converse part of Lemma~\ref{lem:transition-window} forces
+each later row to be the unique evaluator successor.  The final clauses force
+that trace to accept.  The prescribed answer bits occupy the initial answer
+tapes, so the equivalence holds for each \(a,b\).
+\end{proof}
+
+This is the \(\mathcal L\)-description restatement of
+\code{prop:standard-succinct-sat}.  The paper's version takes \(D,n,T,Q,
+\sigma,x,y\), reserves the first \(2T\) encoded positions for each answer, and
+has size \(\poly(\log n,\log T,Q,\sigma)\).
+\gt{prop:standard-succinct-sat}{ground-truth/gt-10-answer-reduction.tex}
+Theorem~\ref{thm:l-to-tm} gives the same proposition by compilation; the proof
+above shows directly why a lambda evaluation trace has the required locality.
+
+More explicitly, use the paper's tape-alphabet encoding
+\(\operatorname{enc}_\Gamma(0)=00\),
+\(\operatorname{enc}_\Gamma(1)=01\),
+\(\operatorname{enc}_\Gamma(\sqcup)=10\), and reserve \(2F\) bits in the
+tableau assignment for each answer tape.  For every
+\(a,b\in\{0,1\}^{2F}\), the resulting formula has an extension \(c\) if and
+only if there are prefixes \(a',b'\), of lengths at most \(F\), such that
+\[
+ a=\operatorname{enc}_\Gamma(a',\sqcup^{F-|a'|}),\qquad
+ b=\operatorname{enc}_\Gamma(b',\sqcup^{F-|b'|}),
+\]
+and the term accepts \((n,x,y,a',b')\) within fuel \(F\).  The forward
+direction follows because the initialization clauses force the two reserved
+blocks to be valid padded tape rows; the backward direction fills those blocks
+from the accepting trace.  This is the exact placement property needed when
+the two blocks are separated in \eqref{eq:decoupled-five}.
+
+\subsection{From shared 3SAT data to decoupled 5SAT}
+
+The paper removes two undesirable features before low-degree encoding.  A
+3SAT clause reads three locations of one tableau assignment, while three
+low-degree answers need not be restrictions of one assignment.  Also, the
+strings \(a,b\) are embedded inside that assignment, whereas the later sampler
+must query them as independent blocks.  Make five assignments
+\(a,b,u_3,u_4,u_5\) and impose clauses of the form
+\[
+ a_{i_1}^{o_1}\vee b_{i_2}^{o_2}\vee
+ (u_3)_{i_3}^{o_3}\vee (u_4)_{i_4}^{o_4}\vee
+ (u_5)_{i_5}^{o_5}.
+\tag{11.2}\label{eq:decoupled-five}
+\]
+The original 3SAT clauses are applied to \(u_3\); constant-size five-literal
+gadgets enforce \(u_3=u_4=u_5\), copy the first \(2F\) encoded answer bits to
+\(a,b\), and pad unused positions by the alternating blank encoding.  Each
+gadget is indexed by comparisons and additions on
+\(O(\log F+\log\sigma)\)-bit addresses, so it adds only that many gates.
+Therefore the succinct decoupled circuit retains the bound
+\eqref{eq:l-succinct-size}.  Its padded form makes all five blocks have one
+common power-of-two length.  A satisfying five-tuple restricts to a satisfying
+trace assignment, and a satisfying trace extends by copying and padding; this
+proves the required if-and-only-if.
+\gt{sec:succinct-deciders}{ground-truth/gt-10-answer-reduction.tex}
+
+The intended analytic chain is
+\[
+\begin{split}
+\mathtt{Quoted\{Decider\}}
+&\xrightarrow{\ \mathtt{bounded\_trace}\ }
+ \mathtt{BoundedTrace}\\
+\mathtt{BoundedTrace}
+&\xrightarrow{\ \mathtt{cook\_levin}\ }
+ \mathtt{Succinct3SAT}\\
+\mathtt{Succinct3SAT}
+&\xrightarrow{\ \mathtt{decouple5}\ }
+ \mathtt{SuccinctDecoupled5SAT}
+\\
+\mathtt{SuccinctDecoupled5SAT}
+&\xrightarrow{\ \mathrm{padding}\ }
+ \mathtt{PaddedSuccinctDecoupled5SAT}.
+\end{split}
+\]
+These are the transformations planned for TB3 in \code{briefs/23-tb3.md}.
+That brief is planned work, not evidence that the functions exist or that any
+claim has been checked.  At the time of this note, no \code{bounded_trace},
+\code{cook_levin}, or \code{decouple5} implementation is present in
+\code{src/}; the general contracts remain \grade{CITED}.
+
+\subsection{Tseitin and arithmetization}
+
+\begin{reminder}
+At this point the quoted verifier has already been reduced to a finite circuit
+describing local computation checks.  The transformations below manipulate
+that circuit description; they are computable source maps, while their
+low-degree and quantum soundness consequences are separate analytic claims.
+\end{reminder}
+
+Given a Boolean circuit \(C\) with gates \(g_i\), Tseitin introduces a wire
+variable \(w_i\) and an equivalence formula
+\[
+ z_i=(g_i(x,w)\wedge w_i)\vee
+     (\neg g_i(x,w)\wedge\neg w_i),
+ \qquad F=\bigwedge_i z_i.
+\]
+The required contract is
+\(C(x)=1\) iff there exists \(w\) with \(F(x,w)=1\), with size and
+construction time \(O(|C|)\).\gt{def:tseitin}{ground-truth/gt-10-answer-reduction.tex}
+The project follows the explicit gate-equivalence form in
+\code{ground-truth/nw19/nw19-tseitin-arith.tex} and also conjoins the output
+literal \(w_{\rm out}\), so the stored formula explicitly asserts acceptance.
+That convention is marked \grade{SOURCE\_REPAIR}; it is not silently attributed
+to the source.
+
+The Julia constructors \code{Circuit}, \code{Input}, \code{Gate},
+\code{NotGate}, \code{AndGate}, and \code{OrGate} make the finite DAG and its
+topological order explicit.  The function \code{tseitin} returns
+\code{Checked{TseitinFormula,CertNode}}.  Its replay recomputes the formula's
+occurrence vector; it does not, by that replay alone, establish the general
+Cook--Levin or Tseitin semantic equivalence.  Those implications are exhausted
+only on the small TB0 fixture and remain cited in general.
+
+Arithmetization recursively applies
+\[
+  \neg A\mapsto 1-A,\qquad
+  A\wedge B\mapsto AB,\qquad
+  A\vee B\mapsto A+B-AB.
+\]
+It agrees with the Boolean formula on the Boolean cube.
+\gt{def:formula-arithmetization}{ground-truth/gt-10-answer-reduction.tex}
+The related NW19 rule is \code{def:arithmetization} in
+\code{ground-truth/nw19/nw19-tseitin-arith.tex}.  Julia's \code{arith_q}
+returns a sparse formal \code{Poly}; its \code{ArithTseitin} certificate checks
+support degrees against a structural bound.
+
+\subsection{The occurrence-vector discrepancy}
+
+There is a discrepancy in the individual-degree bookkeeping as we read NW19;
+our reading may be wrong.  The source proposition states individual degree at
+most two for the Tseitin arithmetization.
+\gt{prop:tseitin-arith-degree}{ground-truth/gt-10-answer-reduction.tex}
+Reading the NW19 formula literally as a formula tree, arithmetization is
+multilinear in leaf occurrences, not necessarily in circuit wires.  The same
+wire can occur in several gate gadgets.  With the project's explicit output
+literal, the count we compute is
+\[
+ \operatorname{occ}(x_j)=2\operatorname{fanout}(x_j),\qquad
+ \operatorname{occ}(w_i)=2+2\operatorname{fanout}(w_i)
+       +\mathbf 1_{i=\mathrm{out}},
+\]
+and structural induction gives
+\[
+ \deg_v(F_{\rm arith})\leq \operatorname{occ}_v(F).
+\]
+The function \code{tseitin_occurrence_account} computes this vector;
+\code{occurrences} independently traverses the formula; and \code{arith_q}
+compares the structural account with actual sparse support.
+
+Claim C8 is only \claim{C8}{TESTED}: the two-gate regression gives
+\((2,2,2,4,3)\), and the 16-variable TB0 formula attains
+\[
+(2,0,0,0,2,2,0,0,0,0,6,4,4,4,4,3).
+\]
+The general occurrence formula is a written derivation, not a machine theorem.
+The downstream soundness repair is only \claim{C5}{SKETCH}.  With a symbolic
+bound \(\delta_F=\max_v\operatorname{occ}_v(F)\), the conservative formula-test
+term becomes \((\delta_F+5d)m'/q\), and
+\code{P_formula_structural} is an additional obligation.  Under an explicit
+fanout-reduction hypothesis, \(\operatorname{fanout}_{\max}\leq2\) gives
+\(\delta_F\leq7\) with the output literal, and \(d\geq8\) suffices for the
+individual-degree construction bound.  Absorption into the asymptotic
+parameter choice still needs the stated growth hypotheses; it is not promoted
+by the two finite computations.
+
+\section{The low-degree PCP as algebra}
+
+\subsection{Interpolation and the vanishing polynomial}
+
+For \(M=2^m\) and \(a=(a_y)_{y\in\{0,1\}^m}\), define
+\[
+ \operatorname{ind}_{m,y}(x)=
+ \prod_{j:y_j=1}x_j\prod_{j:y_j=0}(1-x_j),\qquad
+ g_a(x)=\sum_y a_y\operatorname{ind}_{m,y}(x).
+\]
+Then \(g_a(y)=a_y\) on the Boolean cube and \(a\mapsto g_a\) is linear.
+This is the low-degree code: the assignment is represented by the evaluation
+table of its unique multilinear extension.
+\gt{sec:ld-encoding}{ground-truth/gt-03-prelim.tex}
+The Julia function \code{g_a} constructs the sparse polynomial; block
+coordinates are carried by \code{VarLayout} and \code{VarBlock};
+\code{dependency_blocks} recomputes the actual support dependency.
+
+For five satisfying blocks, let \(g_i\) be their multilinear extensions and
+write \(z=(x_1,\ldots,x_5,o,w)\in\F_q^{m'}\).  The central analytic object is
+\[
+ c_0(z)=F_{\rm arith}(z)
+        \prod_{i=1}^{5}\bigl(g_i(x_i)-o_i\bigr).
+\]
+On a Boolean point, either \(F_{\rm arith}=0\), or the indicated clause is
+present and at least one factor \(g_i(x_i)-o_i\) vanishes.  Hence \(c_0\)
+vanishes on \(\{0,1\}^{m'}\).  The code executes the product in
+\code{build_c0}; the \code{BuildC0} certificate replays the structural and
+actual degree accounts.  The implication from a satisfying decoupled instance
+to Boolean-cube vanishing is checked only on the TB0 fixture and cited in
+general.\gt{thm:pcp-decider}{ground-truth/gt-10-answer-reduction.tex}
+
+\subsection{Division by the Boolean ideal}
+
+Let \(z_i(1-z_i)=z_i-z_i^2\).  The ground-truth basis proposition says that a
+degree-bounded polynomial vanishing on the Boolean cube lies in the ideal
+generated by these \(m'\) polynomials.
+\gt{prop:zero-basis}{ground-truth/gt-10-answer-reduction.tex}
+The implementation uses the following deterministic monomial rewrite.
+
+\begin{lemma}[Executable zero-basis rewrite]
+For a coefficient \(a\), a monomial \(u\) independent of the displayed power,
+and \(e\geq2\),
+\[
+ a u z_i^e
+ \longmapsto
+ a u z_i^{e-1}-a u z_i^{e-2}\,z_i(1-z_i).
+\]
+Iterating in a fixed variable and monomial order yields polynomials \(c_i\) and
+a remainder \(r\), multilinear in every variable, such that
+\[
+ c_0=\sum_{i=1}^{m'}c_i z_i(1-z_i)+r.
+\]
+If the coordinate degree vector of \(c_0\) is \(D\), then
+\(\deg_j(c_i)\leq D_j\), \(\deg_i(c_i)\leq\max(D_i-2,0)\), and after reducing
+coordinates \(1,\ldots,i-1\), the running remainder has degree at most one in
+those coordinates.
+\end{lemma}
+
+\begin{proof}
+Expanding the right-hand side of one rewrite gives
+\[
+ a u z_i^{e-1}-a u z_i^{e-2}(z_i-z_i^2)=a u z_i^e.
+\]
+Thus every step preserves the coefficient polynomial after adding the recorded
+quotient contribution.  It lowers the current exponent to one and places
+power \(e-2\) in the quotient, proving the degree bounds.  Induction over the
+ordered coordinates gives the displayed decomposition and a final
+multilinear remainder.  If \(c_0\) vanishes on the Boolean cube, then so does
+\(r\); uniqueness of multilinear interpolation on \(\{0,1\}^{m'}\) makes
+\(r=0\).  This is the constructive division used in the proof of
+\code{prop:zero-basis} in
+\code{ground-truth/gt-10-answer-reduction.tex}.
+\end{proof}
+
+\code{zero_basis_decompose} stores every step as \code{RewriteStep} inside a
+\code{ZeroDecomposition}.  \code{verify_rewrite_step} replays the scalar
+identity, and \code{verify_zero_decomposition} reconstructs the entire right
+side as a normalized coefficient dictionary.  Promotion to a zero certificate
+also requires empty remainder.  This is stronger than checking the equality at
+sampled points, but it remains an instance certificate, not a proof of the PCP
+soundness theorem.
+
+\subsection{PCP view and local verifier}
+
+A \emph{PCP view} at \(z\) is
+\[
+ \operatorname{ev}_z(\Pi)=
+ (g_1(x_1),\ldots,g_5(x_5),c_0(z),c_1(z),\ldots,c_{m'}(z)).
+\]
+The proof object is the tuple of evaluation tables for those polynomials.
+The labels are \code{def:pcp-proof} and \code{def:pcp-eval} in
+\code{ground-truth/gt-10-answer-reduction.tex}.  Julia represents them by
+\code{PCPProof} and \code{PCPView}; \code{ev_z} refuses a \(g_i\) whose actual
+support escapes block \(X_i\).
+
+The verifier first reconstructs the succinct circuit, Tseitin formula, and
+arithmetization.  It then checks exactly
+\[
+ \beta_0=F_{\rm arith}(z)\prod_{i=1}^5(\alpha_i-o_i),
+ \qquad
+ \beta_0=\sum_{j=1}^{m'}\beta_j z_j(1-z_j).
+\]
+These are the formula test and zero-on-subcube test.
+\gt{fig:pcpverifier}{ground-truth/gt-10-answer-reduction.tex}
+The Julia function \code{pcpverifier} executes these two equations on an
+already supplied \code{TseitinFormula} and view.  In TB2 it does not implement
+the figure's preceding reconstruction steps; the formula is construction-time
+data.  \code{build_pcp} combines upstream certificates, coefficient division,
+degree checking, and stored certified views.
+
+\subsection{The four soundness layers}
+
+The four layers must not be collapsed.
+
+\paragraph{1. Algebraic soundness under a low-degree premise.}
+Assume every submitted \(g_i,c_j\) has individual degree at most \(d\).  If the
+formula-test polynomials are unequal, their difference has total degree at most
+\((\delta_F+5d)m'\) under the occurrence-vector account.  If the zero-test
+polynomials are unequal, their difference has total degree at most
+\((2+d)m'\).  Schwartz--Zippel states that unequal polynomials of total degree
+at most \(\Delta\) agree at a uniform point of \(\F_q^{m'}\) with probability
+at most \(\Delta/q\).
+\gt{lem:schwartz-zippel}{ground-truth/gt-03-prelim.tex}
+Consequently
+\[
+ \Pr[\text{false formula identity}]
+ \leq \frac{(\delta_F+5d)m'}{q},\qquad
+ \Pr[\text{false zero identity}]
+ \leq \frac{(2+d)m'}{q}.
+\]
+The paper's displayed first numerator uses \(2+5d\); the structural project
+obligation substitutes the measured \(\delta_F\) under the discrepancy stated
+above.  The field size enters nowhere mysteriously: \(q=2^k\) is chosen so
+both fractions are below the acceptance threshold \(1/2\), together with the
+other PCP parameter obligations.  The first structural inequality is extra to
+the literal \code{def:pcpparams} predicate in the present project.
+
+If acceptance is greater than \(1/2\) and both upper bounds are below
+\(1/2\), each sampled equality is therefore a polynomial identity.  The zero
+identity makes \(c_0\) vanish on the Boolean cube; the formula identity then
+decodes five Boolean assignments satisfying the decoupled formula, and hence an
+accepting bounded computation.  This conditional theorem is
+\code{thm:pcp-decider} in
+\code{ground-truth/gt-10-answer-reduction.tex}.  Its current project status is
+\claim{C5}{SKETCH}, not CHECKED.
+
+\paragraph{2. Enforcement of the low-degree premise.}
+The simultaneous low-degree game queries points, axis-parallel lines, and
+diagonal lines.  Its classical decider checks consistency of a point value with
+a claimed line restriction.\gt{fig:ld-decider}{ground-truth/gt-07-ldt.tex}
+The theorem extracting approximately consistent low-individual-degree
+polynomial measurements from a successful quantum strategy is
+\code{lem:ld-soundness} in \code{ground-truth/gt-07-ldt.tex}.  It is
+\grade{CITED}.  Running \code{ld_decider} on honest finite inputs does not prove
+this extraction theorem.
+
+\paragraph{3. Polynomial identity from random evaluation.}
+This is exactly the Schwartz--Zippel step above, used twice with two different
+degree bounds.  The local program checks evaluations.  The analytic theorem
+turns an acceptance probability into formal identity, provided the degree and
+field-size premises hold.  No sample count can replace that implication.
+
+\paragraph{4. Quantum consistency and rigidity.}
+Answer reduction must connect different players' point and line answers to the
+same polynomial measurements, control disturbance, and transport the result
+back to the original verifier.  Those operator estimates use low-degree
+soundness, typed consistency transformations, and later rigidity arguments.  They
+are imported in the soundness contract of \code{thm:ar} in
+\code{ground-truth/gt-10-answer-reduction.tex}; none is a sparse-polynomial
+identity.
+
+The computer adds exactly this: on a named instance it constructs the
+polynomials, executes the division, compares normalized coefficients, computes
+degree and dependency vectors, and evaluates the two local equations.  It does
+not test the theorem.  Current statuses reflect that separation: C3 is
+\textsc{TESTED}, C5 is \textsc{SKETCH}, C1 and C2 remain
+\textsc{CONJECTURE}, and C8 is \textsc{TESTED} only on its two named circuits.
+
+\section{The typed layer: conditionally linear functions}
+
+\subsection{The inductive object and its laws}
+
+\begin{definition}[Conditionally linear function]
+Let \(V=\F^n\) with fixed coordinate-register subspaces.  The unique level-zero
+conditionally linear (CL) function is zero.  A level-\(\ell\) CL function
+chooses complementary registers \(V_1\oplus V_{>1}=V\), applies a linear map
+\(A:V_1\to V_1\), and, conditional only on \(A(x^{V_1})\), selects a
+level-\((\ell-1)\) CL function on \(V_{>1}\).  Its output is the sum of the
+first-stage and continuation outputs.
+\end{definition}
+This is \code{def:cl-func} in
+\code{ground-truth/gt-04-cl.tex}.  Julia mirrors it with
+\code{AbstractCL}, \code{CLZero}, and \code{CLStep}.  The constructor verifies
+disjoint factor/rest coordinate sets, a matrix acting inside the factor, a
+fixed child level, and exact coverage of the rest register.  Thus an inhabitant
+of \code{CLStep} has a constructed level; linearity is carried by the matrix,
+not inferred from samples.
+
+The marginal \(L_{\leq k}\) is the sum of the first \(k\) stage outputs,
+together with their factor spaces and linear maps.  This is the decomposition
+of \code{lem:cl-kth} in
+\code{ground-truth/gt-04-cl.tex}.  Julia's \code{marginal_k} returns a
+\code{CLMarginal}; \code{sum_stage_outputs} recomputes its value.
+
+\begin{lemma}[Level laws]
+Let \(L\) be level \(k\), let every continuation \(R_u\) be level \(\ell\),
+and let \(L_j\) act on pairwise disjoint registers at levels \(\ell_j\).
+Then
+\[
+ \operatorname{level}(\operatorname{concatenate}(L,R))=k+\ell,
+ \qquad
+ \operatorname{level}\!\left(\bigoplus_jL_j\right)=\max_j\ell_j.
+\]
+For CL distributions \(S_1,S_2\), their product, formed by direct-summing the
+left maps and the right maps on independent seed registers, has level the
+maximum of the two levels.
+\end{lemma}
+
+\begin{proof}
+For concatenation, induct on the outer constructor of \(L\).  At level zero,
+grafting \(R_0\) supplies exactly \(\ell\) stages.  At a \code{CLStep}, retain
+its first linear stage and apply the induction hypothesis to each child; this
+gives \(1+(k-1+\ell)=k+\ell\).  This is the construction in
+\code{lem:cl-concat} of \code{ground-truth/gt-04-cl.tex}.
+
+For direct sum, pad each component by zero stages to
+\(r=\max_j\ell_j\).  At stage \(i\), use the direct sum of the components'
+stage matrices on the direct sum of their factor registers.  The continuation
+depends only on the tuple of earlier outputs, hence remains CL.  Induction on
+\(r\) proves the law, matching \code{lem:cl-func-prod} in
+\code{ground-truth/gt-04-cl.tex}.  A distribution product applies this law
+separately to its left and right maps, so its level is the same maximum.
+\end{proof}
+
+The code functions are \code{concatenate}, \code{direct_sum},
+\code{distribution}, and \code{product}.  Their type constructions carry the
+level laws.  The stronger structural hypothesis that all compiler operations
+of interest close inside one useful algebra is not implied by these individual
+lemmas.
+
+\subsection{Point and line maps}
+
+For \(V=V_{\rm pt}\oplus V_{\rm coord}\oplus V_{\rm dir}\), write a seed as
+\((u,s,v)\in\F_q^m\times\F_q\times\F_q^m\).  Let
+\(L_v^{\rm lnf}\) be the canonical projection whose kernel is
+\(\operatorname{span}(v)\), so \(L_v^{\rm lnf}u\) is a canonical representative
+of the affine line \(u+\F_qv\).
+\gt{def:cl-canonical}{ground-truth/gt-03-prelim.tex}
+The line-representative use is \code{def:line-representative} in
+\code{ground-truth/gt-07-ldt.tex}.  Define \(\chi(s)\) by splitting the fixed
+integer representatives of \(\F_q\) into \(m\) equal buckets; this requires
+\(m\mid q\).  With \(\pi_{i-1}\) zeroing the first \(i-1\) coordinates,
+\[
+\begin{aligned}
+L_{\rm Point}(u,s,v)&=(u,0,0),\\
+L_{\rm ALine}(u,s,v)&=(L_{e_{\chi(s)}}^{\rm lnf}u,s,0),\\
+L_{\rm DLine}(u,s,v)&=(L_{\pi_{\chi(s)-1}(v)}^{\rm lnf}u,
+                         s,\pi_{\chi(s)-1}(v)).
+\end{aligned}
+\]
+Their levels are respectively one, two, and three by their stage
+factorizations.\gt{sec:ld-game}{ground-truth/gt-07-ldt.tex}
+The implementation names are \code{L_Point}, \code{L_ALine},
+\code{L_DLine}, \code{L_lnf}, \code{chi}, and \code{pi_prefix}.  Since the
+source's kernel-basis definition does not cover \(v=0\), the code uses
+\(L_0^{\rm lnf}=I\) and marks the convention \grade{SOURCE\_REPAIR}.
+
+The distribution \(\mu_{L,R}\) pushes one uniform shared seed through the two
+maps.\gt{def:cl-dist}{ground-truth/gt-04-cl.tex}
+For \((q,m)=(8,2)\), TB1 enumerates all \(8^5=32768\) seeds.  The
+axis-line/point histogram has support 512, and the diagonal-line/point
+histogram has support 18432, including the zero directions.  Both agree
+entry-for-entry with separately transcribed formulas for
+\code{lem:alnf} and \code{lem:dlnf} in
+\code{ground-truth/gt-07-ldt.tex}; every marginal is replayed.  This finite
+statement is \claim{C4a}{TESTED}.  It is not a statistical argument and does
+not establish quantum low-degree soundness.
+
+\subsection{Types and the six-copy sampler}
+
+A \emph{typed sampler} is a finite type-graph-indexed family of CL maps sharing
+one ambient seed space.  It first samples an oriented type edge and then pushes
+one uniform seed through the selected left/right maps.
+\gt{def:typed-sampler}{ground-truth/gt-06-types.tex}
+Its induced distribution is \code{def:typed-sampler-sample} in the same file.
+Julia's \code{TypedSampler} checks exact type coverage, a common field and seed
+dimension, graph endpoints, and a padded common level.
+
+\emph{Detyping} encodes the external graph choice into an untyped CL
+distribution by a rejection-sampling construction.  It adds two levels,
+preserves value-one completeness, and changes soundness error by
+\(16^{|\mathrm{Type}|}\).\gt{lem:detyping-verifiers}{ground-truth/gt-06-types.tex}
+The Julia function \code{detype} returns \code{CitedDetypedVerifier}; the
+certificate is deliberately \grade{CITED}.  For the 54 answer-reduction types,
+the displayed factor is \(16^{54}\), not an executed estimate.
+
+The answer-reduction PCP sampler has the 18 types
+\[
+ \{\mathrm{Point}_i,\mathrm{ALine}_i,\mathrm{DLine}_i:1\leq i\leq6\}
+\]
+and a complete type graph.  Copies 1--5 query one \(m\)-variate \(g_i\) each;
+copy 6 queries the bundle \((g_1,\ldots,g_5,c_0,\ldots,c_{m'})\) in dimension
+\(m'\).  The six-copy construction and its ambient direct sums are in
+\code{sec:ld-compiler} of
+\code{ground-truth/gt-10-answer-reduction.tex}.  The current code uses
+\code{PCPType}, \code{PCPRegisterLayout}, \code{PCPCLMap},
+\code{PCPPaddedMap}, and \code{pcp_sampler}.  It carries a visible
+\grade{SOURCE\_REPAIR} for the copy-6 coordinate-register conflict between the
+displayed ambient space and the parser table.
+
+\emph{Oracularization} is the typed transformation in which the isolated
+roles receive the original left or right CL image while an oracle role receives
+the common seed and can reconstruct both; the code name is
+\code{oracularize_sampler}.  Its theorem contract is \grade{CITED}.
+\gt{sec:orac-def}{ground-truth/gt-09-oracularization.tex}
+The typed
+answer-reduced sampler is the product of this three-role family with the
+18-type PCP family.  \code{typed_sampler_product} produces 54 types and
+combines levels by a maximum.  The code constructs the product and checks its
+shape, but C4b remains \textsc{CONJECTURE}: the latest TB2 critic held promotion
+because the lazy \code{PCPCLMap}'s stage depth was not itself enough to make
+the full CL decomposition a constructor-level fact.  Local certificate labels
+must not be confused with a promoted claim.
+
+The typed decider implements the five guarded checks of
+\code{fig:decider-pcp}: global consistency, input consistency, input low degree,
+proof encoding (individual and simultaneous low degree), and the PCP game
+check.\gt{fig:decider-pcp}{ground-truth/gt-10-answer-reduction.tex}
+The Julia names are \code{TypedAnswerReducedDecider},
+\code{typed_answer_reduced_decider}, \code{LDParams}, \code{ld_decider}, and
+\code{PCPGameCall}.  \code{answer_reduce_pcp} constructs the typed verifier of
+level \(\max(\ell,3)\) on its fixture and attaches explicit assumptions.
+
+The full theorem contract is conditional:
+\[
+\begin{array}{ll}
+\textsc{Assume:}&V\text{ is an }\ell\text{-level normal-form verifier},\\
+&T(n)=(2^{\lambda n})^\mu,\quad Q(n)=(\lambda n)^\mu,\\
+&\Time_D(n)\leq T(n),\quad \Time_S(n)\leq Q(n);\\[2pt]
+\textsc{Prove:}&\AnswerReduce(V)\text{ has level }\max\{\ell+2,5\},\\
+&\text{the stated polynomial runtimes and directed completeness,}\\
+&\text{soundness, and entanglement implications.}
+\end{array}
+\]
+This is \code{thm:ar} in
+\code{ground-truth/gt-10-answer-reduction.tex}.  The finite guarded decider is
+executable; the quantum implication, detyping, and asymptotic theorem are
+\grade{CITED}.
+
+\subsection{The structural hypothesis}
+
+\emph{Introspection} is the cited verifier transformation that makes encoded
+prover-side measurement information available to a smaller verifier while
+preserving a directed soundness contract.
+\gt{thm:introspection}{ground-truth/gt-08-introspection.tex}
+\emph{Anchoring} inserts special anchor questions with positive probability;
+\emph{parallel repetition} runs several copies with an AND acceptance
+condition against possibly correlated strategies.  Their combined repetition
+contract is cited from \code{thm:repetition} in
+\code{ground-truth/gt-11-parallel-repetition.tex}.
+
+The relevant closure equations are
+\[
+ \Introspect(\mathcal Q)\subseteq\mathcal Q,
+ \qquad \mathsf{PCPCompose}(\mathcal Q)\subseteq\mathcal Q,
+ \qquad \mathcal Q\times\mathcal Q\subseteq\mathcal Q.
+\]
+Concatenation, direct sum, the shared-seed distribution, and product are visibly
+CL-preserving in the base inductive datatype.  Affine restriction is linear
+after earlier stages choose a direction, and random-point identity tests are
+pushforwards of a shared uniform seed.  Typed graph choice is external, and the
+cited detyping transformation moves it back into two further CL levels.
+
+This does not characterize every admissible query distribution, prove that a
+generic PCPP can be expressed in the algebra, or prove closure under the full
+introspection compiler.  The structural statement is exactly
+\claim{C7}{CONJECTURE}.  Introspection soundness and normal-form closure are
+not implemented.  The present datatype makes several local closure laws
+legible, not the global compression theorem.
+
+\section{Correspondence tables}
+
+The evidence grade describes the local certificate leaf.  The claim column is
+the current status in \code{claims/CLAIMS.md}; it can remain weaker than a
+certificate label when an adversarial verdict has not promoted the claim.
+\grade{CONSTRUCTED} means enforced by a constructor,
+\grade{CHECKED} means deterministic replay against an attached object, and
+\grade{CITED} means imported from the named ground-truth statement.
+
+\subsection{Description front end (planned TB3)}
+
+\setlength{\tabcolsep}{1.5pt}
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{sec:tms}\newline\code{gt-03-prelim.tex}
+& Machine conventions in Definition~\ref{def:paper-tm}; costed bridge in
+Theorems~\ref{thm:tm-to-l}--\ref{thm:l-to-tm}
+& \code{Quoted{A}} & \code{Quote}, \code{Eval}, \code{Specialize}
+& \grade{CITED}; absent & none \\
+\code{def:decider}\newline\code{gt-05-games-normalform.tex}
+& Five-input format in Definition~\ref{def:paper-decider}; bounds preserved by
+Theorem~\ref{thm:lambda-preservation} & \code{Quoted{Decider}}
+& \code{description_size} & \grade{CITED}; absent & none \\
+\code{DESIGN} \S1.1
+& Determinism, fuel, quotation, and specialization:
+Theorems~\ref{thm:l-determinism}--\ref{thm:quote-eval} and
+Lemma~\ref{lem:specialization}
+& \code{ClosedProgram}, \code{Quoted} & \code{Eval}, \code{specialize}
+& analytic only; absent & none \\
+\code{prop:standard-succinct-sat}\newline\code{gt-10-answer-reduction.tex}
+& Transition locality (Lemma~\ref{lem:transition-window}) and succinct 3SAT
+(Theorem~\ref{thm:l-succinct-sat}) & \code{BoundedTrace}, \code{Succinct3SAT}
+& \code{bounded_trace}, \code{cook_levin} & \grade{CITED}; absent & none \\
+\code{sec:succinct-deciders}\newline\code{gt-10-answer-reduction.tex}
+& Three shared reads become five independent blocks &
+\code{SuccinctDecoupled5SAT} & \code{decouple5} & \grade{CITED}; absent & none \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Polynomial rung (TB0)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{def:tseitin}\newline\code{gt-10-answer-reduction.tex}
+& Circuit becomes a linear-size formula with auxiliary wires &
+\code{Circuit}, \code{TseitinFormula} & \code{tseitin}, \code{occurrences}
+& \grade{CHECKED} occurrence & C2 \textsc{Conj.} \\
+\code{def:formula-arithmetization}\newline\code{gt-10-answer-reduction.tex}
+& Boolean connectives become a formal polynomial & \code{Poly}
+& \code{arith_q}, \code{actual_degrees} & \grade{CHECKED} & C8 \textsc{Tested} \\
+\code{sec:ld-encoding}\newline\code{gt-03-prelim.tex}
+& Assignment becomes its multilinear extension & \code{Poly}
+& \code{g_a}, \code{dependency_blocks} & \constructed/\newline\grade{Checked}
+& C3 \textsc{Tested} \\
+\code{prop:zero-basis}\newline\code{gt-10-answer-reduction.tex}
+& Divide by \(z_i(1-z_i)\) and require zero remainder &
+\code{ZeroDecomposition} & \code{zero_basis_decompose},
+\code{verify_zero_decomposition} & \grade{CHECKED} & C2 \textsc{Conj.} \\
+\code{fig:pcpverifier}\newline\code{gt-10-answer-reduction.tex}
+& Check formula and zero identities at one view & \code{PCPView}
+& \code{pcpverifier} & \grade{CHECKED} finite views & C1 \textsc{Conj.} \\
+\code{thm:pcp-decider}\newline\code{gt-10-answer-reduction.tex}
+& Acceptance \(>1/2\) decodes an accepting trace, assuming low degree &
+\code{PCPProof} & \code{build_pcp}, \code{parameter_policy}
+& \grade{CITED}/\newline\grade{Checked} parts & C5 \textsc{Sketch} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{CL and low-degree-test rung (TB1)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{def:cl-func}\newline\code{gt-04-cl.tex}
+& CL functions are inductive conditional linear stages & \code{AbstractCL}
+& \code{CLZero}, \code{CLStep}, \code{level} & \constructed
+& C4a \textsc{Tested} \\
+\code{lem:cl-kth}\newline\code{gt-04-cl.tex}
+& A marginal is the sum of the first \(k\) stages & \code{CLMarginal}
+& \code{marginal_k}, \code{sum_stage_outputs} & \grade{CHECKED}
+& C4a \textsc{Tested} \\
+\code{lem:cl-concat}, \code{lem:cl-func-prod}\newline\code{gt-04-cl.tex}
+& Concatenation adds levels; direct sum takes a maximum & \code{AbstractCL}
+& \code{concatenate}, \code{direct_sum}, \code{product}
+& \constructed & C7 \textsc{Conj.} \\
+\code{lem:alnf}, \code{lem:dlnf}\newline\code{gt-07-ldt.tex}
+& CL pushforwards equal the line/point distributions & \code{CLDistribution}
+& \code{L_Point}, \code{L_ALine}, \code{L_DLine}, \code{histogram}
+& \grade{CHECKED} TB1 & C4a \textsc{Tested} \\
+\code{fig:ld-decider}\newline\code{gt-07-ldt.tex}
+& Point/line answer consistency and degree format & \code{LDParams}
+& \code{ld_decider}, \code{restrict} & \grade{CHECKED} fixture & C4a \textsc{Tested} \\
+\code{lem:ld-soundness}\newline\code{gt-07-ldt.tex}
+& Successful quantum strategy yields polynomial measurements & theorem leaf
+& no proof checker & \grade{CITED} & C5 \textsc{Sketch} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Typed answer-reduction rung (TB2)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{def:typed-sampler}\newline\code{gt-06-types.tex}
+& A type graph selects a pair of CL maps sharing one seed & \code{TypedSampler}
+& \code{TypedSampler}, \code{sample}, \code{pad_level}
+& \constructed\ base & C4b \textsc{Conj.} \\
+\code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
+& Six low-degree copies form an 18-type family & \code{PCPCLMap}
+& \code{pcp_sampler}, \code{intrinsic_pcp_levels}
+& local \grade{CHECKED}; held & C4b \textsc{Conj.} \\
+\code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
+& Product with the oracularized sampler has 54 types &
+\code{TypedProductCL} & \code{oracularize_sampler},
+\code{typed_sampler_product} & \grade{CHECKED} shape; theorem cited
+& C4b \textsc{Conj.} \\
+\code{fig:decider-pcp}\newline\code{gt-10-answer-reduction.tex}
+& Five guarded checks connect input, proof, low degree, and PCP &
+\code{TypedAnswer}\newline\code{ReducedDecider} & \code{typed_answer_reduced_decider}
+& \grade{CHECKED} finite paths & no current row \\
+\code{lem:detyping-verifiers}\newline\code{gt-06-types.tex}
+& Remove types at cost \(+2\) levels and \(16^{54}\) soundness factor &
+\code{CitedDetyped}\newline\code{Verifier} & \code{detype} & \grade{CITED} & C4b \textsc{Conj.} \\
+\code{thm:ar}\newline\code{gt-10-answer-reduction.tex}
+& Conditional complexity, completeness, soundness, entanglement contract &
+\code{TypedAnswer}\newline\code{ReducedVerifier} & \code{answer_reduce_pcp},
+\code{AnswerReduce} & \grade{Checked}/\newline\grade{Cited} & C5 \textsc{Sketch} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Midpoint diagnostic (TB0.5)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Analytic anchor & Analytic statement & IR sort & Implementation & Grade & Claim \\
+\midrule
+\endhead
+\code{handoff.md}\newline midpoint diagnostic
+& False level-\(n\) claim has value \(1-2^{-n}\) under the stated orbit condition
+& \code{Test/Ask/Coin} terms & \code{toys/midpoint}
+& proof plus exact tests & C6 \textsc{Proved} \\
+\code{toys/midpoint/PROOF.md}
+& Sequential \(r\)-copy AND value is \((1-2^{-n})^r\); constant gap costs
+\(\Theta(2^n)\) copies & exact dynamic program & \code{sequential_value}
+& proof plus exact tests & N1 \textsc{Proved} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Compression and fixed point (planned TB4)}
+
+\scriptsize
+\begin{longtable}{P{0.21\textwidth}P{0.16\textwidth}P{0.19\textwidth}P{0.19\textwidth}P{0.12\textwidth}P{0.08\textwidth}}
+\toprule
+Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
+\midrule
+\endhead
+\code{fig:compress}\newline\code{gt-12-compression.tex}
+& \(\Repeat\circ\AnswerReduce\circ\Introspect\) &
+\code{ClosedProgram}\newline\code{{Compressor}} & \code{Compress} & \grade{CITED}; absent
+& C7 \textsc{Conj.} \\
+\code{thm:compression}\newline\code{gt-12-compression.tex}
+& Nine-level gap-preserving compression with dimension bound & contract tree
+& no current implementation & \grade{CITED} & C7 \textsc{Conj.} \\
+\code{fig:halt_f}\newline\code{gt-12-compression.tex}
+& Self-application, Kleene, and YCode coincide by
+Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence} &
+\code{PartialProgram}, \code{Quoted} & \code{Hole}, \code{Specialize},
+\code{Fix}/\code{YCode} & \grade{CITED}; absent & none \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\section{What is analytic and what is computed}
+
+\subsection{The evidence boundary}
+
+The analytic content is the sequence of transformations and the implications
+attached to them.  The computer currently realizes a strict middle segment.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{P{0.20\textwidth}P{0.35\textwidth}X}
+\toprule
+Class & Present content & What would be required to move the boundary \\
+\midrule
+Executed constructions
+& Circuit/Tseitin syntax; formula arithmetization; multilinear extensions;
+\(c_0\); zero-basis quotients; point/line maps; typed products; guarded TB2
+decider
+& Scale-independent front end for quoted programs and a constructor-faithful
+lazy CL stage representation for the PCP sampler \\
+Certified identities
+& Normalized coefficient equality; zero remainder; structural and actual
+degrees; dependency blocks; CL marginals; TB1 exact histograms; finite parser
+and branch checks
+& General semantic certificates connecting trace, SAT, Tseitin, and
+arithmetization, plus promotion through adversarial verdicts \\
+Cited analytic leaves
+& Cook--Levin asymptotics; general Tseitin semantics; PCP soundness;
+low-degree extraction; oracularization; detyping; introspection; rigidity;
+anchored repetition; compression
+& Formal proofs over quantified machines, distributions, Hilbert spaces,
+measurements, approximation metrics, and asymptotic bounds---not more finite
+samples \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Lean or another proof assistant could check the algebraic core once finite
+fields, sparse polynomials, interpolation, and polynomial division are
+formalized.  That would move the general zero-basis identity and degree lemmas
+from prose to proof terms.  It would not by itself certify
+\code{lem:ld-soundness}: that leaf requires a library for finite-dimensional
+Hilbert spaces, POVMs, state-dependent distances, tensor-code tests, and the
+quantitative extraction argument.  Rigidity and oracularization require the
+same operator layer.  Detyping additionally needs a formal probability and
+rejection-sampling argument with the \(16^{|\mathrm{Type}|}\) loss.
+
+Anchoring and parallel repetition are combined in \(\Repeat\) and are
+theorem-backed rather than executed here.  Introspection and compression would
+require a still broader object: a
+formal semantics for quoted verifier descriptions, resource bounds under
+specialization and universal evaluation, and a proof that the directed value
+and entanglement implications compose.  The relevant final statements are
+\code{fig:compress} and \code{thm:compression} in
+\code{ground-truth/gt-12-compression.tex}.
+
+\subsection{The midpoint diagnostic}
+
+The recursive midpoint verifier for \(y=f^{2^n}(x)\) asks for \(z\) and checks
+one of
+\[
+ z=f^{2^{n-1}}(x),\qquad y=f^{2^{n-1}}(z)
+\]
+with a fresh fair coin.  It has a compact fixed-point description and perfect
+completeness.  Under the orbit-prefix condition stated in C6, the exact optimum
+for a false claim is nevertheless
+\[
+ p_n=1-2^{-n}.
+\]
+Claim C6 is \textsc{PROVED}.  For adaptive sequential AND repetition, N1 is
+also \textsc{PROVED} and gives value \((1-2^{-n})^r\); reaching error at most
+\(1/2\) requires \(r=\Theta(2^n)\), hence \(\Theta(n2^n)\) transcript cost in
+the stated unit-cost model.  Neither claim concerns quantum parallel repetition
+or the actual \(\Compress\) operator.
+
+The diagnostic isolates the point of the whole construction.  A recursive
+term can represent an exponentially long computation, and a fixed point can
+make that term self-referential, while the acceptance gap collapses too quickly
+for iteration.  Representability is easy; an iteratable, gap-preserving
+analytic transformation is the hard requirement.
+
+\subsection{Final accounting}
+
+The lambda reformulation removes none of the mathematically difficult leaves.
+It makes quotation, hardwiring, description size, timeout, and self-reference
+explicit in one syntax.  The polynomial IR makes the Cook--Levin-to-PCP middle
+visible as actual algebra, and the CL datatype exposes several sampler closure
+laws.  What remains unchanged is the proof that high success in the typed
+quantum game yields consistent low-degree polynomial measurements, survives
+oracularization and detyping with the stated quantitative loss, survives
+introspection and anchored parallel repetition, and composes into the
+gap-preserving compression theorem.  Those are analytic theorems, presently
+\grade{CITED}; they are neither consequences of homoiconicity nor conclusions
+of the finite computations reported here.
+
