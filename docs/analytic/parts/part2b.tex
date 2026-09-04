@@ -83,6 +83,12 @@ machine steps.  The correspondence between those microstates and the weighted
 semantics was part of the construction in Section~\ref{sec:resource-lambda}.
 \end{proof}
 
+\begin{figure}[t]
+\centering
+\input{figs/fig-succinct-circuit.tex}
+\caption{An \(O(\log F+\log\sigma)\)-bit index is decoded into one real initialization, format, transition, or acceptance clause.  Random access keeps the description polynomial in \(\log F\) even though the underlying tableau has \(F\) time rows.}
+\label{fig:succinct-circuit}
+\end{figure}
 \subsection{The succinct 3SAT circuit}
 
 Let the row width be \(W\).  In \(F\) microsteps no head visits beyond the
@@ -98,12 +104,6 @@ turn it into 3CNF with \(O(FW)\) variables and clauses.
 For the paper, the next theorem buys a small circuit describing an enormous
 bounded verifier tableau, which is the input expected by answer reduction.
 Figure~\ref{fig:succinct-circuit} follows one clause index through that circuit.
-\begin{figure}[t]
-\centering
-\input{figs/fig-succinct-circuit.tex}
-\caption{An \(O(\log F+\log\sigma)\)-bit index is decoded into one real initialization, format, transition, or acceptance clause.  Random access keeps the description polynomial in \(\log F\) even though the underlying tableau has \(F\) time rows.}
-\label{fig:succinct-circuit}
-\end{figure}
 \begin{theorem}[Succinct Cook--Levin for \(\mathcal L\)]
 \label{thm:l-succinct-sat}
 There is an algorithm which, on
@@ -174,7 +174,7 @@ from the accepting trace.  This is the exact placement property needed when
 the two blocks are separated in \eqref{eq:decoupled-five}.
 Figure~\ref{fig:decoupled-5sat} makes the three kinds of constraints visible
 on the five equal-length blocks.
-\begin{figure}[t]
+\begin{figure}[!b]
 \centering
 \input{figs/fig-decoupled-5sat.tex}
 \caption{Five power-of-two blocks separate the two answer tapes from three independently queried tableau assignments, with amber prefixes marking the first \(2F\) answer bits.  Copy, equality, and padding gadgets make the decoupled five-literal view equivalent to the original accepting trace.}
@@ -568,7 +568,7 @@ not test the theorem.  Current statuses reflect that separation: C3 is
 
 Figure~\ref{fig:D-cl-base-step} previews the single inductive CL step before
 the full level diagram.
-\begin{figure}[H]
+\begin{figure}[!b]
 \centering
 \input{figs/fig-D-cl-base-step.tex}
 \caption{A linear map acts on \(V_1\), and its actual output selects the continuation on the complementary register \(V_{>1}\).  This one-step constructor is the recursive source of every CL level and marginal law below.}

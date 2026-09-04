@@ -21,17 +21,16 @@
   \node[checked, right=10mm of uk, text width=27mm] (update)
     {3.\ rewrite config\\4.\ advance time};
   \draw[->, desc, line width=.9pt] (code2.south) -- (lookup.north);
-  \draw[->, machine, line width=.9pt] (cs1.south) -- (update.north);
+  \draw[->, machine, line width=.9pt] (update.north) -- (cs2.south);
   \draw[xform] (lookup) -- (uk);
   \draw[xform] (uk) -- (update);
   \draw[->, focus, line width=1.1pt, rounded corners=5pt]
     (update.south) -- ++(0,-7mm) -| node[lblsm, below, pos=.27, text=focus]
     {repeat once per simulated step} (lookup.south);
 
-  \node[stage, below=17mm of uk, minimum width=100mm, fill=focuslt, draw=focus] (cost)
+  \node[stage, below=17mm of uk, minimum width=100mm] (cost)
     {$T\ \text{steps of }M
       \quad\Longrightarrow\quad
       C_U\bigl(k|\langle M\rangle|\,|x|\,T\bigr)^{c_U}\ \text{steps of }U_k$};
-  \draw[callout] (cost) -- (uk);
   \node[lblsm, right=4mm of cost] {$|x|=\sum_i|x_i|$};
 \end{tikzpicture}

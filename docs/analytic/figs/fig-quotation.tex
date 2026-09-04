@@ -1,21 +1,26 @@
 \begin{tikzpicture}[node distance=8mm and 10mm]
-  \node[tnode] (lam) {$\mathsf{Lambda}$};
-  \node[tleaf,below=8mm of lam] (var) {$\mathsf{BoundVar}(0)$};
+  \node[tnode,ellipse,inner sep=2pt] (lam) {$\mathsf{Lambda}$};
+  \node[tleaf,ellipse,inner sep=2pt,below=9mm of lam] (var)
+    {$\mathsf{BoundVar}(0)$};
   \draw[tedge] (lam)--(var);
   \node[lbl,above=2mm of lam] {canonical syntax tree};
 
-  \node[bytes,right=25mm of lam] (btag) {$\mathrm{tag}_{\lambda}$};
+  \node[bytes,right=26mm of lam] (btag) {$\mathrm{tag}_{\lambda}$};
   \node[bytes,right=0pt of btag] (vtag) {$\mathrm{tag}_{\rm var}$};
   \node[bytes,right=0pt of vtag] (idx) {$\nu(0)$};
-  \node[byteslbl,below=2mm of vtag] {prefix-free fields of $\operatorname{ser}(t)$};
+  \node[byteslbl,above=2mm of vtag]
+    {prefix-free fields of $\operatorname{ser}(t)$};
   \draw[quote] (lam.east) -- node[lblsm,above] {quote} (btag.west);
 
-  \node[stage,draw=desc,below=13mm of btag] (eval) {evaluator $+$ argument $A$};
-  \node[tleaf,right=10mm of eval,draw=focus,line width=1pt] (aval) {$A$};
+  \coordinate (fork) at ([xshift=2.5mm]btag.south west);
+  \node[stage,draw=desc,anchor=west] (eval) at ([xshift=12mm,yshift=-17mm]fork)
+    {evaluator $+$ argument $A$};
+  \node[tleaf,draw=focus,line width=1pt,right=18mm of eval] (aval) {$A$};
   \draw[beta] (eval)--node[lblsm,above] {evaluate}(aval);
-  \node[stage,draw=desc,below=8mm of eval] (copy) {copy bytes};
-  \node[descbox,right=10mm of copy] (code) {$\operatorname{ser}(t)$};
+  \node[stage,draw=desc,anchor=west] (copy) at ([xshift=12mm,yshift=-33mm]fork)
+    {copy bytes};
+  \node[descbox,right=26mm of copy] (code) {$\operatorname{ser}(t)$};
   \draw[quote] (copy)--node[lblsm,above] {reproduce code}(code);
-  \draw[xform] ($(btag.south)!0.5!(idx.south)$) |- (eval.north);
-  \draw[xform] ($(btag.south)!0.5!(idx.south)$) |- (copy.north);
+  \draw[xform] (fork) |- (eval.west);
+  \draw[xform] (fork) |- (copy.west);
 \end{tikzpicture}

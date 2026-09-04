@@ -7,6 +7,7 @@
   \draw[xform,check] (poly) -- (zero);
   \draw[xform,check] (zero) -- (view);
   \node[tag check,above=2mm of $(zero.north)!0.5!(view.north)$] {CHECKED ON NAMED INSTANCES};
-  \node[citedbox,below=5mm of $(poly.south)!0.5!(view.south)$,minimum width=7.2cm]
-    {PCP soundness remains C5 \textsc{Sketch}};
+  \node[citedbox,anchor=north east,minimum width=7.2cm] (sound)
+    at ([yshift=-7mm]view.south east) {PCP soundness remains C5 \textsc{Sketch}};
+  \draw[xform,dashed,cited] (view.south) -- (view.south |- sound.north);
 \end{tikzpicture}

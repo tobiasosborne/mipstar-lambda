@@ -8,6 +8,7 @@
   \draw[xform] (bound) -- (compiler);
 
   \node[descbox, right=18mm of compiler, minimum width=66mm, minimum height=35mm] (wrapped) {};
+  \draw[xform] (compiler) -- node[xformlbl] {emits} (wrapped.west);
   \node[lbl, text=desc, anchor=north west] at ([xshift=3mm,yshift=-3mm]wrapped.north west)
     {new finite description};
   \node[descbox, minimum width=25mm] (inner) at ([xshift=-14mm,yshift=-3mm]wrapped.center)

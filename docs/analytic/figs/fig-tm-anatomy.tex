@@ -1,56 +1,74 @@
-\begin{tikzpicture}[node distance=2.6mm and 8mm]
-  \node[ctrl, minimum width=35mm, minimum height=16mm] (control)
+% local: the two tape-role annotations are model annotations, not executed
+% artefacts, so they are teal machine labels attached with braces (green
+% `checked' would claim the wrong evidence role).
+\begin{tikzpicture}[node distance=7mm and 8mm,
+  taperole/.style={lbl, text=machine, align=left, anchor=west}]
+  \node[ctrl, minimum width=35mm, minimum height=14mm] (control)
     {finite control $q\in Q$\\[1pt]
      $\delta:Q\!\times\!\Gamma^{k+2}\to Q\!\times\!\Gamma^2\!\times\!\{L,S,R\}^{k+2}$};
   \node[lbl, above=2mm of control, text=machine]
     {$M=(Q,\Sigma,\Gamma,\delta,q_0,q_{\mathrm h})$};
 
-  \node[tapelbl, below left=10mm and 8mm of control.south] (l1) {input $x_1$};
+  % tape block, shifted left of centre to leave a clear right-hand channel
+  % for the read and write buses.
+  \node[tapelbl, below left=10mm and 22mm of control.south] (l1) {input $x_1$};
   \node[cell head, right=1mm of l1] (i11) {$1$};
   \node[cell, right=0pt of i11] (i12) {$0$};
   \node[cell blank, right=0pt of i12] (i13) {$\sqcup$};
   \node[cell blank, right=0pt of i13] (i14) {$\sqcup$};
   \node[head, below=.8mm of i11] {};
 
-  \node[tapelbl, below=of l1] (l2) {input $x_2$};
+  \node[tapelbl, below=7mm of l1.south east, anchor=north east] (l2) {input $x_2$};
   \node[cell, right=1mm of l2] (i21) {$1$};
   \node[cell head, right=0pt of i21] (i22) {$0$};
   \node[cell blank, right=0pt of i22] (i23) {$\sqcup$};
   \node[cell blank, right=0pt of i23] (i24) {$\sqcup$};
   \node[head, below=.8mm of i22] {};
 
-  \node[lbl, below=1mm of l2] (dots) {$\vdots$};
-  \node[tapelbl, below=1mm of dots] (lk) {input $x_k$};
+  \node[lbl, below=2mm of l2] (dots) {$\vdots$};
+  \node[tapelbl, below=2mm of dots.south, anchor=north] (lk) {input $x_k$};
   \node[cell head, right=1mm of lk] (ik1) {$1$};
   \node[cell, right=0pt of ik1] (ik2) {$1$};
   \node[cell, right=0pt of ik2] (ik3) {$0$};
   \node[cell blank, right=0pt of ik3] (ik4) {$\sqcup$};
   \node[head, below=.8mm of ik1] {};
 
-  \node[tapelbl, below=7mm of lk] (lw) {work};
+  \node[tapelbl, below=8mm of lk.south east, anchor=north east] (lw) {work};
   \node[cell, right=1mm of lw] (w1) {$1$};
   \node[cell head, right=0pt of w1] (w2) {$0$};
   \node[cell blank, right=0pt of w2] (w3) {$\sqcup$};
   \node[cell blank, right=0pt of w3] (w4) {$\sqcup$};
   \node[head, below=.8mm of w2] {};
 
-  \node[tapelbl, below=of lw] (lo) {output};
+  \node[tapelbl, below=7mm of lw.south east, anchor=north east] (lo) {output};
   \node[cell head, right=1mm of lo] (o1) {$1$};
   \node[cell blank, right=0pt of o1] (o2) {$\sqcup$};
   \node[cell blank, right=0pt of o2] (o3) {$\sqcup$};
   \node[cell blank, right=0pt of o3] (o4) {$\sqcup$};
   \node[head, below=.8mm of o1] {};
 
-  \node[checked, right=22mm of i22, text width=29mm] (read)
+  % read bus: every input tape feeds the control (one arrowhead, at the control)
+  \coordinate (rb) at ([xshift=7mm]i14.east);
+  \foreach \n in {i14,i24,ik4}
+    \draw[machine, line width=.8pt] (\n.east) -- (\n.east -| rb);
+  \draw[->, machine, line width=.8pt]
+    (ik4.east -| rb) -- (control.south -| rb);
+  % write bus: the control returns updates to the work and output tapes only
+  \coordinate (wb) at ([xshift=15mm]i14.east);
+  \draw[machine, line width=.8pt]
+    (control.south -| wb) -- (o4.east -| wb);
+  \foreach \n in {w4,o4}
+    \draw[->, machine, line width=.8pt] (\n.east -| wb) -- (\n.east);
+
+  % tape roles, braced on the far right
+  \coordinate (bx) at ([xshift=22mm]i14.east);
+  \draw[brace] (bx |- i11.north) -- (bx |- ik4.south);
+  \draw[brace] (bx |- w1.north) -- (bx |- o4.south);
+  \node[taperole] at ([xshift=3mm]$(bx |- i11.north)!0.5!(bx |- ik4.south)$)
     {read-only\\$T_1,\ldots,T_k$};
-  \node[checked, right=22mm of w2, text width=29mm] (write)
+  \node[taperole] at ([xshift=3mm]$(bx |- w1.north)!0.5!(bx |- o4.south)$)
     {writable\\$T_{k+1},T_{k+2}$};
-  \draw[->, machine, line width=.8pt] (i14.east) -| (control.south east);
-  \draw[->, machine, line width=.8pt] (ik4.east) -| (control.south east);
-  \draw[->, machine, line width=.8pt] (control.south west) |- (w4.east);
-  \draw[->, machine, line width=.8pt] (control.south west) |- (o4.east);
-  \draw[callout] (read) -- (i24.east);
-  \draw[callout] (write) -- (w4.east);
-  \node[lblsm, below=3mm of o1.south west, anchor=west]
+
+  \node[lblsm, below=6mm of o1.south west, anchor=north west]
     {amber cell $=$ symbol scanned now \qquad triangle $=$ head position};
 \end{tikzpicture}

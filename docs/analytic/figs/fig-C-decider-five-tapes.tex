@@ -1,23 +1,30 @@
-\begin{tikzpicture}
-  \node[ctrl, minimum width=25mm, minimum height=31mm] (D) {$D$\\[-1pt]\scriptsize five-input decider};
-  \foreach \yy/\lab/\a/\b/\c in {16/$n$/1/0/1,8/$x$/0/1/{\sqcup},0/$y$/1/1/0,-8/$a$/0/0/1,-16/$b$/1/0/{\sqcup}} {
+\begin{tikzpicture}[cell/.append style={minimum height=5.6mm}]
+  \node[ctrl, minimum width=25mm, minimum height=41mm] (D) {$D$\\[-1pt]\scriptsize five-input decider};
+  \foreach \i/\yy/\lab/\a/\b/\c in {1/18/$n$/1/0/1, 2/9/$x$/0/1/{\sqcup},
+      3/0/$y$/1/1/0, 4/-9/$a$/0/0/1, 5/-18/$b$/1/0/{\sqcup}} {
     \begin{scope}[start chain=going right,node distance=0pt]
-      \node[tapelbl,on chain] (l\yy) at ([xshift=-65mm,yshift=\yy mm]D.center) {\lab};
-      \node[cell head,on chain] (h\yy) {$\a$};
+      \node[tapelbl,on chain] (l\i) at ([xshift=-65mm,yshift=\yy mm]D.center) {\lab};
+      \node[cell head,on chain] (h\i) {$\a$};
       \node[cell,on chain] {$\b$};
       \node[cell,on chain] {$\c$};
-      \node[cell blank,on chain] {$\sqcup$};
+      \node[cell blank,on chain] (t\i) {$\sqcup$};
     \end{scope}
-    \node[head,below=1mm of h\yy] {};
-    \draw[->,machine,line width=.7pt] ([xshift=1mm]h\yy.east) -- (D.west|-h\yy.east);
+  }
+  % heads and feed arrows are drawn after every tape, so no cell can cover them
+  \foreach \i in {1,...,5} {
+    \node[head,below=0.5mm of h\i,minimum height=2mm] {};
+    \draw[->,machine,line width=.7pt,shorten >=1pt]
+      ([xshift=2mm]t\i.east) -- (D.west|-t\i.east);
   }
   \begin{scope}[start chain=going right,node distance=0pt]
-    \node[tapelbl,on chain] (ol) at ([xshift=22mm]D.east) {output};
+    \node[tapelbl,on chain] (ol) at ([xshift=24mm]D.east) {output};
     \node[cell head,on chain] (o1) {1};
-    \node[cell blank,on chain] {$\sqcup$};
-    \node[cell blank,on chain] {$\sqcup$};
+    \node[cell blank,on chain] (o2) {$\sqcup$};
+    \node[cell blank,on chain] (o3) {$\sqcup$};
   \end{scope}
   \node[head,below=1mm of o1] {};
-  \draw[->,machine,line width=.8pt] (D.east)--(ol.west);
-  \node[checked, below=7mm of D, xshift=41mm] {halts with exactly one bit};
+  \draw[->,machine,line width=.8pt,shorten >=2pt] (D.east)--(ol.west);
+  \node[checked, anchor=north, align=center] (chk)
+    at ([yshift=-12mm]$(o1.south)!0.5!(o3.south)$) {halts with\\exactly one bit};
+  \draw[callout] (chk.north) -- ([yshift=-1mm]o2.south);
 \end{tikzpicture}

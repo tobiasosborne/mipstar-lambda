@@ -11,10 +11,11 @@
   \foreach \a/\b in {y0/y1,y1/y2,y2/ydots,ydots/ytm,ytm/witness}
     \draw[->, machine, line width=.8pt] (\a) -- (\b);
 
+  % second timeline left-aligned with the first
+  \node[config, below=21mm of y0.south west, anchor=north west] (n0) {$t=0$};
   \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries,
-        below=18mm of y0.south, anchor=west] (nolabel)
+        above=2mm of n0.north west, anchor=south west] (nolabel)
     {IF \(M(x)\) NEVER HALTS};
-  \node[config, below=3mm of nolabel] (n0) {$t=0$};
   \node[config, right=of n0] (n1) {$t=1$};
   \node[config, right=of n1] (n2) {$t=2$};
   \node[lbl, right=of n2] (ndots) {$\cdots$};
@@ -23,7 +24,9 @@
   \node[lbl, right=of ntp, text=machine] (more) {$\cdots$};
   \foreach \a/\b in {n0/n1,n1/n2,n2/ndots,ndots/nt,nt/ntp,ntp/more}
     \draw[->, machine, line width=.8pt] (\a) -- (\b);
-  \draw[->, machine, line width=.8pt, opacity=.55] (more) -- ++(17mm,0);
+  \draw[->, machine, line width=.8pt, opacity=.5] (more) -- ++(9mm,0);
+  \draw[->, machine, line width=.8pt, opacity=.22]
+    ([xshift=11mm]more.east) -- ++(9mm,0);
   \node[bad, rounded corners=2pt, below=5mm of ntp, text width=32mm,
         align=center, inner sep=4pt, font=\scriptsize\sffamily] (return)
     {the search has no negative return};

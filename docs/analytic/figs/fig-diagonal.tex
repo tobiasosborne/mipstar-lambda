@@ -18,9 +18,10 @@
     $H(d,e_1)$ \& $H(d,e_2)$ \&
     |[fill=focuslt,draw=focus,line width=1pt]| $H(d,d)$ \\
   };
-  \draw[brace] ([yshift=4mm]halt-2-2.north west) --
-    ([yshift=4mm]halt-4-4.north east)
-    node[midway, above=4mm, lbl, text=focus] {self-input diagonal};
+  % a brace between two cells on different rows would be drawn as a diagonal
+  % rule straight through the table text; the amber cells already show it.
+  \node[lbl, text=focus, anchor=south] at ([yshift=3mm]halt-1-3.north)
+    {self-input diagonal};
 
   \node[checked, right=16mm of halt-4-4, text width=31mm] (flip)
     {$D(z)$ asks $H(z,z)$\\[2pt]

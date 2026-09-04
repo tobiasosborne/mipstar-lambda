@@ -14,10 +14,10 @@
   \draw[xform] (tau) -- (clause);
   \node[lblsm, above=2mm of idx] {$O(\log F+\log\sigma)$ bits};
   \node[lblsm, text=check, above=2mm of tau] {finite truth table};
-  \node[panel, below=9mm of $(decode.south)!0.5!(tau.south)$,
-    minimum width=9.2cm, minimum height=1.05cm] (bound)
-    {$|C_{t,n,F,Q,\sigma,x,y}|,\ \Time(C)=\poly(\log n,\log F,Q,\sigma)$};
-  \draw[quote] (idx.south) to[bend right=18] node[below,lblsm,text=desc]
-    {random access, never materialize $F\times W$} (bound.west);
-  \draw[quote] (bound.east) to[bend right=18] (clause.south);
+  % the whole index-to-clause map IS the circuit: brace, not a flow arrow
+  \draw[brace] ([yshift=-1.5mm]clause.south east) -- ([yshift=-1.5mm]idx.south west);
+  \node[panel, align=center, minimum width=10.4cm,
+    below=7.5mm of $(decode.south)!0.5!(tau.south)$] (bound)
+    {$|C_{t,n,F,Q,\sigma,x,y}|,\ \Time(C)=\poly(\log n,\log F,Q,\sigma)$\\[0.8mm]
+     \textcolor{desc}{\scriptsize\sffamily random access: the $F\times W$ tableau is never materialized}};
 \end{tikzpicture}

@@ -1,5 +1,5 @@
 \begin{tikzpicture}[node distance=5mm and 4mm]
-  \matrix (R) [matrix of nodes, column sep=2mm, row sep=12mm,
+  \matrix (R) [matrix of nodes, column sep=6mm, row sep=15mm,
     nodes={stage,minimum width=2.25cm,minimum height=1.35cm}] {
     |[checked]| {\shortstack{\textbf{TB0}\\polynomial IR}} &
     |[checked]| {\shortstack{\textbf{TB0.5}\\midpoint DP}} &
@@ -13,7 +13,7 @@
     |[draw=none,fill=none]| {} \\
   };
   \foreach \a/\b in {1/2,2/3,3/4,4/5}{\draw[xform] (R-1-\a) -- (R-1-\b);}
-  \draw[xform] (R-1-5) -- ++(5mm,0) |- (R-2-4.east);
+  \draw[xform] (R-1-5.east) -- ++(6mm,0) |- (R-2-4.east);
   \foreach \a/\b in {4/3,3/2,2/1}{\draw[xform] (R-2-\a) -- (R-2-\b);}
   \node[tag check,below=2mm of R-1-1] {C3,C8 TESTED};
   \node[tag check,below=2mm of R-1-2] {C6,N1 PROVED};

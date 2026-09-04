@@ -8,6 +8,8 @@
   \draw[beta] (p01)--node[xformlbl] {$\Phi$}(p12);
   \draw[beta] (p12)--node[xformlbl] {$\Phi$}(p23);
   \draw[beta] (p23)--node[xformlbl] {$\mathsf{fst}$}(two);
-  \node[lbl,below=5mm of p12] {the right register counts; the left trails by one};
   \draw[brace] ([yshift=-2mm]p00.south west) -- ([yshift=-2mm]p23.south east);
+  \node[lbl,anchor=north]
+    at ($(p00.south west)!0.5!(p23.south east) + (0,-5mm)$)
+    {the right register counts; the left trails by one};
 \end{tikzpicture}

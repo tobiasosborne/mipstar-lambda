@@ -1,9 +1,9 @@
 \begin{tikzpicture}[node distance=4mm and 5mm]
   \node[checked,minimum width=3.4cm] (local) {local CL laws\\concatenate / sum / product};
   \node[checked,right=of local,minimum width=3.4cm] (typed) {finite typed shapes\\sampler / guarded decider};
-  \node[citedbox,right=8mm of typed,minimum width=5.7cm] (global)
-    {$\Introspect(\mathcal Q),\ \mathsf{PCPCompose}(\mathcal Q),\
-      \mathcal Q\times\mathcal Q\subseteq\mathcal Q$};
+  \node[citedbox,right=20mm of typed,minimum width=4.9cm] (global)
+    {$\Introspect(\mathcal Q),\ \mathsf{PCPCompose}(\mathcal Q),$\\
+      $\mathcal Q\times\mathcal Q\ \subseteq\ \mathcal Q$};
   \draw[xform,check] (local) -- (typed);
   \draw[xform,dashed,cited] (typed) -- node[above,lblsm,text=cited] {not implied} (global);
   \node[tag check,below=2mm of $(local.south)!0.5!(typed.south)$] {CONSTRUCTED / CHECKED};

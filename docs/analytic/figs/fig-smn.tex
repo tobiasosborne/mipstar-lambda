@@ -11,7 +11,9 @@
   \draw[xform] (program) -- (smn);
   \draw[xform] (lits) -- (smn);
 
-  \node[descbox, right=10mm of smn, minimum width=45mm, minimum height=31mm] (wrapper) {};
+  % 50mm: the 42mm literal strip inset by 4mm must not spill over the panel
+  \node[descbox, right=10mm of smn, minimum width=50mm, minimum height=31mm] (wrapper) {};
+  \draw[xform] (smn) -- (wrapper.west);
   \node[bytes, anchor=north west, minimum width=42mm]
     at ([xshift=4mm,yshift=-5mm]wrapper.north west) (literal)
     {\(e\mid z_1\mid\cdots\mid z_r\)};

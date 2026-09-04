@@ -13,11 +13,11 @@
   \node[checked,below=7mm of psi,minimum width=5.1cm] (middle)
     {executed middle\\Tseitin $\to$ polynomials $\to$ CL maps};
   \draw[xform,check] (psi) -- (middle);
-  \node[citedbox,below left=8mm and -4mm of middle,minimum width=4.0cm] (ldt)
+  \node[citedbox,below left=8mm and 1mm of middle,minimum width=4.0cm] (ldt)
     {low-degree-test\\soundness};
   \node[citedbox,below=8mm of middle,minimum width=4.0cm] (rigid)
     {rigidity and\\oracularization};
-  \node[citedbox,below right=8mm and -4mm of middle,minimum width=4.0cm] (gap)
+  \node[citedbox,below right=8mm and 1mm of middle,minimum width=4.0cm] (gap)
     {gap-preserving\\compression};
   \draw[xform,dashed,cited] (middle) -- (ldt);
   \draw[xform,dashed,cited] (middle) -- (rigid);

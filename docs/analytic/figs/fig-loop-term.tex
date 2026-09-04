@@ -4,28 +4,32 @@
   \node[redex, below=5mm of lam] (iff) {$\mathsf{If}$};
   \draw[tedge] (fix)--(lam); \draw[tedge] (lam)--(iff);
 
-  \node[tnode, below left=8mm and 20mm of iff] (halt) {$\mathsf{halt}$};
-  \node[tnode, below=8mm of iff] (out) {$\mathsf{out}$};
-  \node[tnode, below right=8mm and 20mm of iff] (self) {$\mathsf{self}$};
-  \draw[tedge] (iff)--node[above left,lblsm] {test} (halt);
-  \draw[tedge] (iff)--node[right,lblsm] {then} (out);
-  \draw[tedge] (iff)--node[above right,lblsm] {else} (self);
+  % the three If branches share one baseline and are symmetric about If
+  \node[tnode] (halt) at ([xshift=-26mm,yshift=-16mm]iff.center) {$\mathsf{halt}$};
+  \node[tnode] (out)  at ([yshift=-16mm]iff.center) {$\mathsf{out}$};
+  \node[tnode] (self) at ([xshift=26mm,yshift=-16mm]iff.center) {$\mathsf{self}$};
+  \draw[tedge] (iff)--(halt); \draw[tedge] (iff)--(out); \draw[tedge] (iff)--(self);
+  \node[lblsm, anchor=south east] at ([xshift=-1mm,yshift=0.5mm]$(iff.center)!0.5!(halt.center)$)
+    {test};
+  \node[lblsm, anchor=west] at ([xshift=1.5mm]$(iff.south)!0.5!(out.north)$) {then};
+  \node[lblsm, anchor=south west] at ([xshift=1mm,yshift=0.5mm]$(iff.center)!0.5!(self.center)$)
+    {else};
   \node[tleaf, below=4mm of halt] (hc) {$C$}; \draw[tedge] (halt)--(hc);
   \node[tleaf, below=4mm of out] (oc) {$C$}; \draw[tedge] (out)--(oc);
 
   \node[tnode, below=4mm of self] (move) {$\mathsf{move}$};
-  \node[tleaf, below left=5mm and 9mm of move] (mc) {$C$};
-  \node[redex, below right=5mm and 9mm of move] (delta) {$\mathsf{TMDelta}$};
-  \node[tleaf, below left=4mm and 6mm of delta] (m) {$m$};
-  \node[tnode, below right=4mm and 6mm of delta] (view) {$\mathsf{view}$};
+  \node[tleaf] (mc)    at ([xshift=-15mm,yshift=-16mm]move.center) {$C$};
+  \node[redex] (delta) at ([xshift=15mm,yshift=-16mm]move.center) {$\mathsf{TMDelta}$};
+  \node[tleaf] (m)     at ([xshift=-13mm,yshift=-15mm]delta.center) {$m$};
+  \node[tnode] (view)  at ([xshift=13mm,yshift=-15mm]delta.center) {$\mathsf{view}$};
   \node[tleaf, below=4mm of view] (vc) {$C$};
   \draw[tedge] (self)--(move);
   \draw[tedge] (move)--(mc); \draw[tedge] (move)--(delta);
   \draw[tedge] (delta)--(m); \draw[tedge] (delta)--(view); \draw[tedge] (view)--(vc);
 
-  \node[checked, right=5mm of delta, text width=31mm]
+  \node[checked, right=10mm of delta, text width=31mm] (chg)
     {$\kappa_{\mathsf{TMDelta}}\le 8(|m|+k+2)$};
-  \draw[callout] ([xshift=1mm]delta.east)--++(8mm,0);
+  \draw[callout] (delta.east)--(chg.west);
   \node[lbl, text=term, above=3mm of fix]
     {$\mathsf{loop}_m=\operatorname{Fix}(\lambda C.\,\cdots)$};
 \end{tikzpicture}

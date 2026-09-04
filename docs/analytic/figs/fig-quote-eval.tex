@@ -10,12 +10,15 @@
   \draw[xform] (decode)--(c0);
   \draw[beta] (c0)--(c1); \draw[beta] (c1)--(cc); \draw[beta] (cc)--(R);
   \node[tnode, below=18mm of bytes] (term) {$t$};
-  \node[closure, right=53mm of term, minimum width=27mm] (d0) {$C_0(t,u;f)$};
+  % the direct run is aligned column-by-column with the quoted run above it
+  \node[closure, anchor=center, minimum width=27mm] (d0)
+    at (c0.center|-term.center) {$C_0(t,u;f)$};
   \node[closure, right=7mm of d0] (d1) {$C_1$};
   \node[closure, right=7mm of d1] (dc) {$\cdots$};
   \node[checked, right=7mm of dc] (dR) {$R$};
   \draw[beta] (term)--node[above,lblsm] {direct Apply} (d0);
   \draw[beta] (d0)--(d1); \draw[beta] (d1)--(dc); \draw[beta] (dc)--(dR);
-  \draw[callout,dashed] (c0)--node[right,lblsm] {identical state} (d0);
+  \draw[callout,dashed] (c0)--(d0);
+  \node[lblsm, anchor=east] at ([xshift=-2mm]$(c0.south)!0.5!(d0.north)$) {identical state};
   \draw[callout,dashed] (c1)--(d1); \draw[callout,dashed] (R)--(dR);
 \end{tikzpicture}

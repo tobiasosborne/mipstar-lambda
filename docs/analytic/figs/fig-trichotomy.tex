@@ -2,16 +2,22 @@
   \node[closure, minimum width=32mm] (run) {$\operatorname{run}(t;f)$};
   \node[fuel, below=5mm of run] (steps) {at most (f) microsteps};
   \draw[beta] (run)--(steps);
-  \node[checked, below left=12mm and 7mm of steps, minimum width=38mm] (val)
-    {$\mathsf{Value}(v)$};
-  \node[draw=term,fill=termlt,rounded corners=2pt,inner sep=5pt,
-    below=12mm of steps, minimum width=38mm] (oof) {$\mathsf{OutOfFuel}$};
-  \node[bad,fill=white,rounded corners=2pt,inner sep=5pt,
-    below right=12mm and 7mm of steps, minimum width=38mm] (err)
+  \node[checked, anchor=north, minimum width=38mm] (val)
+    at ([xshift=-48mm,yshift=-12mm]steps.south) {$\mathsf{Value}(v)$};
+  \node[draw=term,fill=termlt,rounded corners=2pt,inner sep=5pt,anchor=north,
+    minimum width=38mm] (oof) at ([yshift=-12mm]steps.south) {$\mathsf{OutOfFuel}$};
+  \node[bad,fill=white,rounded corners=2pt,inner sep=5pt,anchor=north,
+    minimum width=38mm] (err) at ([xshift=48mm,yshift=-12mm]steps.south)
     {$\mathsf{TypeError}$};
-  \draw[beta] (steps)--node[above left,lblsm] {value returned} (val);
-  \draw[beta] (steps)--node[right,lblsm] {next charge unpaid} (oof);
-  \draw[->,bad,line width=.9pt] (steps)--node[above right,lblsm,text=bad]
-    {unique failed check} (err);
+  \draw[beta] (steps.south)--(val.north);
+  \draw[beta] (steps.south)--(oof.north);
+  \draw[->,bad,line width=.9pt] (steps.south)--(err.north);
+  % each branch label sits clear of every arrow and of the other two labels
+  \node[lblsm, anchor=south east] at ([xshift=-1mm,yshift=1mm]$(steps.south)!0.65!(val.north)$)
+    {value returned};
+  \node[lblsm, anchor=west] at ([xshift=2mm]$(steps.south)!0.75!(oof.north)$)
+    {next charge unpaid};
+  \node[lblsm, text=bad, anchor=south west]
+    at ([xshift=1mm,yshift=1mm]$(steps.south)!0.65!(err.north)$) {unique failed check};
   \node[lblsm, below=3mm of oof] {disjoint final tags; no host exception};
 \end{tikzpicture}

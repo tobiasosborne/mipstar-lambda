@@ -1,11 +1,17 @@
 \begin{tikzpicture}[node distance=5mm]
-  \node[citedbox,minimum width=3.4cm] (intro) {$\Introspect$\\cited theorem};
-  \node[citedbox,right=of intro,minimum width=3.4cm] (ar) {$\AnswerReduce$\\checked parts / cited soundness};
-  \node[citedbox,right=of ar,minimum width=3.4cm] (repeat) {$\Repeat$\\cited theorem};
-  \node[citedbox,right=of repeat,minimum width=3.4cm] (comp) {$\Compress$\\absent implementation};
+  \node[citedbox,minimum width=3.4cm,minimum height=1.25cm] (intro)
+    {$\Introspect$\\cited theorem};
+  \node[citedbox,right=of intro,minimum width=3.4cm,minimum height=1.25cm] (ar)
+    {$\AnswerReduce$\\checked parts /\\cited soundness};
+  \node[citedbox,right=of ar,minimum width=3.4cm,minimum height=1.25cm] (repeat)
+    {$\Repeat$\\cited theorem};
+  \node[citedbox,right=of repeat,minimum width=3.4cm,minimum height=1.25cm] (comp)
+    {$\Compress$\\absent implementation};
   \draw[xform,dashed,cited] (intro) -- (ar);
   \draw[xform,dashed,cited] (ar) -- (repeat);
   \draw[xform,dashed,cited] (repeat) -- (comp);
-  \node[descbox,fill=focuslt,draw=focus,below=6mm of $(ar.south)!0.5!(repeat.south)$]
-    {$D_{M,L}=\operatorname{YCode}(\Psi_{M,L})$ supplies self-reference, not the cited soundness leaves};
+  \node[descbox,fill=focuslt,draw=focus,
+    below=7mm of $(ar.south)!0.5!(repeat.south)$]
+    {$D_{M,L}=\operatorname{YCode}(\Psi_{M,L})$\\
+     supplies self-reference, not the cited soundness leaves};
 \end{tikzpicture}

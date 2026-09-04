@@ -7,8 +7,10 @@
     |[descbox]| $(u_4)_{i_4}^{o_4}$ &
     |[descbox]| $(u_5)_{i_5}^{o_5}$ \\
   };
-  \node[checked,below=6mm of B,minimum width=9.2cm] (clause)
+  \node[checked,below=7mm of B,minimum width=11.3cm] (clause)
     {one five-literal clause: exactly one addressed bit from each block};
-  \foreach \i in {1,...,5}{\draw[xform] (B-1-\i.south) -- (clause.north);}
-  \node[tag focus,right=3mm of clause] {NO SHARED READ};
+  % one vertical arrow per block: no shared entry point, no crossings
+  \foreach \i in {1,...,5}{%
+    \draw[xform] (B-1-\i.south) -- (B-1-\i.south |- clause.north);}
+  \node[tag check,right=3mm of clause] {NO SHARED READ};
 \end{tikzpicture}

@@ -1,22 +1,29 @@
 \begin{tikzpicture}
-  \node[closure, minimum width=111mm, minimum height=31mm] (ambient) {};
+  \node[closure, minimum width=111mm, minimum height=37mm] (ambient) {};
   \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]ambient.north west)
     {AMBIENT RUN: budget $f$};
-  \node[draw=term,fill=white,rounded corners=2pt,minimum width=82mm,minimum height=18mm,
-    below=7mm of ambient.north] (inner) {};
-  \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]inner.north west)
+  \node[draw=term,fill=white,rounded corners=2pt,minimum width=98mm,minimum height=16mm,
+    below=8.5mm of ambient.north] (inner) {};
+  \node[panel title, text=term] at ([xshift=2mm,yshift=-1.5mm]inner.north west)
     {EVAL DELIMITER: requested budget $F$};
-  \matrix (ticks) [matrix of nodes, nodes={fuel,minimum width=13mm},
-    column sep=4mm] at (inner.center) {
+  \matrix (ticks) [matrix of nodes, nodes={fuel,minimum width=16mm}, column sep=3mm,
+    anchor=south] at ([yshift=1.5mm]inner.south) {
     \node (i0) {$F$}; & \node (i1) {$F-1$}; & \node (i2) {$F-2$}; &
     \node (id) {$\cdots$}; & \node (ik) {$F-k$}; \\
   };
   \foreach \a/\b in {i0/i1,i1/i2,i2/id,id/ik} {\draw[beta] (\a)--(\b);}
-  \matrix (outerticks) [matrix of nodes, nodes={lblsm,text=term},column sep=10mm,
-    below=3mm of ambient] {
-    $f-2$ & $f-3$ & $f-4$ & $\cdots$ & $f-2-k$ \\
+  % the ambient ledger runs inside the ambient panel, one column per microstep
+  \matrix (oticks) [matrix of nodes, nodes={fuel,minimum width=16mm}, column sep=3mm,
+    anchor=north] at ([yshift=-4mm]inner.south) {
+    \node (o0) {$f-2$}; & \node (o1) {$f-3$}; & \node (o2) {$f-4$}; &
+    \node (od) {$\cdots$}; & \node (ok) {$f-2-k$}; \\
   };
+  \foreach \a/\b in {o0/o1,o1/o2,o2/od,od/ok} {\draw[beta] (\a)--(\b);}
+  \foreach \i/\o in {i0/o0,i1/o1,i2/o2,id/od,ik/ok}
+    {\draw[cited, dotted, line width=0.6pt] (\i.south|-inner.south) -- (\o.north);}
   \node[tag focus, above=2mm of ambient] {INSTALL $+$ REMOVE COST TWO};
-  \draw[brace] ([xshift=3mm]ambient.south west)--([xshift=-3mm]ambient.south east)
-    node[midway,below=4mm,lbl] {each inner microstep decrements both counters};
+  \draw[brace] ([xshift=3mm,yshift=-1.5mm]ambient.south west)
+            -- ([xshift=-3mm,yshift=-1.5mm]ambient.south east);
+  \node[lbl, anchor=north] at ([yshift=-5.5mm]ambient.south)
+    {each inner microstep decrements both counters};
 \end{tikzpicture}

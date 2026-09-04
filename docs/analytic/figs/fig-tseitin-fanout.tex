@@ -1,35 +1,44 @@
 \begin{tikzpicture}[node distance=6mm and 9mm]
-  \node[panel, minimum width=7.15cm, minimum height=4.6cm] (left) {};
-  \node[panel title] at ([xshift=3mm,yshift=-3mm]left.north west)
-    {literal formula tree: as we read the gadget};
-  \node[state, fill=desclt, draw=desc] at ([xshift=-2.35cm,yshift=4mm]left.center) (w) {$w_i$};
-  \node[descbox, minimum width=9mm, right=10mm of w] (g1) {$g_1$};
-  \node[descbox, minimum width=9mm, above=3mm of g1] (g2) {$g_2$};
-  \node[descbox, minimum width=9mm, below=3mm of g1] (gf) {$g_f$};
-  \draw[->,machine,line width=0.8pt] (w) -- (g1);
+  % ================= left: the literal-occurrence reading
+  \node[state, fill=desclt, draw=desc] (w) {$w_i$};
+  \node[descbox, minimum width=9mm, right=12mm of w] (g1) {$g_1$};
+  \node[descbox, minimum width=9mm, above=3.5mm of g1] (g2) {$g_2$};
+  \node[lblsm, text=desc, inner sep=1pt, below=0.8mm of g1] (dots) {$\vdots$};
+  \node[descbox, minimum width=9mm, below=0.8mm of dots] (gf) {$g_f$};
   \draw[->,machine,line width=0.8pt] (w) -- (g2);
+  \draw[->,machine,line width=0.8pt] (w) -- (g1);
   \draw[->,machine,line width=0.8pt] (w) -- (gf);
-  \node[lblsm, below=8mm of w, text=focus, align=center]
-    {$w_i$ appears twice in its own equivalence\\and twice per downstream use};
-  \node[checked, below=5mm of g1, minimum width=2.25cm] (occ)
-    {$\operatorname{occ}(w_i)=2+2f$};
-
-  \node[panel, right=6mm of left, minimum width=7.15cm, minimum height=4.6cm] (right) {};
-  \node[panel title] at ([xshift=3mm,yshift=-3mm]right.north west)
-    {bounded fan-out repair};
-  \node[state, fill=desclt, draw=desc] at ([xshift=-2.3cm,yshift=4mm]right.center) (wr) {$w_i$};
+  \coordinate (lmid) at ($(w.center)!0.5!(g1.center)$);
+  \node[checked, minimum width=3.4cm, anchor=north] (occ)
+    at ([yshift=-6mm]lmid |- gf.south) {$\operatorname{occ}(w_i)=2+2f$};
+  \node[lblsm, below=1.4mm of occ, align=center] (occn)
+    {twice in its own equivalence,\\twice per downstream use};
+  \node[panel title, anchor=south west, inner sep=0pt] (lt)
+    at ([yshift=4mm]w.west |- g2.north) {literal formula tree: as we read the gadget};
+  \begin{scope}[on background layer]
+    \node[panel, inner sep=4mm, fit=(lt)(w)(g2)(gf)(occ)(occn)] (left) {};
+  \end{scope}
+  % ================= right: the bounded fan-out repair
+  \node[state, fill=desclt, draw=desc] (wr) at ([xshift=13mm]left.east |- w) {$w_i$};
   \node[descbox, right=7mm of wr] (cp) {copy gates\\fan-out $\leq2$};
   \node[stage, right=7mm of cp] (uses) {$g_1,g_2,\ldots$};
   \draw[->,machine,line width=0.8pt] (wr) -- (cp);
   \draw[->,machine,line width=0.8pt] (cp) -- (uses);
-  \node[checked, below=7mm of cp, minimum width=4.0cm] (repair)
-    {$\delta_F\leq7,\qquad d\geq8$};
-  \node[lblsm, text=check, below=1mm of repair] {soundness term $(\delta_F+5d)m'/q$};
-
-  \node[citedbox, below=7mm of $(left.south)!0.5!(right.south)$,
-    minimum width=7.1cm] (paper) {source proposition: individual degree $\leq2$};
-  \node[checked, left=6mm of paper, minimum width=3.3cm] (measured)
-    {computed fixture\\degree can be $4$};
-  \node[tag cited, right=4mm of paper] {CITED};
+  \node[checked, minimum width=4.2cm, anchor=north] (repair)
+    at ([yshift=-8mm]cp.south) {$\delta_F\leq7,\qquad d\geq8$};
+  \node[lblsm, text=check, below=1.4mm of repair] (rn)
+    {soundness term $(\delta_F+5d)m'/q$};
+  \node[panel title, anchor=south west, inner sep=0pt] (rt)
+    at ([yshift=4mm]wr.west |- g2.north) {bounded fan-out repair};
+  \begin{scope}[on background layer]
+    \node[panel, inner sep=4mm, fit=(rt)(wr)(uses)(repair)(rn)] (right) {};
+  \end{scope}
+  % ================= the two accounts, kept apart
+  \node[checked, minimum width=3.6cm, anchor=north]
+    at ([yshift=-7mm]left.south) (measured) {computed fixture\\degree can be $4$};
+  \node[citedbox, minimum width=6.2cm, anchor=north]
+    at ([yshift=-7mm]right.south) (paper) {source proposition: individual degree $\leq2$};
+  \node[lblsm] at ($(measured.east)!0.5!(paper.west)$) {compare};
   \node[tag check, left=3mm of measured] {TESTED};
+  \node[tag cited, right=3mm of paper] {CITED};
 \end{tikzpicture}

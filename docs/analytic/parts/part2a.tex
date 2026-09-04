@@ -1,4 +1,3 @@
-the second.
 
 \clearpage
 \setlength{\parskip}{0.55em}
@@ -222,6 +221,15 @@ The following list is the bookkeeping that a homoiconic description language
 must discharge.  Calling the syntax ``lambda calculus'' removes none of these
 obligations.
 
+Figure~\ref{fig:source-obligations} collects the source-level actions that the
+description language must support and cost.
+\begin{figure}[t]
+\centering
+\input{figs/fig-source-obligations.tex}
+\caption{Every green branch starts from the actual bytes of \(\overline V\): scan, universal invocation, hardwiring, Cook--Levin compilation, and the self-description fed to \(\Compress\).  The bridge is intensional only if all five source operations remain finite and resource-accounted.}
+\label{fig:source-obligations}
+\end{figure}
+
 \begin{enumerate}
 \item \textbf{Simulation and timeouts.}  Every high-level instruction which
 calls \(S\), \(D\), or a generated verifier uses a universal machine, with the
@@ -272,14 +280,6 @@ description language which meets precisely these obligations.  The point is
 not Church--Turing equivalence; the point is a costed equivalence between
 finite, inspectable descriptions.
 
-Figure~\ref{fig:source-obligations} collects the source-level actions that the
-description language must support and cost.
-\begin{figure}[t]
-\centering
-\input{figs/fig-source-obligations.tex}
-\caption{Every green branch starts from the actual bytes of \(\overline V\): scan, universal invocation, hardwiring, Cook--Levin compilation, and the self-description fed to \(\Compress\).  The bridge is intensional only if all five source operations remain finite and resource-accounted.}
-\label{fig:source-obligations}
-\end{figure}
 
 \section{A lambda calculus with resources}
 \label{sec:resource-lambda}

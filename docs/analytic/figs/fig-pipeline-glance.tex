@@ -30,19 +30,23 @@
   \draw[cited, dashed, ->] (ci) -- (intro);
   \draw[cited, dashed, ->] (ca) -- (ans);
   \draw[cited, dashed, ->] (cr) -- (rep);
-  \node[tag check, anchor=west] at ([yshift=-4mm]v0.south west)
-    {EXECUTED ON FINITE DESCRIPTIONS};
+  % two lines, kept left of the dashed cited-guarantee arrow that rises into
+  % Introspect (one line would be pierced by it).
+  \node[tag check, anchor=north west, align=left] at ([yshift=-2.5mm]v0.south west)
+    {EXECUTED ON\\FINITE DESCRIPTIONS};
   \node[tag cited, anchor=west] at ([yshift=-4mm]ci.south west)
     {CITED ANALYTIC GUARANTEES};
 
-  \node[stage, below=19mm of ca, minimum width=29mm] (halt)
+  % centre the lower loop under the horizontal midpoint of the top row
+  \coordinate (topmid) at ($(v0.west)!0.5!(v3.east)$);
+  \node[descbox, minimum width=20mm] (self)
+    at ([yshift=-25mm]ca.south -| topmid) {$\langle d\rangle$\\\scriptsize self code};
+  \node[stage, left=21mm of self, minimum width=29mm] (halt)
     {Halting verifier\\$V^{\mathrm h}=(S_L,d)$};
-  \node[descbox, right=10mm of halt, minimum width=20mm] (self)
-    {$\langle d\rangle$\\\scriptsize self code};
-  \node[checked, right=10mm of self, minimum width=31mm] (compress)
+  \node[checked, right=21mm of self, minimum width=31mm] (compress)
     {$\Compress(\langle S_L,d\rangle,\lambda)$};
-  \draw[xform] (halt) -- node[xformlbl] {exposes} (self);
-  \draw[xform] (self) -- node[xformlbl] {in verifier} (compress);
+  \draw[xform] (halt) -- node[xformlbl, yshift=1pt] {exposes} (self);
+  \draw[xform] (self) -- node[xformlbl, yshift=1pt] {fed to} (compress);
   \draw[->, focus, line width=1.2pt, rounded corners=4pt]
     (compress.south) -- ++(0,-7mm) -| node[lblsm, below, pos=.25, text=focus]
     {returned decider is run} (halt.south);

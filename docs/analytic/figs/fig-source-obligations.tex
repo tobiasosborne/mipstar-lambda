@@ -1,7 +1,7 @@
 \begin{tikzpicture}
   \node[descbox, minimum width=30mm, minimum height=18mm] (V)
     {$\overline V$\\[-1pt]\scriptsize inspectable bytes};
-  \matrix (m) [matrix of nodes, right=17mm of V, row sep=3mm,
+  \matrix (m) [matrix of nodes, right=13mm of V, row sep=3mm,
     nodes={checked, minimum width=73mm, anchor=west}] {
     \node (scan) {$\textsf{scan }|V|\quad\longrightarrow\quad\textsf{validate / reject}$}; \\
     \node (invoke) {$\textsf{invoke }S,D\quad\longrightarrow\quad U_k+\textsf{timeout}$}; \\
@@ -11,6 +11,7 @@
   };
   \foreach \n in {scan,invoke,wire,cl,self} {\draw[xform] (V.east) -- (\n.west);}
   \node[tag check, below=3mm of m] {ALL FIVE ARE SOURCE OPERATIONS};
-  \draw[brace] ([xshift=2mm]m.north east) -- ([xshift=2mm]m.south east)
-    node[midway,right=4mm,note] {Cost the scan, universal simulation, timeout counter, and bytes printed.};
+  \draw[brace] ([xshift=2mm]m.north east) -- ([xshift=2mm]m.south east);
+  \node[note, text width=34mm, anchor=west] at ([xshift=6mm]m.east)
+    {Cost the scan, universal simulation, timeout counter, and bytes printed.};
 \end{tikzpicture}

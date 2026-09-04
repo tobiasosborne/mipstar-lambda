@@ -1,21 +1,28 @@
 \begin{tikzpicture}
-  \node[tnode] (a1) {$@$};
-  \node[tnode, below left=7mm and 13mm of a1] (p1) {$p$};
-  \node[tnode,fill=focuslt,draw=focus,densely dashed,
-    below right=7mm and 13mm of a1] (h1) {$\circ\ h{:}A$};
+  % ---- the partial term, with its one amber hole
+  \node[tnode] (a1) at (0mm,0mm) {$@$};
+  \node[tnode] (p1) at (-12mm,-11mm) {$p$};
+  \node[tnode, fill=focuslt, draw=focus, densely dashed, inner sep=2pt] (h1)
+    at (12mm,-11mm) {$h{:}A$};
   \draw[tedge] (a1)--(p1); \draw[tedge] (a1)--(h1);
-  \node[lbl,text=term,above=2mm of a1] {partial (P)};
-  \node[descbox, right=20mm of h1] (rho) {$\rho(h)=\sigma(h)$\\[-1pt]\scriptsize closed, sort (A)};
-  \draw[quote] (h1)--node[above,lblsm,text=desc] {prefix visit} (rho);
-  \node[tnode, right=25mm of a1] (a2) {$@$};
-  \node[tnode, below left=7mm and 13mm of a2] (p2) {$p$};
-  \node[tnode,fill=focuslt,draw=focus,below right=7mm and 13mm of a2] (l2) {$\lambda$};
-  \node[tleaf, below=5mm of l2] (v2) {$t$};
-  \draw[tedge] (a2)--(p2); \draw[tedge] (a2)--(l2); \draw[tedge] (l2)--(v2);
-  \node[lbl,text=term,above=2mm of a2] {$\operatorname{Specialize}(P,\rho)$};
-  \draw[beta] ([xshift=3mm]rho.east) to[bend right=18] ([xshift=-3mm]l2.west);
-  \node[checked, below=12mm of rho, minimum width=104mm]
-    {$|P|-|\operatorname{Hole}(h,A)|+|\sigma(h)|\quad\le\quad|P|+|\sigma(h)|$};
+  \node[lbl, text=term, above=2mm of a1] {partial $P$};
   \node[lblsm, below=2mm of p1] {unchanged subtree};
+  % ---- the closed replacement, read at the hole
+  \node[descbox, anchor=center] (rho) at (49mm,-11mm)
+    {$\rho(h)=\sigma(h)$\\[-1pt]\scriptsize closed, sort $A$};
+  \draw[quote] (h1.east)--(rho.west);
+  \node[lblsm, text=desc, anchor=south east] at ([xshift=-1mm,yshift=1.5mm]rho.west)
+    {prefix visit};
+  % ---- the specialized term: the hole is gone, everything else is copied
+  \node[tnode] (a2) at (86mm,0mm) {$@$};
+  \node[tnode] (p2) at (74mm,-11mm) {$p$};
+  \node[tnode, fill=focuslt, draw=focus] (l2) at (98mm,-11mm) {$\lambda$};
+  \node[tleaf] (v2) at (98mm,-20mm) {$t$};
+  \draw[tedge] (a2)--(p2); \draw[tedge] (a2)--(l2); \draw[tedge] (l2)--(v2);
+  \node[lbl, text=term, above=8mm of a2] {$\operatorname{Specialize}(P,\rho)$};
   \node[lblsm, below=2mm of p2] {copied verbatim};
+  % the splice arcs over the result root, crossing no node and no label
+  \draw[beta] (rho.north) to[out=55,in=90] (l2.north);
+  \node[checked, anchor=north, minimum width=104mm] at (43mm,-27mm)
+    {$|P|-|\operatorname{Hole}(h,A)|+|\sigma(h)|\quad\le\quad|P|+|\sigma(h)|$};
 \end{tikzpicture}

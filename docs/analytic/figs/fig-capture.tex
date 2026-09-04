@@ -1,17 +1,17 @@
 \begin{tikzpicture}[node distance=7mm and 12mm]
   \node[stage] (src) {$ (\lambda x.\lambda y.x)\;y $};
-  \node[lbl,left=2mm of src] {free argument};
+  \node[lbl,left=9mm of src] (arg) {free argument};
+  \draw[callout] (arg.east) -- (src.west);
 
-  \node[stage,bad,below left=12mm and 10mm of src] (wrong) {$\lambda y.y$};
-  \draw[->,bad,line width=.9pt] (src) -- node[lblsm,left,text=bad]
+  \node[stage,bad,below left=14mm and 12mm of src] (wrong) {$\lambda y.y$};
+  \draw[->,bad,line width=.9pt] (src) -- node[lblsm,left=3mm,text=bad]
     {naive substitution} (wrong);
   \node[tag focus,below=2mm of wrong,text=bad] {CAPTURED};
 
-  \node[stage,below right=10mm and 8mm of src] (alpha)
+  \node[stage,draw=focus,line width=1pt,below right=14mm and 10mm of src] (alpha)
     {$ (\lambda x.\lambda z.x)\;y $};
-  \node[stage,below=8mm of alpha] (good) {$\lambda z.y$};
-  \draw[beta] (src) -- node[lblsm,right] {$=_\alpha$} (alpha);
-  \draw[beta] (alpha) -- node[lblsm,right] {$\beta$} (good);
+  \node[stage,below=9mm of alpha] (good) {$\lambda z.y$};
+  \draw[beta] (src) -- node[lblsm,right=3mm] {$=_\alpha$} (alpha);
+  \draw[beta] (alpha) -- node[lblsm,right=2mm] {$\beta$} (good);
   \node[tag check,below=2mm of good] {FREE $y$ SURVIVES};
-  \node[draw=focus,rounded corners=1pt,fit=(alpha),inner sep=1pt] {};
 \end{tikzpicture}

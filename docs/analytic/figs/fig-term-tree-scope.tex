@@ -1,21 +1,21 @@
 \begin{tikzpicture}[level distance=12mm,
   level 1/.style={sibling distance=30mm},
-  level 2/.style={sibling distance=20mm}]
+  level 2/.style={sibling distance=34mm}]
   \node[tnode] (lam) {$\lambda x$}
     child[tedge] {node[tnode] (app) {$@$}
       child[tedge] {node[tleaf] (boundx) {$x$}}
       child[tedge] {node[tleaf,draw=focus,line width=1pt] (freey) {$y$}}
     };
-  \draw[bind] (lam.south west) to[bend right=38]
-    node[lblsm,left=1pt] {binds} (boundx.west);
+  \draw[bind] (lam) to[bend right=55]
+    node[lblsm,left=1pt] {binds} (boundx);
   \node[stage,draw=term,left=24mm of lam] (surface) {$\lambda x.(x\;y)$};
   \draw[xform] (surface.east) -- node[lblsm,above] {parse} (lam.west);
-  \node[closure,right=24mm of app,yshift=5mm] (bound)
+  \node[closure,align=center,minimum height=10mm,below=10mm of boundx] (bound)
     {bound $x$\\[-1pt]\scriptsize reaches $\lambda x$};
-  \node[stage,draw=focus,fill=focuslt,right=24mm of app,yshift=-10mm] (free)
+  \node[stage,draw=focus,fill=focuslt,below=10mm of freey] (free)
     {free $y$\\[-1pt]\scriptsize no $\lambda y$ above};
-  \draw[callout] (bound.west) -- (boundx.east);
-  \draw[callout] (free.west) -- (freey.east);
+  \draw[callout] (bound.north) -- (boundx.south);
+  \draw[callout] (free.north) -- (freey.south);
   \begin{scope}[on background layer]
     \node[panel,fit=(surface)(lam)(boundx)(freey)(bound)(free),inner sep=5mm] {};
   \end{scope}

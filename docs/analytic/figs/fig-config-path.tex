@@ -1,34 +1,41 @@
 \begin{tikzpicture}[node distance=5mm and 7mm]
-  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries] (haltlabel)
-    {A HALTING RUN};
-  \node[config, below=3mm of haltlabel] (h0) {$C_0$};
+  \node[config] (h0) {$C_0$};
+  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries,
+        above=2mm of h0.north west, anchor=south west] {A HALTING RUN};
   \node[config, right=of h0] (h1) {$C_1$};
   \node[config, right=of h1] (h2) {$C_2$};
   \node[lbl, right=of h2] (hdots) {$\cdots$};
   \node[config, right=of hdots] (htm) {$C_{T-1}$};
-  \node[state halt, right=of htm, fill=focuslt, draw=focus] (ht) {$q_{\mathrm h}$};
+  \node[state halt, right=of htm, fill=focuslt, draw=focus,
+        minimum size=9.5mm] (ht) {$q_{\mathrm h}$};
   \foreach \a/\b in {h0/h1,h1/h2,h2/hdots,hdots/htm,htm/ht}
     \draw[->, machine, line width=.8pt] (\a) -- (\b);
-  \node[checked, below=4mm of ht, minimum width=30mm] (time)
+  \node[checked, below=5mm of ht, minimum width=30mm] (time)
     {$\Time_{M,x}=T$};
   \draw[callout] (time) -- (ht);
 
+  % second row, left-aligned with the first
+  \node[config, below=20mm of h0.south west, anchor=north west] (o0) {$C_0$};
   \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries,
-        below=16mm of h0.south, anchor=west] (openlabel)
-    {AN OBSERVED PREFIX};
-  \node[config, below=3mm of openlabel] (o0) {$C_0$};
+        above=2mm of o0.north west, anchor=south west] {AN OBSERVED PREFIX};
   \node[config, right=of o0] (o1) {$C_1$};
   \node[config, right=of o1] (o2) {$C_2$};
   \node[lbl, right=of o2] (odots) {$\cdots$};
   \node[config, right=of odots, fill=focuslt, draw=focus] (ot) {$C_t$};
   \node[config, right=of ot] (otp) {$C_{t+1}$};
-  \node[lbl, right=of otp, text=machine] (horizon) {$\cdots\ \longrightarrow$};
+  \node[lbl, right=of otp, text=machine] (horizon) {$\cdots$};
   \foreach \a/\b in {o0/o1,o1/o2,o2/odots,odots/ot,ot/otp,otp/horizon}
     \draw[->, machine, line width=.8pt] (\a) -- (\b);
-  \draw[machine, line width=.7pt, opacity=.55] (horizon.east) -- ++(12mm,0);
-  \draw[brace] ([yshift=-4mm]o0.south west) -- ([yshift=-4mm]ot.south east)
+  % the run fades into the horizon rather than stopping at a hard edge
+  \draw[->, machine, line width=.7pt, opacity=.5]
+    (horizon.east) -- ++(9mm,0);
+  \draw[->, machine, line width=.7pt, opacity=.22]
+    ([xshift=11mm]horizon.east) -- ++(9mm,0);
+  % mirror: the tip of the brace must point at its label, not at the run
+  \draw[brace, decoration={brace, amplitude=3pt, mirror}]
+    ([yshift=-4mm]o0.south west) -- ([yshift=-4mm]ot.south east)
     node[midway, below=4mm, lblsm] {checked through stage $t$};
-  \node[bad, rounded corners=2pt, right=9mm of ot, yshift=-13mm, inner sep=4pt,
+  \node[bad, rounded corners=2pt, right=12mm of ot, yshift=-14mm, inner sep=4pt,
         font=\scriptsize\sffamily] (never) {not a proof of \emph{never halts}};
-  \draw[callout] (never.north) -- (ot.south);
+  \draw[callout] (never.north west) -- (ot.south east);
 \end{tikzpicture}

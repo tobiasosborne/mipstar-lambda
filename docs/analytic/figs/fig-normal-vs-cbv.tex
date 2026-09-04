@@ -1,23 +1,24 @@
 \begin{tikzpicture}[node distance=7mm and 10mm]
   \node[stage,draw=term] (nstart) {$K\;I\;\Omega$};
-  \node[stage,draw=term,below=9mm of nstart] (id) {$I$};
-  \draw[beta] (nstart) -- node[lblsm,right] {leftmost outermost} (id);
-  \node[tag check,below=2mm of id] {NORMAL FORM};
-  \begin{scope}[on background layer]
-    \node[panel,fit=(nstart)(id),inner sep=5mm] (npanel) {};
-  \end{scope}
-  \node[panel title] at ([xshift=2mm,yshift=-2mm]npanel.north west)
-    {NORMAL ORDER};
+  \node[stage,draw=term,below=11mm of nstart] (id) {$I$};
+  \draw[beta] (nstart) -- node[lblsm,right=2mm] (nlbl) {leftmost outermost} (id);
+  \node[tag check,below=2mm of id] (nftag) {NORMAL FORM};
+  \node[panel title,anchor=south west] (ntitle)
+    at ([yshift=2.5mm]nstart.north west) {NORMAL ORDER};
 
-  \node[stage,draw=term,right=25mm of nstart] (vstart) {$K\;I\;\Omega$};
-  \node[redex,below=9mm of vstart,minimum width=28mm,rounded corners=2pt]
+  \node[stage,draw=term,right=62mm of nstart] (vstart) {$K\;I\;\Omega$};
+  \node[stage,draw=focus,fill=focuslt,line width=1pt,below=11mm of vstart]
     (omega) {$\Omega=(\lambda x.xx)(\lambda x.xx)$};
-  \draw[beta] (vstart) -- node[lblsm,right] {evaluate argument} (omega);
-  \draw[->,bad,line width=.9pt] (omega.east) to[out=15,in=-15,looseness=4]
-    node[lblsm,right,text=bad] {$\Omega\to\Omega$} (omega.east);
+  \draw[beta] (vstart) -- node[lblsm,right=2mm] (vlbl) {evaluate argument} (omega);
+  \draw[->,bad,line width=.9pt] ([yshift=2.5mm]omega.east)
+    to[out=0,in=0,looseness=3.5]
+    node[lblsm,right=1mm,text=bad] (looplbl) {$\Omega\to\Omega$}
+    ([yshift=-2.5mm]omega.east);
+  \node[panel title,anchor=south west] (vtitle)
+    at ([yshift=2.5mm]vstart.north west) {CALL BY VALUE};
+
   \begin{scope}[on background layer]
-    \node[panel,fit=(vstart)(omega),inner sep=5mm] (vpanel) {};
+    \node[panel,fit=(ntitle)(nstart)(nlbl)(id)(nftag),inner sep=3mm] {};
+    \node[panel,fit=(vtitle)(vstart)(vlbl)(omega)(looplbl),inner sep=3mm] {};
   \end{scope}
-  \node[panel title] at ([xshift=2mm,yshift=-2mm]vpanel.north west)
-    {CALL BY VALUE};
 \end{tikzpicture}

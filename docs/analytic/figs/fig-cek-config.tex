@@ -1,6 +1,5 @@
 \begin{tikzpicture}
-  \node[lbl, text=term] (beforelbl) {BEFORE: Apply contraction};
-  \matrix (c) [matrix of nodes, below=2mm of beforelbl, column sep=0pt,
+  \matrix (c) [matrix of nodes, column sep=0pt,
     nodes={draw=term, minimum height=12mm, anchor=center, align=center}] {
     \node[fill=termlt, minimum width=45mm] (q) {\scriptsize $q=\operatorname{Apply}([\lambda r.t,\eta],\vec v)$}; &
     \node[fill=white, minimum width=25mm] (eta) {$\eta$}; &
@@ -8,16 +7,7 @@
     \node[fill=white, minimum width=22mm] (H) {$H$}; &
     \node[fill=focuslt,draw=focus,minimum width=18mm] (f) {$f$}; \\
   };
-  \node[lblsm, below=1mm of q] {control};
-  \node[lblsm, below=1mm of eta] {environment};
-  \node[lblsm, below=1mm of K] {continuation};
-  \node[lblsm, below=1mm of H] {heap};
-  \node[lblsm, below=1mm of f] {fuel};
-  \node[redex, below=10mm of c] (charge) {$1$};
-  \node[lblsm, left=2mm of charge] {charge};
-  \draw[beta] (c.south) -- (charge.north);
-  \draw[beta] (charge.south) -- ++(0,-8mm);
-  \matrix (d) [matrix of nodes, below=20mm of charge, column sep=0pt,
+  \matrix (d) [matrix of nodes, below=38mm of c, column sep=0pt,
     nodes={draw=term, minimum height=12mm, anchor=center, align=center}] {
     \node[fill=termlt, minimum width=45mm] (q2) {$q'=t$}; &
     \node[fill=focuslt,draw=focus,minimum width=25mm] (eta2) {$\vec v::\eta$}; &
@@ -25,7 +15,21 @@
     \node[fill=white, minimum width=22mm] (H2) {$H$}; &
     \node[fill=focuslt,draw=focus,minimum width=18mm] (f2) {$f-1$}; \\
   };
-  \node[lbl, text=term, above=1mm of d] {AFTER: enter the body in one new frame};
-  \draw[callout] (eta.south) to[bend right=16] (eta2.north);
-  \draw[callout] (f.south) to[bend left=16] (f2.north);
+  % register names sit ABOVE the top row, so the band between the rows is free
+  \foreach \n/\txt in {q/control, eta/environment, K/continuation, H/heap, f/fuel}
+    {\node[lblsm, above=1.5mm of \n] {\txt};}
+  \node[lbl, text=term, above=6.5mm of c] {BEFORE: Apply contraction};
+  \node[lbl, text=term, below=2mm of d] {AFTER: enter the body in one new frame};
+  % one straight before-to-after arrow per register: nothing crosses anything
+  \node[redex] (charge) at ($(q.south)!0.5!(q2.north)$) {$1$};
+  \draw[term, line width=1pt, shorten <=2pt, shorten >=2pt] (q.south) -- (charge.north);
+  \draw[beta] (charge.south) -- (q2.north);
+  \node[lblsm, left=2mm of charge] {charge};
+  \draw[beta] (eta.south) -- (eta2.north);
+  \draw[beta] (f.south) -- (f2.north);
+  \foreach \a/\b in {K/K2, H/H2} {
+    \draw[->, cited, dotted, line width=0.7pt, shorten <=2pt, shorten >=2pt]
+      (\a.south) -- (\b.north);
+    \node[lblsm, text=cited, anchor=west] at ([xshift=1.5mm]$(\a.south)!0.5!(\b.north)$)
+      {unchanged};}
 \end{tikzpicture}

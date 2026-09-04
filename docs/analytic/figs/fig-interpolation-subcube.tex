@@ -1,30 +1,33 @@
 \begin{tikzpicture}[node distance=9mm and 7mm]
-  \node[panel, minimum width=4.8cm, minimum height=5.0cm] (cube) {};
+  \node[panel, minimum width=4.0cm, minimum height=5.0cm] (cube) {};
   \node[panel title] at ([xshift=3mm,yshift=-3mm]cube.north west)
-    {Boolean subcube inside $\mathbb F_q^2$};
-  \draw[->,inkmute] ([xshift=-1.7cm,yshift=-1.55cm]cube.center) -- ++(3.5,0)
-    node[right,lblsm] {$x_1$};
-  \draw[->,inkmute] ([xshift=-1.7cm,yshift=-1.55cm]cube.center) -- ++(0,3.25)
-    node[above,lblsm] {$x_2$};
-  \foreach \x/\y/\v in {0/0/a_{00},1/0/a_{10},0/1/a_{01},1/1/a_{11}}{
-    \node[tnode, fill=focuslt, draw=focus] at ([xshift={1.75cm*\x-1.7cm},yshift={1.55cm*\y-1.55cm}]cube.center) {$\v$};
-  }
-  \node[lblsm, text=focus] at ([xshift=8mm,yshift=1.32cm]cube.center) {$\{0,1\}^2$};
-  \node[descbox, right=of cube, minimum width=5.0cm] (interp)
-    {$g_a(x)=\displaystyle\sum_{y\in\{0,1\}^m}
-       a_y\!\prod_{j:y_j=1}\!x_j
-       \prod_{j:y_j=0}\!(1-x_j)$\\[2mm]
+    {Boolean subcube in $\mathbb F_q^2$};
+  \coordinate (org) at ([xshift=-1.45cm,yshift=-1.55cm]cube.center);
+  \draw[->,inkmute] (org) -- ++(3.0,0) node[right,lblsm] {$x_1$};
+  \draw[->,inkmute] (org) -- ++(0,2.45) node[above,lblsm] {$x_2$};
+  \node[tnode, fill=focuslt, draw=focus] (v00) at (org) {$a_{00}$};
+  \node[tnode, fill=focuslt, draw=focus] (v10) at ([xshift=1.55cm]org) {$a_{10}$};
+  \node[tnode, fill=focuslt, draw=focus] (v01) at ([yshift=1.55cm]org) {$a_{01}$};
+  \node[tnode, fill=focuslt, draw=focus] (v11) at ([xshift=1.55cm,yshift=1.55cm]org) {$a_{11}$};
+  \draw[focus, dash pattern=on 1pt off 1.4pt] (v00) -- (v10) -- (v11) -- (v01) -- (v00);
+  \node[lblsm, text=focus, anchor=west] at ([xshift=2.5mm]v11.east) {$\{0,1\}^2$};
+  \node[descbox, right=17mm of cube, minimum width=4.6cm] (interp)
+    {$g_a(x)=\displaystyle\sum_{y\in\{0,1\}^m}a_y\,\mathrm{ind}_{m,y}(x)$\\[1mm]
+     $\mathrm{ind}_{m,y}(x)=\prod_{j:y_j=1}x_j\prod_{j:y_j=0}(1-x_j)$\\[2mm]
      \scriptsize unique multilinear extension};
-  \draw[quote] (cube) -- node[above,lblsm,text=desc] {interpolate} (interp);
-  \node[panel, right=of interp, minimum width=3.0cm, minimum height=5.0cm] (zero) {};
-  \node[panel title] at ([xshift=3mm,yshift=-3mm]zero.north west) {vanishing axis factor};
-  \draw[->,inkmute] ([xshift=-1.15cm,yshift=-1.05cm]zero.center) -- ++(2.45,0) node[right,lblsm] {$z$};
-  \draw[->,inkmute] ([xshift=-1.15cm,yshift=-1.05cm]zero.center) -- ++(0,2.35) node[above,lblsm] {$\operatorname{zero}(z)$};
-  \draw[term, line width=1pt] ([xshift=-1.15cm,yshift=-1.05cm]zero.center)
-    .. controls +(7mm,17mm) and +(-7mm,17mm) .. ([xshift=1.1cm,yshift=-1.05cm]zero.center);
-  \node[tnode,minimum size=4mm,fill=focuslt,draw=focus] at ([xshift=-1.15cm,yshift=-1.05cm]zero.center) {};
-  \node[tnode,minimum size=4mm,fill=focuslt,draw=focus] at ([xshift=1.1cm,yshift=-1.05cm]zero.center) {};
-  \node[lblsm] at ([xshift=-1.15cm,yshift=-1.4cm]zero.center) {$0$};
-  \node[lblsm] at ([xshift=1.1cm,yshift=-1.4cm]zero.center) {$1$};
-  \node[lblsm,text=term] at ([yshift=1.45cm]zero.center) {$z(1-z)$};
+  \draw[quote] (cube) --
+    node[above=0.5mm,lblsm,text=desc,inner sep=0.5pt] {interpolate} (interp);
+  \node[panel, right=5mm of interp, minimum width=3.2cm, minimum height=5.0cm] (zero) {};
+  \node[panel title] at ([xshift=3mm,yshift=-3mm]zero.north west) {vanishing factor};
+  \coordinate (zorg) at ([xshift=-1.15cm,yshift=-1.75cm]zero.center);
+  \draw[->,inkmute] (zorg) -- ++(2.3,0) node[right,lblsm] {$z$};
+  \draw[->,inkmute] (zorg) -- ++(0,2.6)
+    node[anchor=south west,lblsm,inner sep=1pt] {$\operatorname{zero}(z)$};
+  \draw[term, line width=1pt] (zorg)
+    .. controls +(7mm,24mm) and +(-7mm,24mm) .. ([xshift=1.9cm]zorg);
+  \node[tnode,minimum size=4mm,fill=focuslt,draw=focus] at (zorg) {};
+  \node[tnode,minimum size=4mm,fill=focuslt,draw=focus] at ([xshift=1.9cm]zorg) {};
+  \node[lblsm] at ([yshift=-3.6mm]zorg) {$0$};
+  \node[lblsm] at ([xshift=1.9cm,yshift=-3.6mm]zorg) {$1$};
+  \node[lblsm,text=term,anchor=west] at ([xshift=1.0cm,yshift=1.4cm]zorg) {$z(1-z)$};
 \end{tikzpicture}

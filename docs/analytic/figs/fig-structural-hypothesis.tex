@@ -11,14 +11,14 @@
   \draw[xform,check] (base) -- (push);
   \node[tag check, above=2mm of base] {DERIVED LOCALLY};
 
-  \node[citedbox, below=13mm of sum, minimum width=13.9cm, minimum height=2.0cm] (global)
+  \node[citedbox, below=13mm of sum, minimum width=13.2cm, minimum height=2.0cm] (global)
     {$\Introspect(\mathcal Q)\subseteq\mathcal Q$\qquad
      $\mathsf{PCPCompose}(\mathcal Q)\subseteq\mathcal Q$\qquad
      $\mathcal Q\times\mathcal Q\subseteq\mathcal Q$\\[1.5mm]
      \scriptsize one useful algebra must survive the complete compilers};
-  \draw[xform,dashed,cited] (concat.south) -- (global.north west);
+  \draw[xform,dashed,cited] (concat.south) -- ($(global.north west)!0.18!(global.north east)$);
   \draw[xform,dashed,cited] (sum.south) -- (global.north);
-  \draw[xform,dashed,cited] (push.south) -- (global.north east);
+  \draw[xform,dashed,cited] (push.south) -- ($(global.north west)!0.82!(global.north east)$);
   \node[tag cited, left=4mm of global] {C7 CONJECTURE};
   \node[lblsm,text=cited,below=2mm of global]
     {local closure laws do not imply global closure under introspection, PCPP composition, and repetition};

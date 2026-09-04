@@ -1,38 +1,48 @@
-\begin{tikzpicture}[node distance=2mm and 4mm]
-  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries] (beforetitle) {BEFORE};
-  \node[state, fill=focuslt, draw=focus, below=3mm of beforetitle] (q) {$q$};
-  \node[cell blank, below left=10mm and 20mm of q] (b0) {$\sqcup$};
+\begin{tikzpicture}[node distance=3mm and 5mm]
+  % ---- BEFORE: the state sits beside its own tape, on one baseline, so that
+  % nothing has to be pointed at across the picture.
+  \node[state initial] (q) {$q$};
+  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries,
+        above=2mm of q.north west, anchor=south west] {BEFORE};
+  \node[cell blank, right=4mm of q] (b0) {$\sqcup$};
   \node[cell head, right=0pt of b0] (b1) {$0$};
   \node[cell, right=0pt of b1] (b2) {$1$};
   \node[cell blank, right=0pt of b2] (b3) {$\sqcup$};
   \node[cell blank, right=0pt of b3] (b4) {$\sqcup$};
   \node[head, below=.8mm of b1] (hb) {};
-  \node[lblsm, below=4mm of hb] {$h$};
+  \node[lblsm, right=0.5mm of hb] {$h$};
 
-  \node[redex, right=31mm of q, minimum size=13mm] (delta) {$\delta$};
-  \node[lbl, above=2mm of delta] {$\delta(q,0)=(q',1,R)$};
-  \draw[xform] (q) -- (delta);
+  % ---- the rule that is applied once
+  \node[redex, right=9mm of b4, minimum size=13mm] (delta) {$\delta$};
+  \node[lbl, above=3mm of delta] {$\delta(q,0)=(q',1,R)$};
+  \draw[xform] (b4.east) -- (delta.west);
 
+  % ---- AFTER
+  \node[state, fill=focuslt, draw=focus, right=9mm of delta] (qp) {$q'$};
   \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries,
-        right=31mm of delta] (aftertitle) {AFTER};
-  \node[state, fill=focuslt, draw=focus, below=3mm of aftertitle] (qp) {$q'$};
-  \node[cell blank, below left=10mm and 20mm of qp] (a0) {$\sqcup$};
+        above=2mm of qp.north west, anchor=south west] {AFTER};
+  \draw[xform] (delta.east) -- (qp.west);
+  \node[cell blank, right=4mm of qp] (a0) {$\sqcup$};
   \node[cell, fill=focuslt, draw=focus, line width=.9pt, right=0pt of a0] (a1) {$1$};
   \node[cell head, right=0pt of a1] (a2) {$1$};
   \node[cell blank, right=0pt of a2] (a3) {$\sqcup$};
   \node[cell blank, right=0pt of a3] (a4) {$\sqcup$};
   \node[head, below=.8mm of a2] (ha) {};
-  \node[lblsm, below=4mm of ha] {$h+1$};
-  \draw[xform] (delta) -- (qp);
+  % beside, not below, the head marker: below it the write callout would
+  % have to be crossed.
+  \node[lblsm, right=0.5mm of ha] (hpl) {$h+1$};
 
-  \node[checked, below=14mm of a2.south, xshift=-36mm, minimum width=25mm] (statechange)
+  % ---- the three local changes, listed in the same left-to-right order as
+  % their targets so that no two callouts cross.
+  \node[checked, below=13mm of qp.south, minimum width=22mm] (statechange)
     {state: $q\mapsto q'$};
-  \node[checked, left=5mm of statechange, minimum width=25mm] (writechange)
+  \node[checked, right=3mm of statechange, minimum width=22mm] (writechange)
     {write: $0\mapsto1$};
-  \node[checked, right=5mm of statechange, minimum width=27mm] (headchange)
+  \node[checked, right=3mm of writechange, minimum width=26mm] (headchange)
     {head: $h\mapsto h+1$};
+  \draw[callout] (statechange.north) -- (qp.south);
   \draw[callout] (writechange.north) -- (a1.south);
-  \draw[callout] (statechange.north) to[bend left=18] (qp.south);
   \draw[callout] (headchange.north) -- (ha.south);
-  \node[lblsm, below=3mm of statechange] {every other tape cell is unchanged};
+  \node[lblsm, below=2mm of writechange]
+    {every other tape cell is unchanged};
 \end{tikzpicture}

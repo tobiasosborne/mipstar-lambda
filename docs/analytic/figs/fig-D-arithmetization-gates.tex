@@ -12,6 +12,10 @@
     |[lbl,text=check]| agrees on $\{0,1\}^2$ \\
   };
   \foreach \r in {1,2,3}{\draw[xform] (G-\r-1) -- (G-\r-2);}
-  \node[descbox,right=8mm of G-2-3,minimum width=3.7cm]
-    {$F=\bigwedge_i z_i$\\$\longmapsto F_{\rm arith}$};
+  % the three local rewrites, applied recursively, arithmetize the whole formula
+  \node[descbox,minimum width=5.8cm,below=9mm of G-3-2] (arith)
+    {$F=\bigwedge_i z_i\ \longmapsto\ F_{\rm arith}$};
+  \draw[xform] (G-3-2.south) -- (arith.north)
+    node[midway,right=1.4mm,lbl,text=ink,font=\footnotesize\sffamily\bfseries]
+    {applied recursively to the gate DAG};
 \end{tikzpicture}

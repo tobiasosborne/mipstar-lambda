@@ -1,37 +1,42 @@
 \begin{tikzpicture}[node distance=8mm and 17mm]
   \node[ctrl, minimum width=23mm] (sampler) {sampler $S$};
-  \node[stage, above right=7mm and 28mm of sampler, minimum width=22mm] (pa)
-    {prover A};
-  \node[stage, below right=7mm and 28mm of sampler, minimum width=22mm] (pb)
-    {prover B};
-  \node[ctrl, right=76mm of sampler, minimum width=35mm, minimum height=18mm] (decider)
-    {decider $D$\\[-1pt]$D(n,x,y,a,b)\in\{0,1\}$};
+  \node[ctrl, right=55mm of sampler, minimum width=35mm, minimum height=18mm]
+    (decider) {decider $D$\\[-1pt]$D(n,x,y,a,b)\in\{0,1\}$};
+  % the two questions are copied to the decider inside the verifier
+  \draw[->, machine, line width=.8pt] ([yshift=2.5mm]sampler.east) --
+    node[lblsm, above] {$x$} ([yshift=2.5mm]decider.west);
+  \draw[->, machine, line width=.8pt] ([yshift=-2.5mm]sampler.east) --
+    node[lblsm, below] {$y$} ([yshift=-2.5mm]decider.west);
 
-  \coordinate (xfork) at ($(sampler.east)!0.30!(pa.west)$);
-  \coordinate (yfork) at ($(sampler.east)!0.30!(pb.west)$);
-  \draw[->, machine, line width=.8pt] (sampler.east) |- node[lblsm, above, pos=.70] {$x$} (pa.west);
-  \draw[->, machine, line width=.8pt] (sampler.east) |- node[lblsm, below, pos=.70] {$y$} (pb.west);
-  \draw[->, machine, line width=.8pt] (pa.east) -| node[lblsm, above, pos=.25] {$a$}
-    ([yshift=4mm]decider.west);
-  \draw[->, machine, line width=.8pt] (pb.east) -| node[lblsm, below, pos=.25] {$b$}
-    ([yshift=-4mm]decider.west);
-  \draw[machine, line width=.7pt] (xfork) |- ([yshift=7mm]decider.west)
-    node[lblsm, above, pos=.82] {$x$};
-  \draw[machine, line width=.7pt] (yfork) |- ([yshift=-7mm]decider.west)
-    node[lblsm, below, pos=.82] {$y$};
-  \fill[machine] (xfork) circle (1.2pt);
-  \fill[machine] (yfork) circle (1.2pt);
-  \draw[->, machine, line width=.8pt] ([yshift=15mm]decider.north) --
-    node[lblsm, right] {$n$ in binary} (decider.north);
+  % the provers are outside the verifier: questions up and down, answers back
+  \coordinate (mid) at ($(sampler)!0.5!(decider)$);
+  \node[stage, above=18mm of mid, minimum width=22mm] (pa) {prover A};
+  \node[stage, below=18mm of mid, minimum width=22mm] (pb) {prover B};
+  % leave the sampler off-centre so the V=(S,D) panel label is not pierced
+  \draw[->, machine, line width=.8pt] ([xshift=6mm]sampler.north) |-
+    node[lblsm, above, pos=.78] {$x$} (pa.west);
+  \draw[->, machine, line width=.8pt] ([xshift=6mm]sampler.south) |-
+    node[lblsm, below, pos=.78] {$y$} (pb.west);
+  \draw[->, machine, line width=.8pt] (pa.east) -|
+    node[lblsm, above, pos=.28] {$a$} ([xshift=-8mm]decider.north);
+  \draw[->, machine, line width=.8pt] (pb.east) -|
+    node[lblsm, below, pos=.28] {$b$} ([xshift=-8mm]decider.south);
 
-  \node[cell head, right=11mm of decider] (bit) {$0/1$};
-  \draw[->, machine, line width=.8pt] (decider) -- node[lblsm, above] {accept bit} (bit);
-  \node[checked, below=9mm of decider, minimum width=36mm] (total)
+  % the index, and the accept bit leaving the verifier
+  \draw[->, machine, line width=.8pt] ([xshift=8mm,yshift=10mm]decider.north) --
+    node[lblsm, right, pos=.18] {$n$ in binary} ([xshift=8mm]decider.north);
+  \node[cell head, right=18mm of decider] (bit) {$0/1$};
+  \draw[->, machine, line width=.8pt] (decider.east) --
+    node[lblsm, above, pos=.62] {accept bit} (bit.west);
+
+  \node[checked, minimum width=36mm, anchor=north]
+    at ([xshift=12mm,yshift=-24mm]decider.south) (total)
     {halts on every five-tuple};
-  \draw[callout] (total) -- (decider);
+  \draw[callout] (total) -- ([xshift=8mm]decider.south);
+
   \begin{scope}[on background layer]
-    \node[panel, fit=(sampler)(pa)(pb)(decider)(total), inner sep=6mm] (verifier) {};
+    \node[panel, fit=(sampler)(decider), inner sep=5mm] (verifier) {};
   \end{scope}
-  \node[lbl, text=machine, anchor=south west] at ([xshift=2mm,yshift=1mm]verifier.north west)
-    {$V=(S,D)$};
+  \node[lbl, text=machine, anchor=south west]
+    at ([xshift=2mm,yshift=1mm]verifier.north west) {$V=(S,D)$};
 \end{tikzpicture}

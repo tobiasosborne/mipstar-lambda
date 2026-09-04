@@ -1,16 +1,19 @@
 \begin{tikzpicture}[node distance=24mm]
-  \node[stage,inner sep=4pt] (v0) {$\langle V\rangle$};
-  \node[stage,inner sep=4pt,right=of v0] (v1) {$\langle V^{(1)}\rangle$};
-  \node[stage,inner sep=4pt,right=of v1] (v2) {$\langle V^{(2)}\rangle$};
-  \node[stage,inner sep=4pt,right=of v2] (v3) {$\langle V^{(3)}\rangle$};
+  \node[stage,inner sep=4pt,minimum width=17mm] (v0) {$\langle V\rangle$};
+  \node[stage,inner sep=4pt,minimum width=17mm,right=of v0] (v1) {$\langle V^{(1)}\rangle$};
+  \node[stage,inner sep=4pt,minimum width=17mm,right=of v1] (v2) {$\langle V^{(2)}\rangle$};
+  \node[stage,inner sep=4pt,minimum width=17mm,right=of v2] (v3) {$\langle V^{(3)}\rangle$};
   \draw[xform] (v0)--node[xformlbl] {$\Introspect$}(v1);
   \draw[xform] (v1)--node[xformlbl] {$\AnswerReduce$}(v2);
   \draw[xform] (v2)--node[xformlbl] {$\Repeat$}(v3);
-  \node[lblsm,below=4mm of v1,text width=25mm,align=center] {embed a finite description};
-  \node[lblsm,below=4mm of v2,text width=29mm,align=center] {bounded trace circuit $\to$ PCP verifier};
-  \node[lblsm,below=4mm of v3,text width=27mm,align=center] {coordinate several copies};
+  \node[lblsm,align=center,anchor=north]
+    at ($(v0)!0.5!(v1)+(0,-9mm)$) {embed a finite\\description};
+  \node[lblsm,align=center,anchor=north]
+    at ($(v1)!0.5!(v2)+(0,-9mm)$) {bounded trace circuit\\$\to$ PCP verifier};
+  \node[lblsm,align=center,anchor=north]
+    at ($(v2)!0.5!(v3)+(0,-9mm)$) {coordinate several copies};
   \begin{scope}[on background layer]
-    \node[checked,fit=(v0)(v1)(v2)(v3),inner xsep=5mm,inner ysep=12mm] (exec) {};
+    \node[checked,fit=(v0)(v1)(v2)(v3),inner xsep=5mm,inner ysep=14mm] (exec) {};
   \end{scope}
   \node[tag check,anchor=north west] at ([xshift=2mm,yshift=-2mm]exec.north west)
     {EXECUTED: TERMINATING MAPS ON STRINGS};

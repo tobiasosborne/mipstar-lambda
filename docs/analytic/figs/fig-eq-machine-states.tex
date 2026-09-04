@@ -1,32 +1,36 @@
-\begin{tikzpicture}[node distance=18mm and 38mm]
+% local: every edge label carries the page fill so that it interrupts, rather
+% than is crossed by, the edge it names.  The two long q0 -> qh edges are
+% routed orthogonally above and below the q0/q1 traffic instead of bowing
+% through the labels that sit there.
+\begin{tikzpicture}[node distance=18mm and 38mm,
+  elbl/.style={lblsm, fill=paper, inner sep=2pt, align=center},
+  rulenum/.style={text=focus, font=\scriptsize\sffamily\bfseries}]
   \node[state initial] (q0) {$q_0$};
-  \node[state, right=55mm of q0] (q1) {$q_1$};
-  \node[state halt, right=55mm of q1] (qh) {$q_{\mathrm h}$};
-  \draw[->, machine, line width=.8pt] ([xshift=-10mm]q0.west) -- (q0)
+  \node[state, right=56mm of q0] (q1) {$q_1$};
+  \node[state halt, right=52mm of q1, minimum size=9.5mm] (qh) {$q_{\mathrm h}$};
+  \draw[->, machine, line width=.8pt] ([xshift=-11mm]q0.west) -- (q0)
     node[lblsm, above, pos=.05] {start};
 
-  \draw[->, machine, line width=.8pt, bend left=28]
-    (q0) to node[lblsm, above=2mm, align=center, fill=paper, inner sep=2pt]
-    {\textcolor{focus}{\bfseries 1}\quad $(0,0,\sqcup,\sqcup)$ or $(1,1,\sqcup,\sqcup)$\\
-     $W\leftarrow1;\ (R,R,S,S)$} (q1);
-  \draw[->, machine, line width=.8pt, bend right=18]
-    (q0) to node[lblsm, below=2mm, align=center, fill=paper, inner sep=2pt]
-    {\textcolor{focus}{\bfseries 2}\quad $(0,1,\sqcup,\sqcup)$ or $(1,0,\sqcup,\sqcup)$\\
-     $W\leftarrow0;\ (R,R,S,S)$} (q1);
-  \draw[->, machine, line width=.8pt, bend left=48]
-    (q1) to node[lblsm, below=12mm, align=center, fill=paper, inner sep=2pt]
-    {\textcolor{focus}{\bfseries 3}\quad $(\sqcup,\sqcup,r,\sqcup)$\\
-     $O\leftarrow r;\ (S,S,S,S)$} (q0);
-  \draw[->, machine, line width=.8pt, bend left=42]
-    (q0) to node[lblsm, above=13mm, align=center, fill=paper, inner sep=2pt]
-    {\textcolor{focus}{\bfseries 4}\quad $(\sqcup,\sqcup,r,r)$\\
-     halt; $(S,S,S,S)$} (qh);
+  % 1, 2: the two legal first steps; 3: the copy step back to q0
+  \draw[->, machine, line width=.8pt]
+    (q0) to[bend left=32] node[elbl, pos=.5]
+    {\textcolor{focus}{\bfseries 1}\; equal inputs; $W\leftarrow1$; $RRSS$} (q1);
+  \draw[->, machine, line width=.8pt]
+    (q0) -- node[elbl, pos=.5, below=0pt]
+    {\textcolor{focus}{\bfseries 2}\; unequal inputs; $W\leftarrow0$; $RRSS$} (q1);
+  \draw[->, machine, line width=.8pt]
+    (q1) to[bend left=32] node[elbl, pos=.5]
+    {\textcolor{focus}{\bfseries 3}\; copy; $O\leftarrow r$; $SSSS$} (q0);
 
-  \node[config, below=29mm of q1, text width=32mm, align=center] (other)
-    {\textcolor{focus}{\bfseries 5}\quad every other tuple\\
-     $W,O\leftarrow0$};
-  \draw[machine, dashed] (q0) -- (other);
-  \draw[machine, dashed] (q1) -- (other);
-  \draw[->, machine, line width=.8pt] (other) -- node[lblsm, below, sloped]
-    {catch-all halt} (qh);
+  % 4: the halt row, routed over the q0/q1 traffic
+  \draw[->, machine, line width=.8pt, rounded corners=3pt]
+    (q0.north) -- ++(0,21mm) -| node[elbl, pos=.35]
+    {\textcolor{focus}{\bfseries 4}\; $W,O$ agree; halt; $SSSS$} (qh.north);
+  % 5: the catch-all row, which fires from either nonhalting state
+  \draw[->, machine, line width=.8pt, rounded corners=3pt]
+    (q0.south) -- ++(0,-21mm) -| node[elbl, pos=.35]
+    {\textcolor{focus}{\bfseries 5}\; any other tuple; $W,O\leftarrow0$; $SSSS$}
+    (qh.south);
+  \draw[->, machine, line width=.8pt]
+    (q1) -- node[elbl, pos=.5] {\textcolor{focus}{\bfseries 5}} (qh);
 \end{tikzpicture}

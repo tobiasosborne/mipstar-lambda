@@ -3,25 +3,24 @@
   \node[panel title] at ([xshift=2mm,yshift=-2mm]p.north west) {PREFIX-FREE INTEGER FIELD};
   \node[descbox, below=7mm of p.north, xshift=-43mm] (m) {$m=5$\\$m+1=(110)_2$};
   \begin{scope}[start chain=going right, node distance=0pt]
-    \node[bytes, on chain, fill=focuslt] (n1) at ([xshift=10mm,yshift=-11mm]p.north) {1};
-    \node[bytes, on chain, fill=focuslt] (n2) {1};
-    \node[bytes, on chain, fill=focuslt] (n3) {1};
-    \node[bytes, on chain] (n4) {0};
-    \node[bytes, on chain] (n5) {1};
-    \node[bytes, on chain] (n6) {1};
-    \node[bytes, on chain] (n7) {0};
+    \node[bytes, on chain, fill=focuslt, minimum width=6.5mm] (n1) at ([xshift=10mm,yshift=-11mm]p.north) {1};
+    \node[bytes, on chain, fill=focuslt, minimum width=6.5mm] (n2) {1};
+    \node[bytes, on chain, fill=focuslt, minimum width=6.5mm] (n3) {1};
+    \node[bytes, on chain, minimum width=6.5mm] (n4) {0};
+    \node[bytes, on chain, minimum width=6.5mm] (n5) {1};
+    \node[bytes, on chain, minimum width=6.5mm] (n6) {1};
+    \node[bytes, on chain, minimum width=6.5mm] (n7) {0};
   \end{scope}
-  \draw[brace] ([yshift=-1mm]n1.south west)--([yshift=-1mm]n3.south east)
-    node[midway,below=3mm,byteslbl] {$1^\ell$; $\ell=3$};
-  \node[byteslbl, below=2mm of n4] {stop};
-  \draw[brace] ([yshift=-1mm]n5.south west)--([yshift=-1mm]n7.south east)
-    node[midway,below=3mm,byteslbl] {$b=110$};
+  % one label row under the strip, each centred on the span it names
+  \foreach \a/\b/\txt in {n1/n3/{$1^\ell$, $\ell=3$}, n4/n4/stop, n5/n7/{$b=110$}}
+   {\draw[brace] ([yshift=-1mm]\a.south west)--([yshift=-1mm]\b.south east);
+    \node[byteslbl] at ([yshift=-5mm]$(\a.south west)!0.5!(\b.south east)$) {\txt};}
   \draw[quote] (m.east) -- node[above,lblsm,text=desc] {$\nu(5)$} ([xshift=-4mm]n1.west);
 
   \node[tnode, below=13mm of m] (termnode) {$t$};
   \node[lblsm, text=term, below=1mm of termnode] {one syntax node};
   \begin{scope}[start chain=going right, node distance=0pt]
-    \node[bytes, on chain, fill=desclt] (b1) at ([xshift=-15mm,yshift=11mm]p.south) {0110};
+    \node[bytes, on chain, fill=desclt, minimum width=14mm] (b1) at ([xshift=-15mm,yshift=11mm]p.south) {0110};
     \node[bytes, on chain] (b2) {$\nu$-fields};
     \node[bytes, on chain, fill=focuslt] (b3) {child count};
     \node[bytes, on chain] (b4) {child$_1$};

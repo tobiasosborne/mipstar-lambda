@@ -9,21 +9,21 @@
         child[tedge] {node[tleaf] (ny) {$y$}}
       }
     };
-  \draw[bind] (lx.west) to[bend right=55] (nx.west);
-  \draw[bind] (ly.east) to[bend left=42] (ny.east);
+  \draw[bind] (lx) to[bend right=62] (nx);
+  \draw[bind] (ly) to[bend left=55] (ny);
   \node[lbl,above=2mm of lx] {named};
 
-  \node[tnode,right=34mm of lx] (lone) {$\lambda$}
+  \node[tnode,right=44mm of lx] (lone) {$\lambda$}
     child[tedge] {node[tnode] (ltwo) {$\lambda$}
       child[tedge] {node[tnode] (appd) {$@$}
         child[tedge] {node[tleaf,draw=focus,line width=1pt] (one) {$1$}}
         child[tedge] {node[tleaf,draw=focus,line width=1pt] (zero) {$0$}}
       }
     };
-  \draw[bind] (lone.west) to[bend right=55]
-    node[lblsm,left] {cross 1} (one.west);
-  \draw[bind] (ltwo.east) to[bend left=42]
-    node[lblsm,right] {cross 0} (zero.east);
+  \draw[bind] (lone) to[bend right=62]
+    node[lblsm,left=1mm] {cross 1} (one);
+  \draw[bind] (ltwo) to[bend left=55]
+    node[lblsm,right=1mm] {cross 0} (zero);
   \node[lbl,above=2mm of lone] {canonical};
 
   \node[closure,right=29mm of lone,yshift=-7mm] (frameb) {$[B]$\\[-1pt]\scriptsize index $0$};

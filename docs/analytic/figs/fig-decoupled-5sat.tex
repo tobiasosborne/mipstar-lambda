@@ -1,19 +1,38 @@
 \begin{tikzpicture}[node distance=4mm]
-  \node[lbl, text=desc] (title) {one common padded length $M=2^m$};
-  \matrix (B) [below=3mm of title, matrix of nodes, row sep=2mm,
+  \matrix (B) [matrix of nodes, row sep=2.6mm, column sep=1.6mm,
     nodes={minimum height=6mm, anchor=west}] {
-    |[lbl,text=term,anchor=east]| $a$ & |[descbox,minimum width=3.1cm,fill=focuslt,draw=focus]| first $2F$: answer $a'$ & |[descbox,minimum width=5.0cm]| alternating blank padding $10\,10\cdots$ \\
-    |[lbl,text=term,anchor=east]| $b$ & |[descbox,minimum width=3.1cm,fill=focuslt,draw=focus]| first $2F$: answer $b'$ & |[descbox,minimum width=5.0cm]| alternating blank padding $10\,10\cdots$ \\
-    |[lbl,text=desc,anchor=east]| $u_3$ & |[descbox,minimum width=3.1cm]| tableau assignment & |[descbox,minimum width=5.0cm]| original $3$SAT clauses live here \\
-    |[lbl,text=desc,anchor=east]| $u_4$ & |[descbox,minimum width=3.1cm]| copy of $u_3$ & |[descbox,minimum width=5.0cm]| equality-gadget coordinates \\
-    |[lbl,text=desc,anchor=east]| $u_5$ & |[descbox,minimum width=3.1cm]| copy of $u_3$ & |[descbox,minimum width=5.0cm]| equality-gadget coordinates \\
+    |[lbl,text=term,anchor=east]| $a$ & |[draw=none,fill=none,minimum width=7mm]| &
+      |[descbox,minimum width=3.1cm,fill=focuslt,draw=focus]| first $2F$: answer $a'$ &
+      |[descbox,minimum width=5.0cm]| alternating blank padding $10\,10\cdots$ \\
+    |[lbl,text=term,anchor=east]| $b$ & |[draw=none,fill=none,minimum width=7mm]| &
+      |[descbox,minimum width=3.1cm,fill=focuslt,draw=focus]| first $2F$: answer $b'$ &
+      |[descbox,minimum width=5.0cm]| alternating blank padding $10\,10\cdots$ \\
+    |[lbl,text=desc,anchor=east]| $u_3$ & |[draw=none,fill=none,minimum width=7mm]| &
+      |[descbox,minimum width=3.1cm]| tableau assignment &
+      |[descbox,minimum width=5.0cm]| original $3$SAT clauses live here \\
+    |[lbl,text=desc,anchor=east]| $u_4$ & |[draw=none,fill=none,minimum width=7mm]| &
+      |[descbox,minimum width=3.1cm]| copy of $u_3$ &
+      |[descbox,minimum width=5.0cm]| equality-gadget coordinates \\
+    |[lbl,text=desc,anchor=east]| $u_5$ & |[draw=none,fill=none,minimum width=7mm]| &
+      |[descbox,minimum width=3.1cm]| copy of $u_3$ &
+      |[descbox,minimum width=5.0cm]| equality-gadget coordinates \\
   };
-  \draw[<->,machine,line width=0.8pt] (B-3-2.west) to[bend right=24] node[left,lblsm] {$u_3=u_4$} (B-4-2.west);
-  \draw[<->,machine,line width=0.8pt] (B-4-3.east) to[bend left=24] node[right,lblsm] {$u_4=u_5$} (B-5-3.east);
-  \draw[->,term,line width=0.8pt] (B-3-2.north) to[bend left=18]
-    node[above,lblsm,text=term] {copy answer cells} (B-1-2.south);
-  \draw[->,term,line width=0.8pt] (B-3-2.north east) to[bend left=28] (B-2-2.south east);
-  \node[checked, below=5mm of B, minimum width=11.2cm] (cl)
+  % the answer prefix is copied upward out of the tableau assignment, in the
+  % free left channel, so no arrow crosses a block
+  \draw[->,term,line width=0.8pt]
+    (B-3-3.west) -- ([xshift=-5.6mm]B-3-3.west) -- ([xshift=-5.6mm]B-1-3.west) -- (B-1-3.west);
+  \draw[->,term,line width=0.8pt]
+    (B-3-3.west) -- ([xshift=-2.4mm]B-3-3.west) -- ([xshift=-2.4mm]B-2-3.west) -- (B-2-3.west);
+  \node[lblsm, text=term, anchor=south west, align=left]
+    at ([xshift=-6.6mm,yshift=1.8mm]B-1-3.north west) {copy of the first\\$2F$ answer cells};
+  % symmetric equality gadgets, both on the free right side
+  \draw[<->,machine,line width=0.8pt] (B-3-4.east) to[bend left=22]
+    node[midway,right=0.6mm,lblsm,text=machine] {$u_3=u_4$} (B-4-4.east);
+  \draw[<->,machine,line width=0.8pt] (B-4-4.east) to[bend left=22]
+    node[midway,right=0.6mm,lblsm,text=machine] {$u_4=u_5$} (B-5-4.east);
+  \node[lbl, text=desc, anchor=south east]
+    at ([yshift=1.8mm]B-1-4.north east) {one common padded length $M=2^m$};
+  \node[checked, below=5mm of B, minimum width=10.4cm] (cl)
     {$a_{i_1}^{o_1}\vee b_{i_2}^{o_2}\vee(u_3)_{i_3}^{o_3}\vee(u_4)_{i_4}^{o_4}\vee(u_5)_{i_5}^{o_5}$};
   \node[tag check, right=2mm of cl] {DECOUPLED};
 \end{tikzpicture}

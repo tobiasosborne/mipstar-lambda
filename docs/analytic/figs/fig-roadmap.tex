@@ -1,7 +1,13 @@
-\begin{tikzpicture}[node distance=6mm and 3mm]
-  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries] (pi)
+% local: two-line upgrade labels sit ON the vertical arrows, so give them the
+% page fill to mask the line they interrupt (no shared style needed).
+\begin{tikzpicture}[node distance=6mm and 3mm,
+  upgrade/.style={lblsm, align=center, fill=paper, inner sep=1.5pt,
+    rounded corners=1pt, midway}]
+  \node[stage, minimum width=18mm, anchor=north west] (s1) at (0,0)
+    {\S1\\machines};
+  \node[lbl, text=machine, font=\footnotesize\sffamily\bfseries,
+        above=2.5mm of s1.north west, anchor=south west] (pi)
     {PART I \quad REFRESH THE OBJECTS};
-  \node[stage, below=3mm of pi, minimum width=18mm] (s1) {\S1\\machines};
   \node[stage, right=of s1, minimum width=18mm] (s2) {\S2\\universality};
   \node[stage, right=of s2, minimum width=18mm, fill=focuslt, draw=focus] (s3)
     {\S3\\self-code};
@@ -11,11 +17,8 @@
   \foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5,s5/s6}
     \draw[xform] (\a) -- (\b);
 
-  \node[lbl, text=desc, font=\footnotesize\sffamily\bfseries,
-        below=14mm of s1.south west, anchor=west] (pii)
-    {PART II \quad ACCOUNT FOR EVERY RESOURCE};
-  \node[stage, below=3mm of pii, minimum width=20mm] (s7)
-    {\S7\\contract};
+  \node[stage, below=21mm of s1.south west, anchor=north west,
+        minimum width=20mm] (s7) {\S7\\contract};
   \node[stage, right=of s7, minimum width=24mm] (s810)
     {\S\S8--10\\costed code};
   \node[stage, right=of s810, minimum width=20mm] (s11)
@@ -26,13 +29,16 @@
     {\S\S13--15\\CL + audit};
   \foreach \a/\b in {s7/s810,s810/s11,s11/s12,s12/s1315}
     \draw[xform] (\a) -- (\b);
+  \node[lbl, text=desc, font=\footnotesize\sffamily\bfseries,
+        below=2.5mm of s7.south west, anchor=north west] (pii)
+    {PART II \quad ACCOUNT FOR EVERY RESOURCE};
 
   \draw[->, machine, line width=1pt]
-    (s1.south) -- node[lblsm, left, align=right] {machine model\\$\to$ cost bounds} (s7.north);
+    (s1.south) -- node[upgrade] {machine model\\$\to$ cost bounds} (s7.north);
   \draw[->, desc, line width=1pt]
-    (s3.south) -- node[lblsm, left, align=right] {fixed point\\$\to$ sized code} (s810.north);
+    (s3.south) -- node[upgrade] {fixed point\\$\to$ sized code} (s810.north);
   \draw[->, term, line width=1pt]
-    (s5.south) -- node[lblsm, right, align=left] {simulation\\$\to$ tableau} (s11.north);
+    (s5.south) -- node[upgrade] {simulation\\$\to$ tableau} (s11.north);
   \draw[->, check, line width=1pt]
-    (s6.south) -- node[lblsm, right, align=left] {qualitative bridge\\$\to$ evidence ledger} (s1315.north);
+    (s6.south) -- node[upgrade] {qualitative bridge\\$\to$ evidence ledger} (s1315.north);
 \end{tikzpicture}

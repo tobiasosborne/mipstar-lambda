@@ -1,5 +1,5 @@
 \begin{tikzpicture}[node distance=0mm]
-  \node[cell,minimum width=39mm,fill=machinelt] (syntax)
+  \node[cell,minimum width=39mm] (syntax)
     {$\mathsf{App}(\mathsf{Lambda}(0),1)$};
   \node[cell,minimum width=29mm,right=0pt of syntax] (env) {$\eta=[1]$};
   \node[cell head,minimum width=36mm,right=0pt of env] (kont) {$K=\mathsf{Arg}\cdot\square$};
@@ -11,8 +11,8 @@
   \node[byteslbl,below=6mm of fuel] {fuel counter};
 
   \node[state,below=15mm of env] (parse) {$q_p$};
-  \node[state,right=10mm of parse] (apply) {$q_a$};
-  \node[state halt,right=10mm of apply] (emit) {$q_h$};
+  \node[state,right=18mm of parse] (apply) {$q_a$};
+  \node[state halt,right=18mm of apply] (emit) {$q_h$};
   \draw[->,machine,line width=.8pt] (parse)--node[lblsm,above] {closure}(apply);
   \draw[->,machine,line width=.8pt] (apply)--node[lblsm,above] {lookup $0$}(emit);
   \node[lbl,below=2mm of apply] {finite transition routines manipulate finite records};

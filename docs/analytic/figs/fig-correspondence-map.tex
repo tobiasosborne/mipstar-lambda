@@ -1,13 +1,30 @@
 \begin{tikzpicture}[node distance=3mm]
-  \matrix (M) [matrix of nodes, row sep=2.2mm, column sep=2mm,
-    nodes={minimum height=7.5mm}] {
-    |[lbl,text=desc]| paper object & |[lbl,text=desc]| Julia object & |[lbl,text=desc]| evidence leaf \\
-    |[descbox,minimum width=4.25cm]| bounded decider trace / succinct $5$SAT & |[stage,minimum width=4.55cm]| \texttt{bounded\_trace}, \texttt{decouple5} & |[citedbox,minimum width=3.55cm]| absent; cited \\
-    |[descbox,minimum width=4.25cm]| Tseitin / arithmetization / zero basis & |[stage,minimum width=4.55cm]| \texttt{tseitin}, \texttt{arith\_q}, \texttt{zero\_basis} & |[checked,minimum width=3.55cm]| checked instances \\
-    |[descbox,minimum width=4.25cm]| CL maps and low-degree marginals & |[stage,minimum width=4.55cm]| \texttt{CLStep}, \texttt{marginal\_k}, \texttt{histogram} & |[checked,minimum width=3.55cm]| TB1 exact \\
-    |[descbox,minimum width=4.25cm]| typed PCP sampler and guarded decider & |[stage,minimum width=4.55cm]| \texttt{pcp\_sampler}, \texttt{answer\_reduce\_pcp} & |[citedbox,minimum width=3.55cm]| shape checked; theorem cited \\
-    |[descbox,minimum width=4.25cm]| midpoint recurrence and sequential AND & |[stage,minimum width=4.55cm]| \texttt{sequential\_value} & |[checked,minimum width=3.55cm]| C6,N1 proved \\
-    |[descbox,minimum width=4.25cm]| $\Repeat\circ\AnswerReduce\circ\Introspect$ & |[stage,minimum width=4.55cm]| \texttt{Compress} & |[citedbox,minimum width=3.55cm]| absent; cited \\
+  \matrix (M) [matrix of nodes, row sep=2.6mm, column sep=8mm,
+    nodes={minimum height=8mm},
+    column 1/.style={nodes={descbox, text width=3.9cm, align=center}},
+    column 2/.style={nodes={stage, text width=3.6cm, align=center}},
+    column 3/.style={nodes={citedbox, text width=2.4cm, align=center}}] {
+    |[draw=none,fill=none,lbl,text=desc]| paper object &
+    |[draw=none,fill=none,lbl,text=desc]| Julia object &
+    |[draw=none,fill=none,lbl,text=desc]| evidence leaf \\
+    bounded decider trace / succinct $5$SAT &
+    \texttt{bounded\_trace}, \texttt{decouple5} &
+    absent; cited \\
+    Tseitin / arithmetization / zero basis &
+    \texttt{tseitin}, \texttt{arith\_q}, \texttt{zero\_basis} &
+    |[checked, text width=2.4cm, align=center]| checked instances \\
+    CL maps and low-degree marginals &
+    \texttt{CLStep}, \texttt{marginal\_k}, \texttt{histogram} &
+    |[checked, text width=2.4cm, align=center]| TB1 exact \\
+    typed PCP sampler and guarded decider &
+    \texttt{pcp\_sampler}, \texttt{answer\_reduce\_pcp} &
+    shape checked; theorem cited \\
+    midpoint recurrence and sequential AND &
+    \texttt{sequential\_value} &
+    |[checked, text width=2.4cm, align=center]| C6,N1 proved \\
+    $\Repeat\circ\AnswerReduce$ $\circ\,\Introspect$ &
+    \texttt{Compress} &
+    absent; cited \\
   };
   \foreach \r in {2,...,7}{
     \draw[xform] (M-\r-1) -- (M-\r-2);

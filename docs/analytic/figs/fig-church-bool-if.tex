@@ -2,23 +2,23 @@
   \node[stage,draw=term] (tru) {$\mathsf{true}=\lambda t.\lambda f.t$};
   \node[stage,draw=term,right=15mm of tru] (fal)
     {$\mathsf{false}=\lambda t.\lambda f.f$};
-  \node[tnode,below=10mm of tru] (tswitch) {$t$};
+  \node[tnode,below=9mm of tru] (tswitch) {$t$};
   \node[tleaf,below left=7mm and 5mm of tswitch] (ta) {$A$};
   \node[tleaf,below right=7mm and 5mm of tswitch] (tb) {$B$};
   \draw[tedge] (tswitch)--(ta) (tswitch)--(tb);
   \draw[->,term,line width=1pt] (tswitch) -- (ta);
-  \node[tag focus,below=2mm of ta] {FIRST};
+  \node[tag focus,left=2mm of ta] {FIRST};
 
-  \node[tnode,below=10mm of fal] (fswitch) {$f$};
+  \node[tnode,below=9mm of fal] (fswitch) {$f$};
   \node[tleaf,below left=7mm and 5mm of fswitch] (fa) {$A$};
   \node[tleaf,below right=7mm and 5mm of fswitch] (fb) {$B$};
   \draw[tedge] (fswitch)--(fa) (fswitch)--(fb);
   \draw[->,term,line width=1pt] (fswitch) -- (fb);
-  \node[tag focus,below=2mm of fb] {SECOND};
+  \node[tag focus,right=2mm of fb] {SECOND};
 
-  \node[checked,below=11mm of $(ta)!0.5!(fb)$] (ifline)
+  \node[checked,below=12mm of $(ta)!0.5!(fb)$] (ifline)
     {$\mathsf{if}\;\mathsf{false}\;A\;B
       \;\longrightarrow_\beta\;\mathsf{false}\;A\;B
       \;\longrightarrow_\beta\;\boxed{B}$};
-  \draw[callout] (fswitch.south) -- (ifline.north east);
+  \draw[callout] (fb.south) -- ([xshift=-5mm]ifline.north east);
 \end{tikzpicture}

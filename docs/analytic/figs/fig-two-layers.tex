@@ -1,21 +1,26 @@
 \begin{tikzpicture}
-  \fill[checklt] (0,0) ellipse [x radius=6.7cm,y radius=3.0cm];
-  \draw[check,line width=1.1pt] (0,0) ellipse [x radius=6.7cm,y radius=3.0cm];
-  \fill[citedlt] (0,0) ellipse [x radius=3.8cm,y radius=1.75cm];
-  \draw[cited,dashed,line width=1pt] (0,0) ellipse [x radius=3.8cm,y radius=1.75cm];
+  \fill[checklt] (0,0) ellipse [x radius=7.4cm,y radius=3.5cm];
+  \draw[check,line width=1.1pt] (0,0) ellipse [x radius=7.4cm,y radius=3.5cm];
+  \fill[citedlt] (0,0) ellipse [x radius=4.5cm,y radius=2.1cm];
+  \draw[cited,dashed,line width=1pt] (0,0) ellipse [x radius=4.5cm,y radius=2.1cm];
 
-  \node[tag check] at (0,2.62) {OUTER: EXECUTED COMPUTABILITY + POLYNOMIAL BOOKKEEPING};
-  \node[checked,minimum width=24mm] at (-4.8,1.1) {quote code};
-  \node[checked,minimum width=24mm] at (4.8,1.1) {hardwire data};
-  \node[checked,minimum width=24mm] at (-4.8,-1.1) {run evaluator};
-  \node[checked,minimum width=24mm] at (4.8,-1.1) {bound time};
+  \node[tag check,align=center] at (0,2.62)
+    {OUTER: EXECUTED COMPUTABILITY\\+ POLYNOMIAL BOOKKEEPING};
+  \node[checked,minimum width=24mm] at (-5.3,1.1) {quote code};
+  \node[checked,minimum width=24mm] at (5.3,1.1) {hardwire data};
+  \node[checked,minimum width=24mm] at (-5.3,-1.1) {run evaluator};
+  \node[checked,minimum width=24mm] at (5.3,-1.1) {bound time};
 
-  \node[tag cited] at (0,1.35) {INNER: CITED QUANTUM ANALYSIS};
-  \node[citedbox,minimum width=27mm] at (-1.85,.45) {LDT soundness};
-  \node[citedbox,minimum width=27mm] at (1.85,.45) {rigidity};
-  \node[citedbox,minimum width=27mm] at (-1.85,-.65) {oracularization};
-  \node[citedbox,minimum width=27mm] at (1.85,-.65) {entanglement bounds};
-  \node[lblsm,text=cited,fill=paper] at (0,-1.75) {analytic evidence boundary};
-  \draw[->,check,line width=.8pt] (-3.95,0) -- (-3.25,0);
-  \draw[->,check,line width=.8pt] (3.25,0) -- (3.95,0);
+  \node[tag cited] at (0,1.45) {INNER: CITED QUANTUM ANALYSIS};
+  \node[citedbox,text width=26mm,minimum height=10mm] at (-1.58,.62)
+    {LDT soundness};
+  \node[citedbox,text width=26mm,minimum height=10mm] at (1.58,.62)
+    {rigidity};
+  \node[citedbox,text width=26mm,minimum height=10mm] at (-1.58,-.62)
+    {oracularization};
+  \node[citedbox,text width=26mm,minimum height=10mm] at (1.58,-.62)
+    {entanglement bounds};
+  \node[lblsm,text=cited,fill=paper] at (0,-2.1) {analytic evidence boundary};
+  \draw[->,check,line width=.8pt] (-6.6,0) -- (-4.7,0);
+  \draw[->,check,line width=.8pt] (6.6,0) -- (4.7,0);
 \end{tikzpicture}

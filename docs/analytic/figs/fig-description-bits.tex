@@ -24,9 +24,13 @@
   \node[bad, rounded corners=2pt, right=18mm of ham, text width=43mm,
         align=center, inner sep=5pt] (spectrum)
     {spectrum\\[-1pt]\scriptsize full behavior};
-  \draw[xform] (d2.south) -- (ham.north);
-  \draw[bad, line width=1.1pt] ([xshift=-4mm]spectrum.west) --
-    ([xshift=4mm]spectrum.east);
+  % thin callouts, started below the field labels so they do not touch them;
+  % the crossed dashed one says the spectrum side is simply not there.
+  \draw[callout] ([yshift=-6mm]d2.south) -- (ham.north);
+  \draw[callout, bad, dash pattern=on 2pt off 2pt]
+    ([yshift=-6mm]d4.south) -- (spectrum.north);
+  \node[text=bad, fill=white, inner sep=1pt, font=\footnotesize\bfseries]
+    at ($([yshift=-6mm]d4.south)!0.5!(spectrum.north)$) {$\times$};
   \node[lblsm, below=3mm of ham] {syntax available to an algorithm};
   \node[lblsm, below=3mm of spectrum, text=bad] {not encoded extensionally};
 \end{tikzpicture}
