@@ -10,3 +10,11 @@ Binding fix demands:
 - O2: paste the critic's ready-made red testset that kills "items 2 and 3 replaced by `true`"; add cheating-answer tests in both orders; add those five surviving mutants as permanent mutants and show them KILLED. Count and print non-noop decisions.
 - O3 and MINOR/NOTE: as adjudicated; the mutation runner must not re-precompile the package 12 times (share a compiled depot or run mutants in-process on copies) — target < 5 min total.
 Run the full suite (cold/warm walls) and the mutation registry (all lines). Report ≤ 30 lines; MERGE PROPOSAL for C4b if TB2 evidence exists — proposals only.
+
+## EXTENSION (added after verdicts/tb2-r1.md): this round also repairs TB2 — same worker, sequential, so the lane now ALSO includes `src/samplers/pcp_sampler.jl`, `src/samplers/oracularize.jl`, `src/verifiers/answer_reduce.jl`, `test/tb2_answer_reduce.jl`, `test/mutations/tb2_*.jl`, and the whole of `test/mutations/run.jl`.
+Read `verdicts/tb2-r1.md` IN FULL and address O1–O7 + MINOR/NOTE with response-table rows:
+- O1 (FATAL): the mutation runner must isolate each mutant so a precompilation crash counts as KILLED-by-crash only when the targeted test is what crashes; more importantly remove the module-level `const` computations in TB2 that run at precompile time (build fixtures lazily/in tests). Runner exit 0 with every mutant of every rung listed; run it in full and paste.
+- O2: the cold-depot run must pass the gate: the clock starts after `using` (TB0 repair r2 does this in runtests.jl — coordinate: do not duplicate; if TB0's edit landed, keep it).
+- O3: replace `PCPCLMap` by the lazy `CLStep` (your O5 fix above) so C4b's level is CONSTRUCTED; and make the C9 statement honest about step 5: on the fixed TB0 fixture the circuit does not depend on (x,y) so pcpverifier is (x,y)-independent; assert that the (x_{w,alice}, x_{w,bob}) computed from L^alice/L^bob are what reach the decider-specification argument (a plumbing test), and leave (x,y)-dependence to TB3 (say so in the MERGE PROPOSAL).
+- O4–O7 and MINOR/NOTE: as adjudicated (vary `case_index` across seeds; delete dead code planted for mutants — `_truncate_univariate`; make the report of record truthful).
+- Apply the critic's authorized C9 scoped row text and C4b "missing step" paragraph in MERGE PROPOSALS (proposals only).
