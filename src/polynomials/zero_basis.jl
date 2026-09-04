@@ -11,7 +11,7 @@ struct ZeroDecomposition{F,N}
     layout::VarLayout{N}
     quotients::Tuple
     remainder::Poly{F,N}
-    steps::Tuple
+    steps::Vector{RewriteStep{F,N}}
 end
 
 function change_field(decomposition::ZeroDecomposition{S,N}, ::Type{F}) where {S,N,F}
@@ -23,10 +23,21 @@ function change_field(decomposition::ZeroDecomposition{S,N}, ::Type{F}) where {S
                     step.remainder_exponent, step.quotient_exponent,
                     convert(F, Int(step.quotient_coefficient.bits)))
     end
-    ZeroDecomposition(decomposition.layout, quotients, remainder, Tuple(steps))
+    ZeroDecomposition(decomposition.layout, quotients, remainder, steps)
 end
 
 function _accumulate!(terms::Dict{K,F}, key::K, coefficient::F) where {K,F}
+    value = get(terms, key, zero(F)) + coefficient
+    iszero(value) ? delete!(terms, key) : (terms[key] = value)
+    terms
+end
+
+
+function _accumulate!(terms::Dict{K,F}, key::K, coefficient::F) where {K,F<:GF2k}
+    if coefficient.bits == 1
+        haskey(terms, key) ? delete!(terms, key) : (terms[key] = coefficient)
+        return terms
+    end
     value = get(terms, key, zero(F)) + coefficient
     iszero(value) ? delete!(terms, key) : (terms[key] = value)
     terms
@@ -44,8 +55,7 @@ function zero_basis_decompose(input::Poly{F,N}, order) where {F,N}
     for variable in order
         quotient_terms = Dict{NTuple{N,UInt8},F}()
         next_remainder = Dict{NTuple{N,UInt8},F}()
-        for key in sort!(collect(keys(remainder_terms)))
-            coefficient = remainder_terms[key]
+        for (key, coefficient) in remainder_terms
             exponent = Int(key[variable])
             if exponent < 2
                 _accumulate!(next_remainder, key, coefficient)
@@ -82,23 +92,28 @@ function zero_basis_decompose(input::Poly{F,N}, order) where {F,N}
     remainder = _from_terms(F, input.layout, remainder_terms,
                             remainder_derivation)
     decomposition = ZeroDecomposition(input.layout, Tuple(quotients),
-                                      remainder, Tuple(steps))
+                                      remainder, steps)
     certificate = CertNode(CHECKED, :ZeroBasis;
         facts=(display="remainder = $(isempty(remainder.terms) ? 0 : monomial_count(remainder)); coefficient identity = true",),
         replay=term -> verify_zero_decomposition(input, term))
     Checked(decomposition, certificate)
 end
 
+function _rewrite_step_valid(step::RewriteStep)
+    variable = Int(step.variable)
+    exponent = Int(step.source[variable])
+    exponent >= 2 &&
+        Int(step.remainder_exponent) == exponent - 1 &&
+        Int(step.quotient_exponent) == exponent - 2 &&
+        step.quotient_coefficient == -step.coefficient
+end
+
 function verify_rewrite_step(step::RewriteStep{F,N}) where {F,N}
     variable = Int(step.variable)
     exponent = Int(step.source[variable])
-    shape_ok = exponent >= 2 &&
-               Int(step.remainder_exponent) == exponent - 1 &&
-               Int(step.quotient_exponent) == exponent - 2 &&
-               step.quotient_coefficient == -step.coefficient
     # These four scalar equalities are the coefficient-wise replay of
     # a*z^e = a*z^(e-1) - a*z^(e-2)*(z-z^2); no evaluation samples are used.
-    CheckResult(shape_ok, :rewrite_identity;
+    CheckResult(_rewrite_step_valid(step), :rewrite_identity;
                 location=variable,
                 expected=(exponent - 1, exponent - 2, -step.coefficient),
                 actual=(Int(step.remainder_exponent),
@@ -111,7 +126,7 @@ function verify_zero_decomposition(input::Poly{F,N},
     input.layout == decomposition.layout ||
         return CheckResult(false, :coefficient_identity;
                            expected=input.layout, actual=decomposition.layout)
-    all(step -> passed(verify_rewrite_step(step)), decomposition.steps) ||
+    all(_rewrite_step_valid, decomposition.steps) ||
         return CheckResult(false, :coefficient_identity;
                            expected=:valid_rewrites, actual=:invalid_rewrite)
 

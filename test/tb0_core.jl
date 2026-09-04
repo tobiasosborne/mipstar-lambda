@@ -1,7 +1,3 @@
-const TB0_LOCAL_JULIA_DEPOT = "/tmp/mipstar-lambda-julia-depot"
-mkpath(TB0_LOCAL_JULIA_DEPOT)
-TB0_LOCAL_JULIA_DEPOT in DEPOT_PATH || pushfirst!(DEPOT_PATH, TB0_LOCAL_JULIA_DEPOT)
-
 using Test
 using Random
 using MIPStarLambda
@@ -9,9 +5,6 @@ Base.Experimental.@optlevel 0
 
 const TB0_TARGET = get(ENV, "TB0_TARGET", "all")
 runs(name) = TB0_TARGET == "all" || TB0_TARGET == name
-
-bits(n, width) = [isodd(n >> (i - 1)) for i in 1:width]
-field_bit(::Type{F}, b::Bool) where {F} = b ? one(F) : zero(F)
 
 function exercise_field_axioms(::Type{F}, triples) where {F}
     all_ok = true
@@ -56,38 +49,13 @@ end
 
 if runs("encoding")
     @testset "2. multilinear low-degree encoding" begin
-        for (F, point_count) in ((GF8, 8), (GF2048, 512))
-            layout1 = VarLayout((:x1,), (VarBlock(:X, 1:1),))
-            a1 = F[0, 1]
-            g1 = g_a(a1, layout1, (1,)).term
-            xs1 = F == GF8 ? [[x] for x in field_elements(F)] : begin
-                rng = MersenneTwister(0x1d_1)
-                [[F(rand(rng, 0:field_size(F)-1))] for _ in 1:point_count]
-            end
-            for x in xs1
-                @test evaluate(g1, x) == sum(a1 .* ind(x); init=zero(F))
-            end
-            @test [evaluate(g1, F[b]) for b in 0:1] == a1
-            @test dec(g1, (1,), F[0, 1]) == a1
-
-            layout2 = VarLayout((:x1, :x2), (VarBlock(:X, 1:2),))
-            a2 = F[0, 1, 1, 0]
-            g2 = g_a(a2, layout2, (1, 2)).term
-            xs2 = F == GF8 ? [[x, y] for x in field_elements(F) for y in field_elements(F)] : begin
-                rng = MersenneTwister(0x1d_2)
-                [[F(rand(rng, 0:field_size(F)-1)), F(rand(rng, 0:field_size(F)-1))]
-                 for _ in 1:point_count]
-            end
-            for x in xs2
-                @test evaluate(g2, x) == sum(a2 .* ind(x); init=zero(F))
-            end
-            @test [evaluate(g2, F[b1, b2]) for b1 in 0:1 for b2 in 0:1] == a2
-            @test dec(g2, (1, 2), F[0, 1]) == a2
-            @test structural_degrees(g2) == (1, 1)
-            @test actual_degrees(g2) == (1, 1)
-        end
-        println("TB0 encoding: m=1 [0,1], m=2 [0,1,1,0]; GF(8) points=8+64; ",
-                "GF(2^11) seeded points=1024")
+        report = tb0_encoding_report()
+        @test report.gf8 ==
+              (m1_ok=true, m2_ok=true, m1_points=16, m2_points=64)
+        @test report.gf2048 ==
+              (m1_ok=true, m2_ok=true, m1_points=1024, m2_points=512)
+        println("TB0 encoding: m=1 [0,1]/[1,0], m=2 [0,1,1,0]; GF(8) points=16+64; ",
+                "GF(2^11) seeded points=1024+512")
     end
 end
 
@@ -124,237 +92,234 @@ if runs("zero_basis")
     end
 end
 
-function tb0_witness(n)
-    bs = bits(n, 10)
-    return ntuple(i -> Bool[bs[2i - 1], bs[2i]], 5)
-end
-
 if runs("circuit")
     @testset "4. circuit, Tseitin, output literal, arithmetization" begin
-        circuit = tb0_circuit()
-        present = 0
-        absent = 0
-        circuit_ok = true
-        present_clauses = Vector{Vector{Bool}}()
-        for n in 0:2^10-1
-            input = bits(n, 10)
-            expected = input[1] && input[6] && input[5]
-            circuit_ok &= evaluate_circuit(circuit, input) == expected
-            if expected
-                present += 1
-                push!(present_clauses, input)
-            else
-                absent += 1
-            end
-        end
-        @test circuit_ok
-        @test (present, absent) == (128, 896)
-
-        # `phi_C` is the present-clause relation; exhaust all 2^10 witnesses
-        # against the independently exhausted relation table above.
-        satisfying = count(0:2^10-1) do n
-            witness = tb0_witness(n)
-            all(clause -> any(witness[i][Int(clause[i]) + 1] == clause[5 + i]
-                              for i in 1:5), present_clauses)
-        end
-        @test satisfying == 512
-        chosen = (Bool[0, 1], Bool[0, 0], Bool[0, 0], Bool[0, 0], Bool[0, 0])
-        @test phi_C(circuit, chosen)
-
-        tf = tseitin(circuit).term
-        formula_ok = true
-        arith_ok = true
-        for input_index in 0:2^10-1
-            input = bits(input_index, 10)
-            trace = gate_trace(circuit, input)
-            circuit_value = trace[circuit.output.id]
-            for wire_index in 0:2^6-1
-                wires = bits(wire_index, 6)
-                assignment = vcat(input, wires)
-                expected = wires == trace && circuit_value
-                formula_ok &= evaluate_formula(tf, assignment) == expected
-                arith_ok &= evaluate_arith_formula(tf,
-                    GF8[field_bit(GF8, b) for b in assignment]) == field_bit(GF8, expected)
-            end
-        end
-        @test formula_ok
-        @test arith_ok
+        report = tb0_truth_report()
+        @test report.circuit_ok
+        @test (report.present, report.absent) == (128, 896)
+        @test report.satisfying == 512
+        @test report.chosen_satisfies
+        @test report.formula_ok
+        @test report.arith_ok
         println("TB0 Boolean scopes: clauses present/absent=128/896; witnesses=512; ",
-                "(x,o,w) assignments=65536")
+                "(x,o,w) assignments=", report.assignments)
     end
 end
 
-function build_polynomial_fixture(::Type{F}; d) where {F}
-    circuit = tb0_circuit()
-    tf = tseitin(circuit).term
-    farith_checked = arith_q(tf, F; budget=MonomialBudget(160_000))
-    farith_checked isa ExpansionRefused && return farith_checked
-    farith = farith_checked.term
-    layout = tf.layout
-    assignments = (F[0, 1], F[0, 0], F[0, 0], F[0, 0], F[0, 0])
-    gs = ntuple(i -> g_a(assignments[i], layout, (i,)).term, 5)
-    c0_checked = build_c0(farith, gs; budget=MonomialBudget(160_000))
-    c0_checked isa ExpansionRefused && return c0_checked
-    c0 = c0_checked.term
-    decomposition_checked = zero_basis_decompose(c0, ntuple(identity, 16))
-    proof_checked = build_pcp(gs, c0, decomposition_checked; d=d)
-    return (; circuit, tf, farith, gs, c0,
-            decomposition=decomposition_checked.term,
-            proof=proof_checked.term,
-            certificate=proof_checked.certificate)
-end
+const DEGENERATE_TABLES = ((0, 1), (0, 0), (0, 0), (0, 0), (0, 0))
+const NONDEGENERATE_TABLES = ((0, 1), (0, 1), (0, 1), (0, 1), (0, 1))
+const NONDEGENERATE_INTEGER_STATS = Ref{Any}(nothing)
 
-function lifted_polynomial_fixture(source, ::Type{F}, d) where {F}
-    proof = lift_pcp(source.proof, F; d=d)
-    (; circuit=source.circuit, tf=source.tf, farith=source.farith,
-       gs=source.gs, c0=source.c0, decomposition=source.decomposition,
-       proof, certificate=source.certificate)
-end
-
-const POLY_CACHE = Dict{Tuple{DataType,Int},Any}()
-const BUILD_STATS = Dict{Tuple{DataType,Int},NamedTuple}()
-function polynomial_fixture(::Type{F}, d) where {F}
-    key = (F, d)
-    return get!(POLY_CACHE, key) do
-        measured = @timed build_polynomial_fixture(F; d=d)
-        BUILD_STATS[key] = (seconds=measured.time, bytes=measured.bytes)
-        measured.value
+const POLY_CACHE = Dict{Tuple{DataType,Int,Symbol},Any}()
+const BUILD_STATS = Dict{Tuple{DataType,Int,Symbol},NamedTuple}()
+function polynomial_fixture(::Type{F}, d; witness=:degenerate) where {F}
+    key = (F, d, witness)
+    haskey(POLY_CACHE, key) && return POLY_CACHE[key]
+    measured = if witness == :nondegenerate && F == GF8
+        @timed Base.invokelatest(tb0_build_nondegenerate_fixture, d,
+                                 NONDEGENERATE_TABLES,
+                                 MonomialBudget(2_500_000))
+    else
+        tables, budget = witness == :degenerate ?
+            (DEGENERATE_TABLES, MonomialBudget(160_000)) :
+            (NONDEGENERATE_TABLES, MonomialBudget(2_500_000))
+        @timed Base.invokelatest(tb0_build_fixture, F, d, tables, budget)
     end
+    value = measured.value
+    if witness == :nondegenerate && F == GF8 && !(value isa ExpansionRefused)
+        NONDEGENERATE_INTEGER_STATS[] = value.integer_report
+        value = value.fixture
+    end
+    BUILD_STATS[key] = (seconds=measured.time, bytes=measured.bytes,
+                        peak_rss=Sys.maxrss())
+    POLY_CACHE[key] = value
+    value
 end
 
 function base_point(::Type{F}) where {F}
+    tb0_base_point(F)
+end
+
+check_pcp_point(tf, proof, z) = pcpverifier(tf, ev_z(proof, z))
+
+function mutation_b_separator(tf, proof, ::Type{F}) where {F}
     rho = primitive_element(F)
-    z = fill(zero(F), 16)
-    z[6:10] .= one(F)
-    z[11] = rho
-    z[16] = rho
-    return z
+    z = base_point(F)
+    z[7] = rho
+    view = ev_z(proof, z)
+    honest = rho^5 * (one(F) + rho)
+    mutated = rho^4 * (one(F) + rho)
+    result = pcpverifier(tf, view)
+    (; view, honest, mutated, result)
 end
 
-function check_pcp_point(fixture, z)
-    view = ev_z(fixture.proof, z)
-    pcpverifier(fixture.tf, view)
-end
-
-if runs("pcp_separator")
+if TB0_TARGET == "pcp_separator"
     @testset "5b. mutation-B formula separator" begin
-        source = polynomial_fixture(GF8, 6)
-        fixture = lifted_polynomial_fixture(source, GF2048, 11)
-        @test !(fixture isa ExpansionRefused)
-        z = base_point(GF2048)
-        z[7] = primitive_element(GF2048) # O2=rho, while C ignores O2.
-        @test !iszero(evaluate_arith_formula(fixture.tf, z))
-        result = check_pcp_point(fixture, z)
-        @test result.formula_ok
-        @test result.zero_ok
-        @test passed(result)
+        source = polynomial_fixture(GF8, 6; witness=:nondegenerate)
+        proof11 = lift_pcp(source.proof, GF2048, 11)
+        separator8 = mutation_b_separator(source.tf, source.proof, GF8)
+        separator11 = mutation_b_separator(source.tf, proof11, GF2048)
+        @test separator8.view.beta0 == separator8.honest == GF8(2)
+        @test separator8.mutated == GF8(1)
+        @test separator11.view.beta0 == separator11.honest == GF2048(96)
+        @test separator11.mutated == GF2048(48)
+        @test passed(separator8.result)
+        @test passed(separator11.result)
     end
 end
 
 if runs("pcp")
-    @testset "5. PCP proof, policies, slices, and samples" begin
-        small_policy = parameter_policy(PCPParams(8, 3, 1, 6, 6, 16), 6)
-        sampled_policy = parameter_policy(PCPParams(2048, 11, 1, 11, 6, 16), 6)
-        @test policy_vector(small_policy) ==
-              (PASS, NOT_EVALUABLE, FAIL, FAIL, FAIL, FAIL)
-        @test policy_vector(sampled_policy) ==
-              (PASS, NOT_EVALUABLE, PASS, PASS, PASS, PASS)
-        @test small_policy.P_exponent_range == PASS
-        @test sampled_policy.P_formula_structural == PASS
-        @test sampled_policy.P_zero == PASS
-        @test minimal_checkable_odd_k(6, 16) == 11
-
+    @testset "5a. PCP policies and degenerate proof" begin
         fixture8 = polynomial_fixture(GF8, 6)
         @test !(fixture8 isa ExpansionRefused)
-        @test build_c0(fixture8.farith, fixture8.gs;
-                       budget=MonomialBudget(148_175)) isa ExpansionRefused
-        @test expected_support(fixture8.c0) == 148_176
-        @test monomial_count(fixture8.c0) <= 148_176
-        @test isempty(fixture8.decomposition.remainder.terms)
+        report = Base.invokelatest(tb0_degenerate_core_report,
+                                   fixture8.tf, fixture8.farith, fixture8.gs,
+                                   fixture8.c0, fixture8.decomposition)
+        @test report ==
+            (small=(PASS, FAIL, FAIL, FAIL, FAIL, FAIL),
+             sampled=(PASS, NOT_EVALUABLE, PASS, PASS, PASS, PASS),
+             small_exponent=PASS, structural=(FAIL, PASS), sampled_zero=PASS,
+             minimal_k=11, refused=true, expected=148_176, peak_ok=true,
+             support_ok=true, remainder_zero=true, quotient_split=true,
+             quotient_degree=6, base_value_ok=true)
+    end
 
-        rho8 = primitive_element(GF8)
+    @testset "5b. degenerate GF(8) coordinate lines" begin
+        fixture8 = polynomial_fixture(GF8, 6)
         b8 = base_point(GF8)
-        direct8 = evaluate_arith_formula(fixture8.tf, b8)
-        @test direct8 == rho8^4 * (one(GF8) + rho8)
-        @test !iszero(direct8)
-        slice_checks = 0
-        slice_formula_ok = true
-        slice_zero_ok = true
-        for j in 1:16, t in field_elements(GF8)
-            z = copy(b8)
-            z[j] = t
-            result = check_pcp_point(fixture8, z)
-            slice_formula_ok &= result.formula_ok
-            slice_zero_ok &= result.zero_ok
-            slice_checks += 1
-        end
-        @test slice_checks == 128
-        @test slice_formula_ok
-        @test slice_zero_ok
+        lines = pcp_coordinate_line_report(fixture8.tf, fixture8.proof, b8)
+        cube = pcp_boolean_cube_report(fixture8.tf, fixture8.proof)
+        @test lines == (formula_ok=true, zero_ok=true, count=128)
+        @test cube == (formula_ok=true, zero_ok=true, count=65_536)
+    end
 
-        lifted = @timed lifted_polynomial_fixture(fixture8, GF2048, 11)
-        fixture11 = lifted.value
-        BUILD_STATS[(GF2048, 11)] = (seconds=lifted.time, bytes=lifted.bytes)
-        @test !(fixture11 isa ExpansionRefused)
-        @test fixture11.decomposition === fixture8.decomposition
-        rng = MersenneTwister(0x20_48_10_000)
-        sample_checks = 0
-        sample_formula_ok = true
-        sample_zero_ok = true
-        for _ in 1:10_000
-            z = [GF2048(rand(rng, 0:2047)) for _ in 1:16]
-            result = check_pcp_point(fixture11, z)
-            sample_formula_ok &= result.formula_ok
-            sample_zero_ok &= result.zero_ok
-            sample_checks += 1
-        end
-        b11 = base_point(GF2048)
-        rho11 = primitive_element(GF2048)
-        for j in 1:16
-            z = copy(b11)
-            z[j] = j == 7 ? rho11 : rho11 + one(GF2048)
-            result = check_pcp_point(fixture11, z)
-            sample_formula_ok &= result.formula_ok
-            sample_zero_ok &= result.zero_ok
-        end
-        @test sample_checks == 10_000
-        @test sample_formula_ok
-        @test sample_zero_ok
+    @testset "5d. degenerate reports and certificate" begin
+        fixture8 = polynomial_fixture(GF8, 6)
+        small_policy = parameter_policy(PCPParams(8, 3, 1, 6, 6, 16), 6)
+        sampled_policy = parameter_policy(PCPParams(2048, 11, 1, 11, 6, 16), 6)
+        stats8 = BUILD_STATS[(GF8, 6, :degenerate)]
+        report = Base.invokelatest(tb0_print_degenerate_report,
+                                   fixture8.farith, fixture8.gs, fixture8.c0,
+                                   fixture8.decomposition, fixture8.proof,
+                                   fixture8.certificate, small_policy,
+                                   sampled_policy, stats8.seconds,
+                                   stats8.peak_rss)
+        @test report.local_dependencies
+        @test report.g1_block == Set((:X1,))
+        @test report.constant_tail
+        @test report.degree_accounts
+        @test report.quotient_degree_ok
+        @test report.certificate_ok
+    end
+end
 
-        for fixture in (fixture8, fixture11)
-            @test all(i -> dependency_coordinates(fixture.gs[i]) ⊆ Set((i,)), 1:5)
-            @test dependency_blocks(fixture.gs[1]) == Set((:X1,))
-            @test all(isempty(dependency_coordinates(fixture.gs[i])) for i in 2:5)
-            @test all(degree_accounts_valid,
-                      Iterators.flatten(((fixture.farith, fixture.c0),
-                                         fixture.decomposition.quotients)))
-            @test all(p -> maximum(actual_degrees(p); init=-1) <=
-                           (fixture === fixture8 ? 6 : 11),
-                      fixture.decomposition.quotients)
-        end
+const TB0_ND_C0_DEGREES =
+    (3, 1, 1, 1, 3, 3, 1, 1, 1, 1, 6, 4, 4, 4, 4, 3)
 
-        @test passed(verify_certificate(Checked(fixture8.proof, fixture8.certificate)))
-        stats8 = BUILD_STATS[(GF8, 6)]
-        stats11 = BUILD_STATS[(GF2048, 11)]
-        println("TB0 policy (P_shape,P_growth,P_formula_paper,P_tail,P_divisibility,P_degree): ",
-                "small=", policy_vector(small_policy),
-                "; sampled=", policy_vector(sampled_policy))
-        println("TB0 c0 normalized monomials=", monomial_count(fixture8.c0),
-                "; expected candidates=", expected_support(fixture8.c0),
-                "; GF8 build seconds=", round(stats8.seconds; digits=3),
-                "; GF2048 build seconds=", round(stats11.seconds; digits=3),
-                "; allocated bytes=", stats8.bytes + stats11.bytes)
-        println("TB0 dependency table: g=", map(dependency_coordinates, fixture8.gs),
-                "; F_arith=", dependency_coordinates(fixture8.farith),
-                "; c0=", dependency_coordinates(fixture8.c0))
-        println("TB0 quotient table: monomials=",
-                map(monomial_count, fixture8.decomposition.quotients),
-                "; max degrees=",
-                map(p -> maximum(actual_degrees(p); init=-1),
-                    fixture8.decomposition.quotients))
-        println("TB0 PCP equations: formula=true; zero=true; GF8 coordinate lines=16x8; ",
-                "GF(2^11) seed=0x204810000 samples=10000 + separators=16")
-        traceprint(stdout, fixture8.certificate)
+if runs("nondegenerate")
+    @testset "6a. non-degenerate support and certificate" begin
+        fixture8 = polynomial_fixture(GF8, 6; witness=:nondegenerate)
+        integer_stats = NONDEGENERATE_INTEGER_STATS[]
+        @test (integer_stats.support, integer_stats.expected,
+               integer_stats.multiplication_peak) ==
+              (788_032, 2_370_816, 788_032)
+        @test integer_stats.multiplication_peak < 2_500_000
+        @test !(fixture8 isa ExpansionRefused)
+        @test (monomial_count(fixture8.c0), expected_support(fixture8.c0),
+               multiplication_peak(fixture8.c0)) ==
+              (534_912, 2_370_816, 788_032)
+        @test 788_032 < 2_500_000
+        @test structural_degrees(fixture8.c0) ==
+              actual_degrees(fixture8.c0) == TB0_ND_C0_DEGREES
+        report = tb0_pcp_certificate_report(fixture8.farith, fixture8.gs,
+                                            fixture8.c0, fixture8.decomposition,
+                                            fixture8.proof, fixture8.certificate)
+        @test report.degree_accounts
+        @test isempty(fixture8.decomposition.remainder.terms)
+        @test report.certificate_ok
+        @test report.quotient_degree_ok
+    end
+
+    @testset "6b. non-degenerate exact dependencies" begin
+        fixture8 = polynomial_fixture(GF8, 6; witness=:nondegenerate)
+        for i in 1:5
+            gi = fixture8.gs[i]
+            @test evaluate(gi, zeros(GF8, 16)) !=
+                  evaluate(gi, [j == i ? one(GF8) : zero(GF8) for j in 1:16])
+            @test dependency_coordinates(gi) == Set((i,))
+            @test dependency_blocks(gi) == Set((Symbol("X", i),))
+        end
+    end
+
+    @testset "6c. non-degenerate completeness coverage" begin
+        fixture_deg = polynomial_fixture(GF8, 6)
+        fixture8 = polynomial_fixture(GF8, 6; witness=:nondegenerate)
+        b8 = base_point(GF8)
+        lines = pcp_coordinate_line_report(fixture8.tf, fixture8.proof, b8)
+        @test lines == (formula_ok=true, zero_ok=true, count=128)
+        proof_deg11 = lift_pcp(fixture_deg.proof, GF2048, 11)
+        proof_nd11 = lift_pcp(fixture8.proof, GF2048, 11)
+        sampled = pcp_seeded_pair_report(fixture8.tf, proof_deg11, proof_nd11,
+                                         10_000, UInt64(0x20_48_10_000))
+        @test sampled == (degenerate_ok=true, nondegenerate_ok=true,
+                          separator_ok=true, count=10_000)
+    end
+
+    @testset "6d. non-degenerate separator and report" begin
+        fixture8 = polynomial_fixture(GF8, 6; witness=:nondegenerate)
+        proof11 = lift_pcp(fixture8.proof, GF2048, 11)
+        separator8 = mutation_b_separator(fixture8.tf, fixture8.proof, GF8)
+        separator11 = mutation_b_separator(fixture8.tf, proof11, GF2048)
+        @test separator8.view.beta0 == separator8.honest == GF8(2)
+        @test separator8.mutated == GF8(1)
+        @test separator8.result.actual[1] == separator8.honest
+        @test passed(separator8.result)
+        @test separator11.view.beta0 == separator11.honest == GF2048(96)
+        @test separator11.mutated == GF2048(48)
+        @test separator11.result.actual[1] == separator11.honest
+        @test passed(separator11.result)
+
+        integer_stats = NONDEGENERATE_INTEGER_STATS[]
+        field_stats = BUILD_STATS[(GF8, 6, :nondegenerate)]
+        println("TB0 witness (ii) support: local Z=", integer_stats.support,
+                " vs critic 788032 CONFIRMED; local char2=",
+                monomial_count(fixture8.c0), " vs critic 534912 CONFIRMED")
+        println("TB0 witness (ii) measurements: Z seconds=",
+                round(integer_stats.seconds; digits=3), ", Z multiplication peak=",
+                integer_stats.multiplication_peak, "; char2 proof seconds=",
+                round(field_stats.seconds; digits=3), ", construction peak=",
+                multiplication_peak(fixture8.c0), "; peak RSS MiB=",
+                round(max(integer_stats.peak_rss, field_stats.peak_rss) / 2.0^20;
+                      digits=1))
+        println("TB0 witness (ii) dependencies=",
+                map(dependency_coordinates, fixture8.gs),
+                "; every g_i non-constant; C3 locality owner=witness(ii)")
+        println("TB0 mutation-B separator: honest/mutated GF8=2/1; ",
+                "GF(2^11)=96/48; verifier RHS=honest")
+    end
+end
+
+if runs("layout_m2")
+    @testset "7. layout-driven sign block for m=2" begin
+        report = tb0_layout_m2_report()
+        @test report.sign_coordinates == 11:15
+        @test report.c0_nonzero
+        @test passed(report.verifier)
+    end
+end
+
+if runs("lift_agreement")
+    @testset "8. lifted/direct GF(2^11) proof agreement" begin
+        source = polynomial_fixture(GF8, 6)
+        report = tb0_lift_direct_report(source.proof, DEGENERATE_TABLES,
+                                        MonomialBudget(160_000), 200,
+                                        UInt64(0x11_20_0))
+        @test !(report isa ExpansionRefused)
+        @test report.agreement == (agreed=true, count=200)
+        println("TB0 lift/direct agreement: GF(2^11) direct build seconds=",
+                round(report.direct_seconds; digits=3),
+                "; seeded points=200; support=", report.support,
+                "; peak RSS MiB=", round(report.peak_rss / 2.0^20; digits=1))
     end
 end
 
@@ -381,17 +346,15 @@ end
 
 if runs("c8")
     @testset "6b. C8 two-gate fan-out regression" begin
-        circuit = c8_two_gate_circuit()
-        tf = tseitin(circuit).term
-        farith = arith_q(tf, GF8; budget=MonomialBudget(160_000)).term
         expected = (2, 2, 2, 4, 3)
-        @test occurrences(tf.formula, 5) == expected
-        @test tseitin_occurrence_account(circuit) == expected
-        @test structural_degrees(farith) == expected
-        @test actual_degrees(farith) == expected
-        @test actual_degrees(farith)[4] == 4
-        @test all(actual_degrees(farith) .<= occurrences(tf.formula, 5))
-        println("C8 degrees (x1,x2,x3,w1,w2) = ", actual_degrees(farith),
-                "; deg_w1=", actual_degrees(farith)[4])
+        report = tb0_c8_report()
+        @test report.occurrence == expected
+        @test report.accounted == expected
+        @test report.structural == expected
+        @test report.actual == expected
+        @test report.actual[4] == 4
+        @test report.bounded
+        println("C8 degrees (x1,x2,x3,w1,w2) = ", report.actual,
+                "; deg_w1=", report.actual[4])
     end
 end

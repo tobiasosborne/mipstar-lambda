@@ -1,13 +1,14 @@
-const LOCAL_JULIA_DEPOT = "/tmp/mipstar-lambda-julia-depot"
-mkpath(LOCAL_JULIA_DEPOT)
-LOCAL_JULIA_DEPOT in DEPOT_PATH || pushfirst!(DEPOT_PATH, LOCAL_JULIA_DEPOT)
-
 using Test
 
 started = time()
-@testset "MIPStarLambda" begin
+@testset verbose=true "MIPStarLambda" begin
     include("tb0_core.jl")
 end
 elapsed = time() - started
-println("TB0 total wall seconds = ", round(elapsed; digits=3))
-@test elapsed < 60
+measured = round(elapsed; digits=3)
+println("TB0 total wall seconds = ", measured,
+        " (warning=45.0, hard_limit=60.0)")
+elapsed >= 45 && @warn "TB0 suite exceeded its 45 s warning" measured_seconds=measured
+@testset "TB0 60 s hard limit (measured $(measured) s)" begin
+    @test elapsed < 60
+end

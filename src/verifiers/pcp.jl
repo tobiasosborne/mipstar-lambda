@@ -34,14 +34,18 @@ function parameter_policy(params::PCPParams, degree_formula::Int)
     formula_paper = 2 * (2 + 5params.k) * params.m_prime < params.q
     tail_lhs = params.k * params.m_prime // params.q
     # With unknown 0<b'<1: s^(-b') lies strictly between 1/s and 1.
-    tail = tail_lhs < 1 // params.s ? PASS :
+    tail = tail_lhs <= 1 // params.s ? PASS :
            tail_lhs >= 1 ? FAIL : NOT_EVALUABLE
     divisibility = params.q % params.m_prime == 0
     degree = params.d == params.k
     formula_structural = 2 * (degree_formula + 5params.d) * params.m_prime < params.q
     zero_test = 2 * (2 + params.d) * params.m_prime < params.q
     exponent_range = params.d <= params.q - 1
-    ParameterPolicy(_status(shape), NOT_EVALUABLE, _status(formula_paper), tail,
+    # With gamma=1, a'>1, and 0<b'<1, the growth RHS is strictly greater
+    # than 4log(s).  A value below that lower bound fails for the full
+    # admissible range; without an upper bound on a'/b', none can pass it.
+    growth = params.k <= 4log(params.s) ? FAIL : NOT_EVALUABLE
+    ParameterPolicy(_status(shape), growth, _status(formula_paper), tail,
                     _status(divisibility), _status(degree),
                     _status(formula_structural), _status(zero_test),
                     _status(exponent_range))
@@ -58,13 +62,15 @@ function minimal_checkable_odd_k(degree_formula::Int, m_prime::Int)
     nothing
 end
 
-function build_c0(farith::Poly{F,N}, gs::NTuple{5,Poly{F,N}};
-                  budget=MonomialBudget(typemax(Int))) where {F,N}
+function build_c0(farith::Poly{F,N}, gs::NTuple{5,Poly{F,N}},
+                  budget::MonomialBudget) where {F,N}
     result = farith
-    for i in 1:5
-        sign_coordinate = 5 + i
+    sign_coordinates = block_coordinates(farith.layout, :O)
+    length(sign_coordinates) == 5 ||
+        throw(ArgumentError("the PCP sign block must have five coordinates"))
+    for (i, sign_coordinate) in enumerate(sign_coordinates)
         factor = gs[i] - polyvar(F, farith.layout, sign_coordinate)
-        multiplied = mul_poly(result, factor; budget=budget)
+        multiplied = mul_poly(result, factor, budget)
         multiplied isa ExpansionRefused && return multiplied
         result = multiplied
     end
@@ -74,6 +80,10 @@ function build_c0(farith::Poly{F,N}, gs::NTuple{5,Poly{F,N}};
                                 expected=p.structural.bound, actual=p.actual.degrees))
     Checked(result, certificate)
 end
+
+
+build_c0(farith::Poly, gs::NTuple{5,Poly};
+         budget=MonomialBudget(typemax(Int))) = build_c0(farith, gs, budget)
 
 struct EvalDAGNode{F}
     coordinate::Int
@@ -176,12 +186,16 @@ struct PrimeFieldPCPProof{F,S,N}
     d::Int
 end
 
-function lift_pcp(proof::PCPProof{S,N}, ::Type{F}; d::Int) where {S,N,F<:GF2k}
+function lift_pcp(proof::PCPProof{S,N}, ::Type{F}, d::Int) where {S,N,F<:GF2k}
     polynomials = (proof.gs..., proof.c0, proof.cs...)
     all(poly -> all(coefficient.bits <= 1 for coefficient in values(poly.terms)),
         polynomials) || throw(ArgumentError("PCP proof is not defined over the prime subfield"))
     PrimeFieldPCPProof{F,S,N}(proof, d)
 end
+
+
+lift_pcp(proof::PCPProof, ::Type{F}; d::Int) where {F<:GF2k} =
+    lift_pcp(proof, F, d)
 
 struct PCPView{F,N}
     z::Vector{F}
@@ -190,8 +204,34 @@ struct PCPView{F,N}
     beta::NTuple{N,F}
 end
 
+function _replay_pcp_c0(proof::PCPProof)
+    CheckResult(degree_accounts_valid(proof.c0), :c0_degree_accounts;
+                expected=proof.c0.structural.bound,
+                actual=proof.c0.actual.degrees)
+end
+
+_replay_pcp_zero(proof::PCPProof) =
+    verify_zero_decomposition(proof.c0, proof.decomposition)
+
+function _replay_pcp_shape(proof::PCPProof{F,N}) where {F,N}
+    CheckResult(length(proof.gs) == 5 && length(proof.cs) == N,
+                :pcp_shape; expected=(5, N),
+                actual=(length(proof.gs), length(proof.cs)))
+end
+
+function _replay_pcp_degree(proof::PCPProof)
+    degree_ok = all(degree_accounts_valid,
+                    (proof.gs..., proof.c0, proof.cs...)) &&
+                all(q -> maximum(actual_degrees(q); init=-1) <= proof.d,
+                    proof.cs)
+    CheckResult(degree_ok, :pcp_degree;
+                expected="all support degrees <= $(proof.d)",
+                actual=maximum((maximum(actual_degrees(q); init=-1)
+                                for q in proof.cs); init=-1))
+end
+
 function build_pcp(gs::NTuple{5,Poly{F,N}}, c0::Poly{F,N},
-                   decomposition_checked::Checked; d::Int) where {F,N}
+                   decomposition_checked::Checked, d::Int) where {F,N}
     decomposition = decomposition_checked.term
     cs = decomposition.quotients
     length(cs) == N || throw(ArgumentError("zero-basis tuple has wrong arity"))
@@ -201,30 +241,24 @@ function build_pcp(gs::NTuple{5,Poly{F,N}}, c0::Poly{F,N},
 
     build_node = CertNode(CHECKED, :BuildC0;
         facts=(display="inddeg = $(maximum(actual_degrees(c0))); monomials = $(monomial_count(c0))",),
-        replay=p -> CheckResult(degree_accounts_valid(p.c0), :c0_degree_accounts;
-                                expected=p.c0.structural.bound,
-                                actual=p.c0.actual.degrees))
+        replay=_replay_pcp_c0)
     zero_node = CertNode(CHECKED, :ZeroBasis;
         facts=(display="remainder = $(isempty(decomposition.remainder.terms) ? 0 : monomial_count(decomposition.remainder)); coefficient identity = true",),
-        replay=p -> verify_zero_decomposition(p.c0, p.decomposition))
+        replay=_replay_pcp_zero)
     verifier_node = CertNode(CHECKED, :PCPVerifier;
         facts=(display="formula + zero tests = accept on certified views",),
-        replay=p -> CheckResult(length(p.gs) == 5 && length(p.cs) == N,
-                                :pcp_shape; expected=(5, N),
-                                actual=(length(p.gs), length(p.cs))))
+        replay=_replay_pcp_shape)
     root = CertNode(CHECKED, :PCPProof;
         facts=(display="polynomials = $(N + 6); d = $(d); shared eval nodes = $(length(eval_plan.nodes))",),
         children=(build_node, zero_node, verifier_node),
-        replay=p -> begin
-            degree_ok = all(degree_accounts_valid, (p.gs..., p.c0, p.cs...)) &&
-                        all(q -> maximum(actual_degrees(q); init=-1) <= p.d, p.cs)
-            CheckResult(degree_ok, :pcp_degree;
-                        expected="all support degrees <= $(p.d)",
-                        actual=maximum((maximum(actual_degrees(q); init=-1)
-                                        for q in p.cs); init=-1))
-        end)
+        replay=_replay_pcp_degree)
     Checked(proof, root)
 end
+
+
+build_pcp(gs::NTuple{5,Poly}, c0::Poly,
+          decomposition_checked::Checked; d::Int) =
+    build_pcp(gs, c0, decomposition_checked, d)
 
 function ev_z(proof::PCPProof{F,N}, point::AbstractVector{F}) where {F,N}
     length(point) == N || throw(ArgumentError("PCP point has wrong dimension"))
@@ -282,8 +316,13 @@ pcp_eval(proof::PrimeFieldPCPProof, point) = ev_z(proof, point)
 function pcpverifier(tf::TseitinFormula{N}, view::PCPView{F,N}) where {F,N}
     formula_value = evaluate_arith_formula(tf, view.z)
     formula_rhs = formula_value
-    for i in 1:5
-        formula_rhs *= view.alpha[i] - view.z[5 + i]
+    sign_coordinates = block_coordinates(tf.layout, :O)
+    length(sign_coordinates) == 5 ||
+        return CheckResult(false, :pcpverifier;
+                           expected=:five_sign_coordinates,
+                           actual=Tuple(sign_coordinates))
+    for (i, sign_coordinate) in enumerate(sign_coordinates)
+        formula_rhs *= view.alpha[i] - view.z[sign_coordinate]
     end
     formula_ok = view.beta0 == formula_rhs
 

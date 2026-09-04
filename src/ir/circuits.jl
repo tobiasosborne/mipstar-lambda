@@ -356,7 +356,7 @@ _evalplan_as(plan::FormulaEvalPlan, point, ::Type{F}) where {F} =
     _evalplan(plan, point)
 _change_plan(plan::FormulaEvalPlan, ::Type{F}) where {F} = plan
 
-function _formula_poly(formula::Formula, ::Type{F}, layout::VarLayout) where {F<:GF2k}
+function _formula_poly(formula::Formula, ::Type{F}, layout::VarLayout) where {F}
     if formula isa Lit
         variable = polyvar(F, layout, formula.variable)
         return formula.sign ? variable : constant_poly(F, layout, 1) - variable
@@ -371,14 +371,14 @@ function _formula_poly(formula::Formula, ::Type{F}, layout::VarLayout) where {F<
     left + right - left * right
 end
 
-function arith_q(tf::TseitinFormula{N}, ::Type{F};
-                 budget=MonomialBudget(typemax(Int))) where {F<:GF2k,N}
+function arith_q(tf::TseitinFormula{N}, ::Type{F},
+                 budget::MonomialBudget) where {F,N}
     result = constant_poly(F, tf.layout, 1)
     for formula_part in tf.gadgets
         part = _formula_poly(formula_part, F, tf.layout)
         # Each normalized equality gadget has 6 (NOT) or 7 (AND) terms.
         part = _with_metadata(part, part.structural, monomial_count(part))
-        multiplied = mul_poly(result, part; budget=budget)
+        multiplied = mul_poly(result, part, budget)
         multiplied isa ExpansionRefused && return multiplied
         result = multiplied
     end
@@ -393,3 +393,6 @@ function arith_q(tf::TseitinFormula{N}, ::Type{F};
                                 expected=p.structural.bound, actual=p.actual.degrees))
     Checked(result, certificate)
 end
+
+arith_q(tf::TseitinFormula, ::Type{F};
+        budget=MonomialBudget(typemax(Int))) where {F} = arith_q(tf, F, budget)
