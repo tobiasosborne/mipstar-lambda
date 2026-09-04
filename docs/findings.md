@@ -1,6 +1,6 @@
 # Findings against the ground truth (orchestrator log; each becomes a claim row and is verified by a rung + critic)
 
-## F1 — prop:tseitin-arith-degree (individual degree ≤ 2) is misstated for the NW19 Tseitin transformation
+## F1 — possible discrepancy: prop:tseitin-arith-degree (individual degree ≤ 2) vs. the NW19 Tseitin transformation as we read it (our reading may be wrong)
 Source: `ground-truth/gt-10-answer-reduction.tex` prop:tseitin-arith-degree says "every variable in F occurs at most twice, and therefore F_arith has individual degree 2", citing NW19 Def 3.27/3.28. The NW19 definition (`ground-truth/nw19/nw19-tseitin-arith.tex`) is
   z_i := (g_i(x,w) ∧ w_i) ∨ (¬g_i(x,w) ∧ ¬w_i),   F := z_1 ∧ … ∧ z_s,
 arithmetized along the formula tree (∨ via De Morgan, ∧ ↦ ×, ¬ ↦ 1−·).

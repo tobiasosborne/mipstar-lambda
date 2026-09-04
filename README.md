@@ -1,6 +1,6 @@
 # mipstar-lambda
 
-**The hardest part of MIP\* = RE, rebuilt as a small algebra of executable, certified transformations in Julia.**
+**The compression step of MIP\* = RE, rebuilt as a small algebra of executable, certified transformations in Julia.**
 
 The compression theorem of [Ji, Natarajan, Vidick, Wright and Yuen (2020)](https://arxiv.org/abs/2001.04383) is the engine of MIP\* = RE. Inside it, the crux is *answer reduction*: a bespoke low-degree PCP whose query distribution must stay *conditionally linear* so the construction can be iterated. This repository asks a concrete question about that crux:
 
