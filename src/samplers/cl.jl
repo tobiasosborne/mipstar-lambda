@@ -6,13 +6,18 @@ struct CLZero{F} <: AbstractCL{F}
     indices::Tuple{Vararg{Int}}
 end
 
-"One inductive CL stage followed by a branch-selected lower-level CL function."
-struct CLStep{F} <: AbstractCL{F}
+"One inductive CL stage followed by an on-demand conditional continuation."
+struct CLStep{F,C<:AbstractCL{F},B} <: AbstractCL{F}
     seed_dim::Int
     factor::Tuple{Vararg{Int}}
     rest::Tuple{Vararg{Int}}
     matrix::Matrix{F}
-    branches::Dict{Any,AbstractCL{F}}
+    # `child_shape` is an actual nested witness, so the level is constructed
+    # by datatype depth. `branch` is evaluated only for values reached by
+    # apply/marginal_k; encountered children are memoised after validation.
+    child_shape::C
+    branch::B
+    children::Dict{Any,AbstractCL{F}}
 end
 
 function _coordinate_indices(seed_dimension::Int, indices, name)
@@ -37,7 +42,7 @@ register_indices(L::CLStep) =
     Tuple(sort!(collect((L.factor..., L.rest...))))
 
 level(::CLZero) = 0
-level(L::CLStep) = 1 + level(first(values(L.branches)))
+level(L::CLStep) = 1 + level(L.child_shape)
 
 function _field_tuples(::Type{F}, n::Int) where {F}
     n >= 0 || throw(ArgumentError("tuple dimension must be nonnegative"))
@@ -56,66 +61,58 @@ function _matvec(matrix::AbstractMatrix{F}, input) where {F}
     end
 end
 
-function CLStep(::Type{F}, seed_dimension::Integer, factor, rest,
-                matrix::AbstractMatrix, branch::Function) where {F}
+function _clstep(::Type{F}, seed_dimension::Integer, factor, rest,
+                 matrix::AbstractMatrix, child_shape::AbstractCL{F},
+                 branch; require_ambient::Bool) where {F}
     n = Int(seed_dimension)
     factor_indices = _coordinate_indices(n, factor, "factor register")
     rest_indices = _coordinate_indices(n, rest, "rest register")
     isempty(intersect(Set(factor_indices), Set(rest_indices))) ||
         throw(ArgumentError("factor and rest registers overlap"))
+    if require_ambient
+        Set((factor_indices..., rest_indices...)) == Set(1:n) ||
+            throw(ArgumentError("factor and rest registers must span the ambient basis"))
+    end
     A = Matrix{F}(matrix)
     size(A) == (length(factor_indices), length(factor_indices)) ||
         throw(ArgumentError("stage matrix must act within its factor register"))
-
-    # def:cl-func (gt-04-cl.tex:35-57): materialize every attainable image
-    # value so the continuation is an inductive child, not a forged level tag.
-    image_values = Set{Any}()
-    for input in _field_tuples(F, length(factor_indices))
-        push!(image_values, _matvec(A, input))
-    end
-    branches = Dict{Any,AbstractCL{F}}()
-    child_level = nothing
     expected_register = Tuple(sort!(collect(rest_indices)))
-    for value in image_values
-        child = branch(value)
-        child isa AbstractCL{F} ||
-            throw(ArgumentError("every CL branch must have the same field"))
-        seed_dim(child) == n ||
-            throw(ArgumentError("CL branch seed dimension changed"))
-        register_indices(child) == expected_register ||
-            throw(ArgumentError("CL branch must occupy exactly the rest register"))
-        if child_level === nothing
-            child_level = level(child)
-        elseif level(child) != child_level
-            throw(ArgumentError("all CL branches must have one fixed lower level"))
-        end
-        branches[value] = child
-    end
-    CLStep{F}(n, factor_indices, rest_indices, A, branches)
+    seed_dim(child_shape) == n ||
+        throw(ArgumentError("CL child shape seed dimension changed"))
+    register_indices(child_shape) == expected_register ||
+        throw(ArgumentError("CL child shape must occupy exactly the rest register"))
+    CLStep{F,typeof(child_shape),typeof(branch)}(
+        n, factor_indices, rest_indices, A, child_shape, branch,
+        Dict{Any,AbstractCL{F}}())
 end
 
-CLStep(branch::Function, ::Type{F}, seed_dimension::Integer, factor, rest,
-       matrix::AbstractMatrix) where {F} =
-    CLStep(F, seed_dimension, factor, rest, matrix, branch)
+function CLStep(branch::Function, ::Type{F}, seed_dimension::Integer,
+                factor, rest, matrix::AbstractMatrix,
+                child_shape::AbstractCL{F}) where {F}
+    _clstep(F, seed_dimension, factor, rest, matrix, child_shape, branch;
+            require_ambient=true)
+end
 
 function CLStep(::Type{F}, seed_dimension::Integer, factor, rest,
                 matrix::AbstractMatrix, child::AbstractCL{F}) where {F}
-    n = Int(seed_dimension)
-    factor_indices = _coordinate_indices(n, factor, "factor register")
-    rest_indices = _coordinate_indices(n, rest, "rest register")
-    isempty(intersect(Set(factor_indices), Set(rest_indices))) ||
-        throw(ArgumentError("factor and rest registers overlap"))
-    A = Matrix{F}(matrix)
-    size(A) == (length(factor_indices), length(factor_indices)) ||
-        throw(ArgumentError("stage matrix must act within its factor register"))
-    seed_dim(child) == n || throw(ArgumentError("CL branch seed dimension changed"))
-    register_indices(child) == Tuple(sort!(collect(rest_indices))) ||
-        throw(ArgumentError("CL branch must occupy exactly the rest register"))
-    branches = Dict{Any,AbstractCL{F}}(nothing => child)
-    CLStep{F}(n, factor_indices, rest_indices, A, branches)
+    _clstep(F, seed_dimension, factor, rest, matrix, child, _ -> child;
+            require_ambient=true)
 end
 
-_child(L::CLStep, key) = haskey(L.branches, key) ? L.branches[key] : L.branches[nothing]
+function _child(L::CLStep{F}, key) where {F}
+    get!(L.children, key) do
+        child = L.branch(key)
+        child isa AbstractCL{F} ||
+            throw(ArgumentError("every CL continuation must have the same field"))
+        seed_dim(child) == L.seed_dim ||
+            throw(ArgumentError("CL continuation seed dimension changed"))
+        register_indices(child) == Tuple(sort!(collect(L.rest))) ||
+            throw(ArgumentError("CL continuation must occupy exactly the rest register"))
+        level(child) == level(L.child_shape) ||
+            throw(ArgumentError("all CL continuations must have the constructed child level"))
+        child
+    end
+end
 
 function _stage_output(L::CLStep{F}, seed) where {F}
     input = ntuple(j -> convert(F, seed[L.factor[j]]), length(L.factor))
@@ -191,12 +188,10 @@ end
 function _shift_cl(L::CLStep{F}, offset::Int, total::Int) where {F}
     factor = Tuple(i + offset for i in L.factor)
     rest = Tuple(i + offset for i in L.rest)
-    if haskey(L.branches, nothing)
-        return CLStep(F, total, factor, rest, L.matrix,
-                      _shift_cl(L.branches[nothing], offset, total))
-    end
-    CLStep(F, total, factor, rest, L.matrix,
-           value -> _shift_cl(_child(L, value), offset, total))
+    shape = _shift_cl(L.child_shape, offset, total)
+    _clstep(F, total, factor, rest, L.matrix, shape,
+            value -> _shift_cl(_child(L, value), offset, total);
+            require_ambient=false)
 end
 
 function _combine_embedded(nodes::Tuple{Vararg{AbstractCL{F}}}, total::Int) where {F}
@@ -221,7 +216,10 @@ function _combine_embedded(nodes::Tuple{Vararg{AbstractCL{F}}}, total::Int) wher
         cursor += width
     end
 
-    CLStep(F, total, factor, rest, matrix) do value
+    shape_children = AbstractCL{F}[
+        node isa CLStep{F} ? node.child_shape : node for node in nodes]
+    shape = _combine_embedded(Tuple(shape_children), total)
+    _clstep(F, total, factor, rest, matrix, shape, value -> begin
         children = AbstractCL{F}[nodes...]
         cursor = 0
         for i in active
@@ -232,7 +230,7 @@ function _combine_embedded(nodes::Tuple{Vararg{AbstractCL{F}}}, total::Int) wher
             cursor += width
         end
         _combine_embedded(Tuple(children), total)
-    end
+    end; require_ambient=false)
 end
 
 function direct_sum(functions::AbstractCL{F}...) where {F}
@@ -266,14 +264,16 @@ function _graft_concatenation(L::CLStep{F}, prefix::Vector{F},
                               total::Int) where {F}
     right_register = Tuple(seed_dim(L)+1:total)
     rest = (L.rest..., right_register...)
-    CLStep(F, total, L.factor, rest, L.matrix) do value
+    shape = _graft_concatenation(L.child_shape, copy(prefix), continuation,
+                                 right_dim, total)
+    _clstep(F, total, L.factor, rest, L.matrix, shape, value -> begin
         next_prefix = copy(prefix)
         for (coordinate, entry) in zip(L.factor, value)
             next_prefix[coordinate] += entry
         end
         _graft_concatenation(_child(L, value), next_prefix, continuation,
                              right_dim, total)
-    end
+    end; require_ambient=false)
 end
 
 function concatenate(L::AbstractCL{F}, continuation::Function) where {F}
@@ -302,11 +302,16 @@ function distribution(left::AbstractCL{F}, right::AbstractCL{F}) where {F}
     CLDistribution{F}(left, right)
 end
 
-function histogram(dist::CLDistribution{F}, elements=Tuple(field_elements(F))) where {F}
+function enumerate_seeds(::Type{F}, dimension::Integer;
+                         elements=Tuple(field_elements(F))) where {F}
+    n = Int(dimension)
+    n >= 0 || throw(ArgumentError("seed dimension must be nonnegative"))
     values = Tuple(elements)
+    n == 0 ? ((),) : Iterators.product(ntuple(_ -> values, n)...)
+end
+
+function histogram(dist::CLDistribution, seeds)
     counts = Dict{Any,Int}()
-    seeds = seed_dim(dist.left) == 0 ? ((),) :
-            Iterators.product(ntuple(_ -> values, seed_dim(dist.left))...)
     for seed in seeds
         key = (apply(dist.left, seed), apply(dist.right, seed))
         counts[key] = get(counts, key, 0) + 1

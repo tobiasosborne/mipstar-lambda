@@ -10,6 +10,7 @@ const TB2_PARAMS = PCPParams(2048, 11, 1, 11, 6, 16, 1)
 const TB2_DEGENERATE_TABLES = ((0, 1), (0, 0), (0, 0), (0, 0), (0, 0))
 const TB2_NONDEGENERATE_TABLES = ((0, 1), (0, 1), (0, 1), (0, 1), (0, 1))
 const TB2_FIXTURES = Dict{Symbol,Any}()
+const TB2_REDUCTIONS = Dict{Symbol,Any}()
 
 function tb2_source_fixture(witness::Symbol)
     get!(TB2_FIXTURES, witness) do
@@ -35,9 +36,11 @@ end
 tb2_tf() = tb2_source_fixture(:degenerate).tf
 
 function tb2_checked_reduction()
-    original = trivial_original_verifier(GF2048, TB2_PARAMS, tb2_tf();
-        n=2, T=1, Q_len=1, sigma=1, label=:tb0_trivial)
-    answer_reduce_pcp(original, 1, 1, 1)
+    get!(TB2_REDUCTIONS, :tb0) do
+        original = trivial_original_verifier(GF2048, TB2_PARAMS, tb2_tf();
+            n=2, T=1, Q_len=1, sigma=1, label=:tb0_trivial)
+        answer_reduce_pcp(original, 1, 1, 1)
+    end
 end
 
 tb2_atype(role, kind, copy) = AnswerReduceType(role, PCPType(kind, copy))
@@ -73,6 +76,58 @@ if tb2_runs("sampler")
              product_edges=2916, product_level=3)
         println("TB2 sampler: PCP types=18 edges=324 dims V6=(16,6,16) ",
                 "SOURCE_REPAIR=true; product types=54 edges=2916 level=3")
+
+        checked = tb2_checked_reduction()
+        pcp = checked.term.pcp_sampler
+        rng = MersenneTwister(0xC4B)
+        seeds = [ntuple(_ -> rand(rng, field_elements(GF2048)), seed_dim(pcp))
+                 for _ in 1:20]
+        replay_ok = true
+        for map in values(pcp.left), seed in seeds
+            marginal = marginal_k(map, seed, level(map))
+            factors = marginal.factor_spaces
+            replay_ok &= length(factors) == level(map)
+            replay_ok &= Set(Iterators.flatten(factors)) == Set(1:seed_dim(map))
+            replay_ok &= sum(length, factors) == seed_dim(map)
+            for stage in eachindex(factors)
+                factor = factors[stage]
+                local_input = ntuple(i -> seed[factor[i]], length(factor))
+                expected_local = ntuple(row -> sum(
+                    marginal.linear_maps[stage][row, column] * local_input[column]
+                    for column in eachindex(local_input); init=zero(GF2048)),
+                    length(factor))
+                expected = fill(zero(GF2048), seed_dim(map))
+                for (index, value) in zip(factor, expected_local)
+                    expected[index] = value
+                end
+                replay_ok &= Tuple(expected) == marginal.outputs[stage]
+            end
+            replay_ok &= marginal.value == apply(map, seed)
+        end
+        @test replay_ok
+
+        dline6 = pcp.left[PCPType(:DLine, 6)]
+        foreach(seed -> apply(dline6, seed), seeds)
+        elapsed = @elapsed for _ in 1:50, seed in seeds
+            apply(dline6, seed)
+        end
+        apply_microseconds = elapsed * 1.0e6 / (50 * length(seeds))
+        @test apply_microseconds < 1_000
+        println("TB2 lazy CLStep replay: maps=18 seeds/map=20; DLine_6 apply=",
+                round(apply_microseconds; digits=2), " us")
+
+        @test passed(verify_certificate(checked))
+        @test tb2_has_node(checked.certificate, ASSUMED, :AnswerReduceHypotheses)
+        @test tb2_has_node(checked.certificate, SOURCE_REPAIR,
+                           :PCPVerifierFixedFormula)
+        @test tb2_has_node(checked.certificate, SOURCE_REPAIR,
+                           :PCPGameOtherwiseFallthrough)
+        @test tb2_has_node(checked.certificate, CITED,
+                           :AnswerReduceQuantumContract)
+        detyped = detype(checked)
+        @test detyped.term.level == 5
+        @test detyped.term.soundness_factor == big(16)^54
+        @test detyped.certificate.grade == CITED
     end
 end
 
@@ -85,6 +140,10 @@ end
 
 function tb2_answer_pair(reduced, proof, left_type, right_type, seed_index)
     seed = tb2_seed(reduced.sampler, seed_index)
+    tb2_answer_pair_seed(reduced, proof, left_type, right_type, seed)
+end
+
+function tb2_answer_pair_seed(reduced, proof, left_type, right_type, seed)
     left_q, right_q = sample_answer_reduce_questions(
         reduced, left_type, right_type, seed)
     strategy = honest_pcp_strategy(proof, TB2_PARAMS)
@@ -118,7 +177,7 @@ if tb2_runs("branches")
         @test passed(run.decision)
         union!(covered, tb2_trace_keys(run.decision))
         traces[1] = run
-        case_index = 10
+        case_index += 1
 
         for player in (:alice, :bob), role in (:alice, :bob)
             copy = role == :alice ? 1 : 2
@@ -128,7 +187,7 @@ if tb2_runs("branches")
             @test passed(run.decision)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 2, run)
-            case_index = 10
+            case_index += 1
         end
 
         for player in (:alice, :bob), role in (:alice, :bob),
@@ -140,7 +199,7 @@ if tb2_runs("branches")
             @test passed(run.decision)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 3, run)
-            case_index = 10
+            case_index += 1
         end
 
         for player in (:alice, :bob), i in 3:5
@@ -150,7 +209,7 @@ if tb2_runs("branches")
             @test passed(run.decision)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 4, run)
-            case_index = 10
+            case_index += 1
         end
         for player in (:alice, :bob), i in 3:5, line_kind in (:ALine, :DLine)
             types = tb2_case_types(player,
@@ -159,7 +218,7 @@ if tb2_runs("branches")
             @test passed(run.decision)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 4, run)
-            case_index = 10
+            case_index += 1
         end
         for player in (:alice, :bob), line_kind in (:ALine, :DLine)
             types = tb2_case_types(player,
@@ -168,7 +227,7 @@ if tb2_runs("branches")
             @test passed(run.decision)
             union!(covered, tb2_trace_keys(run.decision))
             traces[4] = run
-            case_index = 10
+            case_index += 1
         end
 
         for player in (:alice, :bob)
@@ -178,7 +237,7 @@ if tb2_runs("branches")
             @test passed(run.decision)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 5, run)
-            case_index = 10
+            case_index += 1
         end
 
         @test (1, :global_consistency, :both, 0, :none) in covered
@@ -216,6 +275,7 @@ if tb2_runs("branches")
                                entry.ldparams) for entry in entries], " PASS")
         end
         println("TB2 deterministic branches: covered=", length(covered),
+                " seeds=", case_index - 10,
                 " every guard orientation and both ldparams PASS")
     end
 end
@@ -232,17 +292,22 @@ if tb2_runs("seeded")
         rng = MersenneTwister(0x18_20_48)
         accepted = true
         triggered = true
+        seeds = Set{Any}()
         for index in 1:256
             left, right = rand(rng, triggering)
             proof = answer_reduce_requires_nondegenerate(
                 reduced.decider, left, right) ? nd : deg
-            run = tb2_answer_pair(reduced, proof, left, right, 1000 + index)
+            seed = ntuple(_ -> rand(rng, field_elements(GF2048)),
+                          seed_dim(reduced.sampler))
+            push!(seeds, seed)
+            run = tb2_answer_pair_seed(reduced, proof, left, right, seed)
             accepted &= passed(run.decision)
             triggered &= !isempty(run.decision.trace)
         end
         @test accepted
         @test triggered
-        println("TB2 seeded conditioned suite: seed=0x182048 questions=256 accepted=256")
+        @test length(seeds) == 256
+        println("TB2 seeded conditioned suite: RNG=0x182048 full-field seeds=256 accepted=256")
     end
 end
 
@@ -277,6 +342,22 @@ if tb2_runs("game") || tb2_runs("formula")
                                              run.left_q.original)
         @test game.game_call.x_alice != game.game_call.x_bob
         @test game.result.rule == :pcpverifier
+        specification = pcp_decider_specification(game.game_call)
+        @test specification.x_alice == game.game_call.x_alice
+        @test specification.x_bob == game.game_call.x_bob
+        view = PCPView(collect(run.left_q.pcp.point),
+            ntuple(i -> run.left_a[i], 5), run.left_a[6],
+            ntuple(i -> run.left_a[6 + i], TB2_PARAMS.m_prime))
+        swapped = PCPGameCall(game.game_call.D, game.game_call.n,
+            game.game_call.T_bound, game.game_call.Q_len,
+            game.game_call.sigma, game.game_call.gamma,
+            game.game_call.x_bob, game.game_call.x_alice,
+            game.game_call.formula)
+        fixed_result = pcpverifier(game.game_call, view)
+        swapped_result = pcpverifier(swapped, view)
+        @test (fixed_result.ok, fixed_result.formula_ok, fixed_result.zero_ok) ==
+              (swapped_result.ok, swapped_result.formula_ok, swapped_result.zero_ok)
+        println("MUTATION_EXPECTED_RULE pcpverifier actual=", game.result.rule)
         println("TB2 game call: oracle seed=", run.left_q.original,
                 " -> original decider x=", game.game_call.x_alice,
                 " y=", game.game_call.x_bob,
@@ -291,6 +372,9 @@ if tb2_runs("proof_consistency")
         types = (tb2_atype(:oracle, :Point, 3),
                  tb2_atype(:oracle, :Point, 6))
         run = tb2_answer_pair(reduced, proof, types..., 91)
+        rule = only(entry.result.rule for entry in run.decision.trace
+                    if entry.branch == :proof_consistency)
+        println("MUTATION_EXPECTED_RULE proof_consistency actual=", rule)
         @test passed(run.decision)
         @test any(entry -> entry.branch == :proof_consistency && entry.index == 3,
                   run.decision.trace)
@@ -305,6 +389,8 @@ if tb2_runs("line")
         types = (tb2_atype(:oracle, :Point, 3),
                  tb2_atype(:oracle, :ALine, 3))
         run = tb2_answer_pair(reduced, proof, types..., 103)
+        rules = [entry.result.rule for entry in run.decision.trace]
+        println("MUTATION_EXPECTED_RULE ld_axis_point actual=", rules)
         @test passed(run.decision)
         @test any(entry -> entry.result.rule == :ld_axis_point,
                   run.decision.trace)
@@ -324,8 +410,35 @@ if tb2_runs("guard")
         rejected = typed_answer_reduced_decider(
             reduced.decider, types[1], run.left_q, types[2], run.right_q,
             run.left_a, bad_line)
+        println("MUTATION_EXPECTED_RULE ld_axis_degree actual=",
+                rejected.result.rule)
         @test !passed(rejected)
         @test rejected.result.rule == :ld_axis_degree
+    end
+end
+
+
+if tb2_runs("dline_projection")
+    @testset "TB2 honest DLine answers project an unprojected direction" begin
+        proof = tb2_proof(:degenerate)
+        strategy = honest_pcp_strategy(proof, TB2_PARAMS)
+        kind = PCPType(:DLine, 6)
+        base = ntuple(_ -> zero(GF2048), TB2_PARAMS.m_prime)
+        direction = ntuple(_ -> one(GF2048), TB2_PARAMS.m_prime)
+        coordinate = GF2048(700) # chi=6, so the first five entries are removed
+        question = PCPDLineQuestion(base, coordinate, direction)
+        line_answer = honest_pcp_answer(strategy, kind, question)
+        projected = AffineLine(base,
+            pi_prefix(direction, chi(coordinate, TB2_PARAMS.m_prime) - 1))
+        point = line_point(projected, GF2048(3))
+        point_question = PCPPointQuestion(point)
+        point_answer = honest_pcp_answer(strategy, PCPType(:Point, 6),
+                                         point_question)
+        result = ld_decider(LDParams(GF2048, 16, 11, 22),
+            :DLine, pcp_ld_question(question), :Point,
+            pcp_ld_question(point_question), line_answer, point_answer)
+        @test passed(result)
+        @test result.rule == :ld_diagonal_point
     end
 end
 

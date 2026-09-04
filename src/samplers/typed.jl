@@ -4,12 +4,14 @@ function pad_level(L::AbstractCL{F}, target::Integer) where {F}
     target_level = Int(target)
     target_level >= level(L) || throw(ArgumentError("cannot pad to a lower CL level"))
     result = L
-    while level(result) < target_level
+    for _ in 1:(target_level - level(L))
         # def:cl-func permits the empty register subspace; this zero-output
         # stage makes the lower-level function an inhabitant of the next level.
         result = CLStep(F, seed_dim(result), (), register_indices(result),
                         zeros(F, 0, 0), result)
     end
+    level(result) == target_level ||
+        throw(ArgumentError("CL nesting did not reach the requested level"))
     result
 end
 
@@ -22,9 +24,11 @@ struct TypedSampler{F}
     right::Dict{Any,AbstractCL{F}}
     common_level::Int
     seed_dimension::Int
+    metadata::NamedTuple
 end
 
-function TypedSampler(types, type_graph, left::AbstractDict, right::AbstractDict)
+function TypedSampler(types, type_graph, left::AbstractDict, right::AbstractDict;
+                      metadata=(;))
     type_tuple = Tuple(types)
     isempty(type_tuple) && throw(ArgumentError("typed sampler needs at least one type"))
     length(unique(type_tuple)) == length(type_tuple) ||
@@ -50,7 +54,8 @@ function TypedSampler(types, type_graph, left::AbstractDict, right::AbstractDict
         type => pad_level(left[type], common) for type in type_tuple)
     padded_right = Dict{Any,AbstractCL{F}}(
         type => pad_level(right[type], common) for type in type_tuple)
-    TypedSampler{F}(type_tuple, edges, padded_left, padded_right, common, dimension)
+    TypedSampler{F}(type_tuple, edges, padded_left, padded_right, common,
+                    dimension, metadata)
 end
 
 level(sampler::TypedSampler) = sampler.common_level

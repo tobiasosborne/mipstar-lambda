@@ -70,14 +70,17 @@ function _build_L_ALine(::Type{F}, m::Integer) where {F<:GF2k}
     coordinate_direction = Tuple(dimension+1:n)
     first_matrix = zeros(F, dimension + 1, dimension + 1)
     first_matrix[1, 1] = one(F)
+    tail = CLZero(F, n, ())
+    point_shape = _clstep(F, n, point, (), _identity_matrix(F, dimension),
+                          tail, _ -> tail; require_ambient=false)
     axis_cache = Dict{Int,AbstractCL{F}}()
-    CLStep(F, n, coordinate_direction, point, first_matrix) do output
+    CLStep(F, n, coordinate_direction, point, first_matrix, point_shape) do output
         s = output[1]
         axis = chi(s, dimension)
         get!(axis_cache, axis) do
             e_i = ntuple(j -> F(j == axis), dimension)
-            tail = CLZero(F, n, ())
-            CLStep(F, n, point, (), L_lnf(e_i), tail)
+            _clstep(F, n, point, (), L_lnf(e_i), tail, _ -> tail;
+                    require_ambient=false)
         end
     end
 end
@@ -91,9 +94,15 @@ function _build_L_DLine(::Type{F}, m::Integer) where {F<:GF2k}
     point = Tuple(1:dimension)
     coordinate = (dimension + 1,)
     direction = Tuple(dimension+2:n)
+    tail = CLZero(F, n, ())
+    point_shape = _clstep(F, n, point, (), _identity_matrix(F, dimension),
+                          tail, _ -> tail; require_ambient=false)
+    direction_shape = _clstep(F, n, direction, point,
+                              _identity_matrix(F, dimension), point_shape,
+                              _ -> point_shape; require_ambient=false)
     direction_cache = Dict{Int,AbstractCL{F}}()
     CLStep(F, n, coordinate, (direction..., point...),
-           reshape([one(F)], 1, 1)) do coordinate_output
+           reshape([one(F)], 1, 1), direction_shape) do coordinate_output
         s = coordinate_output[1]
         axis = chi(s, dimension)
         get!(direction_cache, axis) do
@@ -101,31 +110,44 @@ function _build_L_DLine(::Type{F}, m::Integer) where {F<:GF2k}
             for j in axis:dimension
                 projection[j, j] = one(F)
             end
-            CLStep(F, n, direction, point, projection) do direction_output
+            _clstep(F, n, direction, point, projection, point_shape,
+                    direction_output -> begin
                 v_prime = Tuple(direction_output)
-                tail = CLZero(F, n, ())
-                CLStep(F, n, point, (), L_lnf(v_prime), tail)
-            end
+                _clstep(F, n, point, (), L_lnf(v_prime), tail, _ -> tail;
+                        require_ambient=false)
+            end; require_ambient=false)
         end
     end
 end
 
-# The exhaustive TB1 fixture requests these immutable sampler trees repeatedly.
-# Constructing them once also avoids charging branch-table construction to each
-# test section; all other parameter pairs still use the same builders.
-const _TB1_POINT_SAMPLER = _build_L_Point(GF8, 2)
-const _TB1_AXIS_SAMPLER = _build_L_ALine(GF8, 2)
-const _TB1_DIAGONAL_SAMPLER = _build_L_DLine(GF8, 2)
-
-L_Point(::Type{GF8}, m::Integer) =
-    Int(m) == 2 ? _TB1_POINT_SAMPLER : _build_L_Point(GF8, m)
-L_ALine(::Type{GF8}, m::Integer) =
-    Int(m) == 2 ? _TB1_AXIS_SAMPLER : _build_L_ALine(GF8, m)
-L_DLine(::Type{GF8}, m::Integer) =
-    Int(m) == 2 ? _TB1_DIAGONAL_SAMPLER : _build_L_DLine(GF8, m)
 L_Point(::Type{F}, m::Integer) where {F<:GF2k} = _build_L_Point(F, m)
 L_ALine(::Type{F}, m::Integer) where {F<:GF2k} = _build_L_ALine(F, m)
 L_DLine(::Type{F}, m::Integer) where {F<:GF2k} = _build_L_DLine(F, m)
+
+function _replay_diagonal_histogram(comparison)
+    actual = comparison.actual
+    reference = comparison.reference
+    CheckResult(actual == reference, :ld_diagonal_histogram;
+                expected=(support=length(reference), mass=sum(values(reference))),
+                actual=(support=length(actual), mass=sum(values(actual))))
+end
+
+"Replayable TB1 histogram evidence with the zero-direction source repair attached."
+function diagonal_histogram_evidence(actual::AbstractDict,
+                                     reference::AbstractDict, m::Integer)
+    dimension = Int(m)
+    zero_entries = filter(collect(actual)) do entry
+        raw = first(entry)[1]
+        all(iszero, raw[dimension+2:2dimension+1])
+    end
+    repair = CertNode(SOURCE_REPAIR, :ld_lnf_zero_direction;
+        facts=(support=length(zero_entries),
+               mass=sum(last, zero_entries), of=sum(values(actual))))
+    root = CertNode(CHECKED, :ld_diagonal_histogram;
+        facts=(support=length(actual), mass=sum(values(actual))),
+        children=(repair,), replay=_replay_diagonal_histogram)
+    Checked((actual=actual, reference=reference), root)
+end
 
 function _raw_question(raw, m::Int)
     length(raw) == 2m + 1 || throw(ArgumentError("low-degree question has wrong dimension"))

@@ -43,16 +43,17 @@ struct TypedAnswerReducedVerifier{F,D}
 end
 
 function _answer_reduce_replay(verifier::TypedAnswerReducedVerifier)
-    CheckResult(length(verifier.sampler.types) == 54 &&
-                length(verifier.sampler.type_graph) == 54^2 &&
-                level(verifier.sampler) == max(
-                    level(verifier.oracularized_sampler),
-                    level(verifier.pcp_sampler)),
+    shape_ok = length(verifier.sampler.types) == 54 &&
+        length(verifier.sampler.type_graph) == 54^2 &&
+        level(verifier.sampler) == max(level(verifier.oracularized_sampler),
+                                       level(verifier.pcp_sampler))
+    steps = _answer_reduce_replay_steps(verifier)
+    CheckResult(shape_ok && steps == Set(1:5),
                 :typed_answer_reduce_shape;
-                expected=(types=54, edges=2916, level=3),
+                expected=(types=54, edges=2916, level=3, steps=Set(1:5)),
                 actual=(types=length(verifier.sampler.types),
                         edges=length(verifier.sampler.type_graph),
-                        level=level(verifier.sampler)))
+                        level=level(verifier.sampler), steps=steps))
 end
 
 "Executable typed construction; quantum lifting and detyping remain certificate leaves."
@@ -75,9 +76,14 @@ function answer_reduce_pcp(original::TrivialOriginalVerifier{F},
         facts=(display="normal form, T(n)=(2^(lambda*n))^mu, Q=(lambda*n)^mu, and time bounds; lambda=$(lambda), mu=$(mu)",))
     quantum = CertNode(CITED, :AnswerReduceQuantumContract;
         facts=(display="thm:ar completeness/soundness/entanglement implications; gt-10:2077-2116",))
+    fixed_formula = CertNode(SOURCE_REPAIR, :PCPVerifierFixedFormula;
+        facts=(display="fig:pcpverifier steps 1-2 are not executed on the TB0 fixture; its construction-time circuit is independent of (x,y), while x_alice/x_bob remain explicit decider-specification fields",))
+    fallthrough = CertNode(SOURCE_REPAIR, :PCPGameOtherwiseFallthrough;
+        facts=(display="fig:decider-pcp step 5 otherwise-accept is read as fallthrough so the opposite player's checks still execute",))
     root = CertNode(CHECKED, :TypedAnswerReduce;
         facts=(display="finite Figure decider-pcp executable; typed level=max(ell,3)=3",),
-        children=(combined.certificate, assumptions, quantum),
+        children=(combined.certificate, assumptions, fixed_formula, fallthrough,
+                  quantum),
         replay=_answer_reduce_replay)
     Checked(verifier, root)
 end
@@ -161,11 +167,6 @@ function _evaluate_individual(proof::PCPProof, copy::Int, point)
     evaluate(proof.gs[copy], _individual_point(proof, copy, point))
 end
 
-_tb2_bundle_point_entries(view::PCPView) =
-    (view.alpha..., view.beta0, view.beta...)
-_tb2_individual_point_entry(value, copy::Int) = value
-_tb2_finalize_line_answers(answers::Tuple) = answers
-
 function _univariate_from_coefficients(::Type{F}, coefficients) where {F}
     layout = VarLayout((:t,), (VarBlock(:LineParameter, 1:1),))
     terms = Dict{NTuple{1,UInt8},F}()
@@ -217,8 +218,10 @@ function _question_line(question::PCPALineQuestion{F,N}) where {F,N}
     axis = chi(question.coordinate, N)
     AffineLine(question.base, ntuple(i -> F(i == axis), N))
 end
-_question_line(question::PCPDLineQuestion) =
-    AffineLine(question.base, question.direction)
+function _question_line(question::PCPDLineQuestion{F,N}) where {F,N}
+    AffineLine(question.base,
+               pi_prefix(question.direction, chi(question.coordinate, N) - 1))
+end
 
 function _honest_individual_line(strategy::HonestPCPStrategy,
                                  kind::PCPType, question)
@@ -247,7 +250,7 @@ function _honest_bundle_line(strategy::HonestPCPStrategy,
     for raw_t in 0:degree_bound
         point = collect(line_point(line, F(raw_t)))
         view = ev_z(proof, point)
-        push!(values, _tb2_bundle_point_entries(view))
+        push!(values, (view.alpha..., view.beta0, view.beta...))
     end
     _interpolate_outputs(F, values)
 end
@@ -258,19 +261,18 @@ function _honest_pcp_answer_uncached(strategy::HonestPCPStrategy,
     if kind.kind == :Point
         question isa PCPPointQuestion || throw(ArgumentError("point type/question mismatch"))
         if kind.copy == 6
-            return _tb2_bundle_point_entries(ev_z(strategy.proof,
-                                                    collect(question.point)))
+            view = ev_z(strategy.proof, collect(question.point))
+            return (view.alpha..., view.beta0, view.beta...)
         end
         value = _evaluate_individual(strategy.proof, kind.copy, question.point)
-        return (_tb2_individual_point_entry(value, kind.copy),)
+        return (value,)
     end
     kind.kind == :ALine && !(question isa PCPALineQuestion) &&
         throw(ArgumentError("axis-line type/question mismatch"))
     kind.kind == :DLine && !(question isa PCPDLineQuestion) &&
         throw(ArgumentError("diagonal-line type/question mismatch"))
-    answers = kind.copy == 6 ? _honest_bundle_line(strategy, kind, question) :
-                               _honest_individual_line(strategy, kind, question)
-    _tb2_finalize_line_answers(answers)
+    kind.copy == 6 ? _honest_bundle_line(strategy, kind, question) :
+                     _honest_individual_line(strategy, kind, question)
 end
 
 "Honest table:tpcp response obtained from one cached PCP proof."
@@ -279,16 +281,6 @@ function honest_pcp_answer(strategy::HonestPCPStrategy,
     get!(strategy.cache, (kind, question)) do
         _honest_pcp_answer_uncached(strategy, kind, question)
     end
-end
-
-function _truncate_univariate(poly::Poly{F,1}) where {F}
-    isempty(poly.terms) && return poly
-    top = maximum(Int(first(key)) for key in keys(poly.terms))
-    terms = Dict(key => coefficient for (key, coefficient) in poly.terms
-                 if Int(first(key)) < top)
-    degree = isempty(terms) ? -1 : maximum(Int(first(key)) for key in keys(terms))
-    derivation = DegreeDerivation(:Truncated, (max(degree, 0),), (), ())
-    _poly(poly.layout, terms, derivation, length(terms), 0; normalized=true)
 end
 
 struct PCPGameCall{T,O}
@@ -303,6 +295,23 @@ struct PCPGameCall{T,O}
     formula::T
 end
 
+struct PCPDeciderSpecification{O}
+    D::Symbol
+    n::Int
+    T_bound::Int
+    Q_len::Int
+    sigma::Int
+    gamma::Int
+    x_alice::O
+    x_bob::O
+end
+
+pcp_decider_specification(call::PCPGameCall) = PCPDeciderSpecification(
+    call.D, call.n, call.T_bound, call.Q_len, call.sigma, call.gamma,
+    call.x_alice, call.x_bob)
+
+# The fixed TB0 formula does not read x/y. They are nevertheless carried into
+# the decider specification so TB3 can replace this fixture by steps 1-2.
 pcpverifier(call::PCPGameCall, view::PCPView) = pcpverifier(call.formula, view)
 
 struct AnswerReduceTraceEntry
@@ -557,6 +566,45 @@ function answer_reduce_requires_nondegenerate(decider::TypedAnswerReducedDecider
                                               right::AnswerReduceType)
     any(branch -> branch in (:proof_consistency, :proof_individual_low_degree),
         answer_reduce_guard_branches(decider, left, right))
+end
+
+function _answer_reduce_replay_answer(::Type{F}, kind::PCPType,
+                                      params::PCPParams) where {F}
+    count = kind.copy == 6 ? params.m_prime + 6 : 1
+    kind.kind == :Point && return ntuple(_ -> zero(F), count)
+    layout = VarLayout((:t,), (VarBlock(:LineParameter, 1:1),))
+    polynomial = zero_poly(F, layout)
+    ntuple(_ -> polynomial, count)
+end
+
+function _answer_reduce_replay_steps(verifier::TypedAnswerReducedVerifier{F}) where {F}
+    cases = (
+        (AnswerReduceType(:alice, PCPType(:Point, 1)),
+         AnswerReduceType(:alice, PCPType(:Point, 1))),
+        (AnswerReduceType(:oracle, PCPType(:Point, 6)),
+         AnswerReduceType(:alice, PCPType(:Point, 1))),
+        (AnswerReduceType(:alice, PCPType(:Point, 1)),
+         AnswerReduceType(:alice, PCPType(:ALine, 1))),
+        (AnswerReduceType(:oracle, PCPType(:Point, 3)),
+         AnswerReduceType(:oracle, PCPType(:Point, 6))),
+        (AnswerReduceType(:oracle, PCPType(:Point, 6)),
+         AnswerReduceType(:bob, PCPType(:Point, 2))),
+    )
+    seed = ntuple(_ -> zero(F), seed_dim(verifier.sampler))
+    steps = Set{Int}()
+    for (left_type, right_type) in cases
+        left_question, right_question = sample_answer_reduce_questions(
+            verifier, left_type, right_type, seed)
+        left_answer = _answer_reduce_replay_answer(F, left_type.pcp,
+                                                   verifier.decider.params)
+        right_answer = _answer_reduce_replay_answer(F, right_type.pcp,
+                                                    verifier.decider.params)
+        decision = typed_answer_reduced_decider(
+            verifier.decider, left_type, left_question, right_type,
+            right_question, left_answer, right_answer)
+        union!(steps, (entry.step for entry in decision.trace))
+    end
+    steps
 end
 
 const _TB2_PROOF_TYPE = PCPProof{GF2048,16}

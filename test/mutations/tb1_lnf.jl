@@ -3,4 +3,4 @@ const TB1_LNF_MUTANT = Mutant(
     "src/samplers/ldt.jl",
     "pivot = findfirst(!iszero, v)",
     "pivot = findlast(!iszero, v)",
-    "tb1_histogram_diagonal")
+    "tb1_lnf_separator")
