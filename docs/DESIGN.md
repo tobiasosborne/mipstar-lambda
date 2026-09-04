@@ -1886,7 +1886,7 @@ This inventory was checked by extracting every literal `lem:`, `thm:`, `prop:`, 
 unnamed source facts and future citations still require classification.  Any unclassified CITED label in a TB7 trace is a failure.  Conversely, relabeling any item above CHECKED without a replayable proof is a certificate failure.  This inventory, rather than green toy transcripts, is the
 boundary of the local mathematical result.
 
-### 13.3 Merged claim rows and the remaining C14 proposal
+### 13.3 Merged claim rows (C12–C15 all MERGED as CONJECTURE per verdicts/design-v2-r3.md)
 
 The orchestrator has applied the authorized C12, C13, and C15 rows to [claims/CLAIMS.md](../claims/CLAIMS.md).  They are **MERGED**, each still `CONJECTURE`; merge is not promotion.  This repair does not edit the claims file.  The shared rows are authoritative and are not duplicated as pending proposals here:
 
