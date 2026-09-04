@@ -3,3 +3,6 @@
 .dolt/
 *.db
 .beads-credential-key
+
+# codex worker transcripts (large; regenerable)
+briefs/*.codex.log
