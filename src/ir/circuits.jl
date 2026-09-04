@@ -330,32 +330,6 @@ function evaluate_arith_formula(tf::TseitinFormula, assignment::AbstractVector{F
     values[end]
 end
 
-struct FormulaEvalPlan <: AbstractEvalPlan
-    formula::Formula
-    program::Vector{FormulaInstruction}
-end
-function _evalplan(plan::FormulaEvalPlan, point::AbstractVector{F}) where {F}
-    values = Vector{F}(undef, length(plan.program))
-    for (index, instruction) in enumerate(plan.program)
-        if instruction.operation == 0x00
-            value = point[instruction.left]
-            values[index] = instruction.sign ? value : one(F) - value
-        elseif instruction.operation == 0x01
-            values[index] = one(F) - values[instruction.left]
-        elseif instruction.operation == 0x02
-            values[index] = values[instruction.left] * values[instruction.right]
-        else
-            left = values[instruction.left]
-            right = values[instruction.right]
-            values[index] = left + right - left * right
-        end
-    end
-    values[end]
-end
-_evalplan_as(plan::FormulaEvalPlan, point, ::Type{F}) where {F} =
-    _evalplan(plan, point)
-_change_plan(plan::FormulaEvalPlan, ::Type{F}) where {F} = plan
-
 function _formula_poly(formula::Formula, ::Type{F}, layout::VarLayout) where {F}
     if formula isa Lit
         variable = polyvar(F, layout, formula.variable)
@@ -385,8 +359,7 @@ function arith_q(tf::TseitinFormula{N}, ::Type{F},
     dependencies = Tuple(i for i in 1:N if tf.occurrence_vector[i] > 0)
     derivation = DegreeDerivation(:ArithFormula, tf.occurrence_vector,
                                   dependencies, ())
-    result = _with_metadata(result, derivation, result.expected,
-                            FormulaEvalPlan(tf.formula, tf.program))
+    result = _with_metadata(result, derivation, result.expected)
     certificate = CertNode(CHECKED, :ArithTseitin;
         facts=(display="degrees = occurrences; inddeg = $(maximum(tf.occurrence_vector))",),
         replay=p -> CheckResult(degree_accounts_valid(p), :occurrence_degree_bound;

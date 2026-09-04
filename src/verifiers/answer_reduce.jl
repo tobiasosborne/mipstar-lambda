@@ -134,19 +134,15 @@ end
 const _HONEST_PCP_CACHES = IdDict{Any,Dict{Any,Any}}()
 
 function honest_pcp_strategy(proof, params::PCPParams)
-    cache_key = _proof_source(proof).eval_plan.nodes
-    cache = get!(_HONEST_PCP_CACHES, cache_key) do
+    cache = get!(_HONEST_PCP_CACHES, proof) do
         Dict{Any,Any}()
     end
     HonestPCPStrategy(proof, params, cache)
 end
 
 _proof_field(::PCPProof{F}) where {F} = F
-_proof_field(::PrimeFieldPCPProof{F}) where {F} = F
 _proof_dimension(::PCPProof{F,N}) where {F,N} = N
-_proof_dimension(::PrimeFieldPCPProof{F,S,N}) where {F,S,N} = N
 _proof_source(proof::PCPProof) = proof
-_proof_source(proof::PrimeFieldPCPProof) = proof.source
 
 function _individual_point(proof, copy::Int, point)
     source = _proof_source(proof)
@@ -164,11 +160,6 @@ end
 function _evaluate_individual(proof::PCPProof, copy::Int, point)
     evaluate(proof.gs[copy], _individual_point(proof, copy, point))
 end
-function _evaluate_individual(proof::PrimeFieldPCPProof{F}, copy::Int,
-                              point) where {F}
-    _evaluate_as(proof.source.gs[copy],
-                 _individual_point(proof, copy, point))
-end
 
 _tb2_bundle_point_entries(view::PCPView) =
     (view.alpha..., view.beta0, view.beta...)
@@ -183,8 +174,7 @@ function _univariate_from_coefficients(::Type{F}, coefficients) where {F}
     end
     degree = isempty(terms) ? -1 : maximum(Int(first(key)) for key in keys(terms))
     derivation = DegreeDerivation(:Interpolation, (max(degree, 0),), (), ())
-    _poly(layout, terms, derivation, length(terms), 0, SparsePlan(copy(terms));
-          normalized=true)
+    _poly(layout, terms, derivation, length(terms), 0; normalized=true)
 end
 
 function _interpolate_outputs(::Type{F}, values::Vector{<:Tuple}) where {F}
@@ -298,8 +288,7 @@ function _truncate_univariate(poly::Poly{F,1}) where {F}
                  if Int(first(key)) < top)
     degree = isempty(terms) ? -1 : maximum(Int(first(key)) for key in keys(terms))
     derivation = DegreeDerivation(:Truncated, (max(degree, 0),), (), ())
-    _poly(poly.layout, terms, derivation, length(terms), 0,
-          SparsePlan(copy(terms)); normalized=true)
+    _poly(poly.layout, terms, derivation, length(terms), 0; normalized=true)
 end
 
 struct PCPGameCall{T,O}
@@ -570,8 +559,8 @@ function answer_reduce_requires_nondegenerate(decider::TypedAnswerReducedDecider
         answer_reduce_guard_branches(decider, left, right))
 end
 
-const _TB2_LIFTED_PROOF_TYPE = PrimeFieldPCPProof{GF2048,GF8,16}
-const _TB2_STRATEGY_TYPE = HonestPCPStrategy{_TB2_LIFTED_PROOF_TYPE}
+const _TB2_PROOF_TYPE = PCPProof{GF2048,16}
+const _TB2_STRATEGY_TYPE = HonestPCPStrategy{_TB2_PROOF_TYPE}
 precompile(_interpolate_outputs, (Type{GF2048}, Vector{NTuple{1,GF2048}}))
 precompile(_interpolate_outputs, (Type{GF2048}, Vector{NTuple{22,GF2048}}))
 for question_type in (PCPPointQuestion{GF2048,1},

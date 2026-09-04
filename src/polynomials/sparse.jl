@@ -47,25 +47,6 @@ struct ExpansionRefused
     budget::MonomialBudget
 end
 
-abstract type AbstractEvalPlan end
-struct ConstantPlan{F} <: AbstractEvalPlan
-    value::F
-end
-struct VariablePlan <: AbstractEvalPlan
-    coordinate::Int
-end
-struct AddPlan <: AbstractEvalPlan
-    left::Any
-    right::Any
-end
-struct MulPlan <: AbstractEvalPlan
-    left::Any
-    right::Any
-end
-struct SparsePlan{F,N} <: AbstractEvalPlan
-    terms::Dict{NTuple{N,UInt8},F}
-end
-
 struct Poly{F,N}
     layout::VarLayout{N}
     terms::Dict{NTuple{N,UInt8},F}
@@ -73,7 +54,6 @@ struct Poly{F,N}
     actual::SupportReport{N}
     expected::Int
     multiplication_peak::Int
-    plan::Any
 end
 
 function _support_report(terms::Dict{NTuple{N,UInt8},F}) where {F,N}
@@ -99,7 +79,7 @@ end
 
 function _poly(layout::VarLayout{N}, terms::Dict{NTuple{N,UInt8},F},
                structural::DegreeDerivation{N}, expected::Int,
-               multiplication_peak::Int, plan; normalized=false) where {F,N}
+               multiplication_peak::Int; normalized=false) where {F,N}
     support = if normalized
         terms
     else
@@ -110,7 +90,7 @@ function _poly(layout::VarLayout{N}, terms::Dict{NTuple{N,UInt8},F},
         cleaned
     end
     Poly{F,N}(layout, support, structural, _support_report(support),
-              expected, multiplication_peak, plan)
+              expected, multiplication_peak)
 end
 
 _zero_key(::Val{N}) where {N} = ntuple(_ -> UInt8(0), N)
@@ -120,8 +100,8 @@ function constant_poly(::Type{F}, layout::VarLayout{N}, value) where {F,N}
     terms = Dict{NTuple{N,UInt8},F}()
     iszero(coefficient) || (terms[_zero_key(Val(N))] = coefficient)
     derivation = DegreeDerivation(:Constant, ntuple(_ -> 0, N), (), ())
-    _poly(layout, terms, derivation, iszero(coefficient) ? 0 : 1, 0,
-          ConstantPlan(coefficient); normalized=true)
+    _poly(layout, terms, derivation, iszero(coefficient) ? 0 : 1, 0;
+          normalized=true)
 end
 
 zero_poly(::Type{F}, layout::VarLayout) where {F} = constant_poly(F, layout, 0)
@@ -132,8 +112,7 @@ function polyvar(::Type{F}, layout::VarLayout{N}, coordinate::Int) where {F,N}
     terms = Dict{NTuple{N,UInt8},F}(key => one(F))
     bound = ntuple(i -> i == coordinate ? 1 : 0, N)
     derivation = DegreeDerivation(:Variable, bound, (coordinate,), ())
-    _poly(layout, terms, derivation, 1, 0, VariablePlan(coordinate);
-          normalized=true)
+    _poly(layout, terms, derivation, 1, 0; normalized=true)
 end
 
 function _same_carrier(a::Poly{F,N}, b::Poly{F,N}) where {F,N}
@@ -155,14 +134,13 @@ function Base.:+(a::Poly{F,N}, b::Poly{F,N}) where {F,N}
                                   (a.structural, b.structural))
     expected = min(typemax(Int), a.expected + b.expected)
     peak = max(a.multiplication_peak, b.multiplication_peak)
-    _poly(a.layout, terms, derivation, expected, peak, AddPlan(a.plan, b.plan);
-          normalized=true)
+    _poly(a.layout, terms, derivation, expected, peak; normalized=true)
 end
 
 Base.:-(a::Poly{F,N}) where {F,N} = begin
     terms = Dict(key => -coefficient for (key, coefficient) in a.terms)
-    _poly(a.layout, terms, a.structural, a.expected, a.multiplication_peak,
-          MulPlan(ConstantPlan(-one(F)), a.plan); normalized=true)
+    _poly(a.layout, terms, a.structural, a.expected, a.multiplication_peak;
+          normalized=true)
 end
 Base.:-(a::Poly, b::Poly) = a + (-b)
 
@@ -215,8 +193,7 @@ function mul_poly(a::Poly{F,N}, b::Poly{F,N},
                                   (a.structural, b.structural))
     expected = _candidate_product(a.expected, b.expected)
     peak = max(a.multiplication_peak, b.multiplication_peak, candidates)
-    _poly(a.layout, terms, derivation, expected, peak, MulPlan(a.plan, b.plan);
-          normalized=true)
+    _poly(a.layout, terms, derivation, expected, peak; normalized=true)
 end
 
 
@@ -242,52 +219,45 @@ function Base.:^(a::Poly{F,N}, exponent::Integer) where {F,N}
     result
 end
 
-_evalplan(plan::ConstantPlan, point) = plan.value
-_evalplan(plan::VariablePlan, point) = point[plan.coordinate]
-_evalplan(plan::AddPlan, point) = _evalplan(plan.left, point) + _evalplan(plan.right, point)
-_evalplan(plan::MulPlan, point) = _evalplan(plan.left, point) * _evalplan(plan.right, point)
+function _power_table(point::AbstractVector{F}, maxima::NTuple{N,Int}) where {F,N}
+    ntuple(coordinate -> begin
+        values = Vector{F}(undef, max(maxima[coordinate], 0) + 1)
+        values[1] = one(F)
+        for exponent in 1:maxima[coordinate]
+            values[exponent + 1] = values[exponent] * point[coordinate]
+        end
+        values
+    end, N)
+end
 
-_evalplan_as(plan::VariablePlan, point, ::Type{F}) where {F} = point[plan.coordinate]
-_evalplan_as(plan::ConstantPlan, point, ::Type{F}) where {F} = F(Int(plan.value.bits))
-_evalplan_as(plan::AddPlan, point, ::Type{F}) where {F} =
-    _evalplan_as(plan.left, point, F) + _evalplan_as(plan.right, point, F)
-_evalplan_as(plan::MulPlan, point, ::Type{F}) where {F} =
-    _evalplan_as(plan.left, point, F) * _evalplan_as(plan.right, point, F)
+function _shared_power_table(polynomials::Tuple,
+                             point::AbstractVector{F}) where {F}
+    isempty(polynomials) && throw(ArgumentError("a power table needs a polynomial"))
+    dimension = length(point)
+    all(poly -> length(poly.layout.names) == dimension, polynomials) ||
+        throw(ArgumentError("point has wrong dimension"))
+    maxima = ntuple(coordinate ->
+        maximum((poly.actual.degrees[coordinate] for poly in polynomials); init=0),
+        dimension)
+    _power_table(point, maxima)
+end
 
-function _evalplan(plan::SparsePlan{F,N}, point) where {F,N}
+function _evaluate_terms(poly::Poly{F,N}, powers::NTuple{N,<:AbstractVector}) where {F,N}
     total = zero(F)
-    for (key, coefficient) in plan.terms
+    for (key, coefficient) in poly.terms
         term = coefficient
-        for i in 1:N
-            key[i] == 0 || (term *= point[i]^Int(key[i]))
+        @inbounds for coordinate in 1:N
+            exponent = Int(key[coordinate])
+            exponent == 0 || (term *= powers[coordinate][exponent + 1])
         end
         total += term
     end
     total
-end
-
-
-function _evalplan_as(plan::SparsePlan{S,N}, point, ::Type{F}) where {S,N,F}
-    total = zero(F)
-    for (key, coefficient) in plan.terms
-        coefficient.bits <= 1 || throw(ArgumentError("coefficient is outside the prime subfield"))
-        term = F(Int(coefficient.bits))
-        for i in 1:N
-            key[i] == 0 || (term *= point[i]^Int(key[i]))
-        end
-        total += term
-    end
-    total
-end
-
-function _evaluate_as(poly::Poly{S,N}, point::AbstractVector{F}) where {S,N,F}
-    length(point) == N || throw(ArgumentError("point has wrong dimension"))
-    _evalplan_as(poly.plan, point, F)
 end
 
 function evaluate(poly::Poly{F,N}, point::AbstractVector{F}) where {F,N}
     length(point) == N || throw(ArgumentError("point has wrong dimension"))
-    _evalplan(poly.plan, point)
+    _evaluate_terms(poly, _power_table(point, poly.actual.degrees))
 end
 
 monomial_count(poly::Poly) = length(poly.terms)
@@ -313,31 +283,9 @@ function polynomial_equal(a::Poly{F,N}, b::Poly{F,N}) where {F,N}
 end
 
 function _with_metadata(poly::Poly{F,N}, derivation::DegreeDerivation{N},
-                        expected::Int, plan=poly.plan) where {F,N}
+                        expected::Int) where {F,N}
     _poly(poly.layout, poly.terms, derivation, expected,
-          poly.multiplication_peak, plan; normalized=true)
-end
-
-_change_plan(plan::VariablePlan, ::Type{F}) where {F} = plan
-_change_plan(plan::ConstantPlan{S}, ::Type{F}) where {S<:GF2k,F} =
-    ConstantPlan(convert(F, Int(plan.value.bits)))
-_change_plan(plan::ConstantPlan{S}, ::Type{F}) where {S<:Integer,F} =
-    ConstantPlan(convert(F, mod(plan.value, 2)))
-_change_plan(plan::AddPlan, ::Type{F}) where {F} =
-    AddPlan(_change_plan(plan.left, F), _change_plan(plan.right, F))
-_change_plan(plan::MulPlan, ::Type{F}) where {F} =
-    MulPlan(_change_plan(plan.left, F), _change_plan(plan.right, F))
-function _change_plan(plan::SparsePlan{S,N}, ::Type{F}) where {S,N,F}
-    terms = Dict(key => convert(F, Int(coefficient.bits))
-                 for (key, coefficient) in plan.terms)
-    SparsePlan(terms)
-end
-
-function _change_plan(plan::SparsePlan{S,N}, ::Type{F}) where {S<:Integer,N,F}
-    terms = Dict(key => convert(F, mod(coefficient, 2))
-                 for (key, coefficient) in plan.terms
-                 if !iszero(mod(coefficient, 2)))
-    SparsePlan(terms)
+          poly.multiplication_peak; normalized=true)
 end
 
 
@@ -348,8 +296,7 @@ function change_field(poly::Poly{S,N}, ::Type{F}) where {S<:GF2k,F<:GF2k,N}
     terms = Dict(key => convert(F, Int(coefficient.bits))
                  for (key, coefficient) in poly.terms)
     _poly(poly.layout, terms, poly.structural, poly.expected,
-          poly.multiplication_peak,
-          _change_plan(poly.plan, F); normalized=true)
+          poly.multiplication_peak; normalized=true)
 end
 
 "Reduce an integer-coefficient formal polynomial to characteristic two."
@@ -358,16 +305,15 @@ function change_field(poly::Poly{S,N}, ::Type{F}) where {S<:Integer,F<:GF2k,N}
                  for (key, coefficient) in poly.terms
                  if !iszero(mod(coefficient, 2)))
     _poly(poly.layout, terms, poly.structural, poly.expected,
-          poly.multiplication_peak, _change_plan(poly.plan, F);
-          normalized=true)
+          poly.multiplication_peak; normalized=true)
 end
 
 function _from_terms(::Type{F}, layout::VarLayout{N},
                      terms::Dict{NTuple{N,UInt8},F},
                      derivation::DegreeDerivation{N}; expected=length(terms),
                      multiplication_peak=0) where {F,N}
-    _poly(layout, terms, derivation, expected, multiplication_peak,
-          SparsePlan(terms); normalized=true)
+    _poly(layout, terms, derivation, expected, multiplication_peak;
+          normalized=true)
 end
 
 # gt-03-prelim.tex:873-897 (sec:ld-encoding).

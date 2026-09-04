@@ -60,8 +60,7 @@ export ORACULAR_ROLES, AnswerReduceType, trivial_original_sampler,
 
 export PredicateStatus, PASS, FAIL, NOT_EVALUABLE, PCPParams, ParameterPolicy,
        parameter_policy, policy_vector, minimal_checkable_odd_k,
-       PCPProof, PrimeFieldPCPProof, PCPView, build_c0, build_pcp, lift_pcp,
-       ev_z, pcp_eval, pcpverifier
+       PCPProof, PCPView, build_c0, build_pcp, ev_z, pcpverifier
 
 export TrivialOriginalVerifier, TypedAnswerReducedDecider,
        TypedAnswerReducedVerifier, CitedDetypedVerifier,
@@ -73,17 +72,7 @@ export TrivialOriginalVerifier, TypedAnswerReducedDecider,
        answer_reduce_guard_branches, answer_reduce_requires_nondegenerate,
        proof_individual_guard_copies
 
-export tb0_build_fixture, tb0_build_nondegenerate_fixture, tb0_base_point,
-       pcp_coordinate_line_report, pcp_seeded_report, pcp_boolean_cube_report,
-       pcp_agreement_report, tb0_layout_m2_report
-export pcp_seeded_pair_report
-export tb0_encoding_report
-export tb0_truth_report
-export tb0_pcp_certificate_report
-export tb0_lift_direct_report
-export tb0_c8_report
-export tb0_print_degenerate_report
-export tb0_degenerate_core_report
+export tb0_build_fixture, tb0_build_nondegenerate_fixture, tb0_base_point
 
 export Grade, CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR,
        CheckResult, passed, CertNode, Checked, verify_certificate, traceprint

@@ -6,7 +6,7 @@ Base.Experimental.@optlevel 0
 const TB2_TARGET = get(ENV, "TB2_TARGET", "all")
 tb2_runs(name) = TB2_TARGET == "all" || TB2_TARGET == name
 
-const TB2_PARAMS = PCPParams(2048, 11, 1, 11, 6, 16)
+const TB2_PARAMS = PCPParams(2048, 11, 1, 11, 6, 16, 1)
 const TB2_DEGENERATE_TABLES = ((0, 1), (0, 0), (0, 0), (0, 0), (0, 0))
 const TB2_NONDEGENERATE_TABLES = ((0, 1), (0, 1), (0, 1), (0, 1), (0, 1))
 const TB2_FIXTURES = Dict{Symbol,Any}()
@@ -29,7 +29,7 @@ end
 function tb2_proof(witness::Symbol)
     fixture = tb2_source_fixture(witness)
     fixture isa ExpansionRefused && error("TB2 fixture expansion refused")
-    lift_pcp(fixture.proof, GF2048, 11)
+    change_field(fixture.proof, GF2048, 11)
 end
 
 tb2_tf() = tb2_source_fixture(:degenerate).tf

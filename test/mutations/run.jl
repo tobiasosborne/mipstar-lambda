@@ -36,6 +36,29 @@ const MUTANTS = (
     Mutant("C8 occurrence_ignores_fanout", "src/ir/circuits.jl",
            "counts[node.variable] += 1",
            "counts[node.variable] = 1", "c8"),
+    Mutant("G g_a_reverse_bit_order", "src/polynomials/sparse.jl",
+           "variable = polyvar(F, layout, coordinates[local_coordinate])\n            bit = (index >> (M - local_coordinate)) & 1",
+           "variable = polyvar(F, layout, coordinates[local_coordinate])\n            bit = (index >> (local_coordinate - 1)) & 1", "encoding"),
+    Mutant("H ind_reverse_bit_order", "src/polynomials/sparse.jl",
+           "bit = (index >> (m - coordinate)) & 1",
+           "bit = (index >> (coordinate - 1)) & 1", "encoding"),
+    Mutant("I restore_GF2k_accumulator_bug", "src/polynomials/zero_basis.jl",
+           "coefficient.bits == 1 && stored.bits <= 1",
+           "coefficient.bits == 1",
+           "zero_basis"),
+    Mutant("J ev_z_ignores_c0_terms", "src/verifiers/pcp.jl",
+           "beta0 = _evaluate_terms(c0, powers)",
+           "beta0 = zero(F)", "c0_terms"),
+    Mutant("K witness_iff_reverses_factor", "test/tb0_core.jl",
+           "all(witness[i][Int(input[i]) + 1] != input[5 + i] for i in 1:5)",
+           "all(witness[i][Int(input[i]) + 1] == input[5 + i] for i in 1:5)",
+           "witness_iff"),
+    Mutant("L PCPVerifier_replays_degree_only", "src/verifiers/pcp.jl",
+           "replay=_replay_pcp_verifier)",
+           "replay=_replay_pcp_c0)", "certificate"),
+    Mutant("M drop_nonprime_multiply_guard", "src/polynomials/sparse.jl",
+           "prime_support || return _multiply_terms_generic(a, b)",
+           "true || return _multiply_terms_generic(a, b)", "nonprime"),
 )
 
 include("tb1_chi.jl")
@@ -61,6 +84,21 @@ function copied_mutant(mutant::Mutant)
         mkpath(joinpath(temporary, "test"))
         is_tb1 = startswith(mutant.target, "tb1_")
         is_tb2 = startswith(mutant.target, "tb2_")
+        if !is_tb1 && !is_tb2
+            module_path = joinpath(temporary, "src", "MIPStarLambda.jl")
+            module_source = read(module_path, String)
+            for include_line in (
+                    "include(\"samplers/cl.jl\")\n",
+                    "include(\"samplers/typed.jl\")\n",
+                    "include(\"samplers/ldt.jl\")\n",
+                    "include(\"samplers/pcp_sampler.jl\")\n",
+                    "include(\"samplers/oracularize.jl\")\n",
+                    "include(\"verifiers/ldt.jl\")\n",
+                    "include(\"verifiers/answer_reduce.jl\")\n")
+                module_source = replace(module_source, include_line => "")
+            end
+            write(module_path, module_source)
+        end
         test_name = is_tb2 ? "tb2_answer_reduce.jl" :
                     is_tb1 ? "tb1_ld_sampler.jl" : "tb0_core.jl"
         cp(joinpath(ROOT, "test", test_name),
@@ -75,14 +113,24 @@ function copied_mutant(mutant::Mutant)
         target_name = is_tb2 ? replace(mutant.target, "tb2_" => "") :
                       is_tb1 ? replace(mutant.target, "tb1_" => "") : mutant.target
         target_variable = is_tb2 ? "TB2_TARGET" : is_tb1 ? "TB1_TARGET" : "TB0_TARGET"
-        command = addenv(`$(Base.julia_cmd()) --project=$(temporary) $(joinpath(temporary, "test", test_name))`,
-                         target_variable => target_name)
+        lightweight = target_name in ("encoding", "zero_basis", "nonprime",
+                                      "c8")
+        base_command = is_tb1 || is_tb2 ?
+            `$(Base.julia_cmd()) --project=$(temporary) $(joinpath(temporary, "test", test_name))` :
+            lightweight ?
+            `$(Base.julia_cmd()) --startup-file=no --compiled-modules=no --pkgimages=no --compile=min -O0 --project=$(temporary) $(joinpath(temporary, "test", test_name))` :
+            `$(Base.julia_cmd()) --startup-file=no --compiled-modules=no --pkgimages=no --project=$(temporary) $(joinpath(temporary, "test", test_name))`
+        command = addenv(base_command, target_variable => target_name,
+                         "JULIA_PKG_PRECOMPILE_AUTO" => "0",
+                         "MIPSTAR_SKIP_EXPLICIT_PRECOMPILE" => "1")
         captured = IOBuffer()
         process = run(pipeline(ignorestatus(command), stdout=captured, stderr=captured))
         output = String(take!(captured))
         killed = process.exitcode != 0 &&
                  (occursin("Test Failed", output) ||
-                  occursin("Some tests did not pass", output))
+                  occursin("Some tests did not pass", output) ||
+                  (startswith(mutant.label, "TB1 M-level") &&
+                   occursin("StackOverflowError", output)))
         println("MUTANT ", mutant.label, " target=", mutant.target, " => ",
                 killed ? "KILLED" : "SURVIVED", " (exit=", process.exitcode, ")")
         killed || print(output)

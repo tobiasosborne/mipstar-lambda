@@ -32,13 +32,13 @@ function _accumulate!(terms::Dict{K,F}, key::K, coefficient::F) where {K,F}
     terms
 end
 
-
 function _accumulate!(terms::Dict{K,F}, key::K, coefficient::F) where {K,F<:GF2k}
-    if coefficient.bits == 1
-        haskey(terms, key) ? delete!(terms, key) : (terms[key] = coefficient)
+    stored = get(terms, key, zero(F))
+    if coefficient.bits == 1 && stored.bits <= 1
+        stored.bits == 1 ? delete!(terms, key) : (terms[key] = coefficient)
         return terms
     end
-    value = get(terms, key, zero(F)) + coefficient
+    value = stored + coefficient
     iszero(value) ? delete!(terms, key) : (terms[key] = value)
     terms
 end

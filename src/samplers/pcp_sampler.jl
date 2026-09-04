@@ -288,11 +288,11 @@ function _build_pcp_sampler(::Type{F}, params::PCPParams) where {F<:GF2k}
 end
 
 _pcp_parameter_tuple(params::PCPParams) =
-    (params.q, params.k, params.m, params.d, params.s, params.m_prime)
+    (params.q, params.k, params.m, params.d, params.s, params.m_prime, params.gamma)
 
 # Like TB1's immutable trees, the sole TB2 row is safe to serialize in the
 # package cache and avoids rebuilding/padding 36 maps in every test section.
-const _TB2_PCP_PARAMETER_TUPLE = (2048, 11, 1, 11, 6, 16)
+const _TB2_PCP_PARAMETER_TUPLE = (2048, 11, 1, 11, 6, 16, 1)
 const _TB2_PCP_SAMPLER = _build_pcp_sampler(
     GF2048, PCPParams(_TB2_PCP_PARAMETER_TUPLE...))
 
