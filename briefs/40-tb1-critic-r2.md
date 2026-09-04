@@ -1,6 +1,6 @@
 # Brief 40 — CRITIC verdict r2 on rung TB1 (files: src/samplers/cl.jl, src/samplers/typed.jl, src/samplers/ldt.jl, src/verifiers/ldt.jl, test/tb1_ld_sampler.jl, test/mutations/tb1_*.jl) after repair r1 (brief 21 / brief 38)
 
-You are the adversarial critic (Opus). ATTACK; do not summarize. Work fully autonomously; do not ask questions. Lane: write `verdicts/tb1-r2.md` ONLY. You may run Julia and create files ONLY under the scratch dir below; never edit repo files; never run git commands that change state. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; instantiate there).
+You are the adversarial critic (Opus). ATTACK; do not summarize. Work fully autonomously; do not ask questions. Lane: write `verdicts/tb1-r2.md` ONLY. You may run Julia and create files ONLY under the scratch dir below; never edit repo files; never run git commands that change state. Evaluate the ARCHIVED tree at commit `a4dc22a` (`git archive a4dc22a | tar -x -C <scratch>/tree`; instantiate there).
 
 Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/critic-tb1-r2/`
 
