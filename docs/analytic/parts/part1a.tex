@@ -14,24 +14,26 @@ Figure~\ref{fig:pipeline-glance} gives the whole description-level pipeline
 and its fixed-point feedback at a glance, while Figure~\ref{fig:roadmap} maps
 the refresher objects to their resource-accounted counterparts.
 
-\begin{figure}[t]
-\centering
-\input{figs/fig-pipeline-glance}
-\caption{Green stages are finite source transformations, while dashed slate boxes mark the analytic guarantees they invoke and the amber return path closes the self-code loop.  The split keeps executable description manipulation visibly separate from cited soundness in the compression argument (after \code{fig:compress}).}
-\label{fig:pipeline-glance}
-\end{figure}
-
-\begin{figure}[t]
-\centering
-\input{figs/fig-roadmap}
-\caption{The upper path introduces machines, self-description, and lambda simulation before the lower path assigns sizes, costs, tableaux, and evidence grades.  The vertical arrows identify exactly which qualitative refresher each resource-accounted construction upgrades.}
-\label{fig:roadmap}
-\end{figure}
-
 \section{Turing machines in the form used by the paper}
 \label{sec:refresher-tm}
 
+\begin{figure}[h]
+\centering
+\input{figs/fig-tm-anatomy}
+\caption{Amber cells are the symbols read by the finite control, with arrows returning updates only to the work and output tapes.  This concrete separation of finite rule book from finitely used memory is the machine model simulated throughout the document.}
+\label{fig:tm-anatomy}
+\end{figure}
+
+
 \subsection{Programs, configurations, and one step}
+
+\begin{figure}[t]
+\centering
+\input{figs/fig-one-step}
+\caption{The amber transition rewrites the scanned zero, changes \(q\) to \(q'\), and advances the head from \(h\) to \(h+1\).  Exposing exactly these three local changes is what later permits a computation history to be checked by bounded windows.}
+\label{fig:one-step}
+\end{figure}
+
 
 A Turing machine separates two things which ordinary mathematical notation
 often blends together: a finite rule book and an unbounded but finitely used
@@ -58,13 +60,6 @@ states, or allowing writes on input tapes, changes none of the computability
 or polynomial-overhead statements below.
 Figure~\ref{fig:tm-anatomy} fixes this multitape anatomy and the semantic roles
 of its heads, tapes, and finite control.
-
-\begin{figure}[t]
-\centering
-\input{figs/fig-tm-anatomy}
-\caption{Amber cells are the symbols read by the finite control, with arrows returning updates only to the work and output tapes.  This concrete separation of finite rule book from finitely used memory is the machine model simulated throughout the document.}
-\label{fig:tm-anatomy}
-\end{figure}
 
 A \emph{configuration} is a complete instantaneous description
 \[
@@ -94,13 +89,6 @@ If \(\delta(q,0)=(q',1,R)\), then
 \]
 Only the state, the scanned cell, and the head location have changed.
 Figure~\ref{fig:one-step} isolates those three changes in a literal tape move.
-
-\begin{figure}[t]
-\centering
-\input{figs/fig-one-step}
-\caption{The amber transition rewrites the scanned zero, changes \(q\) to \(q'\), and advances the head from \(h\) to \(h+1\).  Exposing exactly these three local changes is what later permits a computation history to be checked by bounded windows.}
-\label{fig:one-step}
-\end{figure}
 
 The machine \emph{halts} on input \(x\) if some \(C_T\) has state
 \(q_{\mathrm h}\).  Its output is the longest nonblank initial string on the

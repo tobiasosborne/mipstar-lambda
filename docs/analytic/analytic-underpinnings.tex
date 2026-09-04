@@ -9,6 +9,7 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs,longtable,tabularx,array}
 \usepackage{microtype}
+\usepackage{multicol}
 \usepackage[hidelinks]{hyperref}
 \input{figstyle}
 
@@ -77,7 +78,24 @@ Turing machines and lambda calculus after a long interval; Part~II then puts
 exact resource bounds on the same ideas.
 \end{abstract}
 
-\tableofcontents
+\vspace{1em}
+\begin{figure}[h]
+\centering
+\input{figs/fig-pipeline-glance}
+\caption{Green stages are finite source transformations, while dashed slate boxes mark the analytic guarantees they invoke and the amber return path closes the self-code loop.  The split keeps executable description manipulation visibly separate from cited soundness in the compression argument (after \code{fig:compress}).}
+\label{fig:pipeline-glance}
+\end{figure}
+
+\setcounter{tocdepth}{2}
+{\footnotesize\setlength{\parskip}{0pt}\setlength{\columnsep}{2em}\begin{multicols}{2}\tableofcontents\end{multicols}}
+
+\vfill
+\begin{figure}[h]
+\centering
+\input{figs/fig-roadmap}
+\caption{The upper path introduces machines, self-description, and lambda simulation before the lower path assigns sizes, costs, tableaux, and evidence grades.  The vertical arrows identify exactly which qualitative refresher each resource-accounted construction upgrades.}
+\label{fig:roadmap}
+\end{figure}
 \input{parts/part1a}
 \input{parts/part1b}
 \input{parts/part2a}
