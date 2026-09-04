@@ -1,47 +1,126 @@
-\contentsline {section}{\numberline {1}The paper's machine model and its intensional obligations}{3}{section.1}%
-\contentsline {subsection}{\numberline {1.1}Machines, inputs, time, and descriptions}{3}{subsection.1.1}%
-\contentsline {subsection}{\numberline {1.2}What a verifier description means}{4}{subsection.1.2}%
-\contentsline {subsection}{\numberline {1.3}Universal and source-level obligations}{5}{subsection.1.3}%
-\contentsline {section}{\numberline {2}A lambda calculus with resources}{5}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Syntax, phases, and canonical bytes}{5}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Small-step semantics and fuel}{7}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Quotation, evaluation, and specialization}{9}{subsection.2.3}%
-\contentsline {section}{\numberline {3}Simulation theorems: the machine--term bridge}{10}{section.3}%
-\contentsline {subsection}{\numberline {3.1}From the paper's machines to \(\mathcal L\)}{10}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}From \(\mathcal L\) to the paper's machines}{11}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}The resource dictionary}{12}{subsection.3.3}%
-\contentsline {section}{\numberline {4}Self-reference as a construction on descriptions}{13}{section.4}%
-\contentsline {subsection}{\numberline {4.1}The recursion theorem with size accounting}{13}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}The call-by-value Z combinator and YCode}{14}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}The paper's explicit diagonal program}{15}{subsection.4.3}%
-\contentsline {section}{\numberline {5}Cook--Levin for \(\mathcal L\)-descriptions}{16}{section.5}%
-\contentsline {subsection}{\numberline {5.1}A local encoding of bounded evaluation}{16}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}The succinct 3SAT circuit}{17}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}From shared 3SAT data to decoupled 5SAT}{18}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Tseitin and arithmetization}{19}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}The occurrence-vector discrepancy}{20}{subsection.5.5}%
-\contentsline {section}{\numberline {6}The low-degree PCP as algebra}{20}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Interpolation and the vanishing polynomial}{20}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Division by the Boolean ideal}{21}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}PCP view and local verifier}{21}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}The four soundness layers}{22}{subsection.6.4}%
-\contentsline {paragraph}{1. Algebraic soundness under a low-degree premise.}{22}{section*.17}%
-\contentsline {paragraph}{2. Enforcement of the low-degree premise.}{22}{section*.18}%
-\contentsline {paragraph}{3. Polynomial identity from random evaluation.}{23}{section*.19}%
-\contentsline {paragraph}{4. Quantum consistency and rigidity.}{23}{section*.20}%
-\contentsline {section}{\numberline {7}The typed layer: conditionally linear functions}{23}{section.7}%
-\contentsline {subsection}{\numberline {7.1}The inductive object and its laws}{23}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Point and line maps}{24}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Types and the six-copy sampler}{24}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}The structural hypothesis}{26}{subsection.7.4}%
-\contentsline {section}{\numberline {8}Correspondence tables}{26}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Description front end (planned TB3)}{26}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Polynomial rung (TB0)}{27}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}CL and low-degree-test rung (TB1)}{27}{subsection.8.3}%
-\contentsline {subsection}{\numberline {8.4}Typed answer-reduction rung (TB2)}{28}{subsection.8.4}%
-\contentsline {subsection}{\numberline {8.5}Midpoint diagnostic (TB0.5)}{28}{subsection.8.5}%
-\contentsline {subsection}{\numberline {8.6}Compression and fixed point (planned TB4)}{28}{subsection.8.6}%
-\contentsline {section}{\numberline {9}What is analytic and what is computed}{29}{section.9}%
-\contentsline {subsection}{\numberline {9.1}The evidence boundary}{29}{subsection.9.1}%
-\contentsline {subsection}{\numberline {9.2}The midpoint diagnostic}{29}{subsection.9.2}%
-\contentsline {subsection}{\numberline {9.3}Final accounting}{30}{subsection.9.3}%
+\contentsline {part}{I\hspace {1em}A refresher on computability, from the paper's viewpoint}{4}{part.1}%
+\contentsline {section}{\numberline {1}Turing machines in the form used by the paper}{4}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Programs, configurations, and one step}{4}{subsection.1.1}%
+\contentsline {paragraph}{Why this matters here.}{4}{section*.2}%
+\contentsline {paragraph}{Worked one-step example.}{5}{section*.3}%
+\contentsline {paragraph}{Why this matters here.}{5}{section*.4}%
+\contentsline {paragraph}{Worked timing example.}{5}{section*.5}%
+\contentsline {subsection}{\numberline {1.2}A complete two-state equality machine}{5}{subsection.1.2}%
+\contentsline {paragraph}{Why this matters here.}{6}{section*.6}%
+\contentsline {subsection}{\numberline {1.3}Several inputs and the verifier convention}{6}{subsection.1.3}%
+\contentsline {paragraph}{Why this matters here.}{6}{section*.7}%
+\contentsline {paragraph}{Worked verifier example.}{6}{section*.8}%
+\contentsline {subsection}{\numberline {1.4}Descriptions are finite data}{6}{subsection.1.4}%
+\contentsline {paragraph}{Why this matters here.}{7}{section*.9}%
+\contentsline {paragraph}{Worked description example.}{7}{section*.10}%
+\contentsline {section}{\numberline {2}Universality: one machine can interpret all machines}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The universal machine}{7}{subsection.2.1}%
+\contentsline {paragraph}{Why this matters here.}{7}{section*.11}%
+\contentsline {paragraph}{Worked universal simulation.}{7}{section*.12}%
+\contentsline {subsection}{\numberline {2.2}Parameter fixing: the \(s\)-\(m\)-\(n\) theorem}{8}{subsection.2.2}%
+\contentsline {paragraph}{Proof idea in two lines.}{8}{section*.13}%
+\contentsline {paragraph}{Why this matters here.}{8}{section*.14}%
+\contentsline {paragraph}{Worked specialization.}{8}{section*.15}%
+\contentsline {subsection}{\numberline {2.3}Why the Halting problem is undecidable}{8}{subsection.2.3}%
+\contentsline {paragraph}{Why this matters here.}{9}{section*.16}%
+\contentsline {paragraph}{Worked semidecision.}{9}{section*.17}%
+\contentsline {section}{\numberline {3}Programs which obtain their own descriptions}{9}{section.3}%
+\contentsline {paragraph}{Why this matters here.}{10}{section*.18}%
+\contentsline {paragraph}{Worked quine-like example.}{10}{section*.19}%
+\contentsline {subsection}{\numberline {3.1}The paper's \(\mathcal F(\mathcal F,M,L,\ldots )\) construction}{10}{subsection.3.1}%
+\contentsline {paragraph}{Why this matters here.}{10}{section*.20}%
+\contentsline {paragraph}{Worked schematic expansion.}{10}{section*.21}%
+\contentsline {section}{\numberline {4}Lambda calculus from scratch}{10}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Terms, scope, and beta reduction}{11}{subsection.4.1}%
+\contentsline {paragraph}{Why this matters here.}{11}{section*.22}%
+\contentsline {paragraph}{Worked reduction 1.}{11}{section*.23}%
+\contentsline {paragraph}{Worked reduction 2: avoiding capture.}{11}{section*.24}%
+\contentsline {paragraph}{Why this matters here.}{11}{section*.25}%
+\contentsline {paragraph}{Worked strategy example.}{11}{section*.26}%
+\contentsline {subsection}{\numberline {4.2}Church data: behavior as representation}{12}{subsection.4.2}%
+\contentsline {paragraph}{Booleans.}{12}{section*.27}%
+\contentsline {paragraph}{Why booleans matter here.}{12}{section*.28}%
+\contentsline {paragraph}{If--then--else.}{12}{section*.29}%
+\contentsline {paragraph}{Why the conditional matters here.}{12}{section*.30}%
+\contentsline {paragraph}{Pairs.}{12}{section*.31}%
+\contentsline {paragraph}{Why pairs matter here.}{12}{section*.32}%
+\contentsline {paragraph}{Numerals.}{12}{section*.33}%
+\contentsline {paragraph}{Why numerals matter here.}{12}{section*.34}%
+\contentsline {paragraph}{Successor.}{12}{section*.35}%
+\contentsline {paragraph}{Why successor matters here.}{13}{section*.36}%
+\contentsline {paragraph}{Addition.}{13}{section*.37}%
+\contentsline {paragraph}{Why addition matters here.}{13}{section*.38}%
+\contentsline {paragraph}{Predecessor by the pair trick.}{13}{section*.39}%
+\contentsline {paragraph}{Why predecessor matters here.}{13}{section*.40}%
+\contentsline {paragraph}{Lists.}{13}{section*.41}%
+\contentsline {paragraph}{Why lists matter here.}{13}{section*.42}%
+\contentsline {subsection}{\numberline {4.3}Recursion from self-application}{13}{subsection.4.3}%
+\contentsline {paragraph}{Why this matters here.}{14}{section*.43}%
+\contentsline {paragraph}{Worked fixed point.}{14}{section*.44}%
+\contentsline {paragraph}{Why evaluation strategy matters here.}{14}{section*.45}%
+\contentsline {subsection}{\numberline {4.4}De Bruijn indices and quotation}{15}{subsection.4.4}%
+\contentsline {paragraph}{Why this matters here.}{15}{section*.46}%
+\contentsline {paragraph}{Worked index lookup.}{15}{section*.47}%
+\contentsline {paragraph}{Why this matters here.}{15}{section*.48}%
+\contentsline {paragraph}{Worked quotation.}{15}{section*.49}%
+\contentsline {section}{\numberline {5}Church--Turing as an engineering statement}{15}{section.5}%
+\contentsline {paragraph}{Turing machine to lambda term.}{15}{section*.50}%
+\contentsline {paragraph}{Why this direction matters here.}{16}{section*.51}%
+\contentsline {paragraph}{Worked direction.}{16}{section*.52}%
+\contentsline {paragraph}{Lambda term to Turing machine.}{16}{section*.53}%
+\contentsline {paragraph}{Why this direction matters here.}{16}{section*.54}%
+\contentsline {paragraph}{Worked direction.}{16}{section*.55}%
+\contentsline {paragraph}{What the dictionary does not say.}{16}{section*.56}%
+\contentsline {section}{\numberline {6}Why this machinery appears in a paper about entangled provers}{17}{section.6}%
+\contentsline {paragraph}{Why the fixed point enters.}{17}{section*.57}%
+\contentsline {paragraph}{Worked pipeline fragment.}{17}{section*.58}%
+\contentsline {paragraph}{What is not computability theory.}{17}{section*.59}%
+\contentsline {paragraph}{Why this separation matters here.}{17}{section*.60}%
+\contentsline {part}{II\hspace {1em}Resource-accounted analytic underpinnings}{18}{part.2}%
+\contentsline {section}{\numberline {7}The paper's machine model and its intensional obligations}{18}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Machines, inputs, time, and descriptions}{18}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}What a verifier description means}{19}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Universal and source-level obligations}{20}{subsection.7.3}%
+\contentsline {section}{\numberline {8}A lambda calculus with resources}{21}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Syntax, phases, and canonical bytes}{21}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Small-step semantics and fuel}{22}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Quotation, evaluation, and specialization}{24}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Simulation theorems: the machine--term bridge}{26}{section.9}%
+\contentsline {subsection}{\numberline {9.1}From the paper's machines to \(\mathcal L\)}{26}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}From \(\mathcal L\) to the paper's machines}{27}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}The resource dictionary}{28}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Self-reference as a construction on descriptions}{29}{section.10}%
+\contentsline {subsection}{\numberline {10.1}The recursion theorem with size accounting}{29}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}The call-by-value Z combinator and YCode}{30}{subsection.10.2}%
+\contentsline {subsection}{\numberline {10.3}The paper's explicit diagonal program}{31}{subsection.10.3}%
+\contentsline {section}{\numberline {11}Cook--Levin for \(\mathcal L\)-descriptions}{33}{section.11}%
+\contentsline {subsection}{\numberline {11.1}A local encoding of bounded evaluation}{33}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}The succinct 3SAT circuit}{34}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}From shared 3SAT data to decoupled 5SAT}{35}{subsection.11.3}%
+\contentsline {subsection}{\numberline {11.4}Tseitin and arithmetization}{36}{subsection.11.4}%
+\contentsline {subsection}{\numberline {11.5}The occurrence-vector discrepancy}{36}{subsection.11.5}%
+\contentsline {section}{\numberline {12}The low-degree PCP as algebra}{37}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Interpolation and the vanishing polynomial}{37}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Division by the Boolean ideal}{37}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}PCP view and local verifier}{38}{subsection.12.3}%
+\contentsline {subsection}{\numberline {12.4}The four soundness layers}{39}{subsection.12.4}%
+\contentsline {paragraph}{1. Algebraic soundness under a low-degree premise.}{39}{section*.76}%
+\contentsline {paragraph}{2. Enforcement of the low-degree premise.}{39}{section*.77}%
+\contentsline {paragraph}{3. Polynomial identity from random evaluation.}{39}{section*.78}%
+\contentsline {paragraph}{4. Quantum consistency and rigidity.}{39}{section*.79}%
+\contentsline {section}{\numberline {13}The typed layer: conditionally linear functions}{40}{section.13}%
+\contentsline {subsection}{\numberline {13.1}The inductive object and its laws}{40}{subsection.13.1}%
+\contentsline {subsection}{\numberline {13.2}Point and line maps}{41}{subsection.13.2}%
+\contentsline {subsection}{\numberline {13.3}Types and the six-copy sampler}{41}{subsection.13.3}%
+\contentsline {subsection}{\numberline {13.4}The structural hypothesis}{42}{subsection.13.4}%
+\contentsline {section}{\numberline {14}Correspondence tables}{43}{section.14}%
+\contentsline {subsection}{\numberline {14.1}Description front end (planned TB3)}{43}{subsection.14.1}%
+\contentsline {subsection}{\numberline {14.2}Polynomial rung (TB0)}{43}{subsection.14.2}%
+\contentsline {subsection}{\numberline {14.3}CL and low-degree-test rung (TB1)}{44}{subsection.14.3}%
+\contentsline {subsection}{\numberline {14.4}Typed answer-reduction rung (TB2)}{44}{subsection.14.4}%
+\contentsline {subsection}{\numberline {14.5}Midpoint diagnostic (TB0.5)}{45}{subsection.14.5}%
+\contentsline {subsection}{\numberline {14.6}Compression and fixed point (planned TB4)}{45}{subsection.14.6}%
+\contentsline {section}{\numberline {15}What is analytic and what is computed}{45}{section.15}%
+\contentsline {subsection}{\numberline {15.1}The evidence boundary}{45}{subsection.15.1}%
+\contentsline {subsection}{\numberline {15.2}The midpoint diagnostic}{46}{subsection.15.2}%
+\contentsline {subsection}{\numberline {15.3}Final accounting}{47}{subsection.15.3}%
