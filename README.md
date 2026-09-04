@@ -2,11 +2,11 @@
 
 **The hardest part of MIP\* = RE, rebuilt as a small algebra of executable, certified transformations in Julia.**
 
-The compression theorem of [Ji, Natarajan, Vidick, Wright and Yuen (2020)](https://arxiv.org/abs/2001.04383) is the engine of MIP\* = RE, and its authors consider it the hardest part of the proof. Inside it, the crux is *answer reduction*: a bespoke low-degree PCP whose query distribution must stay *conditionally linear* so the construction can be iterated. This repository asks a concrete question about that crux:
+The compression theorem of [Ji, Natarajan, Vidick, Wright and Yuen (2020)](https://arxiv.org/abs/2001.04383) is the engine of MIP\* = RE. Inside it, the crux is *answer reduction*: a bespoke low-degree PCP whose query distribution must stay *conditionally linear* so the construction can be iterated. This repository asks a concrete question about that crux:
 
 > Can the verifier transformations of answer reduction be written as a small set of pure functions on symbolic programs, with every invariant the proof depends on (degrees, field size, variable dependence, query levels) tracked as data and checked by machine?
 
-The answer so far: **yes for the combinatorial skeleton, and the exercise found a mis-stated degree bound in the paper.** The soundness estimates (Schwartz–Zippel, low-degree testing, quantum rigidity) stay exactly where the paper puts them and are carried as explicitly cited leaves, never as proofs.
+The answer so far: **yes for the combinatorial skeleton.** The soundness estimates (Schwartz–Zippel, low-degree testing, quantum rigidity) stay exactly where the paper puts them and are carried as explicitly cited leaves, never as proofs.
 
 ---
 
@@ -24,10 +24,6 @@ Everything below runs on Julia 1.12 with no dependencies beyond the standard lib
 | toy | The recursive midpoint protocol: optimal cheating probability exactly 1 − 2⁻ⁿ, sequential repetition needs Θ(2ⁿ) copies | handoff | **proved**, 13 mutants killed |
 
 The rungs are *tracer bullets*: each is a thin end-to-end slice, smoke-tested before the next is started.
-
-## A finding
-
-The paper's Proposition on Tseitin arithmetization states that the arithmetized formula has individual degree at most 2, "because every variable occurs at most twice". For the NW19 Tseitin construction it cites, a gate wire with fan-out *f* occurs 2 + 2*f* times, so its formal degree is 2 + 2*f*. The two-gate circuit `w₁ = x₁ ∧ x₂, w₂ = w₁ ∧ x₃` gives degree 4 in `w₁`. The theorem survives with the Schwartz–Zippel constant `2 + 5d` replaced by `deg_F + 5d` and `d ≥ 8`. Details, the surviving statement, and a 30-line check are in [`docs/findings.md`](docs/findings.md) and [`docs/findings-F1-check.jl`](docs/findings-F1-check.jl); the claim is C8 in the ratchet.
 
 ## How the work is verified
 
