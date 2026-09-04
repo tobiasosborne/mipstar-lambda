@@ -1,0 +1,19 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \draw[rule,line width=0.9pt] (0,0) -- (11,0);
+  \foreach \x/\lab in {0/$0$,5.5/{$1/2$},11/$1$}{
+    \draw[inkmute,line width=0.6pt] (\x,-0.1) -- (\x,0.1);
+    \node[lblsm] at (\x,-0.4) {\lab};
+  }
+  \draw[focus,line width=1.4pt] (5.5,-0.45) -- (5.5,0.45);
+  \node[lbl,anchor=west] at (5.72,0.34) {acceptance threshold $1/2$};
+  \node[circle,fill=desc,inner sep=1.4pt] (p1) at (0.9,0) {};
+  \node[circle,fill=desc,inner sep=1.4pt] (p2) at (2.0,0) {};
+  \node[lblsm,text=desc,anchor=south] at (0.9,0.14) {$b_1$};
+  \node[lblsm,text=desc,anchor=south] at (2.0,0.14) {$b_2$};
+  \node[citedbox,anchor=north west,minimum width=6.2cm] (bounds) at (0,-0.75)
+    {$b_1=\dfrac{(\delta_F+5d)m'}{q}$,\qquad $b_2=\dfrac{(2+d)m'}{q}$};
+  \node[checked,anchor=north east,minimum width=4.4cm] (policy) at (11,-0.75)
+    {choose $q=2^k$ with $b_1,b_2<1/2$};
+  \node[tag cited,below=1.5mm of bounds] {SCHWARTZ--ZIPPEL BOUNDS, CITED};
+  \node[tag check,below=1.5mm of policy] {PARAMETER ARITHMETIC};
+\end{tikzpicture}

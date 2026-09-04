@@ -1,0 +1,22 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \matrix (E) [matrix of nodes, column sep=4mm,
+    nodes={bytes,minimum width=2.05cm,anchor=center}] {
+    $\operatorname{enc}_\Gamma(0)=00$ &
+    $\operatorname{enc}_\Gamma(1)=01$ &
+    $\operatorname{enc}_\Gamma(\sqcup)=10$ \\
+  };
+  \matrix (B) [below=12mm of E, matrix of nodes, column sep=-\pgflinewidth,
+    nodes={cell, minimum width=9mm, minimum height=6.2mm, font=\small\ttfamily}] {
+    |[fill=focuslt,draw=focus]| 01 & |[fill=focuslt,draw=focus]| 00 &
+    |[fill=focuslt,draw=focus]| 01 & 10 & 10 & $\cdots$ & 10 \\
+  };
+  \draw[brace] ([yshift=1.6mm]B-1-1.north west) -- ([yshift=1.6mm]B-1-7.north east)
+    node[midway,above=3mm,lblsm,text=desc]
+    {$2F$ bits reserved for answer tape $a$};
+  \draw[brace] ([yshift=-1.6mm]B-1-3.south east) -- ([yshift=-1.6mm]B-1-1.south west)
+    node[midway,below=3.2mm,lblsm,text=term,align=center]
+    {$\operatorname{enc}_\Gamma(a')$\\$|a'|\leq F$};
+  \draw[brace] ([yshift=-1.6mm]B-1-7.south east) -- ([yshift=-1.6mm]B-1-4.south west)
+    node[midway,below=3.2mm,lblsm,align=center]
+    {$\sqcup^{F-|a'|}$\\fixed blank code};
+\end{tikzpicture}

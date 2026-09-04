@@ -6,15 +6,16 @@
   \node[lbl,text=machine,below=7mm of u] (heaplabel) {WORK-TAPE HEAP};
   \begin{scope}[start chain=going right,node distance=0pt]
     \node[cell,on chain,minimum width=27mm,minimum height=12mm] (r1)
-      at ([xshift=-64mm,yshift=-4mm]heaplabel.south) {node: tag|kids};
+      at ([xshift=-64mm,yshift=-10mm]heaplabel.south) {node: tag|kids};
     \node[cell,on chain,minimum width=25mm,minimum height=12mm] (r2) {env: slots};
     \node[cell,on chain,minimum width=27mm,minimum height=12mm] (r3) {kont: next};
     \node[cell head,on chain,minimum width=22mm,minimum height=12mm] (r4) {fuel: 101};
     \node[cell,on chain,minimum width=27mm,minimum height=12mm] (r5) {handle: j|pos};
   \end{scope}
   \node[head,below=1mm of r4] {};
-  \draw[brace] ([yshift=-5mm]r1.south west)--([yshift=-5mm]r5.south east)
-    node[midway,below=4mm,lblsm] {$O(|d|+|u|+f+1)$ cells after at most \(f\) microsteps};
+  \draw[brace] ([yshift=-5mm]r1.south west)--([yshift=-5mm]r5.south east);
+  \node[lblsm, anchor=north west] at ([xshift=1mm,yshift=-7mm]r1.south west)
+    {$O(|d|+|u|+f+1)$ cells after at most \(f\) microsteps};
 
   \begin{scope}[start chain=going right,node distance=0pt]
     \node[tapelbl,on chain] (inlbl) at ([xshift=-49mm,yshift=-24mm]r3.south) {input \(j\)};
@@ -26,5 +27,7 @@
       font=\scriptsize\ttfamily,text=cited] (unread) {unread suffix};
   \end{scope}
   \node[head,below=1mm of i3] {};
-  \draw[callout] (r5.south) -- node[right,lblsm] {lazy head-and-position link} (i3.north);
+  \draw[callout] (r5.south) -- (i3.north);
+  \node[lblsm, anchor=west] at ([xshift=2mm]$(r5.south)!0.78!(i3.north)$)
+    {lazy head-and-position link};
 \end{tikzpicture}

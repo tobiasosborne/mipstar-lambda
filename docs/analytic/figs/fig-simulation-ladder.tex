@@ -16,7 +16,7 @@
   \node[head,below=1mm of a2] {};
   \node[closure] (z1) at ([yshift=-17mm]lp.north)
     {$q_i;\ (L,s,R)=([0],\,\mathbf 1,\,[\sqcup])$};
-  \draw[<->,desc,dashed,line width=.8pt] (a4.east)--node[above,lblsm,text=desc] {represents} (z1.west);
+  \draw[->,desc,dashed,line width=.8pt] (z1.west)--node[above,lblsm,text=desc] {represents} (a4.east);
 
   \begin{scope}[start chain=going right,node distance=0pt]
     \node[tapelbl,on chain] (ql2) at ([xshift=7mm,yshift=15mm]mp.south west) {$q_{i+1}$};
@@ -28,8 +28,10 @@
   \node[head,below=1mm of b3] {};
   \node[closure] (z2) at ([yshift=17mm]lp.south)
     {$q_{i+1};\ ([0,0],\,\mathbf{\sqcup},\,[])$};
-  \draw[<->,desc,dashed,line width=.8pt] (b4.east)--node[above,lblsm,text=desc] {represents} (z2.west);
-  \draw[->,machine,line width=1pt] (a2.south) -- node[left,lblsm,text=machine] {$\delta$: write \(0\), \(R\)} (b2.north);
+  \draw[->,desc,dashed,line width=.8pt] (z2.west)--node[above,lblsm,text=desc] {represents} (b4.east);
+  % started clear of the head triangle so it cannot read as a double-headed arrow
+  \draw[->,machine,line width=1pt] ([xshift=-2.5mm]a2.south) --
+    node[left,lblsm,text=machine] {$\delta$: write \(0\), \(R\)} ([xshift=-2.5mm]b2.north);
   \draw[beta] (z1)--node[right,lblsm,text=term] {one loop iteration} (z2);
   \node[checked, below=3mm of lp]
     {$\mathsf{view}$ agrees; cost $\le c_0(|M|+k+1)$};

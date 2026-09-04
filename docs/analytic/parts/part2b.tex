@@ -155,6 +155,14 @@ has size \(\poly(\log n,\log T,Q,\sigma)\).
 \gt{prop:standard-succinct-sat}{ground-truth/gt-10-answer-reduction.tex}
 Theorem~\ref{thm:l-to-tm} gives the same proposition by compilation; the proof
 above shows directly why a lambda evaluation trace has the required locality.
+Figure~\ref{fig:D-answer-block} draws the reserved answer block behind that
+placement property.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-answer-block.tex}
+\caption{Three dual-rail codes turn a prefix \(a'\) of at most \(F\) tape symbols into the amber head of one \(2F\)-bit block, and every remaining cell carries the fixed blank code.  Reserving the block this way is what lets the decoupled formula read \(a\) as an independent assignment.}
+\label{fig:D-answer-block}
+\end{figure}
 
 More explicitly, use the paper's tape-alphabet encoding
 \(\operatorname{enc}_\Gamma(0)=00\),
@@ -174,7 +182,7 @@ from the accepting trace.  This is the exact placement property needed when
 the two blocks are separated in \eqref{eq:decoupled-five}.
 Figure~\ref{fig:decoupled-5sat} makes the three kinds of constraints visible
 on the five equal-length blocks.
-\begin{figure}[!b]
+\begin{figure}[t]
 \centering
 \input{figs/fig-decoupled-5sat.tex}
 \caption{Five power-of-two blocks separate the two answer tapes from three independently queried tableau assignments, with amber prefixes marking the first \(2F\) answer bits.  Copy, equality, and padding gadgets make the decoupled five-literal view equivalent to the original accepting trace.}
@@ -520,6 +528,14 @@ above.  The field size enters nowhere mysteriously: \(q=2^k\) is chosen so
 both fractions are below the acceptance threshold \(1/2\), together with the
 other PCP parameter obligations.  The first structural inequality is extra to
 the literal \code{def:pcpparams} predicate in the present project.
+Figure~\ref{fig:D-threshold-margin} places both bounds against that
+threshold.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-threshold-margin.tex}
+\caption{Both Schwartz--Zippel bounds must fall left of the amber acceptance threshold, which is exactly what the choice \(q=2^k\) buys.  The two bounds are cited analytic input; only the parameter arithmetic that compares them with \(1/2\) is executed here.}
+\label{fig:D-threshold-margin}
+\end{figure}
 
 If acceptance is greater than \(1/2\) and both upper bounds are below
 \(1/2\), each sampled equality is therefore a polynomial identity.  The zero
@@ -568,7 +584,7 @@ not test the theorem.  Current statuses reflect that separation: C3 is
 
 Figure~\ref{fig:D-cl-base-step} previews the single inductive CL step before
 the full level diagram.
-\begin{figure}[!b]
+\begin{figure}[H]
 \centering
 \input{figs/fig-D-cl-base-step.tex}
 \caption{A linear map acts on \(V_1\), and its actual output selects the continuation on the complementary register \(V_{>1}\).  This one-step constructor is the recursive source of every CL level and marginal law below.}
