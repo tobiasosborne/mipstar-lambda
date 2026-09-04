@@ -1,4 +1,6 @@
-# mipstar-lambda — symbolic (lambda-calculus / Julia) reformulation of MIP*=RE answer reduction
+# mipstar-lambda — symbolic (lambda-calculus / Julia) reformulation of MIP*=RE compression
+
+**North star (user, 2026-09-04):** a COMPLETE executable implementation of Compress = Repeat ∘ AnswerReduce ∘ Introspect on descriptions, with every invariant tracked and adversarially verified; Introspect (§8) and Repeat (§11) are to be built as rungs (TB5–TB7), not left as CITED stubs. One of the paper's authors indicated such an implementation would be useful for extending the construction. Deliverables also include the analytic document (docs/analytic/) and an HTML tutorial for physicists.
 
 Read `handoff.md` first (the mandate), then `claims/CLAIMS.md` (what is currently claimed and at what status), then `worklog/` (latest file).
 
