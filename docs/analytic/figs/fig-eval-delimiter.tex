@@ -8,19 +8,21 @@
     {EVAL DELIMITER: requested budget $F$};
   \matrix (ticks) [matrix of nodes, nodes={fuel,minimum width=16mm}, column sep=3mm,
     anchor=south] at ([yshift=1.5mm]inner.south) {
-    \node (i0) {$F$}; & \node (i1) {$F-1$}; & \node (i2) {$F-2$}; &
-    \node (id) {$\cdots$}; & \node (ik) {$F-k$}; \\
+    $F$ & $F-1$ & $F-2$ & $\cdots$ & $F-k$ \\
   };
-  \foreach \a/\b in {i0/i1,i1/i2,i2/id,id/ik} {\draw[beta] (\a)--(\b);}
+  % edge-to-edge, so the shaft never crosses a counter box
+  \foreach \a/\b in {1/2,2/3,3/4,4/5}
+    {\draw[beta] (ticks-1-\a.east)--(ticks-1-\b.west);}
   % the ambient ledger runs inside the ambient panel, one column per microstep
   \matrix (oticks) [matrix of nodes, nodes={fuel,minimum width=16mm}, column sep=3mm,
     anchor=north] at ([yshift=-4mm]inner.south) {
-    \node (o0) {$f-2$}; & \node (o1) {$f-3$}; & \node (o2) {$f-4$}; &
-    \node (od) {$\cdots$}; & \node (ok) {$f-2-k$}; \\
+    $f-2$ & $f-3$ & $f-4$ & $\cdots$ & $f-2-k$ \\
   };
-  \foreach \a/\b in {o0/o1,o1/o2,o2/od,od/ok} {\draw[beta] (\a)--(\b);}
-  \foreach \i/\o in {i0/o0,i1/o1,i2/o2,id/od,ik/ok}
-    {\draw[cited, dotted, line width=0.6pt] (\i.south|-inner.south) -- (\o.north);}
+  \foreach \a/\b in {1/2,2/3,3/4,4/5}
+    {\draw[beta] (oticks-1-\a.east)--(oticks-1-\b.west);}
+  \foreach \i in {1,2,3,4,5}
+    {\draw[cited, dotted, line width=0.6pt]
+       (ticks-1-\i.south|-inner.south) -- (oticks-1-\i.north);}
   \node[tag focus, above=2mm of ambient] {INSTALL $+$ REMOVE COST TWO};
   \draw[brace] ([xshift=3mm,yshift=-1.5mm]ambient.south west)
             -- ([xshift=-3mm,yshift=-1.5mm]ambient.south east);

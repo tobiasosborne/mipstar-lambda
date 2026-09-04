@@ -1,0 +1,40 @@
+\begin{tikzpicture}[node distance=3mm and 7mm]
+  %% ================= the q = 8 integer representatives, split into m = 2 buckets
+  \node[cell, minimum width=8mm, minimum height=7mm] (c0) at (0,0) {$0$};
+  \node[cell, minimum width=8mm, minimum height=7mm, right=0mm of c0] (c1) {$1$};
+  \node[cell, minimum width=8mm, minimum height=7mm, right=0mm of c1] (c2) {$2$};
+  \node[cell, minimum width=8mm, minimum height=7mm, right=0mm of c2] (c3) {$3$};
+  \node[cell, minimum width=8mm, minimum height=7mm, right=0mm of c3] (c4) {$4$};
+  \node[cell head, minimum width=8mm, minimum height=7mm, right=0mm of c4] (c5) {$5$};
+  \node[cell, minimum width=8mm, minimum height=7mm, right=0mm of c5] (c6) {$6$};
+  \node[cell, minimum width=8mm, minimum height=7mm, right=0mm of c6] (c7) {$7$};
+  \node[tapelbl, left=2.5mm of c0] {$\F_q$};
+  %% ---- the two buckets
+  \draw[brace] ([yshift=1.5mm]c0.north west) -- ([yshift=1.5mm]c3.north east);
+  \draw[brace] ([yshift=1.5mm]c4.north west) -- ([yshift=1.5mm]c7.north east);
+  \node[lbl, above=4.2mm of $(c1.north east)$, text=machine] (b1) {$\chi(s)=1\;\Rightarrow\;e_1$};
+  \node[lbl, above=4.2mm of $(c5.north east)$, text=machine] (b2) {$\chi(s)=2\;\Rightarrow\;e_2$};
+  \node[panel title, anchor=south west] (ttl) at ([xshift=-11mm,yshift=3mm]b1.north west)
+    {fixed integer representatives, $q=8$ and $m=2$: buckets of size $q/m=4$ (so $m\mid q$)};
+  %% ---- the sampled coordinate
+  \node[head, below=1.2mm of c5] (hd) {};
+  \node[lblsm, below=1mm of hd, text=term] (sl) {sampled seed coordinate $s=5$};
+
+  %% ================= the two CL stages it induces
+  \node[stage, draw=term, align=center, anchor=north west]
+    (st1) at ([yshift=-12.5mm]c0.south west)
+    {stage 1 reads $s$ only\\emits the axis index $\chi(s)=2$};
+  \node[stage, draw=term, align=center, anchor=north west]
+    (st2) at ([xshift=26mm]st1.north east)
+    {stage 2 is linear on $u$\\$u\mapsto L^{\rm lnf}_{e_{2}}u$};
+  \node[checked, align=center, anchor=north west]
+    (lvl) at ([xshift=9mm]st2.north east)
+    {two stages,\\so $\operatorname{level}(L_{\rm ALine})=2$};
+  \draw[xform] (st1.east) -- node[xformlbl] {then} (st2.west);
+  \draw[->, term, dashed, line width=.7pt, shorten >=2pt, shorten <=2pt]
+    (st1.south) to[out=-35,in=-145]
+    node[lblsm, below, midway, align=center, text=term]
+      {the first output selects\\which linear map runs second}
+    (st2.south);
+  \draw[callout] (sl.south) to[out=-90,in=90] ([xshift=-8mm]st1.north east);
+\end{tikzpicture}

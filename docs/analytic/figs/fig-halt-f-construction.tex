@@ -1,57 +1,69 @@
 \begin{tikzpicture}[node distance=6mm and 4mm]
-  \node[descbox, minimum width=36mm] (inputs)
+  %% ---------------- top row: the eight-input machine and its early exit
+  \node[descbox, minimum width=34mm] (inputs)
     {$\langle\mathcal F\rangle,\langle M\rangle,L$\\
      \(u=(n,x,y,a,b)\)};
-  \node[ctrl, right=of inputs, minimum width=25mm] (f)
+  \node[ctrl, right=8mm of inputs, minimum width=24mm] (f)
     {$\mathcal F$\\eight inputs};
-  \node[checked, right=of f, minimum width=35mm] (precheck)
+  \node[checked, right=8mm of f, minimum width=32mm] (precheck)
     {run \(M\) on blank\\for \(n\) steps};
-  \node[checked, right=of precheck, fill=focuslt, draw=focus,
-        minimum width=22mm] (accept)
+  \node[checked, right=14mm of precheck, fill=focuslt, draw=focus,
+        minimum width=21mm] (accept)
     {halt seen\\accept};
   \draw[xform] (inputs) -- (f);
   \draw[xform] (f) -- (precheck);
   \draw[->, check, line width=.9pt] (precheck) -- node[lblsm, above] {halts} (accept);
 
-  \node[checked, below=14mm of f, minimum width=25mm] (hardwire)
+  %% ---------------- middle row: the executed source construction
+  \node[checked, below=20mm of inputs, minimum width=24mm] (hardwire)
     {hardwire\\\((f,m,L)\)};
-  \node[descbox, right=2mm of hardwire, minimum width=15mm,
+  \node[descbox, right=10mm of hardwire, minimum width=14mm,
         fill=focuslt, draw=focus] (d)
     {$\langle d\rangle$};
-  \node[descbox, right=2mm of d, minimum width=25mm] (verifier)
+  \node[descbox, right=13mm of d, minimum width=25mm] (verifier)
     {$\langle V\rangle=$\\$(\langle S_L\rangle,\langle d\rangle)$};
-  \node[checked, right=2mm of verifier, minimum width=25mm] (compress)
+  \node[checked, right=10mm of verifier, minimum width=25mm] (compress)
     {$\Compress$\\on \((\langle V\rangle,L)\)};
-  \node[descbox, right=2mm of compress, minimum width=17mm] (dc)
+  \node[descbox, right=10mm of compress, minimum width=16mm] (dc)
     {$\langle d^{\mathrm c}\rangle$};
-  \draw[->, check, line width=.9pt] (precheck.south) |- node[lblsm, right, pos=.20]
-    {otherwise} (hardwire.north);
   \draw[xform] (hardwire) -- (d);
   \draw[->, focus, line width=1.2pt] (d) -- node[lblsm, above, text=focus]
     {self code} (verifier);
   \draw[xform] (verifier) -- (compress);
   \draw[xform] (compress) -- (dc);
 
-  \node[checked, below=9mm of verifier, minimum width=29mm] (sampler)
+  %% the "otherwise" branch runs in the band between the rows, not along the
+  %% tops of the middle-row boxes
+  \draw[->, check, line width=.9pt, rounded corners=3pt]
+    (precheck.south) -- ++(0,-4mm)
+    node[lblsm, right=0.8mm, pos=.55] {otherwise} -| (hardwire.north);
+  % the produced self code IS the code of the machine now running
+  \draw[->, focus, line width=1.1pt, shorten >=1pt] (d.north)
+    to[out=95,in=-85]
+    node[lblsm, right=2mm, pos=.5, text=focus, align=left, text width=40mm]
+      {with \(f=\langle\mathcal F\rangle\), \(d\) is this running decider}
+    (f.south);
+
+  %% ---------------- what feeds the verifier, and what stays cited
+  \node[checked, minimum width=30mm] (sampler)
+    at ([yshift=-11mm]$(d.south)!0.5!(verifier.south)$)
     {$\ComputeSampler(L)$\\$\Downarrow\ \langle S_L\rangle$};
   \draw[->, desc, line width=.9pt] (sampler) -- (verifier);
-  \node[citedbox, below=9mm of compress, minimum width=36mm] (theorem)
-    {compression\\soundness + completeness};
+  \node[citedbox, below=11mm of compress, minimum width=28mm] (theorem)
+    {compression\\soundness and\\completeness};
   \draw[cited, dashed, ->] (theorem) -- (compress);
 
-  \node[checked, below=16mm of sampler, minimum width=40mm] (run)
+  %% ---------------- running the returned decider
+  \node[checked, below=15mm of sampler, minimum width=38mm] (run)
     {run \(d^{\mathrm c}(n,x,y,a,b)\)};
-  \node[cell head, right=4mm of run] (bit) {$0/1$};
+  \node[cell head, below=6mm of run] (bit) {$0/1$};
   \draw[->, desc, line width=.9pt, rounded corners=3pt]
     (dc.south) |- (run.east);
   \draw[->, machine, line width=.8pt] (run) -- (bit);
-  \draw[->, focus, line width=1.1pt, rounded corners=5pt]
-    (d.north) -- ++(0,7mm) -| node[lblsm, above, pos=.58, text=focus,
-    align=center, text width=45mm]
-    {with \(f=\langle\mathcal F\rangle\), \(d\) is this running decider} (f.south);
 
-  \node[tag check, anchor=west] at ([yshift=-4mm]hardwire.south west)
-    {EXECUTED SOURCE CONSTRUCTION};
+  \node[tag check, anchor=north west, align=left]
+    at ([yshift=-3mm]hardwire.south west)
+    {EXECUTED\\SOURCE CONSTRUCTION};
   \node[tag cited, below=2mm of theorem]
     {CITED THEOREM};
 \end{tikzpicture}

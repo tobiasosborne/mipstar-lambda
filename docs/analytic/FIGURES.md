@@ -45,6 +45,11 @@ Rules:
    evidence boundary — every figure that touches soundness MUST show it.
 9. **Captions**: one sentence on what to see, one on why it matters for the
    argument. Never "Figure shows". Use `\chip{machine}` etc. when a legend is needed.
+9b. **Styles live only in `figstyle.tex`.** No figure file defines a `\tikzset`. Promoted
+    in brief 37: `copyflow` (rust wavy "copy/substitute this subterm", distinct from the
+    violet `quote` reserved for object→bytes), `inlineredex` (tight amber box for a
+    highlighted subterm *inside* a maths node, where the circular `redex` balloons), and
+    `tag machine` / `tag desc` / `tag bad` beside `tag check` / `tag cited` / `tag focus`.
 10. **Width**: full text width for hero figures (`[t]` or `[h]`), `0.6\linewidth`
     wrapped figures are NOT used (no wrapfig) — keep placement predictable.
 11. Each figure lives in `figs/fig-<slug>.tex` (the `tikzpicture` only) and is
@@ -138,13 +143,25 @@ pages; re-run after every batch. Overfull hboxes in figure files: zero.
 - F61 ★ `decoupled-5sat`: five blocks a,b,u₃,u₄,u₅ of one power-of-two length; original 3SAT clauses on u₃; equality gadgets u₃=u₄=u₅; copy of the first 2F answer bits to a,b; padding.
 - F62 ★ `tseitin-fanout`: a gate wire with fan-out f and the auxiliary variable; individual degree 2+2f as we read the gadget (soft framing, F1), versus 2; “theorem survives with deg_F+5d, d ≥ 8”.
 - F63 `occurrence-vector`: the discrepancy of §11.5 as two side-by-side tallies.
+- F63b ★ `occurrence-vs-degree` (added, brief 37): the F1 finding drawn on the two-gate
+  fixture — the amber wire `w_1`, its four literal occurrences as a ledger, and the three
+  accounts of `deg_{w_1}` side by side (source proposition ≤ 2, occurrence bound = 4,
+  `arith_q` sparse support = 4). Soft framing: "our reading of the gadget may be at fault",
+  citing `docs/findings.md` F1.
 - F64 ★ `interpolation-subcube`: the subcube {0,1}^m inside F_q^m; interpolation of a Boolean function; the vanishing polynomial zero(z)=z(z−1) on the axis.
 - F65 `boolean-ideal-rewrite`: z^e → z^{e−1} − z^{e−2}·zero(z); a 2-variable example reduced to remainder 0 with c₁ zero(x₁) + c₂ zero(x₂).
 - F66 ★ `pcp-local-verifier`: proof oracle as a table of point/line evaluations; the local verifier’s queries (points, axis-parallel line, diagonal line) landing in it; the accept predicate.
 - F67 ★ `four-layers`: the four soundness layers of §12.4 as strata: (1) algebraic soundness under low degree — EXECUTED identity; (2) low-degree enforcement — CITED; (3) Schwartz–Zippel — CHECKED at finite instance; (4) quantum consistency and rigidity — CITED. Evidence boundary drawn explicitly.
 - F68 ★ `cl-inductive`: a conditionally linear function as levels: V = V₁ ⊕ V₂ ⊕ …, the linear map on level i conditioned on the output of levels < i (def:cl-func); level laws.
+- F68b `chi-axis-buckets` (added, brief 37): the fixed integer representatives of F_q split
+  into m equal buckets for (q,m)=(8,2); the sampled s=5 picks bucket 2, so χ(s)=2 and the
+  axis-line map's direction is e_2 — hence the two CL stages that make L_ALine level two.
 - F69 `point-line-maps`: L_Point, L_ALine, L_DLine as register maps on V_pt/V_coord/V_dir (gt-07), projections π_{i−1}.
 - F70 ★ `six-copy-sampler`: types and the six-copy sampler: the type set, which copies are compared, marginal laws.
+- F70b ★ `D-decider-guards` (added, brief 37): the five guarded checks of `fig:decider-pcp`
+  in order (global consistency, input consistency, input low degree, proof encoding, game
+  check), each dropping out downwards into one rejection bar, with the amber fall-through
+  showing that a type pair firing no trigger is accepted.
 - F71 `structural-hypothesis`: the C7 hypothesis as a diagram of what is assumed versus derived.
 - F72 ★ `ladder`: the tracer-bullet ladder TB0 → TB0.5 → TB1 → TB2 → TB3 → TB4 → TB5 → TB6 → TB7 as rungs with status chips (PROVED/TESTED/SKETCH/CONJECTURE from claims/CLAIMS.md at the time of writing, cite the file) and what each rung executes.
 - F73 `correspondence-map`: each correspondence table (§14.1–14.6) gets a compact figure: the paper object → the Julia object → the evidence grade (`checked`/`citedbox`). At least one figure per page of §14 (the longtables are long; interleave).

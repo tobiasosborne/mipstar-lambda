@@ -28,6 +28,8 @@
   \end{scope}
   \node[head,below=1mm of i3] {};
   \draw[callout] (r5.south) -- (i3.north);
-  \node[lblsm, anchor=west] at ([xshift=2mm]$(r5.south)!0.78!(i3.north)$)
+  % below-right of the shaft: anchored on it, the link line ran through the text
+  \node[lblsm, anchor=north west]
+    at ([xshift=3mm,yshift=-0.8mm]$(r5.south)!0.72!(i3.north)$)
     {lazy head-and-position link};
 \end{tikzpicture}

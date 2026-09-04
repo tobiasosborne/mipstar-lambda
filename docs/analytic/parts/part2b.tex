@@ -330,6 +330,14 @@ and structural induction gives
 \[
  \deg_v(F_{\rm arith})\leq \operatorname{occ}_v(F).
 \]
+Figure~\ref{fig:occurrence-vs-degree} carries both accounts out on the
+two-gate fixture, for the one wire whose count exceeds two.
+\begin{figure}[H]
+\centering
+\input{figs/fig-occurrence-vs-degree.tex}
+\caption{The amber wire \(w_1\) occurs four times in the literal formula tree and the measured sparse-support degree meets that bound, while the cited proposition allows two; our reading of the gadget may be the thing at fault (finding F1 of \code{docs/findings.md}).}
+\label{fig:occurrence-vs-degree}
+\end{figure}
 The function \code{tseitin_occurrence_account} computes this vector;
 \code{occurrences} independently traverses the formula; and \code{arith_q}
 compares the structural account with actual sparse support.
@@ -659,8 +667,16 @@ lemmas.
 
 \subsection{Point and line maps}
 
-Figure~\ref{fig:point-line-maps} tracks the three register maps and the
+One seed coordinate does all the choosing, so Figure~\ref{fig:chi-axis-buckets}
+fixes first how a field element names an axis and what that costs in levels;
+Figure~\ref{fig:point-line-maps} then tracks the three register maps and the
 prefix projection \(\pi_{\chi(s)-1}\) explicitly.
+\begin{figure}[H]
+\centering
+\input{figs/fig-chi-axis-buckets.tex}
+\caption{The amber seed coordinate \(s=5\) falls in the second of the two \(q/m=4\)-element buckets, so \(\chi(s)=2\) and the axis-line map takes its direction \(e_2\) from a stage that reads \(s\) alone.  The second stage is then linear on \(u\) with the choice already fixed, which is exactly why \(L_{\rm ALine}\) is conditionally linear of level two rather than one.}
+\label{fig:chi-axis-buckets}
+\end{figure}
 \begin{figure}[H]
 \centering
 \input{figs/fig-point-line-maps.tex}
@@ -763,6 +779,14 @@ The typed decider implements the five guarded checks of
 \code{fig:decider-pcp}: global consistency, input consistency, input low degree,
 proof encoding (individual and simultaneous low degree), and the PCP game
 check.\gt{fig:decider-pcp}{ground-truth/gt-10-answer-reduction.tex}
+Figure~\ref{fig:D-decider-guards} runs the five in order and marks the
+fall-through that a type pair matching no trigger takes.
+\begin{figure}[H]
+\centering
+\input{figs/fig-D-decider-guards.tex}
+\caption{Acceptance flows left to right through five guards and every guard drops out downwards to the same rejection, so a type pair whose trigger never matches follows the amber path straight to acceptance.  All five guards are finite executed code in the prototype, with proof encoding running its consistency test and low-degree tests at \((q,m,d,1)\) and \((q,m',d,m'+6)\); only the soundness theorem quantifying over them stays cited (after \code{fig:decider-pcp}).}
+\label{fig:D-decider-guards}
+\end{figure}
 The Julia names are \code{TypedAnswerReducedDecider},
 \code{typed_answer_reduced_decider}, \code{LDParams}, \code{ld_decider}, and
 \code{PCPGameCall}.  \code{answer_reduce_pcp} constructs the typed verifier of

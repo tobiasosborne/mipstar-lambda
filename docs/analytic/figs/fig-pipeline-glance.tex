@@ -30,10 +30,10 @@
   \draw[cited, dashed, ->] (ci) -- (intro);
   \draw[cited, dashed, ->] (ca) -- (ans);
   \draw[cited, dashed, ->] (cr) -- (rep);
-  % two lines, kept left of the dashed cited-guarantee arrow that rises into
-  % Introspect (one line would be pierced by it).
-  \node[tag check, anchor=north west, align=left] at ([yshift=-2.5mm]v0.south west)
-    {EXECUTED ON\\FINITE DESCRIPTIONS};
+  % three short lines, kept clear of the dashed cited-guarantee arrow that rises
+  % into Introspect (a wider line is pierced by it).
+  \node[tag check, anchor=north west, align=left] at ([yshift=-1.5mm]v0.south west)
+    {EXECUTED\\ON FINITE\\DESCRIPTIONS};
   \node[tag cited, anchor=west] at ([yshift=-4mm]ci.south west)
     {CITED ANALYTIC GUARANTEES};
 

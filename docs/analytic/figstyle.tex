@@ -72,6 +72,14 @@
   tedge/.style={draw=term, line width=0.7pt},
   bind/.style={->, term, dashed, line width=0.6pt, bend left=40, shorten >=1pt},
   beta/.style={->, term, line width=1pt, shorten >=2pt, shorten <=2pt},
+  % copy/substitute a subterm (rust wavy).  Distinct from `quote` (violet wavy),
+  % which is reserved for object -> bytes.
+  copyflow/.style={->, term, line width=0.9pt, decorate,
+    decoration={snake, amplitude=0.4mm, segment length=2.5mm, post length=1.5mm}},
+  % a highlighted subterm INSIDE a maths node: `redex` is a circle and balloons
+  % out of the enclosing parentheses when used inline.
+  inlineredex/.style={draw=focus, fill=focuslt, line width=0.9pt,
+    rounded corners=1.5pt, inner sep=1.6pt, font=\small},
   closure/.style={draw=term, fill=termlt, rounded corners=2pt, inner sep=4pt, align=left},
   fuel/.style={draw=term, fill=white, rounded corners=1pt, inner sep=2pt,
     font=\footnotesize\ttfamily, text=term},
@@ -95,6 +103,9 @@
   tag check/.style={font=\scriptsize\sffamily\bfseries, text=check},
   tag cited/.style={font=\scriptsize\sffamily\bfseries, text=cited},
   tag focus/.style={font=\scriptsize\sffamily\bfseries, text=term},
+  tag machine/.style={font=\scriptsize\sffamily\bfseries, text=machine},
+  tag desc/.style={font=\scriptsize\sffamily\bfseries, text=desc},
+  tag bad/.style={font=\scriptsize\sffamily\bfseries, text=bad},
   % ---- annotation
   note/.style={lbl, align=left, text width=3.2cm},
   callout/.style={->, inkmute, line width=0.5pt, shorten >=1pt},

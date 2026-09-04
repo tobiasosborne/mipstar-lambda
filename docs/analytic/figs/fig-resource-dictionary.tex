@@ -18,16 +18,19 @@
   \node[tleaf, below left=5mm and 7mm of apply] (prog) {$D_{\mathcal L}$};
   \node[tleaf, below right=5mm and 7mm of apply] (args) {$u$};
   \draw[tedge] (apply)--(prog); \draw[tedge] (apply)--(args);
-  \node[fuel, below=7mm of apply] (fuel) {$f_D(n)$};
+  \node[fuel, below=14mm of apply] (fuel) {$f_D(n)$};
+  \node[lblsm, below=1mm of fuel] {fuel for this call};
 
-  \draw[xform] ([yshift=13mm]lp.west)--node[above,xformlbl]
-    {compile} ([yshift=13mm]mp.east);
-  \node[checked, text width=46mm] at (0,13mm)
+  % the bound boxes mask the middle of each arrow, so the arrow labels sit
+  % clear of them rather than underneath
+  \draw[xform] ([yshift=15mm]lp.west) -- ([yshift=15mm]mp.east);
+  \node[checked, text width=33mm] (topbound) at (0,15mm)
     {$\Time_D(n)\le C_L(|D_{\mathcal L}|+f_D(n)+1)^6$};
-  \draw[xform] ([yshift=-13mm]mp.east)--node[below,xformlbl]
-    {interpret} ([yshift=-13mm]lp.west);
-  \node[checked, text width=43mm] at (0,-13mm)
+  \node[font=\footnotesize\sffamily\bfseries, above=1.2mm of topbound] {compile};
+  \draw[xform] ([yshift=-15mm]mp.east) -- ([yshift=-15mm]lp.west);
+  \node[checked, text width=33mm] (botbound) at (0,-15mm)
     {fuel \(c_D\,T(T+|u|)\)};
+  \node[font=\footnotesize\sffamily\bfseries, below=1.2mm of botbound] {interpret};
   \node[descbox, below=5mm of mp] {$|D_{\mathcal L}|\le a_0|D|+b_0$};
   \node[descbox, below=5mm of lp] {$|(U_{\mathcal L})_t|\le a_U|t|+b_U$};
 \end{tikzpicture}

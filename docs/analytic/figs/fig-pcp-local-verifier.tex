@@ -16,12 +16,12 @@
   \node[stage, right=12mm of oracle, minimum width=4.1cm] (queries)
     {local queries\\$z$ and $\operatorname{ev}_z(\Pi)$\\axis line through $z$\\diagonal line through $z$};
   \draw[quote,<->] (oracle) --
-    node[above,lblsm,text=desc,align=center,inner sep=0.5pt] {few\\reads} (queries);
+    node[above=1.6mm,lblsm,text=desc,align=center,inner sep=0.5pt] {few\\reads} (queries);
   \node[checked, right=16mm of queries, minimum width=4.6cm] (accept)
     {formula test\\$\beta_0=F_{\rm arith}(z)\prod_{i=1}^5(\alpha_i-o_i)$\\[1.5mm]
      zero-on-subcube test\\$\beta_0=\sum_{j=1}^{m'}\beta_jz_j(1-z_j)$};
   \draw[xform] (queries) --
-    node[above,text=ink,font=\scriptsize\sffamily\bfseries,align=center,inner sep=0.5pt]
+    node[above=1.4mm,text=ink,font=\scriptsize\sffamily\bfseries,align=center,inner sep=0.5pt]
     {accept\\iff both} (accept);
   \node[tag check, above=2mm of accept] {EXECUTED ON A SUPPLIED VIEW};
   \node[citedbox, below=8mm of $(queries.south)!0.5!(accept.south)$,

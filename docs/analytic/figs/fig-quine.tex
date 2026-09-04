@@ -24,8 +24,10 @@
     node[midway, above=4mm, lblsm] {output tape \(=\langle e_Q\rangle\)};
   \draw[quote] (eq.west) to[bend left=52]
     node[lblsm, left, text=desc] {$z=e_Q=s(p,p)$} (z.west);
-  \draw[->, focus, line width=1.1pt, bend right=32] (out4.south) to
-    node[lblsm, below, text=focus] {same finite string} (eq.south);
+  % return arc kept ABOVE the tape: starting under it crossed the cells
+  \draw[->, focus, line width=1.1pt, shorten >=1.5pt] (out0.north west)
+    to[bend right=22]
+    node[lblsm, above, text=focus] {same finite string} (eq.north east);
   \node[checked, below=10mm of run, minimum width=62mm]
     {$\varphi_{e_Q}=\varphi_{Q(e_Q)}$};
 \end{tikzpicture}

@@ -1,0 +1,57 @@
+\begin{tikzpicture}
+  %% ================= three equal panels, laid out on one row
+  \node[panel, anchor=north west, minimum width=5.6cm, minimum height=3.85cm]
+    (P1) at (0,0) {};
+  \node[panel, anchor=north west, minimum width=4.5cm, minimum height=3.85cm]
+    (P2) at (6.1,0) {};
+  \node[panel, anchor=north west, minimum width=4.7cm, minimum height=3.85cm]
+    (P3) at (11.1,0) {};
+
+  %% ---------------- P1: the two-gate fixture, one shared wire
+  \node[panel title] at ([xshift=3mm,yshift=-2.2mm]P1.north west)
+    {two-gate fixture};
+  \node[state, draw=desc, fill=desclt, minimum size=6.5mm] (x1) at (0.5,-1.05) {$x_1$};
+  \node[state, draw=desc, fill=desclt, minimum size=6.5mm] (x2) at (0.5,-1.75) {$x_2$};
+  \node[state, draw=desc, fill=desclt, minimum size=6.5mm] (x3) at (0.5,-2.75) {$x_3$};
+  \node[descbox, minimum width=6.5mm, minimum height=6.5mm] (g1) at (1.65,-1.40) {$g_1$};
+  \node[state, draw=focus, fill=focuslt, line width=1pt, minimum size=7.5mm]
+    (w1) at (2.70,-1.40) {$w_1$};
+  \node[descbox, minimum width=6.5mm, minimum height=6.5mm] (g2) at (3.75,-2.15) {$g_2$};
+  \node[state, draw=desc, fill=desclt, minimum size=6.5mm] (w2) at (4.80,-2.15) {$w_2$};
+  \draw[->,machine,line width=.8pt] (x1) -- (g1);
+  \draw[->,machine,line width=.8pt] (x2) -- (g1);
+  \draw[->,machine,line width=.8pt] (g1) -- (w1);
+  \draw[->,machine,line width=.8pt] (w1) -- (g2);
+  \draw[->,machine,line width=.8pt] (x3) -- (g2);
+  \draw[->,machine,line width=.8pt] (g2) -- (w2);
+  \node[lblsm, anchor=south] at (2.70,-1.00) {fan-out $1$};
+  \node[lblsm, anchor=north west] at (0.30,-3.25)
+    {$g_1=x_1\wedge x_2$,\quad $g_2=w_1\wedge x_3$};
+
+  %% ---------------- P2: the occurrence ledger for w1
+  \node[panel title] at ([xshift=3mm,yshift=-2.2mm]P2.north west)
+    {occurrences of $w_1$ in $F$};
+  \node[lbl, anchor=north west, text width=3.1cm, align=left] at (6.40,-0.75)
+    {in its own\\equivalence $z_1$};
+  \node[inlineredex, anchor=north east] at (10.30,-0.78) {$2$};
+  \node[lbl, anchor=north west, text width=3.1cm, align=left] at (6.40,-1.65)
+    {in the gate $g_2$ that\\consumes it, via $z_2$};
+  \node[inlineredex, anchor=north east] at (10.30,-1.68) {$2$};
+  \draw[rule] (6.40,-2.62) -- (10.35,-2.62);
+  \node[checked, anchor=north west, minimum width=3.9cm, minimum height=6mm]
+    at (6.40,-2.82) {$\operatorname{occ}(w_1)=2+2\cdot 1=4$};
+
+  %% ---------------- P3: three accounts of the same individual degree
+  \node[panel title] at ([xshift=3mm,yshift=-2.2mm]P3.north west)
+    {three accounts of $\deg_{w_1}$};
+  \node[citedbox, anchor=north west, minimum width=3.9cm, minimum height=6mm]
+    (a1) at (11.40,-0.68) {source proposition: $\leq2$};
+  \node[stage, draw=desc, anchor=north west, minimum width=3.9cm, minimum height=6mm]
+    (a2) at (11.40,-1.90) {occurrence bound: $\leq4$};
+  \node[checked, anchor=north west, minimum width=3.9cm, minimum height=6mm]
+    (a3) at (11.40,-3.12) {\texttt{arith\_q} support: $=4$};
+  \draw[<->, bad, line width=.8pt, shorten >=1pt, shorten <=1pt]
+    (a1.south) -- node[lblsm, right=0.8mm, text=bad] {differ} (a2.north);
+  \draw[xform, shorten >=1pt, shorten <=1pt]
+    (a2.south) -- node[lblsm, right=0.8mm] {attained} (a3.north);
+\end{tikzpicture}

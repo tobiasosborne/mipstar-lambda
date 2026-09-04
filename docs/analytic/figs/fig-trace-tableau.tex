@@ -3,24 +3,24 @@
     column sep=-\pgflinewidth,
     nodes={cell, minimum width=1.24cm, minimum height=5.8mm}] {
     |[draw=none,fill=none,lbl,text=machine]| $C_0$ &
-    |[cell blank]| $\vdash$ & |[cell head]| $\langle q_0,s_0\rangle$ &
-    $u_0$ & $F$ & |[cell blank]| $\sqcup$ & |[cell blank]| $\sqcup$ & |[cell blank]| $\cdots$ \\
+    |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\vdash$ & |[cell head, font=\scriptsize, minimum width=1.24cm, minimum height=5.8mm]| $\langle q_0,s_0\rangle$ &
+    $u_0$ & $F$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\cdots$ \\
     |[draw=none,fill=none,lbl,text=machine]| $\vdots$ &
-    |[cell blank]| $\vdash$ & $\cdots$ & $\gamma_{j-1}$ & $\gamma_j$ & $\gamma_{j+1}$ & $\cdots$ & |[cell blank]| $\sqcup$ \\[3.6mm]
+    |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\vdash$ & $\cdots$ & $\gamma_{j-1}$ & $\gamma_j$ & $\gamma_{j+1}$ & $\cdots$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ \\[3.6mm]
     |[draw=none,fill=none,lbl,text=machine]| $C_i$ &
-    |[cell blank]| $\vdash$ & $\cdots$ & |[cell,fill=focuslt,draw=focus]| $a$ &
-    |[cell head]| $\langle q,b\rangle$ & |[cell,fill=focuslt,draw=focus]| $c$ & $d$ & |[cell blank]| $\sqcup$ \\[4.6mm]
+    |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\vdash$ & $\cdots$ & |[cell,fill=focuslt,draw=focus, minimum width=1.24cm, minimum height=5.8mm]| $a$ &
+    |[cell head, font=\scriptsize, minimum width=1.24cm, minimum height=5.8mm]| $\langle q,b\rangle$ & |[cell,fill=focuslt,draw=focus, minimum width=1.24cm, minimum height=5.8mm]| $c$ & $d$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ \\[4.6mm]
     |[draw=none,fill=none,lbl,text=machine]| $C_{i+1}$ &
-    |[cell blank]| $\vdash$ & $\cdots$ & $a$ & |[cell,fill=focuslt,draw=focus]| $b'$ &
-    |[cell head]| $\langle q',c\rangle$ & $d$ & |[cell blank]| $\sqcup$ \\
+    |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\vdash$ & $\cdots$ & $a$ & |[cell,fill=focuslt,draw=focus, minimum width=1.24cm, minimum height=5.8mm]| $b'$ &
+    |[cell head, font=\scriptsize, minimum width=1.24cm, minimum height=5.8mm]| $\langle q',c\rangle$ & $d$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ \\
     |[draw=none,fill=none,lbl,text=machine]| $\vdots$ &
-    |[cell blank]| $\vdash$ & $\cdots$ & $\cdots$ & $\cdots$ & $\cdots$ & $\cdots$ & |[cell blank]| $\sqcup$ \\
+    |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\vdash$ & $\cdots$ & $\cdots$ & $\cdots$ & $\cdots$ & $\cdots$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ \\
     |[draw=none,fill=none,lbl,text=machine]| $C_r$ &
-    |[cell blank]| $\vdash$ & |[cell head,fill=checklt,draw=check]| $\langle q_h,1\rangle$ &
-    $\sqcup$ & $\sqcup$ & $\sqcup$ & $\sqcup$ & |[cell blank]| $\sqcup$ \\
+    |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\vdash$ & |[cell head,fill=checklt,draw=check, font=\scriptsize, minimum width=1.24cm, minimum height=5.8mm]| $\langle q_h,1\rangle$ &
+    $\sqcup$ & $\sqcup$ & $\sqcup$ & $\sqcup$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ \\
     |[draw=none,fill=none,lbl,text=machine]| $C_F$ &
-    |[cell blank]| $\vdash$ & |[cell,fill=checklt,draw=check]| $\langle q_h,1\rangle$ &
-    $\sqcup$ & $\sqcup$ & $\sqcup$ & $\sqcup$ & |[cell blank]| $\sqcup$ \\
+    |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\vdash$ & |[cell,fill=checklt,draw=check, font=\scriptsize, minimum width=1.24cm, minimum height=5.8mm]| $\langle q_h,1\rangle$ &
+    $\sqcup$ & $\sqcup$ & $\sqcup$ & $\sqcup$ & |[cell blank, minimum width=1.24cm, minimum height=5.8mm]| $\sqcup$ \\
   };
   % head markers sit in the gap below their own row, offset from the tau arrow
   \node[head, minimum height=1.8mm, minimum width=2.2mm]
@@ -34,7 +34,7 @@
     {radius-one window $(j-1,j,j+1)$};
   % row i window determines row i+1 cell: arrow points downward, with time
   \draw[->, machine, line width=1pt]
-    ([xshift=4mm]win.south) -- ([xshift=4mm]T-4-5.north)
+    ([xshift=2.5mm]win.south) -- ([xshift=2.5mm]T-4-5.north)
     node[midway, right=0.6mm, lblsm, text=machine, inner sep=0pt] {$\tau$};
   \draw[brace] ([xshift=2mm]T-6-8.north east) -- ([xshift=2mm]T-7-8.south east)
     node[midway,right=3mm,lblsm,align=left] {self-looping\\padding};

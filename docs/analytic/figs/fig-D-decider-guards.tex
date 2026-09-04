@@ -1,0 +1,42 @@
+\begin{tikzpicture}[font=\scriptsize\sffamily,
+  guard/.style={stage, anchor=north west, minimum width=2.67cm,
+    minimum height=2cm, text width=2.25cm, align=left,
+    font=\scriptsize\sffamily, inner sep=6pt}]
+  %% ================= the five guards, executed in order
+  \node[guard] (G1) at (0.00,-0.60)
+    {\textbf{1 global}\\\textbf{consistency}\\[1pt]
+     equal type pairs:\\ reject if $a_A\neq a_B$};
+  \node[guard] (G2) at (2.89,-0.60)
+    {\textbf{2 input}\\\textbf{consistency}\\[1pt]
+     oracle beside $v$:\\ reject if $\alpha_v\neq\alpha'_v$};
+  \node[guard] (G3) at (5.78,-0.60)
+    {\textbf{3 input}\\\textbf{low degree}\\[1pt]
+     run $D^{\rm ld}$ at\\ $(q,m,d,1)$ on the\\ point/line pair};
+  \node[guard] (G4) at (8.67,-0.60)
+    {\textbf{4 proof}\\\textbf{encoding}\\[1pt]
+     consistency and\\ two low-degree\\ tests};
+  \node[guard] (G5) at (11.56,-0.60)
+    {\textbf{5 game}\\\textbf{check}\\[1pt]
+     oracle at $\mathrm{Point}_6$:\\ run the PCP\\ verifier on $(z,a_w)$};
+  \node[checked, anchor=north west, minimum width=1.5cm, minimum height=2cm,
+    align=center, font=\small\sffamily\bfseries] (ACC) at (14.45,-0.60) {accept};
+
+  %% ---- pass on to the next guard
+  \foreach \a/\b in {G1/G2, G2/G3, G3/G4, G4/G5, G5/ACC} {
+    \draw[xform, shorten >=1pt, shorten <=1pt] (\a.east) -- (\b.west);}
+
+  %% ---- any guard may drop out downwards
+  \node[stage, bad, fill=white, anchor=north west, minimum width=14.23cm,
+    minimum height=5mm, font=\small\sffamily\bfseries] (REJ) at (0.00,-2.90)
+    {reject};
+  \foreach \g in {G1,G2,G3,G4,G5} {
+    \draw[->, bad, line width=.8pt, shorten >=1pt, shorten <=1pt]
+      (\g.south) -- (\g.south |- REJ.north);}
+  \node[tag check, anchor=north west, align=left] at (14.45,-2.92) {EXECUTED};
+
+  %% ---- the fall-through: no trigger fires, so the pair is accepted
+  \draw[->, focus, line width=1.2pt] (0.00,-0.30) -- (15.20,-0.30)
+    -- (15.20,-0.55);
+  \node[lblsm, anchor=south] at (7.20,-0.28)
+    {when no guard's trigger matches the type pair, the decider accepts};
+\end{tikzpicture}

@@ -30,14 +30,17 @@
     {soundness term $(\delta_F+5d)m'/q$};
   \node[panel title, anchor=south west, inner sep=0pt] (rt)
     at ([yshift=4mm]wr.west |- g2.north) {bounded fan-out repair};
+  % filler so the two panels end at the same height
+  \coordinate (rfill) at ($(wr |- left.south) + (0,4mm)$);
   \begin{scope}[on background layer]
-    \node[panel, inner sep=4mm, fit=(rt)(wr)(uses)(repair)(rn)] (right) {};
+    \node[panel, inner sep=4mm, fit=(rt)(wr)(uses)(repair)(rn)(rfill)] (right) {};
   \end{scope}
   % ================= the two accounts, kept apart
+  \coordinate (bl) at ([yshift=-7mm]left.south);
   \node[checked, minimum width=3.6cm, anchor=north]
-    at ([yshift=-7mm]left.south) (measured) {computed fixture\\degree can be $4$};
+    at (bl) (measured) {computed fixture\\degree can be $4$};
   \node[citedbox, minimum width=6.2cm, anchor=north]
-    at ([yshift=-7mm]right.south) (paper) {source proposition: individual degree $\leq2$};
+    at (bl -| right) (paper) {source proposition: individual degree $\leq2$};
   \node[lblsm] at ($(measured.east)!0.5!(paper.west)$) {compare};
   \node[tag check, left=3mm of measured] {TESTED};
   \node[tag cited, right=3mm of paper] {CITED};
