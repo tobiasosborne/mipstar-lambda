@@ -42,11 +42,12 @@ export RewriteStep, ZeroDecomposition, zero_basis_decompose,
 
 export AbstractCL, CLZero, CLStep, CLMarginal, apply, level, seed_dim,
        register_indices, marginal_k, sum_stage_outputs, concatenate, direct_sum,
-       CLDistribution, distribution, histogram, product, pad_level,
+       CLDistribution, distribution, enumerate_seeds, histogram, product, pad_level,
        TypedSampler, sample
 
 export AffineLine, L_lnf, chi, pi_prefix, L_Point, L_ALine, L_DLine,
        point_value, axis_line, diagonal_line, line_point,
+       diagonal_histogram_evidence,
        LDParams, restrict, univariate_degree, ld_decider, D_ld
 
 export PCPType, PCPRegisterLayout, PCPPointQuestion, PCPALineQuestion,
@@ -65,6 +66,7 @@ export PredicateStatus, PASS, FAIL, NOT_EVALUABLE, PCPParams, ParameterPolicy,
 export TrivialOriginalVerifier, TypedAnswerReducedDecider,
        TypedAnswerReducedVerifier, CitedDetypedVerifier,
        AnswerReduceQuestion, HonestPCPStrategy, PCPGameCall,
+       PCPDeciderSpecification, pcp_decider_specification,
        AnswerReduceTraceEntry, AnswerReduceDecision,
        trivial_original_verifier, answer_reduce_pcp, detype, AnswerReduce,
        sample_answer_reduce_questions, honest_pcp_strategy,

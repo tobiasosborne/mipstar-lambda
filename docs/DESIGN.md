@@ -337,8 +337,8 @@ CLStep(V1, Vrest, A,
 `V1` and `Vrest` are disjoint coordinate-index sets spanning the ambient standard basis: register subspaces, full stop. This is the paper's
 requirement (`gt-03-prelim.tex:L231-L239`; `gt-04-cl.tex:L35-L57`) and the bit-vector form required of a sampler
 (`gt-04-cl.tex:L590-L595`). `A` is a matrix acting on `V1`, so linearity is CONSTRUCTED. A branch is genuinely a function of the previous
-value, not a preselected child. Its codomain level and remaining ambient register are fixed by the type. Therefore “is CL of level ell” is
-CONSTRUCTED, not discovered by sampling.
+value, not a preselected child; the branch is evaluated lazily on demand (memoised and validated), never by enumerating `image(A)`. Its codomain level and remaining ambient register are fixed by the type. Therefore “is CL of level ell” is
+CONSTRUCTED, not discovered by sampling. Implementation note (brief 38): registers are `Vector{Int}` index sets and stage values `Vector{F}` internally; tuples appear only at the `apply`/`marginal_k` boundary, so no per-width specialisation is compiled.
 
 The defining evaluator is
 
@@ -510,7 +510,7 @@ states its otherwise-accept convention explicitly (`gt-07-ldt.tex:L368 (fig:ld-d
 | 2 input consistency | `t_Q,w=oracle`, `t_Q,bar(w)=v in {alice,bob}`, and `(t_Pi,w,t_Pi,bar(w))=(Point_6,Point_v)` | reject iff `alpha_v != alpha'_v` |
 | 3 input low degree | `t_Q,w=t_Q,bar(w)=v in {alice,bob}` and `(t_Pi,w,t_Pi,bar(w))=(Point_v,ALine_v)` or `(Point_v,DLine_v)` | run `D^ld_(q,m,d,1)` with the matching line type; reject iff it rejects |
 | 4 proof encoding | `t_Q,w=t_Q,bar(w)=oracle`; then (a) `(Point_i,Point_6)`, `i in {3,4,5}`: require `alpha_i=alpha'_i`; (b) `(Point_i,ALine_i)` or `(Point_i,DLine_i)`, `i in {3,4,5}`: run `D^ld_(q,m,d,1)`; (c) `(Point_6,ALine_6)` or `(Point_6,DLine_6)`: run `D^ld_(q,m',d,m'+6)` | reject on the named inequality or low-degree rejection |
-| 5 game | `t_Q,w=oracle`; compute `x_(w,v)=L^v(x_Q,w)` for both `v in {alice,bob}`; additionally `t_Pi,w=Point_6` | run `pcpverifier((D,n,T,Q_len,gamma,x_(w,alice),x_(w,bob)),(z,a_w))`; reject iff it rejects, otherwise accept |
+| 5 game | `t_Q,w=oracle`; compute `x_(w,v)=L^v(x_Q,w)` for both `v in {alice,bob}`; additionally `t_Pi,w=Point_6` | run `pcpverifier((D,n,T,Q_len,gamma,x_(w,alice),x_(w,bob)),(z,a_w))`; reject iff it rejects, otherwise accept — the executable reads “otherwise, accept” as fallthrough to the remaining checks, not as an early accept (`SOURCE_REPAIR :PCPGameOtherwiseFallthrough`, `verdicts/tb2-r1.md` O8) |
 
 Thus `ldparams=(q,m,d,kappa=1)` in steps 3 and 4b, while `ldparams'=(q,m',d,kappa=m'+6)` in step 4c. The source's game-call omission of
 `sigma=|D|` remains a visible typo; the executable specification reconstructs it from the quoted `D`, as recorded in risk 5.
@@ -888,9 +888,10 @@ exact histograms of `(L_ALine,L_Point)` and `(L_DLine,L_Point)` with direct samp
 Assert levels 1, 2, 3 from the datatype and replay every marginal.
 
 Use the honest polynomial `g=1+x_1+x_1*x_2`; construct every axis and diagonal restriction and assert `D^ld` accepts every applicable pair
-and consistency case. The reference histogram is `chi`-free: it draws the axis `i` uniformly and constructs `line(u_0,e_i)` directly from
-`lem:alnf`/`lem:dlnf`. Mutate `chi` at a bucket boundary only in the CL implementation and require mismatch against that independent
-reference. Also submit `g=x_1^2` while claiming `d=1`; an axis-line format/consistency check must reject at a deterministically located
+and consistency case. The reference histogram is a separately transcribed evaluation of `eq:cl-ptf`/`eq:cl-alnf`/`eq:cl-dlnf` **including
+`eq:chi-func`**; it is NOT `chi`-free — no `lem:alnf`/`lem:dlnf` marginal can detect a `chi` mutation (`verdicts/tb1-r1.md` O1). `M-chi` is
+therefore owned by a direct test of `eq:chi-func` bucket boundaries plus the joint (line, point) histogram; the genuinely `chi`-free facts
+(axis support 128, diagonal support 4096) are asserted in a separate `chifree` testset. Also submit `g=x_1^2` while claiming `d=1`; an axis-line format/consistency check must reject at a deterministically located
 point. Print histogram support/counts, levels, line representatives, and the verifier trace.
 
 Confidence is high; the first measurement is the cost of canonical projection for all 32,768 seeds.

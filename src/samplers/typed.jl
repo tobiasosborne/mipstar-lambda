@@ -4,28 +4,34 @@ function pad_level(L::AbstractCL{F}, target::Integer) where {F}
     target_level = Int(target)
     target_level >= level(L) || throw(ArgumentError("cannot pad to a lower CL level"))
     result = L
-    while level(result) < target_level
+    for _ in 1:(target_level - level(L))
         # def:cl-func permits the empty register subspace; this zero-output
         # stage makes the lower-level function an inhabitant of the next level.
         result = CLStep(F, seed_dim(result), (), register_indices(result),
                         zeros(F, 0, 0), result)
     end
+    level(result) == target_level ||
+        throw(ArgumentError("CL nesting did not reach the requested level"))
     result
 end
 
 struct TypedSampler{F}
     # The oriented type edge is sampled before one shared uniform seed is
     # pushed through its maps (gt-06-types.tex:57-93,95-151).
-    types::Tuple
-    type_graph::Tuple
+    # Vectors, not tuples: the product graph has 2916 oriented edges and a
+    # 2916-tuple forces enormous per-length specializations.
+    types::Vector{Any}
+    type_graph::Vector{Tuple{Any,Any}}
     left::Dict{Any,AbstractCL{F}}
     right::Dict{Any,AbstractCL{F}}
     common_level::Int
     seed_dimension::Int
+    metadata::NamedTuple
 end
 
-function TypedSampler(types, type_graph, left::AbstractDict, right::AbstractDict)
-    type_tuple = Tuple(types)
+function TypedSampler(types, type_graph, left::AbstractDict, right::AbstractDict;
+                      metadata=(;))
+    type_tuple = collect(Any, types)
     isempty(type_tuple) && throw(ArgumentError("typed sampler needs at least one type"))
     length(unique(type_tuple)) == length(type_tuple) ||
         throw(ArgumentError("typed sampler types must be unique"))
@@ -41,16 +47,19 @@ function TypedSampler(types, type_graph, left::AbstractDict, right::AbstractDict
     all(map -> seed_dim(map) == dimension, all_maps) ||
         throw(ArgumentError("typed maps must share one seed dimension"))
 
-    edges = Tuple(Tuple(edge) for edge in type_graph)
-    all(edge -> length(edge) == 2 && edge[1] in type_tuple && edge[2] in type_tuple,
-        edges) || throw(ArgumentError("type graph has an unknown endpoint"))
+    all(edge -> length(edge) == 2, type_graph) ||
+        throw(ArgumentError("type graph edges must be oriented pairs"))
+    edges = Tuple{Any,Any}[(edge[1], edge[2]) for edge in type_graph]
+    all(edge -> edge[1] in type_tuple && edge[2] in type_tuple, edges) ||
+        throw(ArgumentError("type graph has an unknown endpoint"))
     isempty(edges) && throw(ArgumentError("type graph needs an oriented edge"))
     common = maximum(level, all_maps)
     padded_left = Dict{Any,AbstractCL{F}}(
         type => pad_level(left[type], common) for type in type_tuple)
     padded_right = Dict{Any,AbstractCL{F}}(
         type => pad_level(right[type], common) for type in type_tuple)
-    TypedSampler{F}(type_tuple, edges, padded_left, padded_right, common, dimension)
+    TypedSampler{F}(type_tuple, edges, padded_left, padded_right, common,
+                    dimension, metadata)
 end
 
 level(sampler::TypedSampler) = sampler.common_level

@@ -3,4 +3,5 @@ const TB2_GUARD_MUTANT = Mutant(
     "src/verifiers/answer_reduce.jl",
     "const _POINT_AXIS_GUARD = :ALine",
     "const _POINT_AXIS_GUARD = :DLine",
-    "tb2_guard")
+    "tb2_guard",
+    "MUTATION_EXPECTED_RULE ld_axis_degree actual=answer_reduce_accept passed=true")

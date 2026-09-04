@@ -1,6 +1,7 @@
 const TB2_LINE_MUTANT = Mutant(
     "TB2 truncate_line_polynomial",
     "src/verifiers/answer_reduce.jl",
-    "_tb2_finalize_line_answers(answers::Tuple) = answers",
-    "_tb2_finalize_line_answers(answers::Tuple) = Base.setindex(answers, _truncate_univariate(answers[1]), 1)",
-    "tb2_line")
+    "values = Tuple{F}[]\n    for raw_t in 0:degree_bound",
+    "values = Tuple{F}[]\n    for raw_t in 0:0",
+    "tb2_line",
+    "MUTATION_EXPECTED_RULE ld_axis_point actual=ld_axis_point passed=false")
