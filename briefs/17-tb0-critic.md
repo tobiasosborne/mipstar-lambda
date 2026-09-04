@@ -32,3 +32,6 @@ Numbered objections: severity FATAL/MAJOR/MINOR/NOTE · exact location (file:lin
 - Fidelity: fig:pcpverifier steps 4–5 exactly; def:pcp-eval ordering of (α₁..α₅, β₀..β_{m'}); g_a per eq:ld-encoding; zero-basis order and the d−2 bookkeeping per prop:zero-basis.
 - Elegance: does the code read like DESIGN.md/definitions.md? Name the three worst spots with concrete simplifications (this feeds the user's north star).
 - Adjudicate the MERGE PROPOSALS in `briefs/14-tb0-repair.last.md` for C1, C2, C3, C8: PROMOTE to TESTED (authorize exact row text) or HOLD with the missing step. C8's proposed row also asserts the general occurrence formula; check whether the code/tests establish it generally or only on two instances, and scope the row accordingly.
+
+## Isolation (mandatory)
+A TB1 worker is concurrently adding files under src/samplers, src/verifiers/ldt.jl and test/. Evaluate the COMMITTED TB0 state only: run `git -C /home/tobias/Projects/discussions archive 747f746 | tar -x -C <your scratch dir>/tb0/` and run all tests/mutations there (`julia --project=. test/runtests.jl`; note the first run includes precompilation — report both cold and warm wall times). Read code from that copy. Your verdict cites file:line in that copy (identical to commit 747f746).
