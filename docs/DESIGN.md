@@ -1066,8 +1066,12 @@ SamplerQuery ::= Dimension(n)
 The four variants are exactly the dimension, marginal, conditional-linear-map, and factor-space calls of the six-input sampler machine.  The optional type is the seventh logical input of a typed sampler; it does not add a fifth operation (`gt-06-types.tex:L95-L140 (def:typed-sampler)`).  `Factor`
 returns the length-`dimension(n)` indicator of a register subspace.  `Marginal` and `Linear` return canonical vectors over `F_{q(n)}`.  The header functions `field_size` and `level` are metadata required to parse those vectors, not alternative access to the CL map.
 
-All code paths halt.  A malformed mode, player, stage, vector, type, or prefix returns `QueryError` with no mathematical promise.  Certificates quantify only over legal calls: `w in {alice,bob}`, `1<=j<=ell`, correctly sized vectors, and prefixes in the range of the preceding marginal. This
-preserves the source contract without pretending that arbitrary bit strings denote valid field data.
+All code paths halt.  A malformed mode, player, stage, vector, or prefix returns `QueryError` with no mathematical promise.  The validated public wrapper also returns `QueryError` for an out-of-range type before invoking the quoted machine; the raw typed-sampler machine retains the source behavior
+and returns `0` on that input (`gt-06-types.tex:L133-L136`).  This substitution is safe at a transformation boundary because constructors enumerate types from the stored `TypeSet`, so a certified pipeline never issues the out-of-range call.  Certificates quantify only over legal calls:
+`w in {alice,bob}`, `1<=j<=ell`, and correctly sized vectors.  The prefix domain is intentionally asymmetric as in `def:sampler`: `Factor` requires `u in L_{<j}(V)`, whereas `Linear` accepts the source's broader `u in V_{<j}`; the latter is not silently narrowed to reachable marginal values
+(`gt-04-cl.tex:L588-L594`).
+
+`Factor` cannot be derived from `Marginal` and `Linear`.  A stage map may vanish on a nonzero register factor, giving those two calls the same answers as a zero-dimensional factor while the required support differs.  The independent fourth query is therefore retained at every rung.
 
 There is deliberately no `sample` operation.  It is derived by choosing uniform `z in F_q^s` and asking for the last marginal on both sides:
 
@@ -1101,8 +1105,18 @@ guards; a theorem about their asymptotics is a separate certificate leaf.
 `QuotedLaw{Nat}` is a closed term in the program language, not an extension of `BoundExpr`.  It can contain the variables named in its signature and exact arithmetic, `max`, tuple length, and calls to child laws. Thus §3's rule against invented exponents remains intact.  Universal polynomials
 whose coefficients are not in the source remain `Opaque`; exact construction laws remain executable.
 
-Every transformation emits a `LawCert` containing the expected law AST, the actual law AST, and evaluations on the tracer indices.  AST equality and evaluations are CHECKED.  A metered interpreter also counts wrapper operations and child calls on each test query.  A cited big-O assertion is CITED
-even when the generated formula and finite measurements agree with it.
+Every transformation emits a `LawCert` containing the expected law AST, the actual law AST, and evaluations on the tracer indices.  Here CHECKED AST equality means only that the emitted AST equals an independently hand-transcribed expected AST; it is a transcription check, not a proof of the
+paper theorem.  A metered interpreter also counts wrapper operations and child calls on each test query.  A cited big-O assertion is CITED even when the generated formula and finite measurements agree with it.
+
+Every sampler-producing `LawCert` additionally replays the two well-formedness obligations of `lem:cl-kth` on every exhaustive finite fixture and every branch-directed reachable prefix chain:
+
+```text
+enu:cl-space-sum:  V = direct_sum(i=1..ell, V[i, x^(L_<i)]))
+enu:cl-map-sum:    Marginal(k,x) = sum(i=1..k, Linear(i,prefix_i,project(V_i,x)))
+```
+
+The first replay checks disjoint coordinate indicators and that their union is the full length-`Dimension(n)` ambient basis; the second checks every `k` and ends at the reported final marginal.  These are part of sampler validity under `def:sampler`, not optional distribution tests
+(`gt-04-cl.tex:L151-L180`, `L572-L601`).  General validity is CONSTRUCTED only where the quoted constructor carries a structural induction certificate; otherwise the result remains uncertified even if its field, level, and dimension laws pass.
 
 Description size is never an asymptotic guess:
 
@@ -1118,13 +1132,17 @@ Soundness bookkeeping uses canonical quoted relations rather than floating-point
 ```text
 GapMap ::= DetypeGap(types, epsilon -> 16^types * epsilon)
          | AnchorGap(epsilon -> 4 * 16^2 * epsilon)
-         | IntroGap(delta_intro(epsilon,n))
+         | IntroGap(epsilon,n,delta_intro,
+             max(Ent(V_(2^n),1-delta_intro(epsilon,n)),
+                 (1-delta_intro(epsilon,n))*2^(2^(lambda*n))))
          | AnswerReduceGap(delta_ar(epsilon,n))
          | RepeatGap(epsilon,p,n, strict_threshold)
          | CompressGap(1/2 -> 1/2, EntanglementLowerBound)
 ```
 
-The formula AST, variable binding, direction of implication, and strict versus weak inequality are CHECKED.  The semantic implication is CITED from the named theorem. This is how gap maps are carried symbolically without being mislabeled as local soundness proofs.
+The checker grades the two `IntroGap` branches separately.  TB7 evaluates, by exact symbolic substitution without materializing the integer, the scalar floor branch
+`(1-delta_intro(epsilon,n))*2^(2^(lambda*n))`; that emitted branch AST, its binding, and its substitution are CHECKED.  The `Ent(V_(2^n),...)` branch is not evaluated and stays CITED, as does the semantic `max` implication from `thm:introspection`
+(`gt-08-introspection.tex:L809-L815`).  `M7-intro-floor` deletes the floor child and must fail the expected-AST/required-child check.  Thus no whole theorem relation is called CHECKED merely because one branch was evaluated.
 
 ### 9.3 Adapter from lazy `CLStep`
 
@@ -1134,8 +1152,8 @@ node's coordinate indicator. `Linear` walks the same prefix and multiplies the s
 An arbitrary Julia `Function` is not serializable.  The description adapter accepts only branches built from a named pure `QuotedBranch` constructor with canonical captured data.  Existing in-memory `CLStep` values remain usable inside TB1/TB2, but an opaque host branch returns `NotDescribable`;
 transformations never fall back to serializing a closure.      This is the remaining adapter work after the lazy-branch repair described by Brief 21.
 
-The adapter certificate checks, on a finite fixture, every legal `j`, every seed, every reachable prefix, and every factor basis vector against `marginal_k`, `apply`, and the stored matrix.  Generally, level is CONSTRUCTED by nesting and the query compiler is proved by structural recursion in code.
- The source marginal decomposition is `lem:cl-kth`; the machine interface exposing it is `def:sampler` (`gt-04-cl.tex:L572-L595`).
+The adapter certificate checks, on a finite fixture, every legal `j`, every seed, every reachable `Factor` prefix, every legal `Linear` prefix, and every factor basis vector against `marginal_k`, `apply`, and the stored matrix.  It also performs the §9.2 direct-sum and telescoping replay.
+Generally, level and both well-formedness invariants are CONSTRUCTED by nesting and the query compiler is proved by structural recursion in code.  The source marginal decomposition is `lem:cl-kth`; the machine interface exposing it is `def:sampler` (`gt-04-cl.tex:L151-L180`, `L572-L595`).
 
 ### 9.4 Query-only closure lemmas
 
@@ -1146,18 +1164,36 @@ The following named implementation lemmas—`DL9-downsize`, `DL9-direct-sum`, `D
 | `downsize(S)` | `2` | `ell` | `s(n) log2 q(n)` | `O(C_S(n) log q(n))` |
 | `direct_sum(S_1,...,S_r)` | common `q` | `max_i ell_i` | `sum_i s_i(n)` | `O(r+sum_i C_i(n))` |
 | `product(S_1,S_2)` | common `q` | `max(ell_1,ell_2)` | `s_1(n)+s_2(n)` | `O(C_1(n)+C_2(n))` |
-| `detype(T,G)` | `2` | `ell+2` | `s(n)+4*TypeCount` | `poly(TypeCount,C_S(n))` |
-| `anchor(S)` | `2` | `ell+2` | `s(n)+8` | `poly(C_S(n))` |
-| `repeat(S,lambda,tau)` | `2` | `ell+2` | `k(n)(s(n)+8)` | `O(k(n) C_S(n))` |
+| `detype(s,d)` | `2` | `ell+2` | `s(n)+4*TypeCount` | `poly(TypeCount,C_S(n))` |
+| `anchor(v)` | `2` | `ell+2` | `s(n)+8` | `poly(C_S(n))` |
+| `anchored_repeat(v,lambda,tau)` | `2` | `ell+2` | `k(n)(s(n)+8)` | `O(k(n) C_S(n))` |
 
-For `downsize`, `Dimension` multiplies by `log2 q`; marginal and linear calls reinterpret binary field encodings through the fixed basis; and `Factor` replaces each child indicator bit by `log2 q` copies.  The output CL functions are the conjugates `downsize o L o downsize^-1`. Level, field,
-dimension, distribution, and runtime are the laws in `def:downsize_sampler` and `lem:downsize_sampler` (`gt-04-cl.tex:L628-L680`).
+`anchored_repeat` (the public `repeat(v,lambda,tau)` signature in §9.6) takes the **pre-anchoring** verifier `v` and performs anchoring once.  The internal `repeat_sampler` of §10.2 instead takes the already anchored sampler and adds no level; these rows must not be composed as two separate `+2` steps.
 
-For `direct_sum`, every vector and prefix is split into its registered blocks, the same query is sent to each child, and results or factor indicators are concatenated. Shorter levels are padded by empty zero stages before the calls.  The maximum level law is `lem:cl-func-prod`, and independent seed
-blocks give the product distribution (`gt-04-cl.tex:L315-L383`).    `product` additionally forms the Cartesian type set and graph when its inputs are typed; for untyped descriptions it is the same map constructor as `direct_sum`.
+For `downsize`, ASSUME `q(n)=p^k` with odd extension degree `k`, as required by `lem:downsize-cl-dist`.  `Dimension` multiplies by `log2 q`; marginal and linear calls reinterpret binary field encodings through the fixed basis; and `Factor` replaces each child indicator bit by `log2 q` copies.
+The output CL functions are the conjugates `downsize o L o downsize^-1`. Level, field, dimension, distribution, and runtime are the laws in `def:downsize_sampler` and `lem:downsize_sampler` (`gt-04-cl.tex:L628-L680`).
+
+For `direct_sum`, every vector and prefix is split into its registered blocks, the same query is sent to each child, and results or factor indicators are concatenated.  A genuine `r>=1`-level child padded to a larger level keeps its first `r` factors and appends empty factors.  A whole-space zero
+map is instead promoted from level 0 by `rk:higher-level`: stage 1 reports the all-ones indicator for its entire ambient space and the zero linear map, and stages `2..ell` report empty factors and zero maps (`gt-04-cl.tex:L122-L130`).  This rule is tagged
+`SOURCE_REPAIR(zero-map-factor-partition)` where the source machines print an all-zero factor indicator.
+
+The constructors which originate whole-space zero maps are exactly: `typed_anchor_sampler` on `Anchor`; the Pauli sampler on `PauliX` and `PauliZ`; `tilde S^intro` on every type in `TypeIntro \ TypePauli`; and `detype_sampler`'s conditional child on a zero opposite-edge view.
+`downsize`, `direct_sum`, `product`, and `repeat_sampler` only transport such components and must preserve their promoted factor reports.  The maximum level law is `lem:cl-func-prod`, and independent seed blocks give the product distribution (`gt-04-cl.tex:L315-L383`).
+
+`product` forms the Cartesian product of the two type **sets**, but its type graph is the tensor/categorical product specified by
+
+```text
+E^ar = { {(l,r),(l',r')} : {l,l'} in E^ora and {r,r'} in E^pcp }.
+```
+
+This is the explicit source formula (`gt-10-answer-reduction.tex:L1949-L1955`).  The red test requires `((O,Point_1),(A,DLine_6))` to be an edge: both coordinates change, so the tensor rule admits it and a Cartesian-graph mutation does not.  For untyped descriptions `product` is the same map
+constructor as `direct_sum`.
 
 Mismatched fields are rejected.  In particular, a large-field PCP sampler must be explicitly downsized before it is combined with a normal-form `F_2` sampler. The answer-reduction prose directly sums those spaces without spelling out this conversion (`gt-10-answer-reduction.tex:L1948-L1965`); the
 executable pipeline inserts `downsize(PCPSampler)` and records `SOURCE_REPAIR(AR-field-align)`.  The questions retain the same canonical binary representation, and `lem:downsize-cl-dist` supplies the cited distribution identity (`gt-04-cl.tex:L533-L550`).
+
+Each operation in the table returns its field/level/dimension/call laws **and** a sampler-validity child replaying `enu:cl-space-sum` and `enu:cl-map-sum`.  `DL9-downsize`, `DL9-direct-sum`, and `DL9-product` prove preservation by their corresponding factor/marginal construction;
+`DL9-detype`, `DL9-anchor`, and `DL9-repeat` include the same replay after conditional concatenation, zero-map promotion, and block splitting.  A constructor without that child does not return `Checked{SamplerDescription,...}`.
 
 ### 9.5 Executable detyping
 
@@ -1177,9 +1213,10 @@ R^w(z_G,z_V) = L_G^w(z_G) +
 ```
 
 Each of the four output queries is implemented by splitting the graph and child coordinates.  Stages `1,2` answer from the graph sampler.  Later stages derive the type from the preceding graph marginal and forward stage `j-2` to the typed child, with its prefix and vector restricted to `V`.  This
-is conditional concatenation, so the level is `ell+2` and the dimension is `4|Type|+s(n)` by construction (`gt-06-types.tex:L371-L404`; `gt-04-cl.tex:L282-L313`).
+is conditional concatenation, so the level is `ell+2` and the dimension is `4|Type|+s(n)` by construction (`gt-06-types.tex:L371-L404`; `gt-04-cl.tex:L282-L313 (lem:cl-concat)`).  Its zero child uses the promoted whole-space stage-1 factor rule of §9.4.
 
-`detype_decider(D,G)` parses `x=(x_G,x_body)` and `y=(y_G,y_body)`.  If parsing fails, or the graph views do not encode an edge in `G`, it accepts.  On a valid edge `{tA,tB}`, it returns `D(n,tA,x_body,tB,y_body,a,b)`.  This accept-on-invalid behavior is literal, including its adversarial tests
+`detype_decider(D,G)` parses `x=(x_G,x_body)` and `y=(y_G,y_body)`.  If parsing fails, or the graph views do not encode an edge in `G`, it accepts.  On a valid oriented edge `(tA,tB)`, it derives `tA` from `view^alice` and `tB` from `view^bob` and returns
+`D(n,tA,x_body,tB,y_body,a,b)`.  This accept-on-invalid behavior is literal, including its adversarial tests
 (`gt-06-types.tex:L409-L427`).
 
 The construction, `+2`, `4|Type|`, parser, exact bytes, and child-call costs are CONSTRUCTED or CHECKED.  Value-one preservation, the implication with `16^|Type| epsilon`, the Ent map, and the theorem-level polynomial time bounds remain CITED from `lem:detyping-verifiers`
@@ -1200,6 +1237,9 @@ introspect(v::VerifierDescription,lambda,ell; policy) :: Checked{VerifierDescrip
 compress(v::VerifierDescription,lambda; policy) :: Checked{VerifierDescription,CompositeCert}
 ```
 
+`detype(s,d)` above is the sole public arity.  `detype_sampler(s)` and `detype_decider(d,s.typing.graph)` are its two internal projections; the former `detype(T,G)` notation is deleted.  `TypedSamplerDescription` and `TypedDeciderDescription` are refinements of the base descriptions whose
+`typing` field is `Typed`, and `VerifierDescription` is their sampler/decider pair, as fixed in `definitions.md` §H.
+
 Capitalized TB4 functions remain deprecated adapters that return a structured `ConstructionUnavailable` until their payload is a `VerifierDescription`; they may not return `StubVerifier` from the v2 surface.
 
 Every result has an ASSUME/PROVE contract.  ASSUME nodes contain field alignment, well-formed graph, legal child laws, normal-form status, timeout bounds, and any theorem hypotheses. PROVE nodes separate construction facts from theorem facts:
@@ -1209,9 +1249,12 @@ Every result has an ASSUME/PROVE contract.  ASSUME nodes contain field alignment
 | canonical output code and exact byte length | CHECKED |
 | query purity and child dependency set | CHECKED |
 | field, level, dimension, parser, and tuple lengths | CONSTRUCTED/CHECKED |
+| `enu:cl-space-sum` factor partition and `enu:cl-map-sum` marginal telescoping | CONSTRUCTED plus CHECKED finite replay |
 | metered wrapper call count on named instances | CHECKED |
 | formula AST for runtime and gap bookkeeping | CHECKED |
 | asymptotic bound, completeness, soundness, or Ent implication | CITED |
+
+This output-sampler row is mandatory for **every** signature above: `downsize`, `direct_sum`, `product`, `detype`, `anchor`, `repeat`, `introspect`, and `compress`.  For composites the certificate tree retains the replay at every intermediate sampler, not only at the final output.
 
 The decider constructors carry equally explicit local laws:
 
@@ -1237,8 +1280,9 @@ conditional concatenation, and parser as ordinary constructors for AnswerReduce,
 
 ### 10.1 Anchoring transcription
 
-`typed_anchor_sampler(S)` requires an untyped normal-form sampler over `F_2` and creates type set `{Game,Anchor}` with the complete graph including both self-loops. For each player and each of the four query modes, `Game` delegates to `S` and `Anchor` returns the zero map on the same ambient space.
-     The typed sampler has the same dimension and level as `S` (`gt-11-parallel-repetition.tex:L89-L97`, `L139-L159`).
+`typed_anchor_sampler(S)` requires an untyped normal-form sampler over `F_2` and creates type set `{Game,Anchor}` with the complete graph including both self-loops. For each player, `Game` delegates to `S` and `Anchor` represents the zero map on the same ambient space.  Its `Marginal` and `Linear`
+answers are zero, while `Factor` is the all-ones ambient indicator at stage 1 and empty thereafter.  The latter deliberately repairs the literal all-zero factor report at `gt-11-parallel-repetition.tex:L96` using `rk:higher-level`; the node is
+`SOURCE_REPAIR(zero-map-factor-partition)`.  The typed sampler has the same dimension and level as `S` (`gt-11-parallel-repetition.tex:L89-L97`, `L139-L159`).
 
 `typed_anchor_decider(D)` accepts a Game/Game pair exactly when `D` accepts.  If either type is Anchor, every Anchor-typed player must answer the canonical bit `0`; Game-typed answers are ignored on such a pair.  Malformed answers reject. Applying the executable detyper gives `(S^anch,D^anch)`
 with field 2, level `ell+2`, and dimension `s(n)+8` (`gt-11-parallel-repetition.tex:L98-L103`, `L112-L136`).
@@ -1260,6 +1304,9 @@ k(n) = (lambda*n)^((1+c_prime)*tau).
 ```
 
 The description is valid only when this expression denotes a positive integer. The source calls `k(n)` an integer while declaring only `c_prime>0`; production keeps the symbolic term and an ASSUMED integrality witness until a concrete universal constant is supplied.  Tests use the explicit integer toy substitution `c_prime=1`, report the universal-bound predicate `NOT_EVALUABLE`, and do not silently round the exponent (`gt-11-parallel-repetition.tex:L200-L215`, `L229-L258`).
+
+**Source finding.** `gt-12-compression.tex:L70` instead prints the shorter `(lambda*n)^tau` inside `ComputeParrepVerifier`; this conflicts with `gt-11-parallel-repetition.tex:L200` and `gt-12-compression.tex:L355`.  The executable description retains the latter two occurrences,
+`(lambda*n)^((1+c_prime)*tau)`, and reports the inconsistent line without using it.
 
 `repeat_sampler` is the `k(n)`-fold direct sum of the already anchored sampler. Each query computes `s'=dimension(S^anch,n)`, splits the seed, prefix, and linear input into `k` blocks, makes the corresponding child query on every block, and concatenates the result.    It never unrolls `k` in
 the description.  Consequently:
@@ -1304,15 +1351,23 @@ repeat: level 3, dimension 81*9=729
 question bound: 81*9=729 bits; answer bound: 81*9 bits
 ```
 
-The test constructs both descriptions, replays all four sampler query modes on one branch-directed seed per stage, then samples 128 seeded repeated question pairs. It builds the classical anchored/repeated answers and requires all 128 decisions to accept.  It separately submits a 10-bit component
-and requires rejection before a child call.  Construction target is `<2 s`, the 128 transcript target is `<5 s`, and peak allocation target is `<256 MiB`; measured values replace targets in the TB5 report.
+The test constructs both descriptions, replays all four sampler query modes on one branch-directed seed per stage, then samples 128 seeded repeated question pairs. It builds the classical anchored/repeated answers and requires all 128 decisions to accept.  The following named negative/boundary
+transcripts are mandatory:
+
+1. `T5-game-seed1` freezes seed `1`, the reference `Game` question `1`, and reference answer `1`; mapping `Game` to zero changes the generated question while retaining the golden answer and must reject.
+2. `T5-anchor-one` gives an `Anchor`-typed player answer `1` and must reject.
+3. `T5-one-corrupt` changes exactly one of the 81 otherwise honest answer components and must reject under the repeated AND.
+4. `T5-boundary` supplies one component of exactly `B=9` bits and must accept it, then supplies 10 bits and must reject before any child call.
+
+Thus `M5-anchor-zero`, `M5-anchor-answer`, `M5-or`, and the strict component boundary each have a named red witness.  Construction target is `<2 s`, the 128 positive plus negative transcript target is `<5 s`, and peak allocation target is `<256 MiB`; measured values replace targets in the
+TB5 report.
 
 Sampler independence is an intensional test.  Two verifiers with byte-distinct deciders but the same sampler, `lambda`, and `tau` must have identical canonical `S^rep` hashes.  The output sampler dependency set must be exactly `{hash(S),lambda,tau,c_prime}`, never `hash(D)`; this is the
 construction statement at `gt-11-parallel-repetition.tex:L257-L258`.
 
 TB5 owns these mutations:
 
-1. `M5-anchor-zero`: map Game to zero; an identity-question transcript rejects.
+1. `M5-anchor-zero`: map Game to zero; `T5-game-seed1` rejects and the query-reference replay differs.
 2. `M5-anchor-answer`: accept Anchor answer `1`; the negative transcript survives
    only in the mutant and kills it.
 3. `M5-detype-level`: report `ell+1` or omit four type registers; law replay fails.
@@ -1339,8 +1394,8 @@ M = 2^m
 Q = M*log2(q).
 ```
 
-The unknown `a,b` are the universal constants of `thm:pauli`; they remain symbols. The parameter constructor can still build and compare this AST.  A production numeric instance is `NOT_EVALUABLE` until constants are supplied.  Admissibility, `m|q`, and `Q>=R` are separately reported predicates
-(`gt-07-ldt.tex:L1492-L1569 (def:introparams, lem:delta-bound)`).
+The unknown `a,b` are the universal constants of `thm:pauli`; they remain symbols. The parameter constructor can still build and compare this AST.  A production numeric instance is `NOT_EVALUABLE` until constants are supplied.  Admissibility and `m|q` are separately reported, and the capacity
+report uses the source's stronger chain `s(N) <= R <= M <= Q`: in particular the theorem predicate is `M>=R`, not merely `Q>=R` (`gt-07-ldt.tex:L1492-L1569 (def:introparams, lem:delta-bound)`; `gt-08-introspection.tex:L1083`).
 
 The Pauli type set is
 
@@ -1363,8 +1418,9 @@ V^pauli = V_xpt (+) V_zpt (+) V_coord (+) V_dir (+) V_rxpt (+) V_rzpt
 dim_q(V^pauli) = 3m+3.
 ```
 
-For each `W in {X,Z}`, `PointW`, `ALineW`, and `DLineW` embed the existing level 1, 2, and 3 low-degree maps on `(u_W,s,v)` and zero the other basis and `r` registers.  Magic-Square, `Pair`, `PairX`, and `PairZ` types project `(u_x,u_z,r_x,r_z)` and have level 1.  `PauliX` and `PauliZ` are zero
-maps.  All maps are padded to common level 3.  The four-query compiler exposes them as a typed description (`gt-07-ldt.tex:L1070-L1120`).
+For each `W in {X,Z}`, `PointW`, `ALineW`, and `DLineW` embed the existing level 1, 2, and 3 low-degree maps on `(u_W,s,v)` and zero the other basis and `r` registers.  Magic-Square, `Pair`, `PairX`, and `PairZ` types project `(u_x,u_z,r_x,r_z)` and have level 1.  `PauliX` and `PauliZ` are whole-space
+zero maps.  All maps are padded to common level 3; those two zero maps report the whole ambient factor at stage 1 and empty factors at stages 2 and 3 under `SOURCE_REPAIR(zero-map-factor-partition)`, rather than copying the literal zero factor indicator at
+`gt-07-ldt.tex:L1106-L1108`.  The four-query compiler exposes them as a typed description (`gt-07-ldt.tex:L1070-L1120`).
 
 `pauli_decider(q,m,d)` parses the exact table in Figure `decider_pauli` and applies all applicable guards in both player orders:
 
@@ -1401,7 +1457,8 @@ PauliX--Hide_1--Hide_2--...--Hide_ell--Read
 
 plus `IntrospectAlice--IntrospectBob`. Hence it has `2ell+39` non-loops, `32+2ell` loops, and `6ell+110` oriented pairs.  The formulas are checked against the explicit finite graph of `fig:type-graph-intro` (`gt-08-introspection.tex:L217-L315`).
 
-`tilde S^intro` uses the Pauli maps for Pauli types and the zero map for every new type.  It is a typed level-3 sampler over `F_q` with dimension `3m+3`.  Apply the query-only downsize constructor, then executable detyping:
+`tilde S^intro` uses the Pauli maps for Pauli types and the whole-space zero map for every new type.  Each new type reports the all-ones ambient factor at stage 1 and empty factors at stages 2 and 3 under `SOURCE_REPAIR(zero-map-factor-partition)`; this is the `rk:higher-level` representation of the
+source's 0-level map at `gt-08-introspection.tex:L333-L345`.  It is a typed level-3 sampler over `F_q` with dimension `3m+3`.  Apply the query-only downsize constructor, then executable detyping:
 
 ```text
 hat S^intro : typed, field 2, level 3,
@@ -1414,8 +1471,25 @@ The level 5 and exact dimension are CONSTRUCTED.  The sampler description depend
 
 ### 11.4 Introspection decider and its child queries
 
-`typed_intro_decider(V,lambda,ell)` computes `N=2^n`, `R=N^lambda`, and the Pauli parameters.  Every call to the input sampler or decider is fuelled by `R`; timeout rejects.  It first asks only `Dimension(N)`, rejects if `s(N)>R`, and applies the literal answer-length guard `max(|a_hat|)>=3Q ->
-reject` (`gt-08-introspection.tex:L417-L426`). The explanatory prose calls `3Q` a maximum, so the boundary is suspicious; v2 keeps the literal `>=`, tags `SOURCE_REPAIR(intro-boundary-conflict)`, and chooses toy answers strictly shorter than `3Q` rather than changing the theorem input.
+`typed_intro_decider(V,lambda,ell)` computes `N=2^n`, `R=N^lambda`, and the Pauli parameters.  Every call to the input sampler or decider is fuelled by exactly `R`; timeout rejects before an over-budget child returns.  It first asks only `Dimension(N)` and rejects if `s(N)>R`.
+
+The non-Pauli encoding is fixed here, and only here: every vector field `y,z,y_perp,x` is serialized as a full **`Q`-bit** vector with its final `Q-s(N)` coordinates zero; there is no `s(N)`-bit wire encoding.  Later sections cite this paragraph rather than choosing an encoding again.
+
+The paper's literal guard remains visible:
+
+```text
+PAPER_LITERAL: max(|a_hat_A|,|a_hat_B|) >= 3Q -> reject.
+```
+
+It is tagged `SOURCE_REPAIR(intro-3Q-guard)` because the honest `Hide_k` tuple contains three `Q`-bit vectors and has length exactly `3Q`; the source itself calls `3Q` the maximum at `gt-08-introspection.tex:L588-L591`.  The executable construction therefore uses the repaired operative
+guard
+
+```text
+OPERATIVE: max(|a_hat_A|,|a_hat_B|) > 3Q -> reject.
+```
+
+This is the unique boundary change from the literal `>=` at `gt-08-introspection.tex:L424-L425`.  The report prints both `P_intro_literal` and `P_intro_operative`: for a `Read` answer `(y,y_perp,a)`, the literal capacity is `|a| < 3Q-2Q = Q`, while the operative capacity is `|a| <= Q`.  The `>`/`>=`
+mutation is killed by an honest `Hide` answer of exactly `3Q` bits.
 
 Non-Pauli answers have these exact schemas:
 
@@ -1426,7 +1500,7 @@ Non-Pauli answers have these exact schemas:
 | `(Read,role)` | `(y,y_perp,a)` |
 | `(Hide_k,role)` | `(y,y_perp,x)` |
 
-All `y,z,y_perp,x` are checked to lie in the first `s(N)` coordinates of the `Q`-bit Pauli register (`gt-08-introspection.tex:L401-L416`, `L501-L538`).
+All vector fields follow the single `Q`-bit encoding fixed above and are checked to vanish outside the first `s(N)` coordinates of the Pauli register (`gt-08-introspection.tex:L401-L416`, `L501-L538`).
 
 The predicate applies all applicable tests:
 
@@ -1446,7 +1520,8 @@ The predicate applies all applicable tests:
 If none applies, it accepts.  This ordering and the equal-type check are the classical predicate in Figure `intro-decider` (`gt-08-introspection.tex:L429-L498`).
 
 To form `y_<k` and its register partition, the decider asks `Factor(N,role,1,0)`, then for each later stage asks `Marginal(N,role,j-1,y)` and `Factor(N,role,j,prefix)`.  To compute `(L_{j,prefix})^perp(x_j)`, it asks `Linear` once on every canonical basis vector of that factor, forms the matrix,
-computes its kernel by canonical Gaussian elimination, takes the canonical complement, and applies the corresponding projection.  There is no access to the input CL object.  This query schedule is the construction at `gt-08-introspection.tex:L550-L579` and `L641-L684`.
+computes its kernel by canonical Gaussian elimination, takes the canonical complement, and applies the **canonical linear map with kernel basis `S`** from `def:cl-canonical`.  It is merely a coordinate projection when `S` is a register subspace.  There is no access to the input CL object.  This
+query schedule is the construction at `gt-08-introspection.tex:L550-L579` and `L641-L684`.
 
 After typed construction, the same executable detyper from §9.5 produces the untyped five-level decider.  Parser behavior, timeout placement, query log, exact description bytes, and synthetic predicate results are CHECKED. The general decider runtime/description bound is CITED from
 `lem:intro-decider-complexity` (`gt-08-introspection.tex:L694-L776`).  The completeness, soundness, and Ent maps remain CITED from `thm:introspection` (`gt-08-introspection.tex:L784-L817`).
@@ -1475,7 +1550,7 @@ Passing transcripts show only finite completeness.  They do not execute an arbit
 
 TB6a is the design audit: instantiate the finite type/edge formulas for `ell in {1,3,9}`, generate every parser schema and guard, and compare the emitted query plan with the source tables.  It performs no quantum claim and targets `<1 s`.
 
-TB6b uses `n=2`, `N=4`, `lambda=1`, `ell=1`, an identity sampler of dimension 1, and deterministic answers.  The explicit toy Pauli tuple is `(q,m,d)=(2,1,1)`, so `M=2`, `Q=2`, `|TypeIntro|=34`, 116 oriented type pairs, and
+TB6b has two fixtures.  The small exhaustive fixture, `TB6b-E`, uses `n=2`, `N=4`, `lambda=1`, `ell=1`, an identity sampler of dimension 1, and deterministic answers.  The explicit toy Pauli tuple is `(q,m,d)=(2,1,1)`, so `M=2`, `Q=2`, `|TypeIntro|=34`, 116 oriented type pairs, and
 
 ```text
 typed downsized sampler dimension = (3*1+3)*1 = 6
@@ -1483,10 +1558,25 @@ detyped sampler dimension = 6 + 4*34 = 142
 physical stabilizer qubits = 2*(Q+1) = 6.
 ```
 
-The policy report is: `R>=4 PASS`, admissible odd-extension field `PASS`, `m|q PASS`, `d=1 PASS`, actual capacity `Q>=s(N) PASS`, theorem capacity `Q>=R FAIL`, canonical `introparams(R)` equality `FAIL`, and input `lambda`-bounded description `FAIL` for the multi-byte toy quote.  Therefore no
-theorem conclusion is invoked.
+The policy report is: `R>=4 PASS`, admissible odd-extension field `PASS`, `m|q PASS`, `d=1 PASS`, actual capacity `s(N)<=R PASS`, source theorem capacity `M>=R FAIL`, consequent `Q>=R FAIL`, canonical `introparams(R)` equality `FAIL`, and input `lambda`-bounded description `FAIL` for the multi-byte toy
+quote.  Therefore no theorem conclusion is invoked.
 
-For every oriented edge, enumerate every nonzero-support stabilizer outcome with an exact dyadic probability, require total mass one, and require the decider to accept every outcome; this checks acceptance probability exactly one on the typed toy game.  Cover the detyped decision tree by every valid graph encoding plus its unconditional invalid-encoding branch, then run 256 seeded draws as a secondary distribution regression.  Also require every child query below its `R` timeout, sampler level 5, dimension 142, and stable bytes.  Targets are `<3 s` for construction, `<15 s` for transcripts, and `<512 MiB`; a dense state vector is forbidden.
+For every oriented edge, enumerate every nonzero-support stabilizer outcome with an exact dyadic probability, require total mass one, and require the **operative** decider to accept every outcome; this checks acceptance probability exactly one on the typed toy game.  The report separately evaluates
+the paper-literal `>=3Q` guard: exactly 10 of the 116 oriented pairs are incident to a `Hide_1` type (four non-loop edges in both orientations plus two loops), and their honest `6=3Q`-bit answers are printed as literal-guard rejections.  The operative `>3Q` guard accepts them.  Cover the detyped decision
+tree by every valid graph encoding plus its unconditional invalid-encoding branch, then run 256 seeded draws as a secondary distribution regression.  Also require every child query below its `R` timeout, sampler level 5, dimension 142, and stable bytes.  Targets are `<3 s` for construction,
+`<15 s` for positive and negative transcripts, and `<512 MiB`; a dense state vector is forbidden.
+
+The non-degenerate diagnostic fixture, `TB6b-M`, uses `n=2`, `N=4`, `lambda=2`, `ell=3`, child dimension `s(N)=6`, and Pauli tuple `(q,m,d)=(8,2,1)`.  Thus `R=16`, `M=4`, `Q=12`, `|TypeIntro|=38`, the graph has `128` oriented pairs, the downsized typed dimension is
+`(3*2+3)*3=27`, the detyped dimension is `27+4*38=179`, and the tableau has `2*(Q+1)=26` physical qubits.  The source capacity chain prints `s(N)<=R PASS`, `M>=R FAIL`, and `M<=Q PASS`; `dm/q=2/8=1/4<1/2`, so the low-degree margin is not vacuous.
+
+The binary child sampler has ambient basis `e1,...,e6`.  For both roles stage 1 has factor `<e1>`.  Prefix `0` selects stage-2 factor `<e2,e3>` and stage-3 factor `<e4,e5,e6>`; prefix `e1` selects stage-2 factor `<e4,e5>` and stage-3 factor `<e2,e3,e6>`.  All three factors are
+nonzero and direct-sum to the ambient space on either branch.  Stage 2 uses the nonsymmetric matrix `[[1,1],[0,0]]` in its ordered factor basis and stage 3 uses identity.  Alice's stage-1 map is identity and Bob's is zero, so `L^alice != L^bob`; on
+`z*=e1+e3+e5+e6`, their stage-1 prefixes and final questions differ.  The asymmetric diagnostic decider accepts the ordered `(y_A*,y_B*)` with zero answers and rejects `(y_B*,y_A*)`.
+
+`TB6b-M` executes the live `Hide_1--Hide_2` and `Hide_2--Hide_3` edges, including prefix-dependent `Factor`, two stage-2 and three stage-3 basis-vector `Linear` calls, canonical Gaussian elimination, and the dual-map check.  It runs eight branch-directed transcripts plus 512 seeded regressions;
+the literal guard rejects exactly 22 of 128 oriented pairs incident to one of the six Hide vertices (eight incident non-loop edges in both orientations plus six loops), while the operative guard accepts the honest `36=3Q`-bit Hide answers.  Empty source guard sets and any low-degree margin
+`>=1/2` are printed `VACUOUS`, never `PASS`; hence `enu:hiding-same` and the low-degree checks are `VACUOUS` on `TB6b-E` but live on `TB6b-M`.  Feasibility target: construction `<5 s`, all 520 diagnostic transcripts plus owned mutants `<20 s`, warm total `<25 s`, and peak `<512 MiB`, well below the
+60-second warm gate.  These are pre-implementation estimates and measured values must replace them.
 
 TB6 owns these mutations:
 
@@ -1494,14 +1584,23 @@ TB6 owns these mutations:
 2. `M6-pauli-gamma`: flip the trace bit; a commutation/Magic-Square transcript fails.
 3. `M6-sampler-nonzero`: give `Introspect` a content map; zero-map query replay fails.
 4. `M6-N`: call the child at `n` instead of `2^n`; the recording query log fails.
-5. `M6-factor-prefix`: use the earlier player's prefix in Hide `k+1`; a divergent
-   adaptive branch fails.
-6. `M6-perp`: transpose or skip one basis-vector `Linear` call; dual check fails.
-7. `M6-game`: swap introspected Alice/Bob questions in the final call; asymmetric
-   toy decider rejects.
-8. `M6-boundary`: change the literal `>=3Q` guard; the boundary negative test fails.
+5. `M6-factor-prefix`: use the earlier player's prefix in Hide `k+1`; `TB6b-M` at
+   `z*` selects the wrong stage-2 factor and fails the live hiding transcript.
+6. `M6-perp`: transpose or skip one basis-vector `Linear` call; `TB6b-M`'s
+   nonsymmetric stage-2 matrix fails the dual check.
+7. `M6-game`: swap introspected Alice/Bob questions in the final call; the
+   `TB6b-M` ordered `(y_A*,y_B*)` transcript is rejected.
+8. `M6-boundary`: replace operative `>3Q` by the paper-literal `>=3Q`; an honest
+   Hide answer of exactly `3Q` is rejected.
 9. `M6-noncommuting`: allow an anticommuting simultaneous family; the symplectic
    precheck fails before sampling.
+10. `M-factor-partition`: return all-zero factor indicators for an `Anchor`,
+    `PauliW`, or new introspection zero map; the §9.2 `enu:cl-space-sum` replay fails.
+11. `M-detype-view-orientation`: swap `view^alice(t)` and `view^bob(t)` in the
+    valid-edge parse; a typed `TB6b-M` edge on which `D_order` rejects must still reject
+    after detyping, but the mutant's invalid-view acceptance is exposed.
+12. `M-intro-fuel`: give a child `R^2` fuel or check after return; a metered child
+    taking `R+1` steps must be rejected before completion and the exact-`R` fuel log fails.
 
 **DD-27 — Simulate only the stabilizer slice of the honest strategy.** Execute EPR
 Pauli transcript distributions exactly for the deterministic-child fixture and refuse noncommuting or non-stabilizer measurements; rationale: this tests the constructed predicate honestly; rejected: calling a hand-written accepting tuple a simulation of the quantum strategy.
@@ -1533,11 +1632,18 @@ tau = least integer with tau>=C_ar and
       for every n>=tau and integer lambda>=1.
 ```
 
-The first two equations are `eq:mu-gamma`; the last is `eq:c_rep` (`gt-12-compression.tex:L263-L271`, `L289-L307`, `L347-L359`).  `a1,b1,a2,b2, C_intro,C_ar,c3,c3_prime` are symbol identifiers with their source constraints. They cannot be replaced by convenient literals in production. `k(n)` is
-then `(lambda*n)^((1+c3_prime)*tau)`.
+The definitions of `mu` and `gamma` are `eq:mu-gamma`; `epsilon1` is `eq:re-eps-1`, `epsilon2` is `eq:re-eps-2`, and the last inequality is `eq:c_rep` (`gt-12-compression.tex:L229-L232`, `L263-L271`, `L289-L308`, `L347-L359`).
+`a1,b1,a2,b2,C_intro,C_ar,c3,c3_prime` are symbol identifiers with their source constraints. They cannot be replaced by convenient literals in production. `k(n)` is then `(lambda*n)^((1+c3_prime)*tau)`.
 
-The canonical gap AST records `delta_intro`, `delta_ar`, and the strict Repeat threshold, then the substitutions of `epsilon1`, `epsilon2`, and `tau` which make the last threshold less than `1/2`.  Algebraic substitution and variable capture are CHECKED. Each inequality and the final Ent
-implication are CITED from the three transformation theorems and `thm:compression`.
+The canonical gap AST records the full introspection branch
+
+```text
+max{ Ent(V_(2^n),1-delta_intro),
+     (1-delta_intro)*2^(2^(lambda*n)) },
+```
+
+then `delta_ar`, the strict Repeat threshold, and the substitutions of `epsilon1`, `epsilon2`, and `tau` which make the last threshold less than `1/2`.  As specified in §9.2, TB7 CHECKS exact symbolic evaluation only of the displayed scalar entanglement-floor branch; the `Ent(V_(2^n),...)`
+branch and every semantic inequality remain CITED from `thm:introspection`, the other transformation theorems, and `thm:compression`.  `M7-intro-floor` makes omission of the `max` child red.
 
 ### 12.2 Full structural bookkeeping
 
@@ -1565,8 +1671,9 @@ At every row the trace also prints question length, answer schema maximum, sampl
 
 ### 12.3 Sampler independence as code dependency
 
-The sampler emitted by Introspect contains no input-verifier identifier.  To make AnswerReduce's dependence on `|D1|` itself independent of the input bytes, the universal introspection decider stores the embedded sampler and decider in two fixed `lambda`-byte component slots (or stores canonical trivial code when either bound fails) and pads its parameter slots canonically.  Therefore `sigma_1` is an exact function only of `lambda` and `ell=9`, while evaluation ignores padding.  This makes the source independence argument executable rather than inferring equality of lengths from a common polynomial upper bound
-(`gt-08-introspection.tex:L757-L776`; `gt-12-compression.tex:L128-L147`).
+The sampler emitted by Introspect contains no input-verifier identifier.  To make AnswerReduce's dependence on `|D1|` itself independent of the input bytes, the universal introspection decider stores the embedded sampler and decider in two fixed `lambda`-byte component slots (or stores canonical trivial code when either bound fails) and pads its parameter slots canonically.  Therefore `sigma_1` is an exact function only of `lambda` and `ell=9`, while evaluation ignores padding.  This is
+`SOURCE_REPAIR(intro-decider-fixed-width)`: the source proves only a common polynomial upper bound on `|D1|`, which does not imply equal lengths, while `thm:ar` makes the sampler depend on that length (`gt-08-introspection.tex:L757-L776`; `gt-10-answer-reduction.tex:L2094-L2096`;
+`gt-12-compression.tex:L128-L147`).  Padding changes the AnswerReduce parameter `sigma_1`, so this is a repaired construction, not a presentation convention.
 
 Static dependency analysis must return
 
@@ -1574,8 +1681,8 @@ Static dependency analysis must return
 dependencies(S_compress) = {lambda, universal_constant_ids}
 ```
 
-and two byte-distinct input verifier pairs at the same `lambda` must yield identical sampler bytes and hashes. A second pair straddles the `|V|<=lambda` branch; both still use the same fixed-width sampler because the input appears only in the decider. This is finite adversarial evidence for
-`lem:compress-independent-samplers` (`gt-12-compression.tex:L108-L118`); the AST dependency theorem is CHECKED by construction.
+and two byte-distinct input verifier pairs at the same `lambda` must yield identical sampler bytes and hashes. A second pair straddles the `|V|<=lambda` branch; both still use the same fixed-width sampler because the input appears only in the decider.  This is CHECKED dependency evidence for the
+repaired fixed-width variant only.  `lem:compress-independent-samplers` as stated in the paper remains CITED, with its length-equality gap visible (`gt-12-compression.tex:L108-L147`).
 
 ### 12.4 Toy-regime policy
 
@@ -1587,16 +1694,18 @@ ToyPolicy(intro_tuple,pcp_tuple,mu,gamma,tau,c_prime,repetitions)
                                     -- explicit overrides plus failed-law report
 ```
 
-Toy mode changes no constructor or parser.  It substitutes only parameter values and repetition count, attaches an ASSUMED `toy_override` child, evaluates every production equality/admissibility/divisibility/capacity predicate, and prints each as `PASS`, `FAIL`, or `NOT_EVALUABLE`.  A toy
-result can establish construction behavior but cannot satisfy a theorem contract when any required predicate fails. Production mode may construct compact descriptions with symbolic laws even when a query would return `BudgetExceeded`; it never silently caps a dimension or loop.
+Toy mode changes no constructor or parser.  It substitutes only parameter values and repetition count, attaches an ASSUMED `toy_override` child, evaluates every production equality/admissibility/divisibility/capacity predicate, and prints each as `PASS`, `FAIL`, `NOT_EVALUABLE`, or `VACUOUS`.
+`VACUOUS` is mandatory when a source-check guard set is empty or a promised low-degree margin is `>=1/2`; it is never folded into `PASS`.  Parameter substitution does not substitute PCP content: the instance supplied to `pcpverifier` must still arithmetize the actual child decider, or
+`P_pcp_encodes_D1` is `FAIL` and `enu:ar-game` is not executed.  A toy result can establish construction behavior but cannot satisfy a theorem contract when any required predicate fails. Production mode may construct compact descriptions with symbolic laws even when a query would return
+`BudgetExceeded`; it never silently caps a dimension or loop.
 
 **DD-28 — Permit parameter overrides only through an ineligible toy policy.** Keep
 the code path identical and make every deviation machine-visible; rationale: tiny end-to-end executions are useful only if their distance from the theorem regime is part of the result; rejected: scattering `min(k,2)` and small fields through the constructors.
 
 ### 12.5 TB7 concrete execution
 
-Use a quoted nine-level padding of the one-bit identity verifier, with deterministic value-one answers, `n=2`, `N=4`, and `lambda=32768`.  Its exact description size is checked to be below `lambda`, and its constant runtimes are below `n^lambda`; thus the input's level and lambda-bounded predicates
-pass.     Toy substitutions are:
+Use a quoted nine-level, nine-bit coordinate-identity verifier (`s_0=9`) with deterministic value-one answers, `n=2`, `N=4`, and `lambda=32768`.  Each of its nine stages owns one nonzero coordinate factor, so TB7 itself no longer represents a one-bit map by eight empty stages.  Its exact
+description size is checked to be below `lambda`, and its constant runtimes are below `n^lambda`; thus the input's level and lambda-bounded predicates pass.  Toy substitutions are:
 
 ```text
 intro: (q_I,m_I,d_I)=(2,1,1)
@@ -1613,18 +1722,39 @@ The policy must print at least this predicate report:
 | predicate | result |
 |---|---|
 | input field/level/lambda bounded; `n>=2` | PASS |
-| intro field admissible, `m_I divides q_I`, `d_I=1`, `Q_I>=s_0(N)` | PASS |
-| intro canonical tuple equality; `Q_I>=R` | FAIL |
+| intro field admissible, `m_I divides q_I`, `d_I=1` | PASS |
+| intro `Q_I>=s_0(N)`; canonical tuple equality; source `M_I>=R` | FAIL |
 | AR `P_shape`, `P_formula_paper`, `P_tail`, `P_divisibility`, `P_degree`, structural formula check | PASS |
 | AR `P_growth`, universal `mu/gamma/tau`, `n>=C_0` | NOT_EVALUABLE |
 | AR tuple equals `pcpparams(n,T,Q,sigma,gamma)` | FAIL |
+| `P_pcp_encodes_D1`: PCP instance arithmetizes the actual fixed-width `D1` trace at printed `(T,sigma_1)` | FAIL |
+| fixed-width `sigma_1=length(canonical_bytes(D1))` printed as an exact integer | PASS |
 | repeat `k_toy=(lambda*n)^((1+c')tau)` | FAIL |
 | repeat question and answer component guard | PASS |
 
-TB7 constructs every description, executes all four final sampler queries on branch-directed vectors, samples 16 final questions, constructs honest stabilizer/ PCP/repeated answers, and calls the final classical decider.  It requires all finite construction checks and toy transcripts to pass while
-the overall theorem-eligibility bit remains false.  Target is `<60 s` warm and `<2 GiB`; the report breaks out Introspect, AnswerReduce, Repeat, and transcript walls.
+The feasible route is deliberately fail-visible rather than content-substituting.  At this tuple the actual `D1` has fixed-width description length `sigma_1=Theta(lambda)` and trace bound `T=(2^(lambda*n))^mu`; a `(m_A,s_A)=(1,6)` PCP instance cannot encode that trace.  TB7 therefore constructs
+every compact description, executes all four final sampler queries on branch-directed vectors, and samples 16 final questions, but marks `enu:ar-game` `NOT_EXECUTED(owner=pcpverifier-D1-trace)` whenever it is reached.  The other locally applicable Introspect, PCP encoding-consistency,
+low-degree, detype, anchoring, and repetition sub-tests retain their individual outcomes; there is no aggregate “16 honest accepts” result and no parameter-only PCP fixture is described as content-faithful.
 
-Mutations are composition order, omit PCP downsize, change any one of `5,7,9`, use unpadded `|D1|` in the sampler, change one universal-constant AST, cap `k` outside ToyPolicy, or label a failed predicate PASS.  Each has a named law, hash, parser, or certificate-grade owner.
+The PCP polynomials `c_j` use a structural evaluator DAG with at most the fixture's explicitly referenced nodes; the report prints `representation=structural-evaluator` and never materializes a dense `12^16 ~= 1.8e17`-monomial vector.  The 16 questions occupy `16*1696=27,136` bits and the two
+largest declared line answers occupy `2*42,834=85,668` bits, about `0.014 MiB` total before framing; the remaining allowance is interpreter/tableau overhead.  Target is `<60 s` warm and `<512 MiB`, and the report breaks out Introspect, AnswerReduce, Repeat, and transcript walls.
+
+TB7 owns these named mutations:
+
+1. `M7-order`: permute composition order; the constructor-order AST fails.
+2. `M7-field-align`: omit PCP downsize; the field-alignment ASSUME fails.
+3. `M7-level`: change one of `5,7,9`; the level-chain law fails.
+4. `M7-unpadded-sigma`: use unpadded `|D1|`; the two-input sampler hash differs.
+5. `M7-constant`: change one universal-constant AST; expected-AST equality fails.
+6. `M7-cap`: cap `k` outside ToyPolicy; policy provenance fails.
+7. `M7-grade`: label any failed predicate `PASS`; certificate-grade validation fails.
+8. `M7-product-cartesian`: use a Cartesian type-graph rule; the required
+   `((O,Point_1),(A,DLine_6))` tensor edge and the 54-type complete oriented support fail.
+9. `M7-intro-floor`: delete the entanglement-floor child of `IntroGap`; the required
+   max-node AST fails.
+10. `M7-pcp-content`: substitute the six-gate PCP fixture while leaving the actual
+    `D1` identifier in `enu:ar-game`; `P_pcp_encodes_D1` must remain `FAIL`, so a forged
+    `PASS` or executed game call fails provenance and owner checks.
 
 ### 12.6 Executing `D_{M,L}=Y Psi_{M,L}`
 
@@ -1647,7 +1777,7 @@ The source's corresponding self-description construction and halting branches ar
 **DD-29 — Separate compact construction from materialization.** Allow a symbolic
 description to exist when its indexed question is beyond budget, and make the query return `BudgetExceeded`; rationale: this is necessary to represent paper-scale Compress without pretending it ran; rejected: allocating `k*s` coordinates before checking the law.
 
-## 13. Ladder, claims, and the exact cited residue
+## 13. Ladder, claims, and the cited-residue inventory
 
 ### 13.1 Tracer-bullet ladder v2
 
@@ -1655,17 +1785,20 @@ Each new rung runs alone, prints canonical hashes and the complete certificate t
 
 | rung | executable instance | required output | target | owned mutations |
 |---|---|---|---:|---|
-| TB5 Repeat | `V_copy`; `n=9,lambda=tau=1,c'=1,k=81`; dimensions `1->9->729` | four-query replay, 128 classical honest accepts, guard rejection, sampler hash | `<5 s`, `<256 MiB` | seven `M5-*` in §10.3 |
+| TB5 Repeat | `V_copy`; `n=9,lambda=tau=1,c'=1,k=81`; dimensions `1->9->729` | four-query replay, 128 classical honest accepts, four named negative/boundary transcripts, sampler hash | construction `<2 s`; transcripts `<5 s`; total `<7 s`, `<256 MiB` | seven `M5-*` in §10.3 |
 | TB6a design audit | `ell=1,3,9`; type/edge and parser generation | counts, schemas, source-query plan, no theorem claim | `<1 s` | missing edge, wrong count, missing guard |
-| TB6b Introspect | `n=2,N=4,ell=1,(q,m,d)=(2,1,1)`; dimension 142; six tableau qubits | exact support/mass-one acceptance over 116 oriented types, detype branches, 256 seeded draws, query log | `<15 s`, `<512 MiB` | nine `M6-*` in §11.6 |
-| TB7 Compress/fix | `n=2,lambda=32768`; dimensions `206->840->848->1696`; `k_toy=2` | `9->5->7->9`, 16 honest accepts, independence hashes, one fixed-point unfold, all failed predicates | `<60 s`, `<2 GiB` | order, field, level, size/hash, constants, cap, grade |
+| TB6b Introspect | `TB6b-E`: `n=2,N=4,ell=1,(q,m,d)=(2,1,1)`, dimension 142; `TB6b-M`: `lambda=2,ell=3,s=6,(8,2,1)`, dimension 179 | E: exact support/mass-one operative acceptance over 116 pairs and literal rejection count 10; M: live adaptive factor/dual/game checks, 512 draws, literal rejection count 22; VACUOUS grades | E: construction `<3 s` + transcripts `<15 s`; M warm total `<25 s`; combined `<43 s`, `<512 MiB` | twelve mutations in §11.6 |
+| TB7 Compress/fix | `n=2,lambda=32768,s_0=9`; dimensions `206->840->848->1696`; `k_toy=2` | `9->5->7->9`, local sub-test results, `P_pcp_encodes_D1=FAIL`, `enu:ar-game=NOT_EXECUTED`, independence hashes, one fixed-point unfold | `<60 s`, `<512 MiB`; structural `c_j` evaluator | ten named `M7-*` in §12.5 |
 
-The implementation order is TB5, TB6a, TB6b, then TB7. TB6a freezes the source transcription before stabilizer code is admitted.  TB7 may reuse immutable PCP fixture data but must include its construction certificate and exact description hash; a cached green boolean is not evidence.
+The level/dimension chains, Pauli/Intro graph counts, and `3Q` boundary arithmetic above retain the independent recomputations in `verdicts/design-v2-r1.md` §§R(a)–R(d); this repair changes their interpretation and fixtures where required, not those confirmed values.
+
+The implementation order is TB5, TB6a, TB6b, then TB7. TB6a freezes the source transcription before stabilizer code is admitted.  TB7 may reuse immutable PCP fixture data only for separately labelled local PCP algebra/predicate sub-tests; it may not feed that content to the actual-`D1`
+`enu:ar-game` or use it to satisfy `P_pcp_encodes_D1`.  Every reused fixture includes its construction certificate and exact description hash; a cached green boolean is not evidence.
 
 ### 13.2 What remains mathematically difficult after TB7
 
-At the end of TB7 all named sampler and decider constructions in §§9--12 are executed, including downsize, graph sampler, detype, anchor, direct-sum repetition, Pauli predicate, introspection predicate, composition, and finite fixed-point evaluation.  The following is the exact set of paper
-objects allowed to remain as CITED leaves in the TB7 certificate; no construction may hide under one of them:
+At the end of TB7 all named sampler and decider descriptions in §§9--12 are constructed, and the locally feasible calls execute downsize, graph sampler, detype, anchor, direct-sum repetition, Pauli/introspection predicates, composition, and finite fixed-point evaluation.  The actual-`D1`
+`enu:ar-game` call is the explicit exception: `P_pcp_encodes_D1=FAIL` and the call is `NOT_EXECUTED` with an owner.  The following is the audited inventory of paper objects allowed to remain as CITED leaves in the TB7 certificate; no construction may hide under one of them:
 
 1. `prop:standard-succinct-sat` and `prop:explicit-padded-succinct-deciders`:
    general Cook--Levin/succinct-decider faithfulness and asymptotics
@@ -1686,32 +1819,44 @@ objects allowed to remain as CITED leaves in the TB7 certificate; no constructio
 9. `prop:anchoring`, theorem portions only, and `thm:bvy`/`thm:repetition`:
    quantum completeness and anchored parallel-repetition decay
    (`gt-11-parallel-repetition.tex:L51-L61`, `L112-L136`, `L229-L258`).
-10. `lem:compress-independent-samplers` and `thm:compression`: the former's `polylog(lambda)` generation bound, and the production-regime `C_0`, polynomial bounds, value-one transfer, and Ent lower bound (`gt-12-compression.tex:L26-L53`, `L108-L147`).
+10. `lem:compress-independent-samplers` and `thm:compression`: the source lemma's sampler-independence statement and `polylog(lambda)` generation bound remain CITED because its length-equality step is a gap; the design's
+    `SOURCE_REPAIR(intro-decider-fixed-width)` variant has CHECKED dependency instead.  The production-regime `C_0`, polynomial bounds, value-one transfer, and Ent lower bound also remain CITED (`gt-12-compression.tex:L26-L53`, `L108-L147`).
 11. `lem:dhalt-values`, `lem:lambda`, and `thm:halting`: the general fixed-point
     value argument, lambda selection, and undecidability conclusion
     (`gt-12-compression.tex:L502-L519`, `L569-L576`, `L643-L720`).
+12. CL-function and dual-map background: `lem:cl-kth`, `lem:cl-concat`,
+    `lem:cl-func-prod`, `lem:cl-dist-prod`, `lem:cl-downsize`,
+    `lem:downsize_sampler`, `lem:downsize_typed_sampler`,
+    `lem:downsize-cl-dist`, and `lem:perp_perp`.  Their general mathematical
+    statements remain CITED; the query wrappers, finite factor/telescoping replays,
+    and finite canonical-dual computation are executed (`gt-04-cl.tex:L151-L180`,
+    `L282-L383`, `L439-L550`, `L628-L680`; `gt-06-types.tex:L153-L178`;
+    `gt-03-prelim.tex:L263-L270`, `L300-L313`, `L375-L384`;
+    `gt-08-introspection.tex:L641-L684`).
 
-For `lem:compress-independent-samplers`, only the asymptotic generation bound is CITED: fixed-width specialization makes construction dependency CHECKED.  `lem:commute` is a source anchor, but the simulator checks every finite symplectic commutator it samples, so it is not a TB7 CITED leaf.
+`lem:commute` is a source anchor, but the simulator checks every finite symplectic commutator it samples, so it is not a TB7 CITED leaf.
 
-Any additional CITED label in a TB7 trace is a failure.  Conversely, relabeling any item above CHECKED without a replayable proof is a certificate failure.  This list, rather than the existence of green toy transcripts, is the boundary of the local mathematical result.
+This inventory was checked by extracting every literal `lem:`, `thm:`, `prop:`, and `cor:` label cited in §§9--13 with `rg`, sorting uniquely, and classifying each as an executed construction anchor, a finite replay anchor, or one of items 1--12.  It deliberately drops the earlier word “exact”:
+unnamed source facts and future citations still require classification.  Any unclassified CITED label in a TB7 trace is a failure.  Conversely, relabeling any item above CHECKED without a replayable proof is a certificate failure.  This inventory, rather than green toy transcripts, is the
+boundary of the local mathematical result.
 
-### 13.3 MERGE PROPOSALS
+### 13.3 MERGE PROPOSALS (for orchestrator paste)
 
 The following rows are proposals only; `claims/CLAIMS.md` is not edited.
 
 | id | statement (quantifiers included) | status | depends-on | where-proved | where-tested | verdict |
 |---|---|---|---|---|---|---|
-| C12 | (Description-level CL closure) For every well-formed `SamplerDescription`, `downsize`, `direct_sum`, `product`, executable `detype`, `anchor`, and symbolic `repeat` are definable using only field/level headers and the four sampler queries; their output field, level, dimension, dependency, exact-description-size, and metered call laws are replayable, while all semantic soundness implications remain CITED. | CONJECTURE | C4a,C4b | — | — | — |
-| C13 | (TB5 Repeat fixture) For `V_copy` at `n=9,lambda=tau=1,c'=1`, executable anchoring and 81-fold repetition have checked levels/dimensions `1,1 -> 3,9 -> 3,729`, reject an overlong component before a child call, accept the named classical value-one strategy on all branch-directed and 128 seeded transcripts, and produce sampler bytes independent of the decider. | CONJECTURE | C12 | — | — | — |
-| C14 | (TB6 Introspect fixture) For the explicitly ineligible toy tuple `n=2,N=4,lambda=1,ell=1,(q,m,d)=(2,1,1)`, the Pauli and introspection samplers and classical predicates are executable through the four-query API; the detyped sampler has checked level 5 and dimension 142, and exact stabilizer enumeration on six physical qubits gives total mass one and acceptance on every support transcript for all 116 oriented typed pairs. This is finite completeness evidence; `thm:pauli` and `thm:introspection` remain CITED. | CONJECTURE | C12,C4a | — | — | — |
-| C15 | (TB7 executable Compress/fixed point) Under the printed ToyPolicy at `n=2,lambda=32768`, `Compress=Repeat o AnswerReduce o Introspect` constructs and executes the level chain `9->5->7->9`, dimensions `206->840->848->1696`, all sampler/decider descriptions and one finite unfold of `D_{M,L}=Y Psi_{M,L}`; two distinct input verifiers yield identical compressed-sampler hashes. Every failed production predicate and every remaining theorem leaf in §13.2 stays visible, so no production soundness claim is made. | CONJECTURE | C10,C12,C13,C14 | — | — | — |
+| C12 | (Description-level CL closure) For every well-formed `SamplerDescription`, `DL9-downsize`, `DL9-direct-sum`, `DL9-product`, executable `DL9-detype`, `DL9-anchor`, and symbolic `DL9-repeat` are definable using only field/level headers and the four sampler queries; their output field, level, dimension, dependency, exact-description-size, and metered call laws are replayable, and the AnswerReduce type graph uses the stated tensor-product edge relation. All semantic soundness implications remain CITED. No claim is made that the outputs satisfy the `lem:cl-kth` conditions required by `def:sampler`/`def:typed-sampler` until the `enu:cl-space-sum` factor-partition and `enu:cl-map-sum` marginal-telescoping replay, including the `rk:higher-level` zero-map rule, is implemented. | CONJECTURE | C4a,C4b | — | — | — |
+| C13 | (TB5 Repeat fixture) For `V_copy` at `n=9,lambda=tau=1,c'=1`, executable anchoring and 81-fold repetition have checked levels/dimensions `1,1 -> 3,9 -> 3,729`, accept the named classical value-one strategy on all branch-directed and 128 seeded transcripts, reject a nonzero `Anchor` answer, reject a transcript with exactly one corrupted component, accept a component of exactly 9 bits and reject a 10-bit component before a child call, and produce sampler bytes independent of the decider. | CONJECTURE | C12 | — | — | — |
+| C14 | (TB6 Introspect fixtures) For the explicitly ineligible `TB6b-E` tuple `n=2,N=4,lambda=1,ell=1,(q,m,d)=(2,1,1)`, the constructed type/edge counts are 34 and 116 and the detyped sampler has level 5 and dimension 142; under the single `Q`-bit encoding, exact stabilizer enumeration has total mass one and every support transcript is accepted by the repaired operative `>3Q` guard, including each honest `Hide_1` answer of length exactly `3Q`, while the printed paper-literal `>=3Q` guard rejects exactly 10 of the 116 oriented pairs. For `TB6b-M` at `lambda=2,ell=3,s=6,(q,m,d)=(8,2,1)`, prefix-dependent nonzero factors, a nonsymmetric stage map, and `L^alice != L^bob` execute the adaptive factor/dual/Gaussian and ordered-game checks on live edges. Empty guards and margins `>=1/2` are reported `VACUOUS`; `thm:pauli` and `thm:introspection` remain CITED. | CONJECTURE | C12,C4a | — | — | — |
+| C15 | (TB7 executable Compress/fixed point) Under the printed ToyPolicy at `n=2,lambda=32768,s_0=9`, `Compress=Repeat o AnswerReduce o Introspect` constructs the composition order, checked level chain `9->5->7->9`, dimensions `206->840->848->1696`, printed predicate report, fixed-width two-input identical sampler hash, and one finite unfold of `D_{M,L}=Y Psi_{M,L}`. `P_pcp_encodes_D1` is printed `FAIL` and the actual-`D1` `enu:ar-game` branch is `NOT_EXECUTED(owner=pcpverifier-D1-trace)`; no aggregate “16 honest accepts,” all-description execution, paper sampler-independence proof, or production soundness claim is made. | CONJECTURE | C10,C12,C13,C14 | — | — | — |
 
 Missing steps before promotion are exact:
 
-- **C12:** implement canonical `QuotedBranch`, all query-only wrappers, the fixed-width introspection specialization, exhaustive small adapters, spy-query tests, and all law/size/hash mutations; obtain a critic verdict.
-- **C13:** implement TB5, demonstrate every `M5-*` red result, measure walls and allocation, and obtain a critic verdict.
-- **C14:** complete TB6a source audit, implement Pauli/Magic-Square predicates, adaptive factor/dual queries, stabilizer simulation and executable detyping, demonstrate every `M6-*` red result, and obtain a critic verdict.
-- **C15:** land the nontrivial TB3 front end and C12--C14, implement the `AR-field-align` downsize and ToyPolicy, run the full end-to-end descriptions and fixed point within budget, demonstrate all TB7 mutations, and obtain a critic verdict.  Production constants and all §13.2 mathematical leaves remain outside promotion even after this finite claim becomes TESTED.
+- **C12:** implement canonical `QuotedBranch`, all query-only wrappers, the fixed-width introspection specialization, exhaustive small adapters, spy-query tests, every `DL9-*` item, the `E^ar` tensor red test, and all law/size/hash mutations; specifically discharge `enu:cl-space-sum` / `enu:cl-map-sum` and the `rk:higher-level` zero-map factor rule for every transformation output; obtain a critic verdict.
+- **C13:** implement TB5, run the three named negative transcripts plus `T5-boundary`, demonstrate every `M5-*` red result with `M5-anchor-zero` owned by `T5-game-seed1` plus reference replay, measure walls and allocation, and obtain a critic verdict.
+- **C14:** complete TB6a source audit; implement Pauli/Magic-Square predicates, adaptive factor/dual queries, stabilizer simulation and executable detyping; run the second `ell=3,s=6,L^alice!=L^bob` fixture and print `VACUOUS` for empty guards; demonstrate all twelve owned mutants red; obtain a critic verdict.
+- **C15:** land the nontrivial TB3 front end and C12--C14, implement the `AR-field-align` downsize, `SOURCE_REPAIR(intro-decider-fixed-width)`, and ToyPolicy; print `P_pcp_encodes_D1=FAIL`, keep actual-`D1` `enu:ar-game` `NOT_EXECUTED` with its owner, run the remaining descriptions and fixed point within budget, demonstrate all named `M7-*` mutations, and obtain a critic verdict.  Production constants and all §13.2 mathematical leaves remain outside promotion even after this finite claim becomes TESTED.
 
 **DD-30 — Close the executable ladder without closing the theorems.** Treat a green
 TB7 as evidence for construction, bookkeeping, finite honest transcripts, and fixed-point execution only; rationale: these are the reusable engineering objects the campaign can adversarially verify; rejected: calling the complete pipeline a local proof of compression soundness.
