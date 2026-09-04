@@ -315,6 +315,10 @@ explains its own failure; rejected: a Boolean `is_zero_on_cube` flag.
 
 ### 1.5 Sampler sort
 
+Sections 9--12 refine this in-memory algebra into the canonical `SamplerDescription`
+boundary used by executable `Introspect`, `Repeat`, and `Compress`; the four-query
+interface there is the authoritative cross-transformation API.
+
 The sampler sort is
 
 ```text
@@ -425,6 +429,11 @@ dimension `m'`.
 
 ### 1.6 Verifier sort and contracts
 
+The stub status recorded in this section describes TB4.  Sections 9--12 supersede
+only that implementation status: the constructions become executable description
+transformers, while their theorem-level completeness and soundness leaves remain
+CITED.
+
 The verifier sort is
 
 ```text
@@ -514,6 +523,9 @@ mistake it for an executable verifier; rejected: a no-op function returning its 
 levels as printable metadata only.
 
 ## 2. The combinator algebra
+
+The signatures in this section are the TB0--TB4 surface.  Their description-level
+replacements and the compatibility adapter are specified in §9.6.
 
 All transformations below are pure functions on immutable IR values. A macro, if later added, may only parse surface syntax and call these
 functions.
@@ -1024,3 +1036,682 @@ Within the PCP, affine line restriction is a linear map after earlier values cho
 is a shared uniform seed pushed through a pair of CL maps, and product is direct sum. These operations are visibly CL-preserving in
 `CLStep`; generic PCPP queries are not thereby shown representable. This supports testing C7 as a structural hypothesis, but proves no
 characterization and says nothing new about quantum rigidity.
+
+## 9. Sampler descriptions as the transformation API
+
+Sections 1--8 use concrete CL values where that made the first tracer bullets small. The complete pipeline cannot use a host closure or inspect a particular CL representation: every later transformation receives code.  This section therefore makes the machine interface of `def:sampler` the only
+boundary between rungs (`gt-04-cl.tex:L572-L601 (def:sampler)`).
+
+### 9.1 The description sorts
+
+`SamplerDescription` is canonical quoted program data with the following public surface and no public `left`, `right`, branch-table, or distribution field:
+
+```text
+SamplerDescription := {
+  code             :: Quoted{SamplerMachine},
+  field_size       :: QuotedLaw{Nat},       -- q(n)
+  level            :: Nat,                  -- ell
+  typing           :: Untyped | Typed(TypeSet,TypeGraph),
+  query_time       :: UpperBoundLaw,
+  description_size :: Nat,
+  dependency_set   :: Set{DescriptionId}
+}
+
+SamplerQuery ::= Dimension(n)
+               | Marginal(n,w,j,z[,type])
+               | Linear(n,w,j,u,y[,type])
+               | Factor(n,w,j,u[,type])
+```
+
+The four variants are exactly the dimension, marginal, conditional-linear-map, and factor-space calls of the six-input sampler machine.  The optional type is the seventh logical input of a typed sampler; it does not add a fifth operation (`gt-06-types.tex:L95-L140 (def:typed-sampler)`).  `Factor`
+returns the length-`dimension(n)` indicator of a register subspace.  `Marginal` and `Linear` return canonical vectors over `F_{q(n)}`.  The header functions `field_size` and `level` are metadata required to parse those vectors, not alternative access to the CL map.
+
+All code paths halt.  A malformed mode, player, stage, vector, type, or prefix returns `QueryError` with no mathematical promise.  Certificates quantify only over legal calls: `w in {alice,bob}`, `1<=j<=ell`, correctly sized vectors, and prefixes in the range of the preceding marginal. This
+preserves the source contract without pretending that arbitrary bit strings denote valid field data.
+
+There is deliberately no `sample` operation.  It is derived by choosing uniform `z in F_q^s` and asking for the last marginal on both sides:
+
+```text
+sample_questions(S,n,z) =
+  (query(S,Marginal(n,alice,S.level,z)),
+   query(S,Marginal(n,bob,  S.level,z)))
+```
+
+For a typed description, an oriented edge of the stored graph distribution is chosen first and supplied to the two marginal calls.  These are precisely `def:sampler-sample` and its typed analogue (`gt-04-cl.tex:L614-L626`; `gt-06-types.tex:L143-L151`).
+
+`DeciderDescription` is similarly intensional:
+
+```text
+DeciderDescription := {
+  code             :: Quoted{TotalPredicate},
+  typing           :: Untyped | Typed(TypeSet),
+  time_bound       :: UpperBoundLaw,
+  question_length  :: UpperBoundLaw,
+  answer_length    :: UpperBoundLaw,
+  description_size :: Nat,
+  dependency_set   :: Set{DescriptionId}
+}
+```
+
+Its untyped program accepts `(n,x,y,a,b)` and its typed program accepts `(n,tA,x,tB,y,a,b)`, always halting with one bit as required by `def:decider` and `def:typed-decider` (`gt-05-games-normalform.tex:L612-L622`; `gt-06-types.tex:L185-L195`).  The quoted TIME and length laws are data used by
+guards; a theorem about their asymptotics is a separate certificate leaf.
+
+### 9.2 Checked laws, sizes, and gap maps
+
+`QuotedLaw{Nat}` is a closed term in the program language, not an extension of `BoundExpr`.  It can contain the variables named in its signature and exact arithmetic, `max`, tuple length, and calls to child laws. Thus §3's rule against invented exponents remains intact.  Universal polynomials
+whose coefficients are not in the source remain `Opaque`; exact construction laws remain executable.
+
+Every transformation emits a `LawCert` containing the expected law AST, the actual law AST, and evaluations on the tracer indices.  AST equality and evaluations are CHECKED.  A metered interpreter also counts wrapper operations and child calls on each test query.  A cited big-O assertion is CITED
+even when the generated formula and finite measurements agree with it.
+
+Description size is never an asymptotic guess:
+
+```text
+description_size(X) = length(canonical_bytes(X.code))
+```
+
+The checker reserializes the term and recomputes that integer. A compact loop in a repetition description is not charged as `k` copies of its code, while a returned question is charged its full materialized length.  Dependency sets are computed by a syntax walk over quoted child identifiers and
+replayed against the bytes.
+
+Soundness bookkeeping uses canonical quoted relations rather than floating-point numbers:
+
+```text
+GapMap ::= DetypeGap(types, epsilon -> 16^types * epsilon)
+         | AnchorGap(epsilon -> 4 * 16^2 * epsilon)
+         | IntroGap(delta_intro(epsilon,n))
+         | AnswerReduceGap(delta_ar(epsilon,n))
+         | RepeatGap(epsilon,p,n, strict_threshold)
+         | CompressGap(1/2 -> 1/2, EntanglementLowerBound)
+```
+
+The formula AST, variable binding, direction of implication, and strict versus weak inequality are CHECKED.  The semantic implication is CITED from the named theorem. This is how gap maps are carried symbolically without being mislabeled as local soundness proofs.
+
+### 9.3 Adapter from lazy `CLStep`
+
+`describe_cl(LA,LB,q)` compiles the existing lazy datatype to a universal sampler interpreter plus serializable CL payload.  `Dimension` returns `seed_dim`.  A `Marginal` walks exactly the first `j` nodes, evaluating only the selected branch. `Factor` walks the prefix to stage `j` and returns that
+node's coordinate indicator. `Linear` walks the same prefix and multiplies the stage matrix by the projection of `y`.  None enumerates `image(A)`.
+
+An arbitrary Julia `Function` is not serializable.  The description adapter accepts only branches built from a named pure `QuotedBranch` constructor with canonical captured data.  Existing in-memory `CLStep` values remain usable inside TB1/TB2, but an opaque host branch returns `NotDescribable`;
+transformations never fall back to serializing a closure.      This is the remaining adapter work after the lazy-branch repair described by Brief 21.
+
+The adapter certificate checks, on a finite fixture, every legal `j`, every seed, every reachable prefix, and every factor basis vector against `marginal_k`, `apply`, and the stored matrix.  Generally, level is CONSTRUCTED by nesting and the query compiler is proved by structural recursion in code.
+ The source marginal decomposition is `lem:cl-kth`; the machine interface exposing it is `def:sampler` (`gt-04-cl.tex:L572-L595`).
+
+### 9.4 Query-only closure lemmas
+
+The following named implementation lemmas—`DL9-downsize`, `DL9-direct-sum`, `DL9-product`, `DL9-detype`, `DL9-anchor`, and `DL9-repeat`—are each owned by a constructor and a red mutation.  “Definable” means that the wrapper embeds the child description and may invoke only its four query variants and header laws; it may not inspect child CL IR.
+
+| operation | field | level | dimension at `n` | metered query law |
+|---|---:|---:|---:|---|
+| `downsize(S)` | `2` | `ell` | `s(n) log2 q(n)` | `O(C_S(n) log q(n))` |
+| `direct_sum(S_1,...,S_r)` | common `q` | `max_i ell_i` | `sum_i s_i(n)` | `O(r+sum_i C_i(n))` |
+| `product(S_1,S_2)` | common `q` | `max(ell_1,ell_2)` | `s_1(n)+s_2(n)` | `O(C_1(n)+C_2(n))` |
+| `detype(T,G)` | `2` | `ell+2` | `s(n)+4*TypeCount` | `poly(TypeCount,C_S(n))` |
+| `anchor(S)` | `2` | `ell+2` | `s(n)+8` | `poly(C_S(n))` |
+| `repeat(S,lambda,tau)` | `2` | `ell+2` | `k(n)(s(n)+8)` | `O(k(n) C_S(n))` |
+
+For `downsize`, `Dimension` multiplies by `log2 q`; marginal and linear calls reinterpret binary field encodings through the fixed basis; and `Factor` replaces each child indicator bit by `log2 q` copies.  The output CL functions are the conjugates `downsize o L o downsize^-1`. Level, field,
+dimension, distribution, and runtime are the laws in `def:downsize_sampler` and `lem:downsize_sampler` (`gt-04-cl.tex:L628-L680`).
+
+For `direct_sum`, every vector and prefix is split into its registered blocks, the same query is sent to each child, and results or factor indicators are concatenated. Shorter levels are padded by empty zero stages before the calls.  The maximum level law is `lem:cl-func-prod`, and independent seed
+blocks give the product distribution (`gt-04-cl.tex:L315-L383`).    `product` additionally forms the Cartesian type set and graph when its inputs are typed; for untyped descriptions it is the same map constructor as `direct_sum`.
+
+Mismatched fields are rejected.  In particular, a large-field PCP sampler must be explicitly downsized before it is combined with a normal-form `F_2` sampler. The answer-reduction prose directly sums those spaces without spelling out this conversion (`gt-10-answer-reduction.tex:L1948-L1965`); the
+executable pipeline inserts `downsize(PCPSampler)` and records `SOURCE_REPAIR(AR-field-align)`.  The questions retain the same canonical binary representation, and `lem:downsize-cl-dist` supplies the cited distribution identity (`gt-04-cl.tex:L533-L550`).
+
+### 9.5 Executable detyping
+
+`detype_sampler` first builds the two-level graph maps `L_G^alice,L_G^bob` over
+
+```text
+V_G = V_vertex,A (+) V_edge,A (+) V_vertex,B (+) V_edge,B,
+dim(V_G)=4|Type|.
+```
+
+The first stage returns the player's two raw graph registers; only when they equal `(e_t,neigh_G(t))` do they encode a type.  The second stage returns the opposite edge bit selected by `t`, or zero when the first stage is not a vertex encoding.  This is Figure `graph-distribution` (`gt-06-types.tex:L234-L339`). It then conditionally concatenates
+the graph map with the child map for the revealed type, or with the zero map when the selected opposite edge register is zero:
+
+```text
+R^w(z_G,z_V) = L_G^w(z_G) +
+  if edge_view(L_G^w(z_G)) then L^w_type(z_V) else 0.
+```
+
+Each of the four output queries is implemented by splitting the graph and child coordinates.  Stages `1,2` answer from the graph sampler.  Later stages derive the type from the preceding graph marginal and forward stage `j-2` to the typed child, with its prefix and vector restricted to `V`.  This
+is conditional concatenation, so the level is `ell+2` and the dimension is `4|Type|+s(n)` by construction (`gt-06-types.tex:L371-L404`; `gt-04-cl.tex:L282-L313`).
+
+`detype_decider(D,G)` parses `x=(x_G,x_body)` and `y=(y_G,y_body)`.  If parsing fails, or the graph views do not encode an edge in `G`, it accepts.  On a valid edge `{tA,tB}`, it returns `D(n,tA,x_body,tB,y_body,a,b)`.  This accept-on-invalid behavior is literal, including its adversarial tests
+(`gt-06-types.tex:L409-L427`).
+
+The construction, `+2`, `4|Type|`, parser, exact bytes, and child-call costs are CONSTRUCTED or CHECKED.  Value-one preservation, the implication with `16^|Type| epsilon`, the Ent map, and the theorem-level polynomial time bounds remain CITED from `lem:detyping-verifiers`
+(`gt-06-types.tex:L444-L475`).
+
+### 9.6 Transformation contracts and compatibility surface
+
+The authoritative signatures after TB4 are:
+
+```julia
+downsize(s::SamplerDescription) :: Checked{SamplerDescription,CompositeCert}
+direct_sum(ss::SamplerDescription...) :: Checked{SamplerDescription,CompositeCert}
+product(s1::SamplerDescription,s2::SamplerDescription) :: Checked{SamplerDescription,CompositeCert}
+detype(s::TypedSamplerDescription,d::TypedDeciderDescription) :: Checked{VerifierDescription,CompositeCert}
+anchor(v::VerifierDescription) :: Checked{VerifierDescription,CompositeCert}
+repeat(v::VerifierDescription,lambda,tau) :: Checked{VerifierDescription,CompositeCert}
+introspect(v::VerifierDescription,lambda,ell; policy) :: Checked{VerifierDescription,CompositeCert}
+compress(v::VerifierDescription,lambda; policy) :: Checked{VerifierDescription,CompositeCert}
+```
+
+Capitalized TB4 functions remain deprecated adapters that return a structured `ConstructionUnavailable` until their payload is a `VerifierDescription`; they may not return `StubVerifier` from the v2 surface.
+
+Every result has an ASSUME/PROVE contract.  ASSUME nodes contain field alignment, well-formed graph, legal child laws, normal-form status, timeout bounds, and any theorem hypotheses. PROVE nodes separate construction facts from theorem facts:
+
+| fact | required grade |
+|---|---|
+| canonical output code and exact byte length | CHECKED |
+| query purity and child dependency set | CHECKED |
+| field, level, dimension, parser, and tuple lengths | CONSTRUCTED/CHECKED |
+| metered wrapper call count on named instances | CHECKED |
+| formula AST for runtime and gap bookkeeping | CHECKED |
+| asymptotic bound, completeness, soundness, or Ent implication | CITED |
+
+The decider constructors carry equally explicit local laws:
+
+| constructor | child calls after parsing | question/answer law |
+|---|---:|---|
+| `detype_decider(D,G)` | at most one `D` | questions add `4*TypeCount` graph bits; answers unchanged |
+| `anchor_decider(D)` | at most one `D` through typed anchor and detype | questions add 8 bits; answer maximum is `max(A,1)` |
+| `repeat_decider(D,k,B)` | zero on guard failure, otherwise exactly `k` | exactly `k` components, each at most `B=(lambda*n)^tau` bits |
+
+The query-purity test uses an opaque recording sampler which exposes only the four operations. Each wrapper is compared with a concrete CL reference and its call log is checked.  A mutation that reaches for `child.left`, enumerates an image, changes a factor bit, or calls a fifth operation fails
+before a probability experiment.
+
+**DD-23 — Put descriptions at every transformation boundary.** Preserve `CLStep`
+as an implementation and test carrier, but require canonical sampler/decider code between rungs; rationale: `Compress` consumes descriptions and hash independence is intensional; rejected: passing Julia closures through Repeat and Introspect.
+
+**DD-24 — Make construction laws executable and theorem laws cited.** Check law
+syntax, exact sizes, metered calls, and finite evaluations while retaining CITED semantic leaves; rationale: bookkeeping must be falsifiable without claiming a new soundness proof; rejected: assigning CHECKED to a copied big-O statement.
+
+**DD-25 — Execute detyping once, reuse it everywhere.** Use the graph sampler,
+conditional concatenation, and parser as ordinary constructors for AnswerReduce, Anchor, and Introspect; rationale: all three need the same `+2` operation; rejected: three theorem-named wrappers with no query implementation.
+
+## 10. TB5 — executable anchoring and repetition
+
+### 10.1 Anchoring transcription
+
+`typed_anchor_sampler(S)` requires an untyped normal-form sampler over `F_2` and creates type set `{Game,Anchor}` with the complete graph including both self-loops. For each player and each of the four query modes, `Game` delegates to `S` and `Anchor` returns the zero map on the same ambient space.
+     The typed sampler has the same dimension and level as `S` (`gt-11-parallel-repetition.tex:L89-L97`, `L139-L159`).
+
+`typed_anchor_decider(D)` accepts a Game/Game pair exactly when `D` accepts.  If either type is Anchor, every Anchor-typed player must answer the canonical bit `0`; Game-typed answers are ignored on such a pair.  Malformed answers reject. Applying the executable detyper gives `(S^anch,D^anch)`
+with field 2, level `ell+2`, and dimension `s(n)+8` (`gt-11-parallel-repetition.tex:L98-L103`, `L112-L136`).
+
+The finite honest strategy maps an Anchor question to answer `0`, maps a Game question through the child's honest strategy, and implements the detyped graph view as in §9.5. Its acceptance is CHECKED.  The general PCC completeness statement and the Ent map
+
+```text
+Ent(V^anch_n,1-epsilon) >= Ent(V_n,1-4*16^2*epsilon)
+```
+
+remain CITED from `prop:anchoring` (`gt-11-parallel-repetition.tex:L112-L136`).
+
+### 10.2 Repetition transcription
+
+Let `c_prime` be the universal constant attached to the polynomial bound on `D^anch`, and store the exact source function
+
+```text
+k(n) = (lambda*n)^((1+c_prime)*tau).
+```
+
+The description is valid only when this expression denotes a positive integer. The source calls `k(n)` an integer while declaring only `c_prime>0`; production keeps the symbolic term and an ASSUMED integrality witness until a concrete universal constant is supplied.  Tests use the explicit integer toy substitution `c_prime=1`, report the universal-bound predicate `NOT_EVALUABLE`, and do not silently round the exponent (`gt-11-parallel-repetition.tex:L200-L215`, `L229-L258`).
+
+`repeat_sampler` is the `k(n)`-fold direct sum of the already anchored sampler. Each query computes `s'=dimension(S^anch,n)`, splits the seed, prefix, and linear input into `k` blocks, makes the corresponding child query on every block, and concatenates the result.    It never unrolls `k` in
+the description.  Consequently:
+
+```text
+field       = 2
+level       = ell+2
+dimension   = k(n)*(s(n)+8)
+query time  = O(k(n)*TIME_S(n))
+question bits <= k(n)*(s(n)+8)
+```
+
+The maximum-level law follows because direct sums do not increase level (`gt-11-parallel-repetition.tex:L268-L292`; `gt-04-cl.tex:L315-L327`).
+
+`repeat_decider` first computes `B(n)=(lambda*n)^tau` without reading the supplied payloads.  It parses each of `x,y,a,b` as exactly `k(n)` canonically framed components while streaming no more than the declared total bound.  It rejects if parsing fails or if any component has more than `B(n)`
+bits.  Otherwise it runs `D^anch` on each aligned quadruple and returns their logical AND.  This ordering is part of the time certificate: an attacker cannot force an unbounded scan with a malformed length prefix (`gt-11-parallel-repetition.tex:L216-L220`).
+
+The checked metadata are
+
+```text
+question_length(n), answer_length(n) <= k(n)*B(n)
+TIME_Drep(n) = O(k(n)*max(TIME_D(n),B(n))).
+```
+
+The general runtime, PCC completeness under `TIME_D(n)<=B(n)`, and the strict soundness relation
+
+```text
+p > (4/epsilon) * exp(-c*epsilon^17*k(n)/(lambda*n)^(tau*c_prime))
+implies Ent(Vrep_n,p) >= Ent(V_n,1-epsilon)
+```
+
+are CITED from `thm:repetition`; strict `>` is retained in the AST (`gt-11-parallel-repetition.tex:L229-L258`).
+
+### 10.3 TB5 instance, measurements, and mutations
+
+The child fixture `V_copy` has `F_2`, `ell=1`, `s(n)=1`, both CL maps equal to the identity, and decider `a=x and b=y`.  Its classical value-one strategy returns its one-bit question.  TB5 uses `lambda=1`, `tau=1`, `c_prime=1`, and index `n=9`:
+
+```text
+B=9; k=9^2=81
+anchor: level 3, dimension 1+8=9
+repeat: level 3, dimension 81*9=729
+question bound: 81*9=729 bits; answer bound: 81*9 bits
+```
+
+The test constructs both descriptions, replays all four sampler query modes on one branch-directed seed per stage, then samples 128 seeded repeated question pairs. It builds the classical anchored/repeated answers and requires all 128 decisions to accept.  It separately submits a 10-bit component
+and requires rejection before a child call.  Construction target is `<2 s`, the 128 transcript target is `<5 s`, and peak allocation target is `<256 MiB`; measured values replace targets in the TB5 report.
+
+Sampler independence is an intensional test.  Two verifiers with byte-distinct deciders but the same sampler, `lambda`, and `tau` must have identical canonical `S^rep` hashes.  The output sampler dependency set must be exactly `{hash(S),lambda,tau,c_prime}`, never `hash(D)`; this is the
+construction statement at `gt-11-parallel-repetition.tex:L257-L258`.
+
+TB5 owns these mutations:
+
+1. `M5-anchor-zero`: map Game to zero; an identity-question transcript rejects.
+2. `M5-anchor-answer`: accept Anchor answer `1`; the negative transcript survives
+   only in the mutant and kills it.
+3. `M5-detype-level`: report `ell+1` or omit four type registers; law replay fails.
+4. `M5-shared-seed`: reuse block 1 in all repetitions; blockwise sample replay fails.
+5. `M5-or`: combine repeated decisions by OR; one corrupted component kills it.
+6. `M5-no-guard`: read or accept an oversized component; the pre-call log kills it.
+7. `M5-decider-hash`: include `D` in sampler code; the two-decider hash test fails.
+
+**DD-26 — Stream the length guard before child evaluation.** Parse bounded frames,
+reject overlong components, and only then call `D^anch`; rationale: this realizes the stated decider time bound on hostile strings; rejected: generic tuple parsing whose cost depends on the claimed payload length.
+
+## 11. TB6 — executable Pauli test and introspection
+
+### 11.1 Parameters, Pauli types, and graph
+
+For `R=N^lambda`, canonical Pauli parameters are
+
+```text
+c = the smallest even integer >= (b+a)/b
+q = 2^(c*ceil(log log R)+1)
+m = largest power of two <= c*ceil(log R)+1
+d = 1
+M = 2^m
+Q = M*log2(q).
+```
+
+The unknown `a,b` are the universal constants of `thm:pauli`; they remain symbols. The parameter constructor can still build and compare this AST.  A production numeric instance is `NOT_EVALUABLE` until constants are supplied.  Admissibility, `m|q`, and `Q>=R` are separately reported predicates
+(`gt-07-ldt.tex:L1492-L1569 (def:introparams, lem:delta-bound)`).
+
+The Pauli type set is
+
+```text
+TypePauli = ({Point,ALine,DLine,Pauli,Pair} x {X,Z})
+            union {Constraint_1,...,Constraint_6}
+            union {Variable_1,...,Variable_9}
+            union {Pair}.
+```
+
+It has 26 types.  `G^pauli` contains every self-loop, the six low-degree/Pauli chain edges, the 18 Magic-Square incidence edges, `PointX--Variable1`, `PointZ--Variable5`, and the two chains `PointW--PairW--Pair`. Thus the graph checker expects 30 non-loop plus 26 loop edges, or 86 oriented
+pairs. This is a literal finite reconstruction of Figures `type-graph-ms` and `type-graph-pauli` (`gt-07-ldt.tex:L550-L610`, `L1012-L1068`).
+
+### 11.2 Pauli sampler and classical predicate
+
+Before downsizing, the ambient space is
+
+```text
+V^pauli = V_xpt (+) V_zpt (+) V_coord (+) V_dir (+) V_rxpt (+) V_rzpt
+dim_q(V^pauli) = 3m+3.
+```
+
+For each `W in {X,Z}`, `PointW`, `ALineW`, and `DLineW` embed the existing level 1, 2, and 3 low-degree maps on `(u_W,s,v)` and zero the other basis and `r` registers.  Magic-Square, `Pair`, `PairX`, and `PairZ` types project `(u_x,u_z,r_x,r_z)` and have level 1.  `PauliX` and `PauliZ` are zero
+maps.  All maps are padded to common level 3.  The four-query compiler exposes them as a typed description (`gt-07-ldt.tex:L1070-L1120`).
+
+`pauli_decider(q,m,d)` parses the exact table in Figure `decider_pauli` and applies all applicable guards in both player orders:
+
+1. equal types require equal answers;
+2. Point/ALine and Point/DLine call `ld_decider(q,m,d,1)`;
+3. Point/Pauli requires `g_h(point)=point_answer`;
+4. compute `gamma_pauli=tr((ind_m(u_x)r_x)*(ind_m(u_z)r_z))`;
+5. PairW/Pair requires the selected pair bit when `gamma_pauli=0`;
+6. PointW/PairW requires `tr(answer*r_W)` when `gamma_pauli=0`;
+7. Constraint/Variable requires the five even-parity or last odd-parity
+   Magic-Square equation and the shared variable when `gamma_pauli=1`;
+8. PointW/Variable requires the special `(j,W)=(1,X)` or `(5,Z)` trace equality
+   when `gamma_pauli=1`.
+
+If no guard applies it accepts; malformed applicable data rejects.  These are ordinary field, polynomial-evaluation, parity, equality, and low-degree predicate calls, so the decider is executable.  The question/answer formats and guards are at `gt-07-ldt.tex:L1126-L1227 (fig:decider_pauli)`.
+Quantum rigidity is not part of this predicate and remains CITED from `thm:pauli` (`gt-07-ldt.tex:L1426-L1447`).
+
+### 11.3 Introspection sampler
+
+For an input level `ell`, define
+
+```text
+TypeIntro = TypePauli union
+  ({Introspect,Sample,Read,Hide_1,...,Hide_ell} x {alice,bob}).
+```
+
+The checker expects `|TypeIntro|=32+2ell`.  `G^intro` retains `G^pauli`, adds a self-loop at every new type, and adds exactly these non-loop edges for each role:
+
+```text
+Sample--Introspect--Read
+PauliZ--Sample
+PauliX--Hide_1--Hide_2--...--Hide_ell--Read
+```
+
+plus `IntrospectAlice--IntrospectBob`. Hence it has `2ell+39` non-loops, `32+2ell` loops, and `6ell+110` oriented pairs.  The formulas are checked against the explicit finite graph of `fig:type-graph-intro` (`gt-08-introspection.tex:L217-L315`).
+
+`tilde S^intro` uses the Pauli maps for Pauli types and the zero map for every new type.  It is a typed level-3 sampler over `F_q` with dimension `3m+3`.  Apply the query-only downsize constructor, then executable detyping:
+
+```text
+hat S^intro : typed, field 2, level 3,
+              dimension (3m+3)*log2(q)
+S^intro     : untyped, field 2, level 5,
+              dimension (3m+3)*log2(q) + 4*(32+2ell).
+```
+
+The level 5 and exact dimension are CONSTRUCTED.  The sampler description depends only on `(lambda,ell)` and the universal Pauli-parameter symbols, never on the input verifier (`gt-08-introspection.tex:L317-L360`; `L819-L840`).  Its metered operation DAG contains only loops bounded by `m`, `log q`, `ell`, and the output dimension; the classifier CHECKS that canonical substitution makes this polynomial in `log R=lambda*n` and `ell`, and finite calls are timed.  The paper-TM `poly(n,lambda,ell)` and description-generation claims remain CITED from `lem:intro-sampler-complexity` (`gt-08-introspection.tex:L347-L392`).
+
+### 11.4 Introspection decider and its child queries
+
+`typed_intro_decider(V,lambda,ell)` computes `N=2^n`, `R=N^lambda`, and the Pauli parameters.  Every call to the input sampler or decider is fuelled by `R`; timeout rejects.  It first asks only `Dimension(N)`, rejects if `s(N)>R`, and applies the literal answer-length guard `max(|a_hat|)>=3Q ->
+reject` (`gt-08-introspection.tex:L417-L426`). The explanatory prose calls `3Q` a maximum, so the boundary is suspicious; v2 keeps the literal `>=`, tags `SOURCE_REPAIR(intro-boundary-conflict)`, and chooses toy answers strictly shorter than `3Q` rather than changing the theorem input.
+
+Non-Pauli answers have these exact schemas:
+
+| type | answer |
+|---|---|
+| `(Introspect,role)` | `(y,a)` |
+| `(Sample,role)` | `(z,a)` |
+| `(Read,role)` | `(y,y_perp,a)` |
+| `(Hide_k,role)` | `(y,y_perp,x)` |
+
+All `y,z,y_perp,x` are checked to lie in the first `s(N)` coordinates of the `Q`-bit Pauli register (`gt-08-introspection.tex:L401-L416`, `L501-L538`).
+
+The predicate applies all applicable tests:
+
+1. two Pauli types call `pauli_decider`;
+2. PauliZ/Sample compares the Pauli answer projected to `V` with `z`;
+3. Introspect/Sample asks `Marginal(N,role,ell,z)` and compares it with `y`, then
+   compares original answers;
+4. Introspect/Read compares `y` and `a`;
+5. Hide_ell/Read compares `y_<ell` and all of `y_perp`;
+6. Hide_k/Hide_(k+1) compares the shared prefix, dual prefix, and `x_>k+1`, then
+   checks the dual image at stage `k+1`;
+7. PauliX/Hide_1 checks the first dual image and the untouched suffix;
+8. IntrospectAlice/IntrospectBob calls the original
+   `D(N,y_A,y_B,a_A,a_B)`;
+9. equal types require the entire answers to be equal.
+
+If none applies, it accepts.  This ordering and the equal-type check are the classical predicate in Figure `intro-decider` (`gt-08-introspection.tex:L429-L498`).
+
+To form `y_<k` and its register partition, the decider asks `Factor(N,role,1,0)`, then for each later stage asks `Marginal(N,role,j-1,y)` and `Factor(N,role,j,prefix)`.  To compute `(L_{j,prefix})^perp(x_j)`, it asks `Linear` once on every canonical basis vector of that factor, forms the matrix,
+computes its kernel by canonical Gaussian elimination, takes the canonical complement, and applies the corresponding projection.  There is no access to the input CL object.  This query schedule is the construction at `gt-08-introspection.tex:L550-L579` and `L641-L684`.
+
+After typed construction, the same executable detyper from §9.5 produces the untyped five-level decider.  Parser behavior, timeout placement, query log, exact description bytes, and synthetic predicate results are CHECKED. The general decider runtime/description bound is CITED from
+`lem:intro-decider-complexity` (`gt-08-introspection.tex:L694-L776`).  The completeness, soundness, and Ent maps remain CITED from `thm:introspection` (`gt-08-introspection.tex:L784-L817`).
+
+### 11.5 Exact tiny honest-strategy simulation
+
+The honest strategy is quantum, not a pair of classical response functions.  It uses `Q+1` EPR pairs and the original PCC auxiliary strategy (`gt-08-introspection.tex:L1070-L1096`).  TB6b chooses a toy verifier whose value-one strategy is deterministic, so the auxiliary register contributes no
+non-stabilizer measurement.  Everything else is simulated exactly by a binary stabilizer tableau on `2(Q+1)` physical qubits:
+
+1. initialize each EPR pair with stabilizers `X_AX_B` and `Z_AZ_B`;
+2. translate every requested coarse Pauli measurement into commuting binary
+   symplectic rows;
+3. solve the stabilizer linear system for forced outcomes and sample each free
+   outcome with one seeded fair bit;
+4. update the tableau, then derive low-degree, pair, and Magic-Square answer fields;
+5. for adaptive Hide measurements, use each sampled prefix to obtain the next
+   factor and linear map through the four-query API before adding its rows.
+
+This is an exact classical sampling algorithm for this fixture, not a local hidden-variable strategy. It is valid when each simultaneously requested family is a commuting Pauli family.  For `Read`, the Z measurement of `L` commutes with the X measurement of `L_j^perp` because `ker(L_j^perp)^perp
+subseteq ker(L_j)`; the source proves precisely this criterion in `lem:commute` (`gt-08-introspection.tex:L923-L953`).       Figure `intro-honest` specifies the measurement families and order (`gt-08-introspection.tex:L1002-L1050`, `L1106-L1172`).  The simulator rejects a nonzero symplectic
+commutator instead of sampling an invalid joint distribution.
+
+Passing transcripts show only finite completeness.  They do not execute an arbitrary quantum strategy, prove rigidity, estimate entangled value, or discharge `thm:introspection`.
+
+### 11.6 TB6 instances and mutations
+
+TB6a is the design audit: instantiate the finite type/edge formulas for `ell in {1,3,9}`, generate every parser schema and guard, and compare the emitted query plan with the source tables.  It performs no quantum claim and targets `<1 s`.
+
+TB6b uses `n=2`, `N=4`, `lambda=1`, `ell=1`, an identity sampler of dimension 1, and deterministic answers.  The explicit toy Pauli tuple is `(q,m,d)=(2,1,1)`, so `M=2`, `Q=2`, `|TypeIntro|=34`, 116 oriented type pairs, and
+
+```text
+typed downsized sampler dimension = (3*1+3)*1 = 6
+detyped sampler dimension = 6 + 4*34 = 142
+physical stabilizer qubits = 2*(Q+1) = 6.
+```
+
+The policy report is: `R>=4 PASS`, admissible odd-extension field `PASS`, `m|q PASS`, `d=1 PASS`, actual capacity `Q>=s(N) PASS`, theorem capacity `Q>=R FAIL`, canonical `introparams(R)` equality `FAIL`, and input `lambda`-bounded description `FAIL` for the multi-byte toy quote.  Therefore no
+theorem conclusion is invoked.
+
+For every oriented edge, enumerate every nonzero-support stabilizer outcome with an exact dyadic probability, require total mass one, and require the decider to accept every outcome; this checks acceptance probability exactly one on the typed toy game.  Cover the detyped decision tree by every valid graph encoding plus its unconditional invalid-encoding branch, then run 256 seeded draws as a secondary distribution regression.  Also require every child query below its `R` timeout, sampler level 5, dimension 142, and stable bytes.  Targets are `<3 s` for construction, `<15 s` for transcripts, and `<512 MiB`; a dense state vector is forbidden.
+
+TB6 owns these mutations:
+
+1. `M6-pauli-edge`: remove `PointX--PauliX`; graph equality fails.
+2. `M6-pauli-gamma`: flip the trace bit; a commutation/Magic-Square transcript fails.
+3. `M6-sampler-nonzero`: give `Introspect` a content map; zero-map query replay fails.
+4. `M6-N`: call the child at `n` instead of `2^n`; the recording query log fails.
+5. `M6-factor-prefix`: use the earlier player's prefix in Hide `k+1`; a divergent
+   adaptive branch fails.
+6. `M6-perp`: transpose or skip one basis-vector `Linear` call; dual check fails.
+7. `M6-game`: swap introspected Alice/Bob questions in the final call; asymmetric
+   toy decider rejects.
+8. `M6-boundary`: change the literal `>=3Q` guard; the boundary negative test fails.
+9. `M6-noncommuting`: allow an anticommuting simultaneous family; the symplectic
+   precheck fails before sampling.
+
+**DD-27 — Simulate only the stabilizer slice of the honest strategy.** Execute EPR
+Pauli transcript distributions exactly for the deterministic-child fixture and refuse noncommuting or non-stabilizer measurements; rationale: this tests the constructed predicate honestly; rejected: calling a hand-written accepting tuple a simulation of the quantum strategy.
+
+## 12. TB7 — Compress and the halting fixed point end to end
+
+### 12.1 Production composition and universal constants
+
+The executable constructor is the exact order in Figure `compress`:
+
+```text
+V1 = introspect(V,lambda,9)
+V2 = answer_reduce(V1,lambda,mu,gamma)
+V3 = repeat(V2,lambda,tau)
+return V3
+```
+
+(`gt-12-compression.tex:L75-L98 (fig:compress)`).  It carries, without choosing numerical values, the source equations
+
+```text
+mu = ceil(C_intro)
+gamma = ceil(2*a1/(b1*b2))
+
+epsilon1(n) = (1/(8*a1*(lambda*n)^a1))^(1/b1)
+epsilon2(n) = (epsilon1/(8*a2*(lambda*n)^a2))^(1/b2)
+
+tau = least integer with tau>=C_ar and
+      (lambda*n)^tau >= (1/(c3*epsilon2(n)^17))*ln(8/epsilon2(n))
+      for every n>=tau and integer lambda>=1.
+```
+
+The first two equations are `eq:mu-gamma`; the last is `eq:c_rep` (`gt-12-compression.tex:L263-L271`, `L289-L307`, `L347-L359`).  `a1,b1,a2,b2, C_intro,C_ar,c3,c3_prime` are symbol identifiers with their source constraints. They cannot be replaced by convenient literals in production. `k(n)` is
+then `(lambda*n)^((1+c3_prime)*tau)`.
+
+The canonical gap AST records `delta_intro`, `delta_ar`, and the strict Repeat threshold, then the substitutions of `epsilon1`, `epsilon2`, and `tau` which make the last threshold less than `1/2`.  Algebraic substitution and variable capture are CHECKED. Each inequality and the final Ent
+implication are CITED from the three transformation theorems and `thm:compression`.
+
+### 12.2 Full structural bookkeeping
+
+Let the input have field 2, level 9, dimension `s_0(n)`, sampler time `S_0`, decider time `D_0`, and exact quote sizes.  The construction produces:
+
+| stage | field | level | exact dimension law | description dependency |
+|---|---:|---:|---|---|
+| input `V` | 2 | 9 | `s_0(n)` | `S_0,D_0` |
+| `V1=Intro(V,lambda,9)` | 2 | 5 | `(3m_I+3)log q_I+200` | sampler: `lambda`; decider: `V,lambda` |
+| typed AR | 2 | 5 | `s_1+(2m'_A+6)log q_A` | `S_1,lambda,mu,gamma,sigma_1` |
+| `V2=detype(typed AR)` | 2 | 7 | `s_1+(2m'_A+6)log q_A+216` | same sampler dependencies |
+| anchored `V2` | 2 | 9 | `s_2+8` | sampler: `S_2`; decider: `D_2` |
+| `V3=repeat` | 2 | 9 | `k(n)(s_2+8)` | sampler: `S_2,lambda,tau` |
+
+Here `|TypeIntro|=50` at `ell=9`, `|TypeAR|=3*18=54`, and the PCP ambient large-field dimension is `2m'_A+6`; its explicit downsize accounts for the factor `log q_A`. Every arithmetic equality is a `LawCert`.  The level chain
+
+```text
+9 --Introspect--> 5 --AnswerReduce/detype--> max(5+2,5)=7
+  --Anchor/detype--> 9 --direct-sum Repeat--> 9
+```
+
+is CONSTRUCTED and checked against the parameter table (`gt-12-compression.tex:L156-L187`, `L263-L285`, `L332-L359`).
+
+At every row the trace also prints question length, answer schema maximum, sampler and decider call-count laws, exact canonical description sizes, and all parameter predicates.  No symbolic dimension may be coerced to a host `Int` before a budget check.
+
+### 12.3 Sampler independence as code dependency
+
+The sampler emitted by Introspect contains no input-verifier identifier.  To make AnswerReduce's dependence on `|D1|` itself independent of the input bytes, the universal introspection decider stores the embedded sampler and decider in two fixed `lambda`-byte component slots (or stores canonical trivial code when either bound fails) and pads its parameter slots canonically.  Therefore `sigma_1` is an exact function only of `lambda` and `ell=9`, while evaluation ignores padding.  This makes the source independence argument executable rather than inferring equality of lengths from a common polynomial upper bound
+(`gt-08-introspection.tex:L757-L776`; `gt-12-compression.tex:L128-L147`).
+
+Static dependency analysis must return
+
+```text
+dependencies(S_compress) = {lambda, universal_constant_ids}
+```
+
+and two byte-distinct input verifier pairs at the same `lambda` must yield identical sampler bytes and hashes. A second pair straddles the `|V|<=lambda` branch; both still use the same fixed-width sampler because the input appears only in the decider. This is finite adversarial evidence for
+`lem:compress-independent-samplers` (`gt-12-compression.tex:L108-L118`); the AST dependency theorem is CHECKED by construction.
+
+### 12.4 Toy-regime policy
+
+Paper parameters are too large to materialize even at small `n`: `N=2^n`, `R=N^lambda`, `M=2^m`, PCP proof tables, and the repetition count compound. `ConstructionPolicy` therefore has two modes:
+
+```text
+ProductionPolicy(symbols,budgets)  -- exact source laws; refuse over budget
+ToyPolicy(intro_tuple,pcp_tuple,mu,gamma,tau,c_prime,repetitions)
+                                    -- explicit overrides plus failed-law report
+```
+
+Toy mode changes no constructor or parser.  It substitutes only parameter values and repetition count, attaches an ASSUMED `toy_override` child, evaluates every production equality/admissibility/divisibility/capacity predicate, and prints each as `PASS`, `FAIL`, or `NOT_EVALUABLE`.  A toy
+result can establish construction behavior but cannot satisfy a theorem contract when any required predicate fails. Production mode may construct compact descriptions with symbolic laws even when a query would return `BudgetExceeded`; it never silently caps a dimension or loop.
+
+**DD-28 — Permit parameter overrides only through an ineligible toy policy.** Keep
+the code path identical and make every deviation machine-visible; rationale: tiny end-to-end executions are useful only if their distance from the theorem regime is part of the result; rejected: scattering `min(k,2)` and small fields through the constructors.
+
+### 12.5 TB7 concrete execution
+
+Use a quoted nine-level padding of the one-bit identity verifier, with deterministic value-one answers, `n=2`, `N=4`, and `lambda=32768`.  Its exact description size is checked to be below `lambda`, and its constant runtimes are below `n^lambda`; thus the input's level and lambda-bounded predicates
+pass.     Toy substitutions are:
+
+```text
+intro: (q_I,m_I,d_I)=(2,1,1)
+answer reduction: (q_A,m_A,d_A,s_A,m'_A)=(2^11,1,11,6,16)
+mu_toy=gamma_toy=tau_toy=1; c_prime_toy=1
+repetitions_toy=2
+```
+
+The exact dimensions are `s_1=6+200=206`, `s_2=206+38*11+216=840`, anchored dimension `848`, and final dimension `1696`.  The largest TB2 line answer has `(m'+6)(m'd+1)=22*177=3894` field symbols, or 42,834 bits over `F_{2^11}`; the Repeat component guard is `(lambda*n)^tau=65,536`, so the honest
+toy answer is not rejected by the guard.
+
+The policy must print at least this predicate report:
+
+| predicate | result |
+|---|---|
+| input field/level/lambda bounded; `n>=2` | PASS |
+| intro field admissible, `m_I divides q_I`, `d_I=1`, `Q_I>=s_0(N)` | PASS |
+| intro canonical tuple equality; `Q_I>=R` | FAIL |
+| AR `P_shape`, `P_formula_paper`, `P_tail`, `P_divisibility`, `P_degree`, structural formula check | PASS |
+| AR `P_growth`, universal `mu/gamma/tau`, `n>=C_0` | NOT_EVALUABLE |
+| AR tuple equals `pcpparams(n,T,Q,sigma,gamma)` | FAIL |
+| repeat `k_toy=(lambda*n)^((1+c')tau)` | FAIL |
+| repeat question and answer component guard | PASS |
+
+TB7 constructs every description, executes all four final sampler queries on branch-directed vectors, samples 16 final questions, constructs honest stabilizer/ PCP/repeated answers, and calls the final classical decider.  It requires all finite construction checks and toy transcripts to pass while
+the overall theorem-eligibility bit remains false.  Target is `<60 s` warm and `<2 GiB`; the report breaks out Introspect, AnswerReduce, Repeat, and transcript walls.
+
+Mutations are composition order, omit PCP downsize, change any one of `5,7,9`, use unpadded `|D1|` in the sampler, change one universal-constant AST, cap `k` outside ToyPolicy, or label a failed predicate PASS.  Each has a named law, hash, parser, or certificate-grade owner.
+
+### 12.6 Executing `D_{M,L}=Y Psi_{M,L}`
+
+Use the TB4 description-level `Fix`/`YCode`, set `L=lambda=32768`, and use a two-state machine `M_loop` whose start state loops and whose halt state is unreachable.  Index `n=2` is the smallest shared index for the lambda-bound and answer-reduction contracts.  The input transcript is deliberately a
+legal repeated anchor/typed pair on which no introspection game guard calls the child decider.
+
+The run must:
+
+1. construct and reserialize `D_{M,L}=Fix(Psi_{M,L})`;
+2. check that the embedded `self_code` hash equals the outer quote hash;
+3. simulate exactly two steps of `M_loop` and take the nonhalting branch;
+4. construct `S_L` from `lambda`, construct `Compress((S_L,D_{M,L}),lambda)` under
+   the same ToyPolicy, and compare its sampler hash with TB7's independent hash;
+5. execute the compressed decider on the supplied transcript and terminate without
+   recursive host evaluation.
+
+This exercises one description-level self-reference and the full constructor.  It does not establish the infinite fixed-point value argument.  A second fuel-limited transcript which reaches the final introspection game call must return `OutOfFuel` at the declared boundary, never Julia recursion.
+The source's corresponding self-description construction and halting branches are `gt-12-compression.tex:L426-L492`; its general value and lambda-bounded conclusions remain cited (`L502-L519`, `L569-L576`).
+
+**DD-29 — Separate compact construction from materialization.** Allow a symbolic
+description to exist when its indexed question is beyond budget, and make the query return `BudgetExceeded`; rationale: this is necessary to represent paper-scale Compress without pretending it ran; rejected: allocating `k*s` coordinates before checking the law.
+
+## 13. Ladder, claims, and the exact cited residue
+
+### 13.1 Tracer-bullet ladder v2
+
+Each new rung runs alone, prints canonical hashes and the complete certificate tree, then runs its owned mutants in isolated copies.
+
+| rung | executable instance | required output | target | owned mutations |
+|---|---|---|---:|---|
+| TB5 Repeat | `V_copy`; `n=9,lambda=tau=1,c'=1,k=81`; dimensions `1->9->729` | four-query replay, 128 classical honest accepts, guard rejection, sampler hash | `<5 s`, `<256 MiB` | seven `M5-*` in §10.3 |
+| TB6a design audit | `ell=1,3,9`; type/edge and parser generation | counts, schemas, source-query plan, no theorem claim | `<1 s` | missing edge, wrong count, missing guard |
+| TB6b Introspect | `n=2,N=4,ell=1,(q,m,d)=(2,1,1)`; dimension 142; six tableau qubits | exact support/mass-one acceptance over 116 oriented types, detype branches, 256 seeded draws, query log | `<15 s`, `<512 MiB` | nine `M6-*` in §11.6 |
+| TB7 Compress/fix | `n=2,lambda=32768`; dimensions `206->840->848->1696`; `k_toy=2` | `9->5->7->9`, 16 honest accepts, independence hashes, one fixed-point unfold, all failed predicates | `<60 s`, `<2 GiB` | order, field, level, size/hash, constants, cap, grade |
+
+The implementation order is TB5, TB6a, TB6b, then TB7. TB6a freezes the source transcription before stabilizer code is admitted.  TB7 may reuse immutable PCP fixture data but must include its construction certificate and exact description hash; a cached green boolean is not evidence.
+
+### 13.2 What remains mathematically difficult after TB7
+
+At the end of TB7 all named sampler and decider constructions in §§9--12 are executed, including downsize, graph sampler, detype, anchor, direct-sum repetition, Pauli predicate, introspection predicate, composition, and finite fixed-point evaluation.  The following is the exact set of paper
+objects allowed to remain as CITED leaves in the TB7 certificate; no construction may hide under one of them:
+
+1. `prop:standard-succinct-sat` and `prop:explicit-padded-succinct-deciders`:
+   general Cook--Levin/succinct-decider faithfulness and asymptotics
+   (`gt-10-answer-reduction.tex:L237-L276`, `L1226-L1275`).
+2. `lem:ld-soundness` and `lem:ld-complexity`: quantum low-degree enforcement and its general asymptotic implementation bound (`gt-07-ldt.tex:L413-L490`).
+3. `lem:pauli-completeness`, `thm:pauli`, `cor:pauli-binary`, `lem:delta-bound`, `lem:introparams-complexity`, and `lem:qld-complexity`: general honest strategy, rigidity, canonical-parameter, and asymptotic facts beyond the exact tiny simulation (`gt-07-ldt.tex:L1232-L1617`).
+4. `lem:detyping-verifiers`, completeness/soundness/Ent portions only; its sampler,
+   decider, level, and dimension construction is executed
+   (`gt-06-types.tex:L444-L475`).
+5. `thm:oracle-completeness` and `thm:oracle-soundness`: quantum strategy transfer
+   for oracularization (`gt-09-oracularization.tex:L125-L169`, `L296-L329`).
+6. `thm:pcp-decider`, general completeness/soundness only; the concrete predicate,
+   polynomial identities, and TB fixture are executed
+   (`gt-10-answer-reduction.tex:L1455-L1533`).
+7. `thm:ar`: the general quantum completeness, soundness, Ent, and asymptotic
+   answer-reduction contract (`gt-10-answer-reduction.tex:L2077-L2116`).
+8. `lem:intro-sampler-complexity`, `lem:intro-decider-complexity`, and `thm:introspection`: general asymptotic, PCC completeness, soundness, and Ent contracts (`gt-08-introspection.tex:L347-L392`, `L694-L817`).
+9. `prop:anchoring`, theorem portions only, and `thm:bvy`/`thm:repetition`:
+   quantum completeness and anchored parallel-repetition decay
+   (`gt-11-parallel-repetition.tex:L51-L61`, `L112-L136`, `L229-L258`).
+10. `lem:compress-independent-samplers` and `thm:compression`: the former's `polylog(lambda)` generation bound, and the production-regime `C_0`, polynomial bounds, value-one transfer, and Ent lower bound (`gt-12-compression.tex:L26-L53`, `L108-L147`).
+11. `lem:dhalt-values`, `lem:lambda`, and `thm:halting`: the general fixed-point
+    value argument, lambda selection, and undecidability conclusion
+    (`gt-12-compression.tex:L502-L519`, `L569-L576`, `L643-L720`).
+
+For `lem:compress-independent-samplers`, only the asymptotic generation bound is CITED: fixed-width specialization makes construction dependency CHECKED.  `lem:commute` is a source anchor, but the simulator checks every finite symplectic commutator it samples, so it is not a TB7 CITED leaf.
+
+Any additional CITED label in a TB7 trace is a failure.  Conversely, relabeling any item above CHECKED without a replayable proof is a certificate failure.  This list, rather than the existence of green toy transcripts, is the boundary of the local mathematical result.
+
+### 13.3 MERGE PROPOSALS
+
+The following rows are proposals only; `claims/CLAIMS.md` is not edited.
+
+| id | statement (quantifiers included) | status | depends-on | where-proved | where-tested | verdict |
+|---|---|---|---|---|---|---|
+| C12 | (Description-level CL closure) For every well-formed `SamplerDescription`, `downsize`, `direct_sum`, `product`, executable `detype`, `anchor`, and symbolic `repeat` are definable using only field/level headers and the four sampler queries; their output field, level, dimension, dependency, exact-description-size, and metered call laws are replayable, while all semantic soundness implications remain CITED. | CONJECTURE | C4a,C4b | — | — | — |
+| C13 | (TB5 Repeat fixture) For `V_copy` at `n=9,lambda=tau=1,c'=1`, executable anchoring and 81-fold repetition have checked levels/dimensions `1,1 -> 3,9 -> 3,729`, reject an overlong component before a child call, accept the named classical value-one strategy on all branch-directed and 128 seeded transcripts, and produce sampler bytes independent of the decider. | CONJECTURE | C12 | — | — | — |
+| C14 | (TB6 Introspect fixture) For the explicitly ineligible toy tuple `n=2,N=4,lambda=1,ell=1,(q,m,d)=(2,1,1)`, the Pauli and introspection samplers and classical predicates are executable through the four-query API; the detyped sampler has checked level 5 and dimension 142, and exact stabilizer enumeration on six physical qubits gives total mass one and acceptance on every support transcript for all 116 oriented typed pairs. This is finite completeness evidence; `thm:pauli` and `thm:introspection` remain CITED. | CONJECTURE | C12,C4a | — | — | — |
+| C15 | (TB7 executable Compress/fixed point) Under the printed ToyPolicy at `n=2,lambda=32768`, `Compress=Repeat o AnswerReduce o Introspect` constructs and executes the level chain `9->5->7->9`, dimensions `206->840->848->1696`, all sampler/decider descriptions and one finite unfold of `D_{M,L}=Y Psi_{M,L}`; two distinct input verifiers yield identical compressed-sampler hashes. Every failed production predicate and every remaining theorem leaf in §13.2 stays visible, so no production soundness claim is made. | CONJECTURE | C10,C12,C13,C14 | — | — | — |
+
+Missing steps before promotion are exact:
+
+- **C12:** implement canonical `QuotedBranch`, all query-only wrappers, the fixed-width introspection specialization, exhaustive small adapters, spy-query tests, and all law/size/hash mutations; obtain a critic verdict.
+- **C13:** implement TB5, demonstrate every `M5-*` red result, measure walls and allocation, and obtain a critic verdict.
+- **C14:** complete TB6a source audit, implement Pauli/Magic-Square predicates, adaptive factor/dual queries, stabilizer simulation and executable detyping, demonstrate every `M6-*` red result, and obtain a critic verdict.
+- **C15:** land the nontrivial TB3 front end and C12--C14, implement the `AR-field-align` downsize and ToyPolicy, run the full end-to-end descriptions and fixed point within budget, demonstrate all TB7 mutations, and obtain a critic verdict.  Production constants and all §13.2 mathematical leaves remain outside promotion even after this finite claim becomes TESTED.
+
+**DD-30 — Close the executable ladder without closing the theorems.** Treat a green
+TB7 as evidence for construction, bookkeeping, finite honest transcripts, and fixed-point execution only; rationale: these are the reusable engineering objects the campaign can adversarially verify; rejected: calling the complete pipeline a local proof of compression soundness.
