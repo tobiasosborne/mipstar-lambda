@@ -9,7 +9,11 @@ include("fields/gf2k.jl")
 include("polynomials/sparse.jl")
 include("ir/circuits.jl")
 include("polynomials/zero_basis.jl")
+include("samplers/cl.jl")
+include("samplers/typed.jl")
+include("samplers/ldt.jl")
 include("verifiers/pcp.jl")
+include("verifiers/ldt.jl")
 include("tb0.jl")
 include("traceprint.jl")
 
@@ -32,6 +36,15 @@ export BWire, Input, Gate, NotGate, AndGate, OrGate, Circuit,
 
 export RewriteStep, ZeroDecomposition, zero_basis_decompose,
        verify_rewrite_step, verify_zero_decomposition
+
+export AbstractCL, CLZero, CLStep, CLMarginal, apply, level, seed_dim,
+       register_indices, marginal_k, sum_stage_outputs, concatenate, direct_sum,
+       CLDistribution, distribution, histogram, product, pad_level,
+       TypedSampler, sample
+
+export AffineLine, L_lnf, chi, pi_prefix, L_Point, L_ALine, L_DLine,
+       point_value, axis_line, diagonal_line, line_point,
+       LDParams, restrict, univariate_degree, ld_decider, D_ld
 
 export PredicateStatus, PASS, FAIL, NOT_EVALUABLE, PCPParams, ParameterPolicy,
        parameter_policy, policy_vector, minimal_checkable_odd_k,

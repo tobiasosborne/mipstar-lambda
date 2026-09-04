@@ -1,6 +1,8 @@
 using Test
 
 const ROOT = normpath(joinpath(@__DIR__, "..", ".."))
+const MUTATION_FILTER = get(ENV, "MUTATION_FILTER", "")
+selected(mutant) = isempty(MUTATION_FILTER) || occursin(MUTATION_FILTER, mutant.label)
 
 struct Mutant
     label::String
@@ -36,13 +38,24 @@ const MUTANTS = (
            "counts[node.variable] = 1", "c8"),
 )
 
+include("tb1_chi.jl")
+include("tb1_pi.jl")
+include("tb1_lnf.jl")
+include("tb1_deg.jl")
+include("tb1_level.jl")
+
+const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
+                     TB1_DEG_MUTANT, TB1_LEVEL_MUTANT)
+
 function copied_mutant(mutant::Mutant)
     mktempdir() do temporary
         cp(joinpath(ROOT, "Project.toml"), joinpath(temporary, "Project.toml"); force=true)
         cp(joinpath(ROOT, "src"), joinpath(temporary, "src"); force=true)
         mkpath(joinpath(temporary, "test"))
-        cp(joinpath(ROOT, "test", "tb0_core.jl"),
-           joinpath(temporary, "test", "tb0_core.jl"); force=true)
+        is_tb1 = startswith(mutant.target, "tb1_")
+        test_name = is_tb1 ? "tb1_ld_sampler.jl" : "tb0_core.jl"
+        cp(joinpath(ROOT, "test", test_name),
+           joinpath(temporary, "test", test_name); force=true)
 
         path = joinpath(temporary, mutant.source)
         original = read(path, String)
@@ -50,8 +63,10 @@ function copied_mutant(mutant::Mutant)
         occurrences == 1 || error("mutation $(mutant.label) matched $occurrences source sites")
         write(path, replace(original, mutant.before => mutant.after; count=1))
 
-        command = setenv(`$(Base.julia_cmd()) --project=$(temporary) $(joinpath(temporary, "test", "tb0_core.jl"))`,
-                         "TB0_TARGET" => mutant.target)
+        target_name = is_tb1 ? replace(mutant.target, "tb1_" => "") : mutant.target
+        target_variable = is_tb1 ? "TB1_TARGET" : "TB0_TARGET"
+        command = setenv(`$(Base.julia_cmd()) --project=$(temporary) $(joinpath(temporary, "test", test_name))`,
+                         target_variable => target_name)
         captured = IOBuffer()
         process = run(pipeline(ignorestatus(command), stdout=captured, stderr=captured))
         output = String(take!(captured))
@@ -65,6 +80,13 @@ end
 
 @testset "TB0 targeted mutations" begin
     for mutant in MUTANTS
-        @test copied_mutant(mutant)
+        selected(mutant) && @test copied_mutant(mutant)
+    end
+end
+
+
+@testset "TB1 targeted mutations" begin
+    for mutant in TB1_MUTANTS
+        selected(mutant) && @test copied_mutant(mutant)
     end
 end
