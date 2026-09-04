@@ -18,15 +18,15 @@ A COMPLETE executable implementation of `Compress = Repeat ∘ AnswerReduce ∘ 
 | Design v1 (§1–8) | converged | design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | midpoint-r2 PASS | — |
 | TB0 | repair r2 landed (175/175 warm 35.9 s) | tb0-r1 FAIL(7 MAJOR) → repaired | critic r2 (brief from template; adjudicate O1–O16; MERGE PROPOSALS C1, C2 in `briefs/20-tb0-repair-r2.last.md`) |
-| TB1 | r0 landed; C4a TESTED | tb1-r1 FAIL(O1,O2,O3,O5) | repair r1 RUNNING at pause (brief 21, also covers TB2's O1–O7) → critic r2 for TB1 and TB2 |
-| TB2 | r0 landed | tb2-r1 FAIL(O1 FATAL runner, O2–O7); C9, C4b HOLD | same worker as above |
+| TB1 | r0 landed; C4a TESTED; repair r1 (brief 21) INTERRUPTED by the user's stop — partial state is on branch `wip/tb1-tb2-repair-r1` (pushed), NOT on main; on that branch the suite is 220/221 assertions green (only the cold-precompile timing gate tripped), 6 new TB1 mutant files added, mutation runner NOT re-run | tb1-r1 FAIL(O1,O2,O3,O5) | resume on that branch (rebase onto main first) from brief 21 (`briefs/21-tb1-repair.last.md` may be absent: reconstruct from `git diff 4a3474c HEAD -- src test`); run mutations; then critic r2 for TB1 and TB2 |
+| TB2 | r0 landed; partially repaired by the interrupted brief 21 (lazy CL adapter work, TB2 tests/mutants edited) | tb2-r1 FAIL(O1 FATAL runner, O2–O7); C9, C4b HOLD | same as TB1 |
 | TB3 | brief 23 written | — | launch after TB1+TB2 repair lands and its critic passes |
 | TB4 | brief 24 written | — | after TB3 |
-| TB5 Repeat, TB6 Introspect, TB7 end-to-end | DESIGN v2 round RUNNING at pause (brief 28 → DESIGN.md §9–13) | — | Opus critic on DESIGN v2 → repair → implement TB5 → TB6 → TB7 |
-| Analytic doc | v2 committed (30 pp); v3 (Part I refresher) RUNNING at pause (brief 27) | none yet | Opus critic on the document (fidelity to ground truth + pedagogy) |
+| TB5 Repeat, TB6 Introspect, TB7 end-to-end | DESIGN v2 LANDED (DESIGN.md §9–13, 691 lines; C12–C15 proposed in `briefs/28-design-v2-full-compress.last.md`) | none yet | Opus critic on DESIGN v2 (brief from `briefs/02-design-critic.md` pattern; recompute the toy dimensions 206→840→848→1696 and the level chain 9→5→7→9) → repair → TB5 → TB6 → TB7 |
+| Analytic doc | v3 committed: 47 pp, Part I = 14-page computability refresher, 13 reminder boxes | none yet | Opus critic on the document (fidelity to ground truth + pedagogy + the softened F1 framing) |
 | Tutorial artifact | bd issue open | — | after TB4; use the Artifact tool with `artifact-design`; drive it from the real trace printouts |
 
-If a worker was still running when you resume: check `pgrep -x codex`; if none, its lane's files are final — run `julia --project=. test/runtests.jl` (warm, twice) and `test/mutations/run.jl` on a quiet machine, then commit with a status-bearing message and push.
+No worker is running at the end of session 1 (all three were stopped/finished before the final push). If a worker is running when you resume: check `pgrep -x codex`; if none, its lane's files are final — run `julia --project=. test/runtests.jl` (warm, twice) and `test/mutations/run.jl` on a quiet machine, then commit with a status-bearing message and push.
 
 ## Findings so far
 - F1 (`docs/findings.md`, claim C8 TESTED): as we read NW19's Tseitin gadget, a gate wire with fan-out f has formal individual degree 2+2f, not 2; the theorem survives with `deg_F + 5d` and d ≥ 8. Framing must stay soft.
