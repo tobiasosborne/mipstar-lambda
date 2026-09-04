@@ -1398,7 +1398,7 @@ Q = M*log2(q).
 The unknown `a,b` are the universal constants of `thm:pauli`; they remain symbols. The parameter constructor can still build and compare this AST.  A production numeric instance is `NOT_EVALUABLE` until constants are supplied.  Admissibility and `m|q` are separately reported, and the capacity
 report uses the source's stronger chain `s(N) <= R <= M <= Q`: in particular the theorem predicate is `M>=R`, not merely `Q>=R` (`gt-07-ldt.tex:L1492-L1569 (def:introparams, lem:delta-bound)`; `gt-08-introspection.tex:L1083`).
 
-The report also prints the embedding predicate `Q>=s(N)` independently: it cannot be inferred from a capacity chain containing a failed `M>=R` link.  Separately print `TIME_child(N)<=R`, for sampler and decider calls in the §11.4 fuel unit, and the description predicate `|V|<=lambda`.  The runtime and byte-size conditions are distinct parts of lambda-boundedness; neither a size check nor `s(N)<=R` discharges a child timeout (`gt-05-games-normalform.tex:L641-L653`; `gt-08-introspection.tex:L419-L421`, `L983-L988`).
+The report also prints the embedding predicate `Q>=s(N)` independently: it cannot be inferred from a capacity chain containing a failed `M>=R` link.  Separately print `TIME_child(N)<=R`, for sampler and decider calls in the §11.4 fuel unit, and the description predicate `|V|<=lambda`.  The runtime and byte-size conditions are distinct parts of lambda-boundedness; neither a size check nor `s(N)<=R` discharges a child timeout (`gt-05-games-normalform.tex:L641-L653`; `gt-08-introspection.tex:L417-L419`, `L983-L988`).
 
 The Pauli type set is
 
@@ -1474,11 +1474,11 @@ The level 5 and exact dimension are CONSTRUCTED.  The sampler description depend
 
 ### 11.4 Introspection decider and its child queries
 
-`typed_intro_decider(V,lambda,ell)` computes `N=2^n`, `R=N^lambda`, and the Pauli parameters.  The child fuel unit is **one metered quoted-interpreter step**, with input decoding, control flow, primitive bit operations, and output serialization charged; a whole vector operation, matrix multiplication, or child call is not one step.  Production gives every input sampler or decider call exactly `R` units, including `Dimension(N)` (`gt-08-introspection.tex:L419-L421`).  The counter rejects before executing step `R+1`; a return at step `R` is permitted.  It first asks only `Dimension(N)` and rejects if `s(N)>R`.
+`typed_intro_decider(V,lambda,ell)` computes `N=2^n`, `R=N^lambda`, and the Pauli parameters.  The child fuel unit is **one metered quoted-interpreter step**, with input decoding, control flow, primitive bit operations, and output serialization charged; a whole vector operation, matrix multiplication, or child call is not one step.  Production gives every input sampler or decider call exactly `R` units, including `Dimension(N)` (`gt-08-introspection.tex:L417-L419`).  The counter rejects before executing step `R+1`; a return at step `R` is permitted.  It first asks only `Dimension(N)` and rejects if `s(N)>R`.
 
 The explicitly ineligible TB6b policy in §11.6 instead supplies `F_child=65,536` to that same counter and prints `toy_child_fuel=FAIL(owner=tb6-child-meter)` for the failed production equality `F_child=R`.  No production-fuel acceptance follows from such a run.  Each child-call record must include fixture, quote hash, mode, role, stage/prefix/input, exact metered cost, source `R`, supplied `F_child`, and timeout/return; costs and budget-fit results remain `NOT_EVALUABLE(owner=tb6-child-meter)` until a quoted-interpreter trace exists.  The finite per-mode maximum is computed from those records, not substituted for the general source TIME bound.
 
-The non-Pauli encoding transcribes the source's own wire format (`gt-08-introspection.tex:L525-L531`): every vector field `y,z,y_perp,x` is serialized as a full **`Q`-bit** vector with its final `Q-s(N)` coordinates zero; there is no `s(N)`-bit wire encoding.  This embedding requires the separately printed `Q>=s(N)` predicate.  Later sections cite this paragraph rather than choosing an encoding again.
+The non-Pauli encoding transcribes the source's own wire format (`gt-08-introspection.tex:L524-L530`): every vector field `y,z,y_perp,x` is serialized as a full **`Q`-bit** vector with its final `Q-s(N)` coordinates zero; there is no `s(N)`-bit wire encoding.  This embedding requires the separately printed `Q>=s(N)` predicate.  Later sections cite this paragraph rather than choosing an encoding again.
 
 The paper's literal guard remains visible:
 
