@@ -4,6 +4,7 @@ started = time()
 @testset verbose=true "MIPStarLambda" begin
     include("tb0_core.jl")
     include("tb1_ld_sampler.jl")
+    include("tb2_answer_reduce.jl")
 end
 elapsed = time() - started
 measured = round(elapsed; digits=3)

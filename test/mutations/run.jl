@@ -43,9 +43,16 @@ include("tb1_pi.jl")
 include("tb1_lnf.jl")
 include("tb1_deg.jl")
 include("tb1_level.jl")
+include("tb2_formula.jl")
+include("tb2_g3.jl")
+include("tb2_line.jl")
+include("tb2_guard.jl")
+include("tb2_i345.jl")
 
 const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_DEG_MUTANT, TB1_LEVEL_MUTANT)
+const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
+                     TB2_GUARD_MUTANT, TB2_I345_MUTANT)
 
 function copied_mutant(mutant::Mutant)
     mktempdir() do temporary
@@ -53,7 +60,9 @@ function copied_mutant(mutant::Mutant)
         cp(joinpath(ROOT, "src"), joinpath(temporary, "src"); force=true)
         mkpath(joinpath(temporary, "test"))
         is_tb1 = startswith(mutant.target, "tb1_")
-        test_name = is_tb1 ? "tb1_ld_sampler.jl" : "tb0_core.jl"
+        is_tb2 = startswith(mutant.target, "tb2_")
+        test_name = is_tb2 ? "tb2_answer_reduce.jl" :
+                    is_tb1 ? "tb1_ld_sampler.jl" : "tb0_core.jl"
         cp(joinpath(ROOT, "test", test_name),
            joinpath(temporary, "test", test_name); force=true)
 
@@ -63,14 +72,17 @@ function copied_mutant(mutant::Mutant)
         occurrences == 1 || error("mutation $(mutant.label) matched $occurrences source sites")
         write(path, replace(original, mutant.before => mutant.after; count=1))
 
-        target_name = is_tb1 ? replace(mutant.target, "tb1_" => "") : mutant.target
-        target_variable = is_tb1 ? "TB1_TARGET" : "TB0_TARGET"
-        command = setenv(`$(Base.julia_cmd()) --project=$(temporary) $(joinpath(temporary, "test", test_name))`,
+        target_name = is_tb2 ? replace(mutant.target, "tb2_" => "") :
+                      is_tb1 ? replace(mutant.target, "tb1_" => "") : mutant.target
+        target_variable = is_tb2 ? "TB2_TARGET" : is_tb1 ? "TB1_TARGET" : "TB0_TARGET"
+        command = addenv(`$(Base.julia_cmd()) --project=$(temporary) $(joinpath(temporary, "test", test_name))`,
                          target_variable => target_name)
         captured = IOBuffer()
         process = run(pipeline(ignorestatus(command), stdout=captured, stderr=captured))
         output = String(take!(captured))
-        killed = process.exitcode != 0
+        killed = process.exitcode != 0 &&
+                 (occursin("Test Failed", output) ||
+                  occursin("Some tests did not pass", output))
         println("MUTANT ", mutant.label, " target=", mutant.target, " => ",
                 killed ? "KILLED" : "SURVIVED", " (exit=", process.exitcode, ")")
         killed || print(output)
@@ -87,6 +99,13 @@ end
 
 @testset "TB1 targeted mutations" begin
     for mutant in TB1_MUTANTS
+        selected(mutant) && @test copied_mutant(mutant)
+    end
+end
+
+
+@testset "TB2 targeted mutations" begin
+    for mutant in TB2_MUTANTS
         selected(mutant) && @test copied_mutant(mutant)
     end
 end

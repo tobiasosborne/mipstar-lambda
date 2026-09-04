@@ -13,7 +13,10 @@ include("samplers/cl.jl")
 include("samplers/typed.jl")
 include("samplers/ldt.jl")
 include("verifiers/pcp.jl")
+include("samplers/pcp_sampler.jl")
+include("samplers/oracularize.jl")
 include("verifiers/ldt.jl")
+include("verifiers/answer_reduce.jl")
 include("tb0.jl")
 include("traceprint.jl")
 
@@ -46,10 +49,29 @@ export AffineLine, L_lnf, chi, pi_prefix, L_Point, L_ALine, L_DLine,
        point_value, axis_line, diagonal_line, line_point,
        LDParams, restrict, univariate_degree, ld_decider, D_ld
 
+export PCPType, PCPRegisterLayout, PCPPointQuestion, PCPALineQuestion,
+       PCPDLineQuestion, pcp_sampler, pcp_register_dimensions,
+       intrinsic_pcp_levels, sample_pcp_question, parse_pcp_question,
+       encode_pcp_question, parse_pcp_answer, encode_pcp_answer,
+       pcp_ld_question, tb2_parser_roundtrip_report
+
+export ORACULAR_ROLES, AnswerReduceType, trivial_original_sampler,
+       oracularize_sampler, typed_sampler_product, tb2_sampler_invariant_report
+
 export PredicateStatus, PASS, FAIL, NOT_EVALUABLE, PCPParams, ParameterPolicy,
        parameter_policy, policy_vector, minimal_checkable_odd_k,
        PCPProof, PrimeFieldPCPProof, PCPView, build_c0, build_pcp, lift_pcp,
        ev_z, pcp_eval, pcpverifier
+
+export TrivialOriginalVerifier, TypedAnswerReducedDecider,
+       TypedAnswerReducedVerifier, CitedDetypedVerifier,
+       AnswerReduceQuestion, HonestPCPStrategy, PCPGameCall,
+       AnswerReduceTraceEntry, AnswerReduceDecision,
+       trivial_original_verifier, answer_reduce_pcp, detype, AnswerReduce,
+       sample_answer_reduce_questions, honest_pcp_strategy,
+       honest_pcp_answer, typed_answer_reduced_decider,
+       answer_reduce_guard_branches, answer_reduce_requires_nondegenerate,
+       proof_individual_guard_copies
 
 export tb0_build_fixture, tb0_build_nondegenerate_fixture, tb0_base_point,
        pcp_coordinate_line_report, pcp_seeded_report, pcp_boolean_cube_report,
