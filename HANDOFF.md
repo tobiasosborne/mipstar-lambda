@@ -31,11 +31,12 @@ Session 3 was running four agents when the user restarted the machine. Everythin
 | Design v1 (§1–8) | converged, design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | — |
 | TB0 | **CONVERGED** r4 PASS (`verdicts/tb0-r4.md`); C1, C2, C3, C8 TESTED; N13–N16 MINOR folded into brief 23 | — |
-| TB1 / TB2 | TB1 CONVERGED. TB2 r7 FAIL(NG10) (copy-index witnesses, 114-outcome block pre-written by the critic); C4b, C9 TESTED | **brief 73 RUNNING (Fable, first of two)** → commit, TB2 critic r8 (closing) |
+| TB1 / TB2 | TB1 CONVERGED. TB2 repair r7 landed 8af9073 (114-outcome copy-index block); C4b, C9 TESTED | **critic r8 RUNNING (brief 75, closing)** |
 | TB3 | repair r1 landed; critic r2 FAIL(N11) (orchestrator's clause narrowing — corrected 443092d); **C10 TESTED**; N12–N17 MINOR folded into brief 24 addendum 3 | — (TB3 minors close inside TB4's round; a TB3 r3 critic is optional) |
-| TB4 | landed 278b1ac; critic r1 FAIL(O1–O5); **C11 TESTED (weaker authorized row)**; C16/C18 caveats applied | **brief 72 RUNNING (Fable, second of two)** → commit, TB4 critic r2 |
-| TB5 | **landed f7e69ed** (1796/1796, 140/140): SamplerDescription/DeciderDescription, DL9 combinators (54/54 product maps describable), anchoring, 81-fold Repeat as a CompressStage, four transcripts, independence; C12/C13 proposed TESTED | **critic r1 + TB6 readiness gate RUNNING (brief 74)** → paste C12/C13 if authorized; adjudicated DESIGN sentences; worker → brief 43 (TB6) |
-| TB6, TB7 | briefs 43, 44 written | sequential on the one Fable worker; critics in parallel |
+| TB4 | repair r1 landed 8af9073 (origin/ℓ=9 witnesses, third stub disclosed, HaltDeciderFuelBound SOURCE_REPAIR, ratio gate); C11 TESTED (weaker; strengthened row proposed) | **critic r2 RUNNING (brief 76)** |
+| TB5 | landed f7e69ed; critic r1 FAIL(O1,O2) small; **C12, C13 TESTED** (scoped) | **repair r1 RUNNING (brief 77, Fable, first of two)** → commit, TB5 critic r2 (closing) |
+| TB6 | **QUEUED on the same worker right after 77 (brief 43 + addendum: interpreter-step fuel unit, TypedDecider tag, oriented edges)** | when it lands: verify, commit, Opus critic r1; worker → brief 44 (TB7) |
+| TB7 | brief 44 written | after TB6 |
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
 | **Analytic doc (sidequest)** | **CONVERGED** r3 PASS (`verdicts/analytic-doc-r3.md`); 92 pp, 110 figures; PDF v6 sent | pedagogy round (bd d48: n6–n10) and lockstep updates as TB3–TB7 land — low priority |
 | Figure atlas canvas | published: https://claude.ai/code/artifact/d3c355d4-541f-4983-a57f-4d6d7ca097f1 (user approved the direction) | optional: re-seed with rendered figure PNGs as a review gallery (working files in the session scratchpad `atlas/` — regenerate from `docs/analytic` if lost) |
