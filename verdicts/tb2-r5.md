@@ -1,6 +1,6 @@
 # Verdict tb2-r5 — adversarial critic on rung TB2 after repair r4 (commit `3f2d1f1`, brief 59) — intended closing round
 
-*Status: COMPLETE — written and finalised before the machine-restart notice of 2026-09-05 08:4x. Every obligation of `briefs/62-tb2-critic-r5.md` was discharged: suite run twice, mutation registry run, all r4 rows adjudicated, the three demanded recomputations done, two new semantic mutations run to a decision, and per-claim decisions issued for C4b and C9. This is not a draft; the final VERDICT line at the bottom stands.*
+*Status: COMPLETE — written and finalised before the machine-restart notice of 2026-09-05 (runs timestamped 08:09–08:35 in this session). Every obligation of `briefs/62-tb2-critic-r5.md` was discharged: suite run twice, mutation registry run, all r4 rows adjudicated, the three demanded recomputations done, two new semantic mutations run to a decision, and per-claim decisions issued for C4b and C9. This is not a draft; the final VERDICT line at the bottom stands.*
 
 
 Evaluated on an archived copy (`git archive 3f2d1f1 | tar -x`) in
