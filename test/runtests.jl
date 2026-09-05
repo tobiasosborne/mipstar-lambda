@@ -21,4 +21,7 @@ started = time()
     include("tb1_ld_sampler.jl")
     include("tb2_answer_reduce.jl")
     include("tb3_frontend.jl")
+    tb4_started = time()
+    include("tb4_compress_ir.jl")
+    println("TB4 test-body wall seconds = ", round(time() - tb4_started; digits=3), " (budget 5.0)")
 end

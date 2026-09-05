@@ -671,6 +671,14 @@ if tb3_runs("tb3_equality")
         @test passed(verify_certificate(equality.padded))
         @test p.m == maximum(d5.index_widths)
         @test ispow2(p.m_prime) && p.m_prime == 5p.m + 5 + p.s
+        # verdicts/tb3-r2.md N13: the snapshot's figures are owned here
+        # (the critic recomputed each of them in its section 1.9).
+        @test f3.index_width == 3 && f3.variable_count == 8
+        @test length(f3.clauses) == 15
+        @test d5.index_widths == (0, 0, 3, 3, 3)
+        @test length(d5.clauses) == 47
+        @test d5.copy_gadgets == 4 && d5.equality_gadgets == 28
+        @test p.m == 3 && p.live_gates == 423 && p.s == 492 && p.m_prime == 512
         # DESIGN 7 risk 9: snapshot gate/monomial growth and stop on the
         # budget. The generated circuit is fed to Tseitin and arith_q under
         # the witness (i) budget; refusal is a result.
@@ -688,6 +696,7 @@ if tb3_runs("tb3_equality")
                 expansion isa ExpansionRefused ? "ExpansionRefused($(expansion.estimate))" :
                     "monomials = $(monomial_count(expansion.term))")
         @test expansion isa ExpansionRefused || monomial_count(expansion.term) > 0
+        @test expansion isa ExpansionRefused && expansion.estimate == 279_936
         @test candidates.c0 >= candidates.farith
     end
 end

@@ -23,6 +23,7 @@ include("frontend/bounded_trace.jl")
 include("frontend/cook_levin.jl")
 include("frontend/decouple5.jl")
 include("traceprint.jl")
+include("compress.jl")
 
 export Program, BoundExpr, Concrete, Opaque, Fuel, FuelLiteral, FuelBound,
        BoundVar, Hole, Lambda, Apply, Fix, YCode, If, Prim, Quote, Eval, Specialize,
@@ -31,7 +32,20 @@ export Program, BoundExpr, Concrete, Opaque, Fuel, FuelLiteral, FuelBound,
        quote_program, specialize, Closure, Code, Value, OutOfFuel, SortError,
        Aborted, encoded_size, eval_overhead, eval_program, eval_quoted,
        program_label, value_label, PRIMITIVES, DECLARED_SORTS, FUNCTION_SORTS,
-       sort_of, Verifier
+       sort_of, Verifier, description_length, DECIDER_ARITY, DECIDER_ARGUMENT_SORTS,
+       decider_input_sorted
+
+export nat, machine_desc, TWO_STATE_HALTING, TWO_STATE_LOOPING, SAMPLER_STUB,
+       TRIVIAL_DECIDER, COMPRESS_STUB, COMPRESS_IDENTITY, FIX_TAG_BYTES,
+       FIX_UNFOLD_CHARGE, psi_template, fix_specialize, halting_decider,
+       fix_unfolding, halting_verifier, bind_parameter, free_parameters,
+       StubVerifier, Hypothesis, Contract, INTROSPECT_CONTRACT,
+       ANSWER_REDUCE_CONTRACT, REPEAT_CONTRACT, COMPRESS_CONTRACT,
+       INDEPENDENT_SAMPLERS_LEMMA, introspect_levels, answer_reduce_levels,
+       repeat_levels, COMPRESS_LEVELS, CompressStage, IntrospectStub, RepeatStub,
+       AnswerReduceOnFixture, CompressStages, FrontEndFixture, frontend_fixture,
+       tb4_stages, AnswerReduceEvidence, Introspect, Repeat, Compress,
+       level_chain, runtime_composition_ok
 
 export TraceRow, BoundedTrace, bounded_trace, Clause3, Tableau, Succinct3SAT,
        CompilationRefused, dpll, compile_relation, relation_input, relation_tuples,

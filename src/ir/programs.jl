@@ -128,8 +128,11 @@ YCode(body::Program) = Fix(body)
 # a term becomes a description (Quote, quote_program, specialize, Fix) and
 # when a code value is evaluated (only function sorts may be applied).
 
+# :Level (verdicts/tb3-r2.md N17) is the compression-level datum of
+# definitions.md F, a Nat literal by shape; Compress's second argument is
+# lambda : P{Nat} (DESIGN 1.1), so a Level literal never reaches FuelBound.
 const DECLARED_SORTS = (:Program, :Decider, :Compressor, :Sampler, :MachineDesc,
-                        :Pair, :Nat, :Bit, :Bits)
+                        :Pair, :Nat, :Bit, :Bits, :Level)
 const FUNCTION_SORTS = (:Program, :Decider, :Compressor, :Sampler)
 
 # A MachineDesc literal is the bit string of a one-tape machine over {0,1}
@@ -152,6 +155,7 @@ function _admits_sort(p::Program, sort::Symbol)
     sort == :Pair && return p isa Prim && p.name == :quoted_pair && length(p.args) == 2 &&
                             all(arg -> arg isa Quote, p.args)
     sort == :Nat && return _literal(p, Int)
+    sort == :Level && return _literal(p, Int) && p.name >= 1
     sort == :Bit && return _literal(p, Bool)
     sort == :Bits && return _literal(p, Vector{Bool})
     false
@@ -164,6 +168,17 @@ function _check_sort(p::Program, sort::Symbol)
 end
 
 const DECIDER_ARITY = 5
+# R9 (verdicts/design-r4.md): Lambda binders carry no sorts in the IR; a
+# Decider's five arguments (n, x, y, a, b) of def:decider (gt-05:613-622)
+# are checked as VALUES at the evaluator entry by `decider_input_sorted`.
+const DECIDER_ARGUMENT_SORTS = (:Nat, :Bits, :Bits, :Bits, :Bits)
+_value_has_sort(v, sort::Symbol) =
+    sort == :Nat ? (v isa Int && v >= 0) :
+    sort == :Bits ? v isa Vector{Bool} :
+    sort == :Bit ? v isa Bool : false
+"The runtime tuple u matches DECIDER_ARGUMENT_SORTS (n : Nat, x y a b : Bits)."
+decider_input_sorted(u::Tuple) = length(u) == DECIDER_ARITY &&
+    all(_value_has_sort(u[i], DECIDER_ARGUMENT_SORTS[i]) for i in 1:DECIDER_ARITY)
 
 # ---------------------------------------------------------------------------
 # Scope and holes.
@@ -1107,6 +1122,8 @@ struct Verifier
 end
 
 description_size(v::Verifier) = description_size(v.sampler) + description_size(v.decider)
+"|V| = max{|S|, |D|}, the description length of a normal form verifier (gt-05:626-635; def:lambda gt-05:641-653)."
+description_length(v::Verifier) = max(description_size(v.sampler), description_size(v.decider))
 
 # ---------------------------------------------------------------------------
 # Printing.

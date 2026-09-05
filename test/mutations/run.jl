@@ -217,6 +217,10 @@ include("tb3_decouple.jl")
 include("tb3_closure.jl")
 # verdicts/tb3-r1.md N1, N2, N5-N7 and the TB4 prerequisites (brief 63).
 include("tb3_r1.jl")
+# verdicts/tb3-r2.md N13 (brief 24, addendum 3).
+include("tb3_r2.jl")
+# briefs/24-tb4.md: the TB4 mutants.
+include("tb4_compress.jl")
 
 const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_DEG_MUTANT, TB1_LEVEL_MUTANT,
@@ -248,9 +252,12 @@ const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_INDIVIDUAL_DIAGONAL_NEVER_REJECTS_MUTANT,
                      TB2_SIMULTANEOUS_DIAGONAL_NEVER_REJECTS_MUTANT)
 const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
-                     TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT, TB3_R1_MUTANTS...)
+                     TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT, TB3_R1_MUTANTS...,
+                     TB3_N13_MUTANT)
 
 function _rung(mutant::Mutant)
+    startswith(mutant.target, "tb4_") && return (:tb4, "tb4_compress_ir.jl",
+        "TB4_TARGET", mutant.target)
     startswith(mutant.target, "tb3_") && return (:tb3, "tb3_frontend.jl",
         "TB3_TARGET", mutant.target)
     startswith(mutant.target, "tb2_") && return (:tb2, "tb2_answer_reduce.jl",
@@ -351,7 +358,8 @@ run(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) -e "using MIPStarLa
 println("package image ready after ", round(time() - started; digits=2), " s")
 queue = Tuple{String,Mutant}[]
 for (name, mutants) in (("TB0", MUTANTS), ("TB1", TB1_MUTANTS),
-                        ("TB2", TB2_MUTANTS), ("TB3", TB3_MUTANTS)), mutant in mutants
+                        ("TB2", TB2_MUTANTS), ("TB3", TB3_MUTANTS),
+                        ("TB4", TB4_MUTANTS)), mutant in mutants
     selected(mutant) && push!(queue, (name, mutant))
 end
 baseline_keys = unique(baseline_key(mutant) for (_, mutant) in queue)

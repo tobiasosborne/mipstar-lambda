@@ -183,9 +183,13 @@ end
 # at build time its circuit must reproduce `tf` through `tseitin` and its
 # certificate must verify against its own term (a borrowed certificate is
 # refused here, before any PCP certificate exists); at replay the
-# `:UpstreamEvidence` node recomputes that reproduction against the
-# attached proof and its subtree is reached only from a proof whose `tf` is
-# that very formula (`_bind_certificate`).
+# `:UpstreamEvidence` node is the identity anchor -- it accepts only the
+# proof whose `tf` IS the formula reproduced at build time -- and its
+# subtree is reached only from that proof (`_bind_certificate`). The
+# reproduction itself is a build-time check: `tf` and `circuit` are
+# immutable and `tseitin` is deterministic, so re-running it at replay
+# could never fail once the anchor holds (verdicts/tb3-r2.md N14, second
+# option); the display says which is which.
 "The circuit an upstream evidence term compiled to; front ends extend this."
 upstream_circuit(term) =
     throw(ArgumentError("PCP upstream evidence of type $(typeof(term)) names no circuit"))
@@ -201,9 +205,9 @@ function _bind_upstream(checked::Checked, tf::TseitinFormula)
     passed(result) ||
         throw(ArgumentError("PCP upstream evidence does not verify against its term: $(result.rule) at $(result.location)"))
     CertNode(CHECKED, :UpstreamEvidence;
-        facts=(display="front-end evidence of the attached proof: tseitin(circuit) reproduces tf ($(circuit.gate_count) gates)",),
+        facts=(display="front-end evidence of the attached proof: identity-anchored to its tf; tseitin(circuit) reproduced tf at build time ($(circuit.gate_count) gates)",),
         children=(_bind_certificate(checked.certificate, checked.term, tf, proof -> proof.tf),),
-        replay=proof -> CheckResult(proof.tf === tf && _same_tseitin(tseitin(circuit).term, proof.tf),
+        replay=proof -> CheckResult(proof.tf === tf,
                                     :certificate_binding; location=:UpstreamEvidence,
                                     expected=:generated_formula,
                                     actual=(proof.tf === tf ? :attached : :borrowed)))

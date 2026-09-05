@@ -113,7 +113,7 @@ for every `fuel >= c_Y`, outcome for outcome (`Value`, `SortError` and `OutOfFue
 `docs/analytic` Theorem `thm:ycode`, and TB4 pins it at every fuel from `c_Y` past termination on the halting fixture. The right side is
 the materialised unfolding `specialize(P,{self_code=>Quote(Fix(P))})`, a closed `Quoted` with a `SubstCert`; `Fix(P)` itself is
 syntax, not Julia recursion. In the display below, `M:P{MachineDesc}` and
-`lambda:P{Nat}` (the resource bound of `def:lambda`, `gt-12-compression.tex:L435-L440`; not a CL level) are closed literal terms, `n:P{Nat}` and `x,y,a,b` are the five bound arguments, `S_lambda:ClosedProgram{Sampler}`, and
+`lambda:P{Nat}` (the resource bound of `def:lambda`, `gt-05-games-normalform.tex:L641-L653`; not a CL level) are closed literal terms, `n:P{Nat}` and `x,y,a,b` are the five bound arguments, `S_lambda:ClosedProgram{Sampler}`, and
 `Compress:ClosedProgram{Compressor}`. The names `halts_within`, `true`, and `quoted_pair` are declared `PrimName`s, while `self_code` is
 the displayed typed hole; consequently the display has no other free symbols. The halting verifier is the following term:
 
