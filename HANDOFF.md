@@ -51,6 +51,6 @@ If a worker is running when you resume: `pgrep -fa 'codex exec'`; if none, its l
 - Critic r2's cross-cutting observation: O2, N1, N2 are one pattern — a paper-parameter guard that stops admitting the honest witness at toy size; §12.4 needs the rule "such guards print VACUOUS/FAIL with an owner" (brief 34 directive).
 
 ## Housekeeping
-- Public repo: https://github.com/tobiasosborne/mipstar-lambda. History still contains ~93 MB of codex transcripts (`briefs/*.codex.log`, now gitignored); purge with `git filter-repo` on a CLEAN tree, then force-push.
+- Public repo: https://github.com/tobiasosborne/mipstar-lambda (pushed 2026-09-05). **GitHub Pages site: https://tobiasosborne.github.io/mipstar-lambda/** = `docs/index.html`, built from `docs/tutorial/compress-explained.html` by `tools/build_site.py` (source branch main, path /docs; the PDF is served at /analytic/analytic-underpinnings.pdf). README redesigned around the explainer. After each explainer republish: run `python3 tools/build_site.py`, commit `docs/index.html`, push.
 - Beads: epic `mipstar-lambda-hd8` (figure programme) with lanes 30A–D closed, 32A/C/D in progress, 32B closed; `5iy`/`kjn` closed; `9w7` (brief 34) in progress; TB5–TB7 and tutorial open.
 - Memory: `~/.claude/projects/-home-tobias-Projects-discussions/memory/mipstar-lambda-campaign.md`.
