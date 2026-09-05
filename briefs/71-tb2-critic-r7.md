@@ -1,0 +1,11 @@
+# Brief 71 — CRITIC verdict r7 on rung TB2 after repair r6 (brief 69) — closing round
+
+You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb2-r7.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; instantiate there). Never read src/test from the live tree; `claims/CLAIMS.md` may be read live.
+
+Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/critic-tb2-r7/`
+
+Read: `~/.claude/skills/rk-light/SKILL.md`; `CLAUDE.md`; `claims/CLAIMS.md` (C4b, C9 TESTED; C4c TESTED); `verdicts/tb2-r6.md` (your prior — the work order); `briefs/69-tb2-repair-r6.md`, `briefs/69-tb2-repair-r6.last.md` (NG3 fixed in the suite with the swapped orientation, 54 outcomes, the three `*_ld_only_alice` mutants + `tb1_degenerate_all_t` KILLED; NG4/NG5 landed by the orchestrator at 1b1b2f7 — DESIGN §5.5 "9/9", the explainer/site nine-case strings; the C9 MERGE PROPOSAL = r6 row minus the Scope (orientation) sentence; the proposer's note that "all 27 (case, seed) pairs" now under-counts).
+
+Obligations: run suite (summary + walls + `uptime`) and runner (`MUTATION REGISTRY`; all 119 KILLED; baselines ok). Adjudicate every r6 row. Recompute on a COPY: the 54 outcomes (27 forward + 27 swapped) with the rejecting player `:alice`/`:bob`/`:both` per outcome; your MG1–MG3 and MG5 now KILLED; NG4/NG5 strings in DESIGN §5.5 and `docs/tutorial/compress-explained.html` / `docs/index.html`. Two NEW semantic mutations; survivors MAJOR with the red test as FIX DEMAND. Per-claim: C9 — AUTHORIZED verbatim row (the proposal, plus a one-clause 54-outcome update if you want it, and the red-list additions); C4b — re-affirm; C4c — note `tb1_degenerate_all_t` as a red-list addition (TB1 lane; the orchestrator will apply to C4c only on your authorization). This is intended as the closing round: if no MAJOR remains, say PASS and record residuals as MINOR/NOTE (TB5-routed items as a NOTE for brief 39).
+
+Output: `verdicts/tb2-r7.md` — adjudication table; recomputations; new objections; runs + walls + load; your mutations; per-claim block; final line exactly `VERDICT: PASS` or `VERDICT: FAIL(<ids>)`.
