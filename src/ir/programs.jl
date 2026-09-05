@@ -7,6 +7,15 @@
 # encoding family as src/samplers/cl.jl's describe_cl (header byte, tagged
 # nodes, UInt32 big-endian integer fields via _encode_int!/_decode_int!,
 # count-prefixed children); 0xC1 is a CL description, 0xC2 a program.
+#
+# This is the IMPLEMENTED instantiation of the analytic document's L
+# (part2a section 8), not its constants (verdicts/tb3-r1.md N3, option b):
+# integers are fixed-width 4-byte fields and |d| is a BYTE count, where
+# def:l-serialization uses a nu prefix code and counts bits; the CEK charge
+# table folds context navigation (pushing/popping a frame, returning a
+# value) into the following charged contraction, where part2a 8.3 charges
+# each administrative transition one unit. The Fix unfolding charge c_Y = 3
+# is the analytic one.
 
 abstract type Program end
 
@@ -25,7 +34,11 @@ abstract type Fuel end
 struct FuelLiteral <: Fuel
     value::Int
 end
-"FuelBound(n, lambda) evaluates to n^lambda (def:lambda, gt-12:435-440)."
+# FuelBound(n, lambda) evaluates to n^lambda (def:lambda, gt-12:435-440),
+# both operands of sort Nat (DESIGN 1.1; definitions.md F). When n^lambda
+# exceeds the host integer the inner budget is taken as not below the
+# remaining ambient fuel: the run then ends in OutOfFuel if it needs more,
+# never in SortError.
 struct FuelBound <: Fuel
     n::Program
     lambda::Program
@@ -73,31 +86,84 @@ struct Specialize <: Program
 end
 
 # Quote is a checked constructor: only Closed(P) (every BoundVar scoped, no
-# Hole) may become syntax-as-value. `sort` is the A of Quoted{A}.
+# Hole) may become syntax-as-value. `sort` is the A of Quoted{A}, checked
+# against the term's shape by `_admits_sort` (declared sorts below).
 struct Quote <: Program
     code::Program
     sort::Symbol
     function Quote(code::Program, sort::Symbol=:Decider)
         is_closed(code) || throw(ArgumentError("Quote requires a closed term"))
+        _check_sort(code, sort)
         new(code, sort)
     end
 end
 
-# Fix(P) requires the distinguished hole self_code exactly once, no other
-# hole and no free variable; it ties self_code to Quote(Fix(P)) and is
-# closed syntax (DESIGN 1.1).
+# Fix(P) requires the distinguished hole self_code : Quoted{A} exactly once,
+# no other hole and no free variable; it ties self_code to Quote(Fix(P), A)
+# and is closed syntax of sort A (DESIGN 1.1). The hole's declared sort A
+# must admit the body's shape, so a Decider fixed point has a five-argument
+# Lambda body; `Program` is the unchecked top sort.
 struct Fix <: Program
     body::Program
+    sort::Symbol
     function Fix(body::Program)
         holes(body) == Dict(:self_code => 1) ||
             throw(ArgumentError("Fix requires exactly one self_code hole"))
         is_scoped(body, Int[]) ||
             throw(ArgumentError("Fix body must have no free variable"))
-        new(body)
+        sort = only(hole for hole in _hole_nodes(body) if hole.name == SELF_CODE).sort
+        _check_sort(body, sort)
+        new(body, sort)
     end
 end
 
 const SELF_CODE = :self_code
+
+"YCode(P) = Fix(P): the description-level fixed point of analytic part2a 10.2 (C18), closing the single self_code hole at the constant runtime charge c_Y = 3 rather than materialising Specialize(P, {self_code -> d_P})."
+YCode(body::Program) = Fix(body)
+
+# ---------------------------------------------------------------------------
+# Declared sorts (DESIGN 1.1, definitions.md F). A sort names the shape a
+# closed term must have; `Program` admits every term. Sorts are checked when
+# a term becomes a description (Quote, quote_program, specialize, Fix) and
+# when a code value is evaluated (only function sorts may be applied).
+
+const DECLARED_SORTS = (:Program, :Decider, :Compressor, :Sampler, :MachineDesc,
+                        :Pair, :Nat, :Bit, :Bits)
+const FUNCTION_SORTS = (:Program, :Decider, :Compressor, :Sampler)
+
+# A MachineDesc literal is the bit string of a one-tape machine over {0,1}
+# with S >= 1 states: entry (state s, symbol b) at bit offset 4(2s+b) is
+# (write, move right?, next_hi, next_lo); next >= S halts. Start state 0,
+# blank tape, head at 0.
+_is_machine_desc(bits::Vector{Bool}) = length(bits) >= 8 && length(bits) % 8 == 0
+
+_literal(p::Program, ::Type{T}) where {T} = p isa Prim && p.name isa T && isempty(p.args)
+
+function _admits_sort(p::Program, sort::Symbol)
+    sort == :Program && return true
+    sort == :Decider && return (p isa Lambda && p.arity == DECIDER_ARITY) ||
+                              (p isa Fix && _admits_sort(p.body, sort))
+    sort == :Compressor && return (p isa Lambda && p.arity == 2) ||
+                                 (p isa Fix && _admits_sort(p.body, sort))
+    sort == :Sampler && return (p isa Lambda && p.arity >= 1) ||
+                              (p isa Fix && _admits_sort(p.body, sort))
+    sort == :MachineDesc && return _literal(p, Vector{Bool}) && _is_machine_desc(p.name)
+    sort == :Pair && return p isa Prim && p.name == :quoted_pair && length(p.args) == 2 &&
+                            all(arg -> arg isa Quote, p.args)
+    sort == :Nat && return _literal(p, Int)
+    sort == :Bit && return _literal(p, Bool)
+    sort == :Bits && return _literal(p, Vector{Bool})
+    false
+end
+
+function _check_sort(p::Program, sort::Symbol)
+    sort in DECLARED_SORTS || throw(ArgumentError("undeclared sort $(sort)"))
+    _admits_sort(p, sort) || throw(ArgumentError("term does not have sort $(sort)"))
+    p
+end
+
+const DECIDER_ARITY = 5
 
 # ---------------------------------------------------------------------------
 # Scope and holes.
@@ -165,6 +231,8 @@ function substitute(p::Program, env::Dict{Symbol,Program})
     elseif p isa Apply
         return Apply(substitute(p.head, env), map(a -> substitute(a, env), p.args))
     elseif p isa Fix
+        # self_code is bound by Fix, never a specialization hole: the
+        # environment passes through to the body without it (DESIGN 1.1).
         inner = copy(env)
         delete!(inner, SELF_CODE)
         return Fix(substitute(p.body, inner))
@@ -469,32 +537,54 @@ function quote_hash(bytes::AbstractVector{UInt8})
 end
 quote_hash(q::Quoted) = quote_hash(q.bytes)
 
+# Front-end certificates are bound by identity to the object they were
+# built for, the discipline of `_bind_certificate` in src/verifiers/pcp.jl
+# (verdicts/tb3-r1.md N2): a CHECKED node replays only when the attached
+# term IS its subject; a downstream constructor relocates its child's
+# subtree so the subject is reached through the constructor chain
+# (PaddedSuccinctDecoupled5SAT.source -> SuccinctDecoupled5SAT.source ->
+# Succinct3SAT.trace -> BoundedTrace.program). Anything else, a tampered
+# copy of the same type included, is refused with :certificate_binding.
+function _bound_replay(subject, rule::Symbol, replay::Function)
+    x -> x === subject ? replay(subject) :
+         CheckResult(false, :certificate_binding; location=rule,
+                     expected=:attached_component,
+                     actual=(x === nothing ? :unreachable : :borrowed))
+end
+
+function _relocate(node::CertNode, locate::Function)
+    children = map(child -> _relocate(child, locate), node.children)
+    replay = node.grade == CHECKED ? (x -> node.replay(locate(x))) : node.replay
+    CertNode(node.grade, node.rule; facts=node.facts, children, replay)
+end
+
+function _replay_quote(q::Quoted)
+    decoded = try
+        decode_program(q.bytes)
+    catch error
+        error isa ArgumentError || rethrow()
+        return CheckResult(false, :quote_roundtrip; expected=:decodable,
+                           actual=sprint(showerror, error))
+    end
+    ok = is_closed(decoded) && _admits_sort(decoded, sort_of(q)) &&
+         _quoted_bytes(decoded, sort_of(q)) == q.bytes &&
+         description_size(q) == length(q.bytes)
+    CheckResult(ok, :quote_roundtrip;
+                expected=(closed=true, sort=sort_of(q), size=length(q.bytes)),
+                actual=(closed=is_closed(decoded), sort=_admits_sort(decoded, sort_of(q)),
+                        size=description_size(q)))
+end
+
 function _quote_certificate(q::Quoted{A}) where {A}
     CertNode(CHECKED, :Quote;
         facts=(display="|D| = $(description_size(q)) bytes; fnv1a64 = $(quote_hash(q)); sort = $(A)",),
-        # verify_certificate hands every node the ROOT term; nested under a
-        # downstream front-end node this replays the captured quote.
-        replay=x -> begin
-            quoted = x isa Quoted ? x : q
-            decoded = try
-                decode_program(quoted.bytes)
-            catch error
-                error isa ArgumentError || rethrow()
-                return CheckResult(false, :quote_roundtrip; expected=:decodable,
-                                   actual=sprint(showerror, error))
-            end
-            ok = is_closed(decoded) &&
-                 _quoted_bytes(decoded, sort_of(quoted)) == quoted.bytes &&
-                 description_size(quoted) == length(quoted.bytes)
-            CheckResult(ok, :quote_roundtrip;
-                        expected=(closed=true, size=length(quoted.bytes)),
-                        actual=(closed=is_closed(decoded), size=description_size(quoted)))
-        end)
+        replay=_bound_replay(q, :Quote, _replay_quote))
 end
 
 "quote_program(p; sort) :: Checked{Quoted{sort}, ScopeAndSizeCert} (DESIGN 2)."
 function quote_program(p::Program; sort::Symbol=:Decider)
     is_closed(p) || throw(ArgumentError("quote_program requires a closed term"))
+    _check_sort(p, sort)
     q = Quoted{sort}(_quoted_bytes(p, sort))
     Checked(q, _quote_certificate(q))
 end
@@ -514,8 +604,9 @@ function specialize(p::Program, env::Tuple; sort::Symbol=:Decider)
     for (name, term) in env
         is_closed(term) || throw(ArgumentError("replacement for $name is not closed"))
     end
-    result = substitute(p, Dict(env...))
+    result = substitute(p, Dict{Symbol,Program}(env...))
     is_closed(result) || throw(ArgumentError("specialization did not close the term"))
+    _check_sort(result, sort)
     q = Quoted{sort}(_quoted_bytes(result, sort))
     # The exact size identity of part2a Lemma specialization: the encoding
     # has no ancestor length fields, so each replaced hole trades its own
@@ -620,7 +711,9 @@ _code_size(code::Code) = length(_quoted_bytes(code.program, code.sort))
 eval_overhead(q::Quoted, values::Tuple) = 3 + description_size(q) + encoded_size(values)
 
 # ---------------------------------------------------------------------------
-# Primitive registry: name => (arity, charge, implementation). The
+# Primitive registry: name => (arity, charge, implementation). The charge
+# kappa_p is an Int or a function of the argument values (part2a 8.3:
+# `Prim(p, B, v_1..v_r)` costs exactly kappa_p(v_1..v_r) >= 1). The
 # implementation returns `nothing` on a contract failure (SortError).
 
 function _same_ground(a, b)
@@ -628,7 +721,48 @@ function _same_ground(a, b)
         (a isa Vector{Bool} && b isa Vector{Bool})
 end
 
-const PRIMITIVES = Dict{Symbol,Tuple{Int,Int,Function}}(
+# The machine model of a MachineDesc literal (see `_is_machine_desc`):
+# simulate at most `budget` steps from state 0 on the blank tape; returns
+# (halted, steps taken).
+function _simulate_machine(bits::Vector{Bool}, budget::Int)
+    state_count = length(bits) ÷ 8
+    tape = Dict{Int,Bool}()
+    head = 0
+    state = 0
+    for step in 1:budget
+        symbol = get(tape, head, false)
+        offset = 4 * (2 * state + Int(symbol))
+        write, right = bits[offset + 1], bits[offset + 2]
+        next = 2 * Int(bits[offset + 3]) + Int(bits[offset + 4])
+        tape[head] = write
+        head += right ? 1 : -1
+        next >= state_count && return (true, step)
+        state = next
+    end
+    (false, budget)
+end
+
+_halts_within(machine, n) =
+    (machine isa Vector{Bool} && _is_machine_desc(machine) && n isa Int && n >= 0) ?
+        _simulate_machine(machine, n)[1] : nothing
+# The declared bound Opaque("n steps", (n,)) of DESIGN 1.1: one unit per
+# simulated step plus one.
+_halts_within_charge(machine, n) =
+    (machine isa Vector{Bool} && _is_machine_desc(machine) && n isa Int && n >= 0) ?
+        1 + _simulate_machine(machine, n)[2] : 1
+
+# quoted_pair joins two code values without capture: the pair's own code is
+# the term `quoted_pair(Quote(a), Quote(b))` of sort Pair, which evaluates
+# to itself. fst_code/snd_code project it.
+_quoted_pair(a, b) =
+    (a isa Code && b isa Code) ?
+        Code(Prim(:quoted_pair, Concrete(1), (Quote(a.program, a.sort), Quote(b.program, b.sort))), :Pair) :
+        nothing
+_pair_component(pair, index::Int) =
+    (pair isa Code && _admits_sort(pair.program, :Pair)) ?
+        (quoted = pair.program.args[index]; Code(quoted.code, quoted.sort)) : nothing
+
+const PRIMITIVES = Dict{Symbol,Tuple{Int,Any,Function}}(
     :not => (1, 1, v -> v isa Bool ? !v : nothing),
     :and => (2, 1, (a, b) -> (a isa Bool && b isa Bool) ? (a && b) : nothing),
     :or => (2, 1, (a, b) -> (a isa Bool && b isa Bool) ? (a || b) : nothing),
@@ -638,7 +772,14 @@ const PRIMITIVES = Dict{Symbol,Tuple{Int,Int,Function}}(
     :sub => (2, 1, (a, b) -> (a isa Int && b isa Int) ? max(a - b, 0) : nothing),
     :length => (1, 1, v -> v isa Vector{Bool} ? length(v) : nothing),
     :bit => (2, 1, (v, i) -> (v isa Vector{Bool} && i isa Int && 0 <= i < length(v)) ? v[i + 1] : nothing),
+    :halts_within => (2, _halts_within_charge, _halts_within),
+    :quoted_pair => (2, 1, _quoted_pair),
+    :fst_code => (1, 1, pair -> _pair_component(pair, 1)),
+    :snd_code => (1, 1, pair -> _pair_component(pair, 2)),
 )
+
+_charge_of(charge::Int, values) = charge
+_charge_of(charge, values) = charge(values...)::Int
 
 function _primitive(name::PrimName)
     name isa Bool && return (0, 1, () -> name)
@@ -648,12 +789,16 @@ function _primitive(name::PrimName)
 end
 
 # ---------------------------------------------------------------------------
-# The deterministic call-by-value CEK machine (analytic part2a 8.5): charged
+# The deterministic call-by-value CEK machine (analytic part2a 8.3): charged
 # contractions are BoundVar lookup, closure creation, beta, If selection,
-# Prim (its charge), Quote, Fix unfolding, Eval front end h(d,u), and
-# Specialize; evaluation-context navigation (pushing/popping frames,
-# returning a value) is folded into the same transition. One `step!` is one
-# charged transition, so a bounded trace has one row per fuel unit spent.
+# Prim (its charge), Quote, Fix unfolding (c_Y = 3), Eval front end h(d,u),
+# and Specialize; evaluation-context navigation (pushing/popping frames,
+# returning a value) is folded into the same transition, which is where
+# this instantiation is cheaper than part2a 8.3 (verdicts/tb3-r1.md N3).
+# One `step!` is one charged transition, so a bounded trace has one row per
+# fuel unit spent. `Aborted(:hard_cap)` is a host guard outside the
+# semantics: it fires only when the count of host steps (charged or not)
+# exceeds `hard_cap`, and the entry points require `hard_cap >= fuel`.
 
 struct Ret
     value::Any
@@ -736,15 +881,19 @@ function _type_error!(m::Machine, reason::Symbol)
 end
 
 function _fix_unfold(fix::Fix)
-    substitute(fix.body, Dict{Symbol,Program}(SELF_CODE => Quote(fix)))
+    substitute(fix.body, Dict{Symbol,Program}(SELF_CODE => Quote(fix, fix.sort)))
 end
 
+# FuelBound(n, lambda) = n^lambda; `nothing` only for ill-sorted operands.
+# An overflowing power stands for a budget beyond any ambient fuel
+# (typemax), which the Eval contraction clamps to the remaining ambient
+# fuel: exhausting it is OutOfFuel, never SortError.
 function _fuel_value(fuel::Fuel, values)
     fuel isa FuelLiteral && return fuel.value
     n, lambda = values
     (n isa Int && lambda isa Int && n >= 0 && lambda >= 0) || return nothing
     (n <= 1 || lambda == 0) && return n^lambda
-    lambda * log2(n) > 62 && return nothing
+    lambda * log2(n) > 62 && return typemax(Int)
     n^lambda
 end
 
@@ -763,12 +912,13 @@ function _contract_sequence!(m::Machine, frame::SeqFrame)
         node = frame.node::Prim
         registered = _primitive(node.name)
         registered === nothing && return _type_error!(m, :unknown_primitive)
-        arity, charge, implementation = registered
+        arity, declared_charge, implementation = registered
         length(values) == arity || return _type_error!(m, :primitive_arity)
-        node.bound isa Concrete && node.bound.value < charge &&
-            return _type_error!(m, :primitive_bound)
         result = implementation(values...)
         result === nothing && return _type_error!(m, :primitive_contract)
+        charge = _charge_of(declared_charge, values)
+        node.bound isa Concrete && node.bound.value < charge &&
+            return _type_error!(m, :primitive_bound)
         _charge!(m, charge) || return false
         m.control = Ret(result)
         return true
@@ -776,6 +926,7 @@ function _contract_sequence!(m::Machine, frame::SeqFrame)
         node = frame.node::Eval
         code = values[1]
         code isa Code || return _type_error!(m, :eval_non_code)
+        code.sort in FUNCTION_SORTS || return _type_error!(m, :eval_sort)
         count = length(node.args)
         args = values[2:1 + count]
         all(v -> v isa Bool || v isa Int || v isa Vector{Bool} || v isa Code, args) ||
@@ -784,6 +935,7 @@ function _contract_sequence!(m::Machine, frame::SeqFrame)
         inner === nothing && return _type_error!(m, :eval_fuel)
         overhead = 3 + _code_size(code) + encoded_size(Tuple(args))
         _charge!(m, overhead) || return false
+        inner = min(inner, m.fuel)
         # The delimiter's limit is the ambient usage at which the inner
         # budget is exhausted; the stack keeps the running minimum so a
         # charge checks every enclosing delimiter in O(1).
@@ -805,7 +957,7 @@ function _contract_sequence!(m::Machine, frame::SeqFrame)
         specialize(code.program, env; sort=code.sort)
     catch error
         error isa ArgumentError || rethrow()
-        return _type_error!(m, :specialize_coverage)
+        return _type_error!(m, occursin("sort", error.msg) ? :specialize_sort : :specialize_coverage)
     end
     charge = 1 + term_size(code.program) + sum(term_size(term) for (_, term) in env; init=0)
     _charge!(m, charge) || return false
@@ -868,7 +1020,8 @@ function step!(m::Machine)
             m.control = Ret(Code(c.code, c.sort))
             return true
         elseif c isa Fix
-            _charge!(m, 1) || return false
+            # c_Y = 3 (part2a 8.3, C18): the unfolding with its binding.
+            _charge!(m, 3) || return false
             m.control = _fix_unfold(c)
             return true
         elseif c isa If
@@ -911,17 +1064,49 @@ end
 "eval(t, u; f): Value, OutOfFuel or SortError with the fuel used; never a host exception."
 function eval_program(p::Program, args::Tuple, fuel::Int; hard_cap::Int=DEFAULT_HARD_CAP)
     fuel >= 0 || throw(ArgumentError("fuel must be a natural number"))
+    hard_cap >= fuel || throw(ArgumentError("the host step cap must be at least the fuel"))
     run!(machine_for_apply(p, args, fuel; hard_cap))
 end
 
 "Eval_L(d, u; f) on canonical bytes: charges h(d,u), then runs eval(t, u; f - h)."
 function eval_quoted(q::Quoted, args::Tuple, fuel::Int; hard_cap::Int=DEFAULT_HARD_CAP)
     fuel >= 0 || throw(ArgumentError("fuel must be a natural number"))
+    hard_cap >= fuel || throw(ArgumentError("the host step cap must be at least the fuel"))
     overhead = eval_overhead(q, args)
     fuel < overhead && return (; result=OutOfFuel(fuel), used=fuel)
     inner = run!(machine_for_apply(decode_program(q), args, fuel - overhead; hard_cap))
     (; result=inner.result, used=inner.used + overhead)
 end
+
+# ---------------------------------------------------------------------------
+# Verifier[QuestionLength, AnswerLength, Runtime, Gap, Levels] (DESIGN 1.6,
+# definitions.md F): the minimal carrier reachable from Quoted -- the
+# payload (sampler, decider) as descriptions of the declared sorts, the four
+# symbolic measures, and the CL level count. Gap is a directed implication
+# between value thresholds (completeness, soundness). TB4 fills the
+# transformations; this record only fixes the sorts.
+
+struct Verifier
+    sampler::Quoted{:Sampler}
+    decider::Quoted{:Decider}
+    question_length::BoundExpr
+    answer_length::BoundExpr
+    runtime::BoundExpr
+    gap::Tuple{BoundExpr,BoundExpr}
+    levels::Int
+    function Verifier(sampler::Quoted, decider::Quoted, question_length::BoundExpr,
+                      answer_length::BoundExpr, runtime::BoundExpr,
+                      gap::Tuple{BoundExpr,BoundExpr}, levels::Int)
+        sort_of(sampler) == :Sampler ||
+            throw(ArgumentError("a Verifier's sampler must be Quoted{Sampler}, got Quoted{$(sort_of(sampler))}"))
+        sort_of(decider) == :Decider ||
+            throw(ArgumentError("a Verifier's decider must be Quoted{Decider}, got Quoted{$(sort_of(decider))}"))
+        levels >= 1 || throw(ArgumentError("a Verifier has at least one CL level"))
+        new(sampler, decider, question_length, answer_length, runtime, gap, levels)
+    end
+end
+
+description_size(v::Verifier) = description_size(v.sampler) + description_size(v.decider)
 
 # ---------------------------------------------------------------------------
 # Printing.

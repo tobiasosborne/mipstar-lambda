@@ -50,6 +50,34 @@ a symbolic cost bound. Literal values use nullary primitives; in particular, `tr
 `Pargs : P*`, consumes a value of sort `Fuel`, and returns `Value`, `OutOfFuel`, or `TypeError`, never a host-language exception. `Fix(P)`
 requires the distinguished hole `self_code : Quoted{A}`, ties it to the quote of the result, and returns closed syntax.
 
+Implementation notes (`src/ir/programs.jl`, TB3; `verdicts/tb3-r1.md` N3 option (b), N9, §6, §8). The `TypeError` outcome is the Julia
+type `SortError` (`Core.TypeError` is taken); `Quote(code, sort)` carries its sort `A`; literal values are the nullary `PrimName`s
+`Bool`, `Int` and `Vector{Bool}` (so `true` is `Prim(true, Concrete(1), ())` exactly as displayed). **The implementation instantiates
+`L`, not `docs/analytic` §8's constants:** its codec is not `def:l-serialization`'s ν prefix code — integer fields are fixed-width
+4-byte big-endian and `|·|` (hence `description_size` and the `Eval` overhead `h(d,u) = 3 + |d| + |enc(u)|`) is a BYTE count where part2a
+counts bits; and its CEK charge table folds evaluation-context navigation (pushing or popping a frame, returning a value) into the
+following charged contraction, where part2a §8.3 charges each administrative transition one unit — so every fuel figure of TB3 (`3` for
+`λnxyab.true`, `5` for `a == b`, `T = 1`/`T = 3` as minimal accepting body fuel, the `T + 2` frame installation) is a figure of this
+cheaper table. The `Fix` unfolding charge `c_Y = 3` IS part2a's (aligned in brief 63; it was 1 in brief 23). `Aborted(:hard_cap)` is a host
+guard outside the semantics, not a fourth outcome: it fires only when the number of host steps (charged or not) exceeds `hard_cap`
+(default `10^6`), and `eval_program`/`eval_quoted` refuse `hard_cap < fuel` with `ArgumentError`. `FuelBound(n, λ) = n^λ` with both
+operands of sort `Nat`; when `n^λ` overflows the host integer the inner budget is taken as not below the remaining ambient fuel, so the run
+ends in `Value` or `OutOfFuel` and never in `SortError`. Sorts are declared (`DECLARED_SORTS`: `Program`, `Decider`, `Compressor`,
+`Sampler`, `MachineDesc`, `Pair`, `Nat`, `Bit`, `Bits`) and checked by shape wherever a term becomes a description (`Quote`,
+`quote_program`, `specialize`, and `Fix`, whose `self_code` hole names `A`) — `Decider` is a five-argument `Lambda` or its `Fix`,
+`Compressor` a two-argument `Lambda`, `MachineDesc` a bit-string literal of the one-tape machine format — and at evaluation, where only
+the function sorts may be applied (`SortError(:eval_sort)`). `halts_within(M, n)` and `quoted_pair` are registered primitives:
+`halts_within` simulates the `MachineDesc` `M` for at most `n` steps at charge `1 + steps` (the `Opaque("n steps")` bound);
+`quoted_pair(Quote(a), Quote(b))` yields the code of that very pair term (sort `Pair`, self-evaluating) at charge 1, projected by
+`fst_code`/`snd_code`. `YCode(P) = Fix(P)` names the C18 constructor. Contract note: a `Fix` body carries no hole besides `self_code`
+(constructor), so every other hole is closed BEFORE `Fix` — on the host, `substitute` the open body, then `Fix`/`YCode`, then
+`quote_program`; `specialize(Fix(P), {self_code ↦ …})` is refused (`self_code` is bound by `Fix`) and `specialize(Fix(P), {})` is the
+identity under the size law. Because `Quote` admits only closed terms, the runtime `Specialize` contraction can only ever see hole-free
+code: term-level specialization of a partial body is not representable in this instantiation (TB4 must specialize on the host or admit a
+partial-code sort). Reading note for the display below: `Apply(Quote(Compress), …)` applies a code value, which the evaluator refuses
+(`SortError(:apply_non_closure)`); the evaluable form, used by TB3's test (h) with a stub `Compress`, is `Eval(Apply(Compress, pair, λ),
+(n,x,y,a,b), FuelBound(n,λ))` with `Compress` the closed program itself.
+
 Only the two representations used by the rungs are IR types:
 
 ```text
@@ -70,7 +98,7 @@ Fix : PartialProgram{self_code::Quoted{A}} -> ClosedProgram{A}
 eval(Quote(Fix(P)),u;fuel) = eval(specialize(P,{self_code=>Quote(Fix(P))}),u;fuel)
 ```
 
-for every fuel at which both sides terminate. It is syntax, not Julia recursion. In the display below, `M:P{MachineDesc}` and
+for every fuel at which both sides terminate (the left side uses exactly `c_Y = 3` more units, the unfolding charge). It is syntax, not Julia recursion. In the display below, `M:P{MachineDesc}` and
 `lambda:P{Nat}` (the resource bound of `def:lambda`, `gt-12-compression.tex:L435-L440`; not a CL level) are closed literal terms, `n:P{Nat}` and `x,y,a,b` are the five bound arguments, `S_lambda:ClosedProgram{Sampler}`, and
 `Compress:ClosedProgram{Compressor}`. The names `halts_within`, `true`, and `quoted_pair` are declared `PrimName`s, while `self_code` is
 the displayed typed hole; consequently the display has no other free symbols. The halting verifier is the following term:
@@ -98,7 +126,7 @@ Program invariants are recorded as follows.
 | scope and phase correctness      | CONSTRUCTED       | `Closed`, `Quoted`, and typed holes    |
 | canonical description size       | CHECKED           | canonical byte count, replay           |
 | primitive cost                   | ASSUMED           | a separate CITED node may discharge it |
-| bounded evaluation trace         | CHECKED           | transition-by-transition trace         |
+| bounded evaluation trace         | CHECKED           | transition-by-transition trace: result, row count and row contents (control, continuation frames, fuel, outcome) pinned on the equality fixture; general Cook--Levin locality of the rows is ASSUMED (1.2) |
 | fixed-point extensional behavior | CITED             | never promoted by execution samples    |
 
 **DD-1 — Separate descriptions from compiled objects.** Keep `Quoted` and `CircuitIR` disjoint and make runtime closure, universal evaluator,
@@ -133,7 +161,9 @@ PaddedSuccinctDecoupled5SAT(C5,index_blocks=(X1[m],...,X5[m]),...)
 TseitinFormula(formula, input_blocks, gate_block=W[s], occurrences)
 ```
 
-`C5(x1,...,x5,o1,...,o5)=1` exactly when the clause `x1[x1]^o1 or ... or x5[x5]^o5` is present. The five possibly unequal index blocks and
+Every relation compiler (`cook_levin`, `decouple5`, `pad5`) carries a `gate_budget` and returns `CompilationRefused(gates, budget)` without
+partial output when the compiled relation circuit exceeds it, the way the arithmetization returns `ExpansionRefused` (1.3); the refusal is
+driven by `test/tb3_frontend.jl` (e) at budget 0. `C5(x1,...,x5,o1,...,o5)=1` exactly when the clause `x1[x1]^o1 or ... or x5[x5]^o5` is present. The five possibly unequal index blocks and
 five sign bits are structural fields, not a naming convention; this is the paper's decoupled clause shape
 (`gt-10-answer-reduction.tex:L920-L979`). Equal `m`-bit blocks are the explicitly padded specialization supplied by
 `prop:explicit-padded-succinct-deciders` (`gt-10-answer-reduction.tex:L1226-L1246`). The full formula `phi_C` is intentionally not
@@ -170,6 +200,7 @@ Arithmetization is multilinear in leaf occurrences, hence
 | decoupled five-block clause form               | CONSTRUCTED    | fixed product type          |
 | trace/formula faithfulness on a finite fixture | CHECKED        | exhaustive table            |
 | general Cook--Levin faithfulness/size          | CITED          | cited proposition leaf      |
+| general Cook--Levin locality                   | ASSUMED        | fixture uses an enumerated per-field function fit |
 | per-variable formula occurrences               | CHECKED        | formula-tree traversal      |
 | `deg_v(arith_q(F)) <= occurrences[v]`           | CHECKED        | structural derivation       |
 
@@ -745,7 +776,11 @@ removed). The r3 critic measured the cold image build at 97 s with the workload 
 cold. The cold figure is printed by `tools/cold_precompile.sh`, which builds the image in a scratch depot. The r3 pair is the
 with/without-workload delta; for the r4 workload (which added the borrowed-certificate refusal, the `ev_z` refusal and the GF(2^11)
 encoding paths), `tools/cold_precompile.sh` measures 124.4 s (critic r4) / 128.5 s (proposer r4); with the TB3 front-end workload of
-`src/frontend/precompile_frontend.jl` added (brief 23) the same command measures 188.2 s.
+`src/frontend/precompile_frontend.jl` added (brief 23) the same command measures 188.2 s. These figures are load- and
+governor-sensitive by more than a factor of two: the TB3 critic measured 182.7 / 264.3 / 311.4 s for the same build under load 2.6–7.7
+(`verdicts/tb3-r1.md` §0), and after brief 63 (TB3 repair r1, the same workload plus the (h) prerequisites) the command measures **89.4 s**
+with the CPU governor at `performance` and load ≈ 3 from other processes; a cold figure is only comparable to another taken under the same
+governor and a reported `uptime`.
 
 TB0 uses a real circuit on `(x_1,...,x_5,o_1,...,o_5)`, with exactly six gates, all fan-in at most two:
 
@@ -930,18 +965,28 @@ seeded coverage on triggering guards; never remove branch-directed checks.
 
 ### 5.5 TB3 — quoted front end
 
-Use the closed program `lambda n x y a b. true`, fuel `T=1`, and an explicit accepting one-transition trace. The intentionally small honest
-front end emits a decoupled relation extensionally equal to TB0's 128-clause relation and compiles it to TB0's six-gate circuit. This is not
-claimed to meet the asymptotic construction of `prop:explicit-padded-succinct-deciders`.
+Use the closed program `lambda n x y a b. true`, body fuel `T=1` (`T` counts body transitions under the implemented charge table of 1.1;
+`eval(D,u;T+2)` installs the argument frame), and an explicit accepting one-transition trace (2 rows). The intentionally small honest front
+end emits, for this decider, a 3SAT with `m=1`, `M=2` and one clause family (16/64 present), a decoupled 5SAT with widths `(0,0,1,1,1)`
+and one clause, and the padded circuit `m=1`, `s=6`, `m'=16`: one live gate `AND(x_3,o_3)` plus five **dead** `NOT` gates (a chain dangling
+off the output, the output unchanged, contributing Tseitin variables but nothing to `C`). Its relation has 256/1024 present signed index
+tuples and 512/1024 `phi_C` witnesses. This is NOT TB0's six-gate circuit and not its 128-clause relation: the front-end normalization does
+not preserve the TB0 fixture, so TB3's PCP evidence rests on a different circuit from TB0's (the five `g_i` stay non-constant with
+`dependency_coordinates(g_i) = {i}`, so TB2's block-locality evidence survives: 7/7 guard cases). It is not claimed to meet the asymptotic
+construction of `prop:explicit-padded-succinct-deciders`; obligation 1, `2^m >= 2T`, is a construction step (`pad5` widens `m`).
 
-Exhaustively compare program result, bounded-trace acceptance, the small 3SAT relation, the 128/896 decoupled relation table, and all 1,024
-witnesses. Feed the generated—not hard-coded—circuit and both retained witnesses into TB0's Tseitin/PCP builder; feed only witness (ii) into
-TB2's typed decider. Assert canonical quote-size propagation and print every intermediate object. Mutate the accepting transition to
-rejecting without changing the formula; trace/formula equivalence must fail before PCP construction.
+Exhaustively compare program result, bounded-trace acceptance, the small 3SAT relation, the 256/1024 decoupled relation table, and all 1,024
+witnesses. Feed the generated—not hard-coded—circuit and both retained witnesses into TB0's Tseitin/PCP builder through `build_pcp`'s
+upstream-evidence slot (the front-end certificate is bound by identity to the proof's Tseitin formula; a borrowed front-end certificate is
+refused at its `:Pad5` node with `:certificate_binding` before any PCP certificate exists); feed only witness (ii) into TB2's typed decider.
+Assert canonical quote-size propagation and print every intermediate object. Mutate the accepting transition to rejecting without changing
+the formula; trace/formula equivalence must fail before PCP construction. The equality decider `lambda n x y a b. (a == b)` (`T=3` under
+the same charge table: two lookups and one primitive) is the discriminating fixture for "satisfiable iff `D` accepts" (the trivial decider
+accepts on all four answer pairs) and the growth snapshot: `m=3`, live 423, `s=492`, `m'=512`, refused by `arith_q` with
+`ExpansionRefused(279,936 > 160,000)`; it never reaches `build_pcp`.
 
-Expected `c_0` candidates remain at most 148,176 for witness (i) and 2,370,816 for witness (ii); their predicted per-multiplication peaks
-are 54,978 and 788,032, respectively, so the 160,000 and 2,500,000 budgets fit. Both actual supports, elapsed times, and peak memory are
-measured. Confidence is medium: measure whether the front-end circuit normalization preserves the exact six-gate fixture before proceeding.
+Actual `c_0` supports are 10,140 for witness (i) and 162,240 for witness (ii) under the 160,000 and 2,500,000 budgets; elapsed times and
+peak memory are measured. The front-end circuit normalization does not preserve the exact six-gate TB0 fixture (measured, brief 23/63).
 
 ### 5.6 TB4 — `Compress` skeleton and quoted fixed point
 

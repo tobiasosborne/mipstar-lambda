@@ -177,6 +177,38 @@ function _bind_evidence(checked::Checked, tf, gs::NTuple{5,Poly}, c0::Poly,
     _bind_certificate(checked.certificate, term, anchor, locate)
 end
 
+# Upstream description evidence (API request 1 of briefs/23-tb3.last.md;
+# verdicts/tb3-r1.md N2): the front end that generated the circuit `tf` was
+# built from. It is not a component of the proof, so it is bound two ways:
+# at build time its circuit must reproduce `tf` through `tseitin` and its
+# certificate must verify against its own term (a borrowed certificate is
+# refused here, before any PCP certificate exists); at replay the
+# `:UpstreamEvidence` node recomputes that reproduction against the
+# attached proof and its subtree is reached only from a proof whose `tf` is
+# that very formula (`_bind_certificate`).
+"The circuit an upstream evidence term compiled to; front ends extend this."
+upstream_circuit(term) =
+    throw(ArgumentError("PCP upstream evidence of type $(typeof(term)) names no circuit"))
+
+_same_tseitin(a::TseitinFormula, b::TseitinFormula) =
+    all(getfield(a, name) == getfield(b, name) for name in fieldnames(TseitinFormula))
+
+function _bind_upstream(checked::Checked, tf::TseitinFormula)
+    circuit = upstream_circuit(checked.term)
+    _same_tseitin(tseitin(circuit).term, tf) ||
+        throw(ArgumentError("PCP upstream evidence did not generate the proof's Tseitin formula"))
+    result = verify_certificate(checked)
+    passed(result) ||
+        throw(ArgumentError("PCP upstream evidence does not verify against its term: $(result.rule) at $(result.location)"))
+    CertNode(CHECKED, :UpstreamEvidence;
+        facts=(display="front-end evidence of the attached proof: tseitin(circuit) reproduces tf ($(circuit.gate_count) gates)",),
+        children=(_bind_certificate(checked.certificate, checked.term, tf, proof -> proof.tf),),
+        replay=proof -> CheckResult(proof.tf === tf && _same_tseitin(tseitin(circuit).term, proof.tf),
+                                    :certificate_binding; location=:UpstreamEvidence,
+                                    expected=:generated_formula,
+                                    actual=(proof.tf === tf ? :attached : :borrowed)))
+end
+
 function _replay_pcp_verifier(proof::PCPProof)
     isempty(proof.certified_views) &&
         return CheckResult(false, :pcpverifier_replay;
@@ -220,7 +252,8 @@ end
 
 function build_pcp(tf::TseitinFormula{N}, gs::NTuple{5,Poly{F,N}},
                    c0::Poly{F,N}, decomposition_checked::Checked, d::Int,
-                   certified_points::Tuple, evidence::Tuple) where {F,N}
+                   certified_points::Tuple, evidence::Tuple;
+                   upstream::Tuple=()) where {F,N}
     decomposition = decomposition_checked.term
     cs = decomposition.quotients
     length(cs) == N || throw(ArgumentError("zero-basis tuple has wrong arity"))
@@ -228,10 +261,11 @@ function build_pcp(tf::TseitinFormula{N}, gs::NTuple{5,Poly{F,N}},
     bare = PCPProof(gs, c0, typed_cs, decomposition, d, tf, ())
     proof = PCPProof(gs, c0, typed_cs, decomposition, d, tf,
                      _certified_views(bare, certified_points))
-    upstream = isempty(evidence) ? _pcp_upstream_nodes(c0, decomposition) :
-               map(checked -> _bind_evidence(checked, tf, gs, c0, decomposition),
-                   evidence)
-    _certify_pcp(proof, upstream,
+    upstream_nodes = map(checked -> _bind_upstream(checked, tf), upstream)
+    evidence_nodes = isempty(evidence) ? _pcp_upstream_nodes(c0, decomposition) :
+                     map(checked -> _bind_evidence(checked, tf, gs, c0, decomposition),
+                         evidence)
+    _certify_pcp(proof, (upstream_nodes..., evidence_nodes...),
                  "polynomials = $(N + 6); d = $(d); sparse terms are authoritative")
 end
 

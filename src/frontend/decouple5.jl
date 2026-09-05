@@ -201,23 +201,48 @@ function decouple5(sat3::Checked{Succinct3SAT}; gate_budget::Int=4096)
     d = _build_decoupled(sat3.term; gate_budget)
     d isa CompilationRefused && return d
     raw = CertNode(ASSUMED, :RawAnswerBlocks;
-        facts=(display="answer blocks read as raw bits of widths $(length(sat3.term.answer_variables.a)), $(length(sat3.term.answer_variables.b)); enc_Gamma format and (10)^(L/2-T) padding clauses of gt-10:1036-1130 not emitted",))
+        facts=(display="answer blocks read as raw bits of widths $(length(sat3.term.answer_variables.a)), $(length(sat3.term.answer_variables.b)); enc_Gamma format and (10)^(L/2-T) padding clauses of gt-10:1036-1130 not emitted; (4) C19's 2F reserved bits per answer block not reserved",))
+    # verdicts/tb3-r1.md N8: prop:explicit-succinct-deciders (gt-10:1046-1060)
+    # emits the equality pair for EVERY index; this fixture emits it only
+    # for variables occurring in >= 2 slots (satisfiability-preserving: a
+    # single-slot variable needs no copy).
+    multi = sum(length(slots) >= 2 for slots in values(_slots_of(d)); init=0)
+    omitted = CertNode(ASSUMED, :PerIndexEqualityGadgets;
+        facts=(display="equality gadgets u_3 = u_4 = u_5 emitted for the $(multi) multi-slot variables only; the per-index pairs (i_3 = i_4, o_3 != o_4) and (i_4 = i_5, o_4 != o_5) of gt-10:1046-1060 are omitted for the $((1 << d.index_widths[3]) - multi) remaining indices of the u-blocks (satisfiability unchanged: a single-slot variable is read once)",))
     _, mode, count = _check_relation(d.circuit, (i, s) -> clause_present5(d, i, s), d.index_widths, 5)
     node = CertNode(CHECKED, :Decouple5;
         facts=(display="widths = $(d.index_widths); clauses = $(length(d.clauses)) (formula $(d.formula_clauses), copy $(d.copy_gadgets), equality $(d.equality_gadgets)); circuit gates = $(d.circuit.gate_count); relation check = $(mode) ($(count)); fnv1a64 = $(quote_hash(sat3.term.trace.program))",),
-        children=(sat3.certificate, raw),
-        replay=x -> _replay_decouple5(x isa SuccinctDecoupled5SAT ? x : d))
+        children=(_relocate(sat3.certificate, x -> x isa SuccinctDecoupled5SAT ? x.source : nothing), raw, omitted),
+        replay=_bound_replay(d, :Decouple5, _replay_decouple5))
     Checked(d, node)
+end
+
+# Slots (1 = a-copy, 2 = b-copy, k = 3SAT literal k) in which each retained
+# 3SAT variable occurs, as used for the equality-gadget decision.
+function _slots_of(d::SuccinctDecoupled5SAT)
+    slots_of = Dict{Int,Set{Int}}()
+    for template in d.source.clauses, (k, slot) in enumerate(template.slots)
+        slot === nothing || push!(get!(slots_of, slot[1], Set{Int}()), k)
+    end
+    answer = d.source.answer_variables
+    for v in vcat(answer.a, answer.b)
+        v > 0 && push!(get!(slots_of, v, Set{Int}()), 1)
+    end
+    slots_of
 end
 
 # ---------------------------------------------------------------------------
 # Padding (prop:explicit-padded-succinct-deciders, gt-10:1226-1246): equal
-# m-bit blocks and a gate count s with 5m + 5 + s a power of two. The
-# padding gates are a dangling NOT chain off the output; the output is
-# unchanged.
+# m-bit blocks with 2^m >= 2T (obligation 1), and a gate count s with
+# 5m + 5 + s a power of two. The padding gates are DEAD: a NOT chain
+# dangling off the output, the output itself unchanged, so they add Tseitin
+# variables but nothing to C.
+
+_padded_width(d::SuccinctDecoupled5SAT) =
+    max(maximum(d.index_widths), _code_width(2 * d.source.trace.T))
 
 function _build_padded(d::SuccinctDecoupled5SAT; gate_budget::Int=4096)
-    m = maximum(d.index_widths)
+    m = _padded_width(d)
     widths = ntuple(_ -> m, 5)
     live = compile_relation(d.clauses, widths, 5; prefix=:X, gate_budget)
     live isa CompilationRefused && return live
@@ -243,13 +268,15 @@ function _replay_pad5(p::PaddedSuccinctDecoupled5SAT)
         return CheckResult(false, :pad_reconstruction; expected=(rebuilt.m, rebuilt.s),
                            actual=(p.m, p.s))
     layout = p.circuit.input_layout
+    T = p.source.source.trace.T
     shape_ok = ispow2(p.m_prime) && p.m_prime == 5p.m + 5 + p.s &&
-               p.circuit.gate_count == p.s && p.m == maximum(p.source.index_widths) &&
+               p.circuit.gate_count == p.s && p.m == _padded_width(p.source) &&
+               (1 << p.m) >= 2T &&
                all(length(layout.blocks[k].coordinates) == p.m for k in 1:5) &&
                length(layout.names) == 5p.m + 5
     shape_ok || return CheckResult(false, :padded_shape;
-                                   expected=(m=p.m, s=p.s, m_prime=5p.m + 5 + p.s),
-                                   actual=(gates=p.circuit.gate_count, m_prime=p.m_prime))
+                                   expected=(m=p.m, s=p.s, m_prime=5p.m + 5 + p.s, two_T=2T),
+                                   actual=(gates=p.circuit.gate_count, m_prime=p.m_prime, two_to_m=1 << p.m))
     ok, mode, count = _check_relation(p.circuit, (i, s) -> clause_present5(p.source, i, s), _widths5(p), 5)
     ok || return CheckResult(false, :relation_circuit; expected=mode, actual=count)
     CheckResult(true, :pad5_replay; expected=mode, actual=count)
@@ -260,12 +287,17 @@ function pad5(sat5::Checked{SuccinctDecoupled5SAT}; gate_budget::Int=4096)
     p = _build_padded(sat5.term; gate_budget)
     p isa CompilationRefused && return p
     _, mode, count = _check_relation(p.circuit, (i, s) -> clause_present5(p.source, i, s), _widths5(p), 5)
+    T = sat5.term.source.trace.T
     node = CertNode(CHECKED, :Pad5;
-        facts=(display="m = $(p.m); s = $(p.s) (live $(p.live_gates), padding $(p.s - p.live_gates) NOT gates); m' = 5m + 5 + s = $(p.m_prime); relation check = $(mode) ($(count)); fnv1a64 = $(quote_hash(p.source.source.trace.program))",),
-        children=(sat5.certificate,),
-        replay=x -> _replay_pad5(x isa PaddedSuccinctDecoupled5SAT ? x : p))
+        facts=(display="m = $(p.m) (2^m = $(1 << p.m) >= 2T = $(2T)); s = $(p.s) (live $(p.live_gates), padding $(p.s - p.live_gates) dead NOT gates off the unchanged output); m' = 5m + 5 + s = $(p.m_prime); relation check = $(mode) ($(count)); fnv1a64 = $(quote_hash(p.source.source.trace.program))",),
+        children=(_relocate(sat5.certificate, x -> x isa PaddedSuccinctDecoupled5SAT ? x.source : nothing),),
+        replay=_bound_replay(p, :Pad5, _replay_pad5))
     Checked(p, node)
 end
+
+# The upstream-evidence hook of build_pcp (src/verifiers/pcp.jl): the
+# padded object's circuit is what the proof's Tseitin formula was built from.
+upstream_circuit(p::PaddedSuccinctDecoupled5SAT) = p.circuit
 
 # ---------------------------------------------------------------------------
 # Witness tables and the PCP graft.
@@ -303,9 +335,12 @@ end
     frontend_pcp(padded, F, d, tables, budget, certified_points)
 
 TB0's PCP pipeline (tseitin, arith_q, g_a, build_c0, zero_basis_decompose,
-build_pcp) on the GENERATED circuit, with the front-end certificate grafted
-under the :Tseitin evidence node so the quote hash and |D| propagate into
-the PCP certificate. Returns the same fields as `build_pcp_fixture`.
+build_pcp) on the GENERATED circuit, with the front-end certificate passed
+through `build_pcp`'s upstream-evidence slot (bound to the proof's Tseitin
+formula, verdicts/tb3-r1.md N2) so the quote hash and |D| propagate into the
+PCP certificate. A borrowed front-end certificate is refused there with
+`ArgumentError` naming `:certificate_binding` at its front-end node, before
+any PCP certificate exists. Returns the same fields as `build_pcp_fixture`.
 """
 function frontend_pcp(padded::Checked{PaddedSuccinctDecoupled5SAT}, ::Type{F}, d::Int,
                       tables::NTuple{5,<:Tuple}, budget::MonomialBudget,
@@ -313,10 +348,6 @@ function frontend_pcp(padded::Checked{PaddedSuccinctDecoupled5SAT}, ::Type{F}, d
     circuit = padded.term.circuit
     tf_checked = tseitin(circuit)
     tf = tf_checked.term
-    grafted = Checked(tf, CertNode(CHECKED, :Tseitin;
-        facts=tf_checked.certificate.facts,
-        children=(tf_checked.certificate.children..., padded.certificate),
-        replay=tf_checked.certificate.replay))
     variable_count = length(tf.layout.names)
     farith_checked = arith_q(tf, F, budget)
     farith_checked isa ExpansionRefused && return farith_checked
@@ -330,8 +361,9 @@ function frontend_pcp(padded::Checked{PaddedSuccinctDecoupled5SAT}, ::Type{F}, d
     c0_checked = build_c0(farith_checked.term, gs, budget)
     c0_checked isa ExpansionRefused && return c0_checked
     decomposition = zero_basis_decompose(c0_checked.term, 1:variable_count)
-    evidence = (grafted, farith_checked, gs_checked..., c0_checked, decomposition)
-    proof = build_pcp(tf, gs, c0_checked.term, decomposition, d, certified_points, evidence)
+    evidence = (tf_checked, farith_checked, gs_checked..., c0_checked, decomposition)
+    proof = build_pcp(tf, gs, c0_checked.term, decomposition, d, certified_points, evidence;
+                      upstream=(padded,))
     (; circuit, tf, farith=farith_checked.term, gs, c0=c0_checked.term,
        decomposition=decomposition.term, proof=proof.term, certificate=proof.certificate)
 end

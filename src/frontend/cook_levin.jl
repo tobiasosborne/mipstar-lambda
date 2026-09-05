@@ -529,12 +529,14 @@ end
 function cook_levin(trace::Checked{BoundedTrace}; gate_budget::Int=4096)
     f = _build_3sat(trace.term; gate_budget)
     f isa CompilationRefused && return f
+    # The CITED leaf names every departure from the general construction
+    # (verdicts/tb3-r1.md N4): this is a fixture-only surrogate.
     general = CertNode(CITED, :CookLevinGeneral;
-        facts=(display="prop:standard-succinct-sat (gt-10:237-273) / analytic thm:l-succinct-sat: field alphabets enumerated over all $(length(_answer_inputs(trace.term.input))) answer inputs, not decoded from an O(log T + log sigma)-bit window; enc_Gamma answer format not enforced (raw answer bits)",))
+        facts=(display="prop:standard-succinct-sat (gt-10:237-273) / analytic thm:l-succinct-sat, fixture-only surrogate: (1) transition constraints are a per-field function fit, one implication per support key OBSERVED across the $(length(_answer_inputs(trace.term.input))) enumerated answer inputs (greedily minimised; off-table keys unconstrained), not a window function omega; (2) no initialisation clauses: row 0 is fixed only because its field alphabets are singletons; (3) no fuel counter, head marker, endmarker, track structure or radius-one window (lem:transition-window has no executable counterpart); field alphabets enumerated from the inputs, not decoded from an O(log T + log sigma)-bit window",))
     _, mode, count = _check_relation(f.circuit, (i, s) -> clause_present(f, i, s), _widths3(f), 3)
     node = CertNode(CHECKED, :CookLevin;
         facts=(display="m = $(f.index_width); M = $(f.variable_count); clauses = $(length(f.clauses)); rows = $(f.tableau.rows); raw = $(f.tableau.raw_clauses); aux = $(f.tableau.aux); eliminated = $(f.tableau.eliminated); circuit gates = $(f.circuit.gate_count); relation check = $(mode) ($(count)); fnv1a64 = $(quote_hash(trace.term.program))",),
-        children=(trace.certificate, general),
-        replay=x -> _replay_cook_levin(x isa Succinct3SAT ? x : f))
+        children=(_relocate(trace.certificate, x -> x isa Succinct3SAT ? x.trace : nothing), general),
+        replay=_bound_replay(f, :CookLevin, _replay_cook_levin))
     Checked(f, node)
 end

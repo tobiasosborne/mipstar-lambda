@@ -209,6 +209,8 @@ include("tb3_size.jl")
 include("tb3_fuel.jl")
 include("tb3_decouple.jl")
 include("tb3_closure.jl")
+# verdicts/tb3-r1.md N1, N2, N5-N7 and the TB4 prerequisites (brief 63).
+include("tb3_r1.jl")
 
 const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_DEG_MUTANT, TB1_LEVEL_MUTANT,
@@ -237,7 +239,7 @@ const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_DECIDER_GUARD_WIDENED_MUTANT,
                      TB2_GLOBAL_CONSISTENCY_FIRST_ENTRY_MUTANT)
 const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
-                     TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT)
+                     TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT, TB3_R1_MUTANTS...)
 
 function _rung(mutant::Mutant)
     startswith(mutant.target, "tb3_") && return (:tb3, "tb3_frontend.jl",

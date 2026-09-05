@@ -14,7 +14,7 @@ let
     quoted = quote_program(trivial; sort=:Decider)
     decode_program(canonical_bytes(quoted.term))
     verify_certificate(quoted)
-    for term in (Fix(Eval(Hole(:self_code, :Quoted), (), FuelLiteral(7))),
+    for term in (Fix(Eval(Hole(:self_code, :Program), (), FuelLiteral(7))),
                  Prim(:halts_within, Opaque("n steps", (:n,)), (Prim(1, Concrete(1), ()),)),
                  Specialize(Quote(trivial), (:flag => Prim(true, Concrete(1), ()),)),
                  If(Prim(true, Concrete(1), ()), Prim(Bool[true], Concrete(1), ()), Prim(false, Concrete(1), ())))
@@ -26,7 +26,7 @@ let
     eval_program(trivial, input, 3)
     eval_program(trivial, input, 2)
     eval_program(equality, input, 5)
-    eval_program(Fix(Eval(Hole(:self_code, :Quoted), (), FuelLiteral(4_000_000_000))), (), 50)
+    eval_program(Fix(Eval(Hole(:self_code, :Program), (), FuelLiteral(4_000_000_000))), (), 50)
     eval_program(Apply(Prim(true, Concrete(1), ()), ()), (), 5)
     eval_quoted(quoted.term, input, 100)
     literal_args = (Prim(1, Concrete(1), ()), Prim(Bool[], Concrete(1), ()),

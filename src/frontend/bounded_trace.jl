@@ -23,8 +23,6 @@ struct BoundedTrace
     accepts::Bool
 end
 
-const DECIDER_ARITY = 5
-
 function _check_decider_input(input::Tuple)
     (length(input) == DECIDER_ARITY && input[1] isa Int &&
      all(v -> v isa Vector{Bool}, input[2:5])) ||
@@ -177,11 +175,13 @@ function _replay_trace(t::BoundedTrace)
                 actual=(rows=length(t.configurations), result=_result_key(t.result), accepts=t.accepts))
 end
 
+# The quote node is relocated to the trace's program: bound by identity
+# through BoundedTrace.program (see _bound_replay in src/ir/programs.jl).
 function _trace_certificate(t::BoundedTrace, quote_node::CertNode)
     CertNode(CHECKED, :BoundedTrace;
-        facts=(display="T = $(t.T) body transitions (eval fuel T + 2); rows = $(length(t.configurations)); result = $(t.result); accepts = $(t.accepts); fnv1a64 = $(quote_hash(t.program))",),
-        children=(quote_node,),
-        replay=x -> _replay_trace(x isa BoundedTrace ? x : t))
+        facts=(display="T = $(t.T) body transitions (eval fuel T + 2; the implemented charge table of DESIGN 1.1, not part2a 8.3's); rows = $(length(t.configurations)); result = $(t.result); accepts = $(t.accepts); fnv1a64 = $(quote_hash(t.program))",),
+        children=(_relocate(quote_node, x -> x isa BoundedTrace ? x.program : nothing),),
+        replay=_bound_replay(t, :BoundedTrace, _replay_trace))
 end
 
 "bounded_trace(D, input, T) :: Checked{BoundedTrace, TraceCert} (DESIGN 2)."

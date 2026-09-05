@@ -25,12 +25,13 @@ include("frontend/decouple5.jl")
 include("traceprint.jl")
 
 export Program, BoundExpr, Concrete, Opaque, Fuel, FuelLiteral, FuelBound,
-       BoundVar, Hole, Lambda, Apply, Fix, If, Prim, Quote, Eval, Specialize,
+       BoundVar, Hole, Lambda, Apply, Fix, YCode, If, Prim, Quote, Eval, Specialize,
        is_closed, is_scoped, holes, substitute, term_bytes, term_size,
        decode_term, program_equal, Quoted, decode_program, program, quote_hash,
        quote_program, specialize, Closure, Code, Value, OutOfFuel, SortError,
        Aborted, encoded_size, eval_overhead, eval_program, eval_quoted,
-       program_label, value_label, PRIMITIVES
+       program_label, value_label, PRIMITIVES, DECLARED_SORTS, FUNCTION_SORTS,
+       sort_of, Verifier
 
 export TraceRow, BoundedTrace, bounded_trace, Clause3, Tableau, Succinct3SAT,
        CompilationRefused, dpll, compile_relation, relation_input, relation_tuples,
@@ -87,7 +88,7 @@ export ORACULAR_ROLES, AnswerReduceType, trivial_original_sampler,
 
 export PredicateStatus, PASS, FAIL, NOT_EVALUABLE, PCPParams, ParameterPolicy,
        parameter_policy, policy_vector, minimal_checkable_odd_k,
-       PCPProof, PCPView, build_c0, build_pcp, ev_z, pcpverifier
+       PCPProof, PCPView, build_c0, build_pcp, ev_z, pcpverifier, upstream_circuit
 
 export TrivialOriginalVerifier, TypedAnswerReducedDecider,
        TypedAnswerReducedVerifier, CitedDetypedVerifier,

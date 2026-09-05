@@ -24,6 +24,20 @@ tb3_false() = Prim(:false, Concrete(1), ())
 tb3_trivial() = Lambda(5, tb3_true())
 # lambda n x y a b . (a == b): the two-argument equality decider.
 tb3_equality() = Lambda(5, Prim(:eq, Concrete(1), (BoundVar(0, 3), BoundVar(0, 4))))
+# lambda n x y a b . true with an Opaque bound on the literal: T = 1, the same
+# trace shape and padded relation as the trivial decider, but |D| = 45 and a
+# different hash (N2's fixture B, lambda n x y a b . not(false) at T = 2, no
+# longer pads to the same object: 2^m >= 2T now forces m = 2 for T = 2).
+tb3_twin() = Lambda(5, Prim(true, Opaque("one step", ()), ()))
+tb3_not_false() = Lambda(5, Prim(:not, Concrete(1), (tb3_false(),)))
+tb3_nat(n::Int) = Prim(n, Concrete(1), ())
+tb3_bits(s::String) = Prim(Bool[c == '1' for c in s], Concrete(1), ())
+# MachineDesc literals (src/ir/programs.jl `_is_machine_desc`): entry
+# (state, symbol) at bit offset 4(2s+b) = (write, right?, next_hi, next_lo),
+# next >= S halts. M_3 walks 0 -> 1 -> 2 -> halt in exactly three steps;
+# M_loop (DESIGN 12.6) never leaves state 0.
+tb3_machine_halt3() = tb3_bits("1101" * "0100" * "1110" * "0100" * "1111" * "0100")
+tb3_machine_loop() = tb3_bits("0100" * "0100" * "0100" * "0100")
 
 function tb3_pipeline(decider::Program, T::Int, key::Symbol)
     get!(TB3_CACHE, key) do
@@ -94,7 +108,7 @@ if tb3_runs("tb3_quote")
         gallery = (
             BoundVar(0, 4), Hole(:self_code, :Quoted), Lambda(2, BoundVar(0, 1)),
             Apply(Lambda(1, BoundVar(0, 0)), (Prim(3, Concrete(1), ()),)),
-            Fix(Eval(Hole(:self_code, :Quoted), (), FuelLiteral(7))),
+            Fix(Eval(Hole(:self_code, :Program), (), FuelLiteral(7))),
             If(tb3_true(), Prim(Bool[true, false], Concrete(1), ()), tb3_false()),
             Prim(:halts_within, Opaque("n steps", (:n,)), (Prim(1, Concrete(1), ()),)),
             Quote(tb3_trivial()),
@@ -124,7 +138,11 @@ if tb3_runs("tb3_quote")
         @test_throws ArgumentError Quote(Lambda(1, BoundVar(0, 1)))
         @test_throws ArgumentError Quote(Lambda(5, Hole(:h, :Bit)))
         @test_throws ArgumentError quote_program(Hole(:h, :Bit))
-        @test Quote(Lambda(1, BoundVar(0, 0))) isa Quote
+        @test Quote(Lambda(1, BoundVar(0, 0)), :Sampler) isa Quote
+        # Quote(code, sort) carries the A of Quoted{A} and checks it against
+        # the term's shape: a one-argument Lambda is no Decider.
+        @test_throws ArgumentError Quote(Lambda(1, BoundVar(0, 0)))
+        @test_throws ArgumentError Quote(tb3_trivial(), :Undeclared)
 
         # Specialize: capture-free hole substitution with the exact size
         # identity |Specialize(P,s)| = |P| - sum|Hole| + sum|s(h)| (C16).
@@ -143,6 +161,20 @@ if tb3_runs("tb3_quote")
         # The affine-hole discipline: a hole name occurs at most once.
         @test_throws ArgumentError specialize(
             If(Hole(:flag, :Bit), Hole(:flag, :Bit), tb3_true()), (:flag => tb3_true(),))
+        # Fix binds self_code: it is never a specialization hole, and a Fix
+        # body carries no other hole (constructor), so every other hole is
+        # closed BEFORE Fix (host `substitute` of the open body, then
+        # Fix/YCode, then quote_program); specialize(Fix(P), {}) is the
+        # identity under the size law (DESIGN 1.1 contract note).
+        open_body = Lambda(5, If(Hole(:flag, :Bit), tb3_true(),
+                                 Eval(Hole(:self_code, :Decider), (), FuelLiteral(1))))
+        @test_throws ArgumentError Fix(open_body)
+        closed_fix = YCode(substitute(open_body, Dict{Symbol,Program}(:flag => tb3_true())))
+        @test closed_fix isa Fix && is_closed(closed_fix)
+        @test_throws ArgumentError specialize(closed_fix, (:self_code => Quote(closed_fix),))
+        identity = specialize(closed_fix, ())
+        @test program_equal(program(identity.term), closed_fix)
+        @test passed(verify_certificate(identity))
 
         # A runtime closure is a value, never a description: bounded_trace
         # refuses it (DD-1) instead of tracing its body.
@@ -189,7 +221,7 @@ if tb3_runs("tb3_eval")
         # Fix ties self_code to Quote(Fix(P)) (DESIGN 1.1): the term that
         # re-evaluates its own quote forever returns OutOfFuel under every
         # finite fuel, without a host exception, and within a hard step cap.
-        loop = Fix(Eval(Hole(:self_code, :Quoted), (), FuelLiteral(4_000_000_000)))
+        loop = Fix(Eval(Hole(:self_code, :Program), (), FuelLiteral(4_000_000_000)))
         seconds = @elapsed looped = eval_program(loop, (), 300)
         println("MUTATION_EXPECTED_RULE fuel_bound looped=", typeof(looped.result),
                 " starved=", typeof(eval_program(trivial, TB3_INPUT, 2).result))
@@ -197,9 +229,18 @@ if tb3_runs("tb3_eval")
         @test looped.used == 300
         @test seconds < 5
         # Fix with a terminating body: the fixed point of the trivial body.
-        fixed = Fix(Lambda(5, If(tb3_true(), tb3_true(), Eval(Hole(:self_code, :Quoted), (), FuelLiteral(1)))))
+        fixed = Fix(Lambda(5, If(tb3_true(), tb3_true(), Eval(Hole(:self_code, :Decider), (), FuelLiteral(1)))))
         @test eval_program(fixed, TB3_INPUT, 10).result.value === true
         @test_throws ArgumentError Fix(tb3_true())
+        # The unfolding charges c_Y = 3 exactly (part2a 8.3, C18): the fixed
+        # point uses three units more than its self_code-substituted body.
+        unfolded = substitute(fixed.body, Dict{Symbol,Program}(:self_code => Quote(fixed)))
+        @test eval_program(fixed, TB3_INPUT, 10).used == eval_program(unfolded, TB3_INPUT, 10).used + 3
+        @test eval_program(fixed, TB3_INPUT, 10).used == 8
+        @test eval_program(fixed, TB3_INPUT, 7).result isa OutOfFuel
+        # The host step cap is a guard outside the semantics: it must not
+        # be below the fuel (DESIGN 1.1, verdicts/tb3-r1.md N9).
+        @test_throws ArgumentError eval_program(trivial, TB3_INPUT, 3; hard_cap=2)
         # Quote/Eval equation with explicit overhead (C16, part2a Theorem
         # quote-eval): Eval_L(Quote(t), u; f + h(d,u)) = eval_L(t, u; f)
         # with h(d,u) = 3 + |d| + |enc(u)|, the left side using exactly
@@ -272,10 +313,14 @@ if tb3_runs("tb3_trace")
         @test padded.accepts && length(padded.configurations) == 5
         @test all(row.outcome == :accept for row in padded.configurations[2:end])
         # The trace is replayed from the bytes: a trace whose stored
-        # acceptance disagrees with its own rows is refused.
+        # acceptance disagrees with its own rows is refused by the checker,
+        # and the certificate (bound by identity to its own trace) refuses
+        # the tampered copy outright.
         flipped = BoundedTrace(term.program, term.input, term.T, term.configurations,
                                term.result, !term.accepts)
-        @test !passed(trace.certificate.replay(flipped))
+        @test !passed(MIPStarLambda._replay_trace(flipped))
+        tampered = verify_certificate(Checked(flipped, trace.certificate))
+        @test !passed(tampered) && tampered.rule == :certificate_binding
         # The equality decider needs three body transitions (two lookups,
         # one primitive): T = 2 is out of fuel, T = 3 decides a == b.
         equality = quote_program(tb3_equality(); sort=:Decider)
@@ -283,6 +328,38 @@ if tb3_runs("tb3_trace")
         @test bounded_trace(equality, tb3_input(true, true), 2).term.result isa OutOfFuel
         @test bounded_trace(equality, tb3_input(true, true), 3).term.accepts
         @test !bounded_trace(equality, tb3_input(true, false), 3).term.accepts
+        # verdicts/tb3-r1.md N1: the row CONTENTS are pinned (the Cook-Levin
+        # fields of each configuration of the equality run on (a,b) = (1,0)
+        # at T = 3): control (program point 2 = Prim(eq), then the looked-up
+        # values), the pending prim frame k1 with its evaluated values, the
+        # fuel and the outcome flag.
+        erows = bounded_trace(equality, TB3_INPUT, 3).term.configurations
+        expected_rows = [
+            ("Prim(eq)", 3, :running,
+             [:control => (:point, 2), :outcome => :running]),
+            ("Value([1])", 2, :running,
+             [:control => (:value, (:bits, (true,))), :k1 => (:seq, :prim, (:point, 2), 0, 2),
+              :outcome => :running]),
+            ("Value([0])", 1, :running,
+             [:control => (:value, (:bits, (false,))), :k1 => (:seq, :prim, (:point, 2), 1, 2),
+              :k1v1 => (:bits, (true,)), :outcome => :running]),
+            ("Value(false)", 0, :reject,
+             [:control => (:value, (:bool, false)), :outcome => :reject])]
+        println("MUTATION_EXPECTED_RULE trace_rows row1_control=", repr(erows[2].fields[1][2]),
+                " row2_keys=", repr(first.(erows[3].fields)))
+        @test length(erows) == 4
+        rows_ok = true
+        for (row, (control, fuel, outcome, fields)) in zip(erows, expected_rows)
+            rows_ok &= row.control == control && row.fuel == fuel && row.outcome == outcome
+            rows_ok &= first.(row.fields) == first.(fields) && row.fields == fields
+        end
+        @test rows_ok
+        # The accepting run differs from the rejecting one only in the
+        # looked-up b and the final value: same keys, same frames.
+        arows = bounded_trace(equality, tb3_input(true, true), 3).term.configurations
+        @test [first.(row.fields) for row in arows] == [first.(row.fields) for row in erows]
+        @test arows[3].fields[1] == (:control => (:value, (:bits, (true,))))
+        @test arows[4].fields == [:control => (:value, (:bool, true)), :outcome => :accept]
         println("TB3 trace: T=1 rows=", length(rows), " result=", term.result,
                 " accepts=", term.accepts)
         for row in rows
@@ -337,10 +414,20 @@ if tb3_runs("tb3_cook_levin")
         flipped = Succinct3SAT(formula.variable_count, formula.index_width, formula.clauses,
                                formula.answer_variables, formula.accept_variable,
                                formula.circuit, flipped_trace, formula.tableau)
-        refused = sat3.certificate.replay(flipped)
+        refused = MIPStarLambda._replay_cook_levin(flipped)
         println("MUTATION_EXPECTED_RULE trace_formula_equivalence passed=", passed(refused),
                 " rule=", refused.rule)
         @test !passed(refused) && refused.rule == :trace_formula_equivalence
+        # The certificate is bound to its own formula: the tampered copy is
+        # refused before any replay.
+        tampered = verify_certificate(Checked(flipped, sat3.certificate))
+        @test !passed(tampered) && tampered.rule == :certificate_binding
+        # Descending certificates are bound by identity through the
+        # constructor chain: the same trace certificate under a foreign
+        # formula whose trace is a different object is refused.
+        other = cook_levin(bounded_trace(pipeline.quoted, TB3_INPUT, 1))
+        foreign = verify_certificate(Checked(other.term, sat3.certificate))
+        @test !passed(foreign) && foreign.rule == :certificate_binding
         # Exhaustive over the answer inputs: satisfiable iff D accepts.
         equivalence_ok = true
         for a in (false, true), b in (false, true)
@@ -397,7 +484,29 @@ if tb3_runs("tb3_decouple")
         @test [block.name for block in p.circuit.input_layout.blocks] == [:X1, :X2, :X3, :X4, :X5, :O]
         @test passed(verify_certificate(padded))
         @test padded.certificate.rule == :Pad5
-        @test occursin("padding", padded.certificate.facts.display)
+        @test occursin("padding 5 dead NOT gates", padded.certificate.facts.display)
+        @test occursin("2^m = 2 >= 2T = 2", padded.certificate.facts.display)
+        # verdicts/tb3-r1.md N8: the omitted per-index equality gadgets are
+        # an ASSUMED leaf of the decoupled certificate.
+        @test any(child -> child.grade == ASSUMED && child.rule == :PerIndexEqualityGadgets,
+                  sat5.certificate.children)
+        @test any(child -> child.grade == ASSUMED && child.rule == :RawAnswerBlocks &&
+                           occursin("2F reserved bits", child.facts.display),
+                  sat5.certificate.children)
+        # N7: obligation 1 of prop:explicit-padded-succinct-deciders, 2^m >=
+        # 2T, is a construction step: the T = 2 trace of the trivial decider
+        # (3 rows, one live variable) is padded to m = 2, not m = 1.
+        wide = pad5(decouple5(cook_levin(bounded_trace(pipeline.quoted, TB3_INPUT, 2))))
+        @test wide.term.m == 2 && (1 << wide.term.m) >= 4
+        @test wide.term.live_gates == 3 && wide.term.s == 17 && wide.term.m_prime == 32
+        @test passed(verify_certificate(wide))
+        @test occursin("2^m = 4 >= 2T = 4", wide.certificate.facts.display)
+        # N6: the gate budget is a refusal path, not a promise: every relation
+        # compiler returns CompilationRefused with the counts when over budget.
+        refusal = decouple5(pipeline.sat3; gate_budget=0)
+        @test refusal isa CompilationRefused && refusal.gates == 1 && refusal.budget == 0
+        @test cook_levin(pipeline.trace; gate_budget=0) isa CompilationRefused
+        @test pad5(sat5; gate_budget=0) isa CompilationRefused
         # The padded relation on all 1024 signed index tuples equals the
         # decoupled relation, and its phi_C witnesses are exactly those with
         # u_3[1] = 1: 512 of 1024.
@@ -472,13 +581,52 @@ if tb3_runs("tb3_pcp")
         @test occursin("[CITED] CookLevinGeneral", printed)
         @test occursin("[CHECKED] Decouple5", printed)
         @test occursin("[CHECKED] Pad5", printed)
+        @test occursin("[CHECKED] UpstreamEvidence", printed)
         @test occursin("[CHECKED] Tseitin", printed)
         @test occursin("[CHECKED] PCPVerifier", printed)
+        @test occursin("[ASSUMED] PerIndexEqualityGadgets", printed)
+        @test fx.certificate.children[1].rule == :UpstreamEvidence
+        @test fx.certificate.children[1].children[1].rule == :Pad5
         # M-size: the propagated size is the exact byte length.
         @test occursin("|D| = $(length(canonical_bytes(pipeline.quoted.term))) bytes", printed)
         # The bound front-end evidence is refused on another proof.
         borrowed = verify_certificate(Checked(plain.proof, fx.certificate))
         @test !passed(borrowed) && borrowed.rule == :certificate_binding
+        # verdicts/tb3-r1.md N2: a front-end certificate is bound to the
+        # objects it was built for. B = the twin decider (|D| = 45, T = 1)
+        # pads to the same relation as the trivial decider A; A's padded
+        # certificate on B's padded term is refused at the :Pad5 node with
+        # :certificate_binding, and build_pcp's upstream-evidence slot
+        # refuses it before any PCP certificate (with A's |D| and hash)
+        # exists.
+        b = tb3_pipeline(tb3_twin(), 1, :twin)
+        @test description_size(b.quoted.term) == 45
+        @test quote_hash(b.quoted.term) != quote_hash(pipeline.quoted.term)
+        @test b.padded.term.clauses == padded.term.clauses && b.padded.term.m_prime == 16
+        # The critic's B (not(false), T = 2) now pads to m = 2 (N7).
+        @test tb3_pipeline(tb3_not_false(), 2, :not_false).padded.term.m == 2
+        chimera = Checked(b.padded.term, padded.certificate)
+        refused = verify_certificate(chimera)
+        println("MUTATION_EXPECTED_RULE certificate_binding borrowed_passed=", passed(refused),
+                " location=", refused.location)
+        @test !passed(refused) && refused.rule == :certificate_binding && refused.location == :Pad5
+        @test_throws ArgumentError frontend_pcp(chimera, GF8, 6, tables_ii,
+                                                MonomialBudget(2_500_000), tb0_certified_points(GF8))
+        # B's own certificate goes through, carrying B's size and hash.
+        fb = frontend_pcp(b.padded, GF8, 6, tables_ii, MonomialBudget(2_500_000),
+                          tb0_certified_points(GF8))
+        @test passed(verify_certificate(Checked(fb.proof, fb.certificate)))
+        printed_b = sprint(traceprint, fb.certificate)
+        @test occursin("|D| = 45 bytes", printed_b) && occursin(quote_hash(b.quoted.term), printed_b)
+        @test !occursin(quote_hash(pipeline.quoted.term), printed_b)
+        # The slot binds the front end to the proof's formula: an upstream
+        # object whose circuit did not generate tf is refused at build time.
+        equality = tb3_pipeline(tb3_equality(), 3, :equality)
+        decomposition_i = zero_basis_decompose(plain.c0, 1:length(plain.tf.layout.names))
+        @test_throws ArgumentError build_pcp(plain.tf, plain.gs, plain.c0, decomposition_i, 6,
+                                             tb0_certified_points(GF8), ();
+                                             upstream=(equality.padded,))
+        @test_throws ArgumentError upstream_circuit(plain.tf)
         # TB2's typed answer-reduced decider on the generated proof: the
         # seven fig:decider-pcp guard cases with honest answers.
         proof11 = change_field(fx.proof, GF2048, 11).term
@@ -540,5 +688,113 @@ if tb3_runs("tb3_equality")
                     "monomials = $(monomial_count(expansion.term))")
         @test expansion isa ExpansionRefused || monomial_count(expansion.term) > 0
         @test candidates.c0 >= candidates.farith
+    end
+end
+
+if tb3_runs("tb3_tb4prep")
+    @testset "TB3 (h) TB4 prerequisites: YCode, halts_within/quoted_pair, sorts, FuelBound, Verifier" begin
+        # verdicts/tb3-r1.md section 8, gaps 1-6.
+        trivial = tb3_trivial()
+        # Gap 1: D = YCode(Psi) is representable, closed, quotable, and is Fix.
+        sampler_stub = Lambda(1, BoundVar(0, 0))
+        compress_stub = Lambda(2, Quote(trivial))           # (pair, lambda) -> a decider's code
+        @test quote_program(sampler_stub; sort=:Sampler).term isa Quoted{:Sampler}
+        @test quote_program(compress_stub; sort=:Compressor).term isa Quoted{:Compressor}
+        n, x, y, a, b = ntuple(i -> BoundVar(0, i - 1), 5)
+        lambda = tb3_nat(7)
+        # Psi_{M,lambda} of DESIGN 1.1 with the stub Compress in place of
+        # Compress (its code position evaluates to a decider's code; the
+        # outer Eval runs that decider on (n,x,y,a,b) under n^lambda).
+        psi(machine) = Lambda(5,
+            If(Prim(:halts_within, Opaque("n steps", (:n,)), (machine, n)),
+               tb3_true(),
+               Eval(Apply(compress_stub,
+                          (Prim(:quoted_pair, Concrete(1),
+                                (Quote(sampler_stub, :Sampler), Hole(:self_code, :Decider))),
+                           lambda)),
+                    (n, x, y, a, b), FuelBound(n, lambda))))
+        halting = psi(tb3_machine_halt3())
+        @test holes(halting) == Dict(:self_code => 1)
+        d_halt = YCode(halting)
+        @test d_halt isa Fix && is_closed(d_halt) && program_equal(d_halt, Fix(halting))
+        quoted_d = quote_program(d_halt; sort=:Decider)
+        @test passed(verify_certificate(quoted_d))
+        @test program_equal(decode_program(quoted_d.term), d_halt)
+        # Gap 2: the primitives are registered with charges, so D EVALUATES.
+        # M_3 halts in three steps: n = 3 takes the halting branch, n = 2 the
+        # compressed branch (which runs the stub's decider under 2^7 = 128).
+        input(nn) = (nn, Bool[], Bool[], Bool[true], Bool[false])
+        halt_branch = eval_program(d_halt, input(3), 200)
+        @test halt_branch.result isa Value && halt_branch.result.value === true
+        # Fix 3 + closure 1 + beta 1 + M literal 1 + n lookup 1 +
+        # halts_within (1 + 3 steps) 4 + If 1 + true 1 = 13.
+        @test halt_branch.used == 13
+        compressed_branch = eval_program(d_halt, input(2), 200)
+        @test compressed_branch.result isa Value && compressed_branch.result.value === true
+        @test compressed_branch.used > halt_branch.used
+        d_loop = YCode(psi(tb3_machine_loop()))
+        looping = eval_program(d_loop, input(3), 200)
+        @test looping.result isa Value && looping.result.value === true
+        @test looping.used == compressed_branch.used + 1      # one more simulated step
+        # The charge of halts_within is 1 + steps (the Opaque "n steps" bound).
+        h(machine, nn, fuel) = eval_program(Prim(:halts_within, Opaque("n steps", (:n,)), (machine, tb3_nat(nn))), (), fuel)
+        @test h(tb3_machine_halt3(), 3, 10).result.value === true && h(tb3_machine_halt3(), 3, 10).used == 2 + 4
+        @test h(tb3_machine_halt3(), 2, 10).result.value === false && h(tb3_machine_halt3(), 2, 10).used == 2 + 3
+        @test h(tb3_machine_loop(), 5, 20).result.value === false && h(tb3_machine_loop(), 5, 20).used == 2 + 6
+        @test h(tb3_machine_loop(), 5, 7).result isa OutOfFuel
+        @test h(tb3_true(), 3, 10).result == SortError(:primitive_contract)
+        # quoted_pair joins two code values; its code is the pair term of
+        # sort Pair, which evaluates to itself; fst_code/snd_code project.
+        pair = eval_program(Prim(:quoted_pair, Concrete(1), (Quote(sampler_stub, :Sampler), Quote(trivial))), (), 10)
+        @test pair.result isa Value && pair.result.value isa Code && pair.result.value.sort == :Pair
+        @test pair.used == 3
+        again = eval_program(pair.result.value.program, (), 10).result.value
+        @test again isa Code && program_equal(again.program, pair.result.value.program)
+        @test eval_program(Prim(:snd_code, Concrete(1), (pair.result.value.program,)), (), 10).result.value ==
+              Code(trivial, :Decider)
+        @test eval_program(Prim(:quoted_pair, Concrete(1), (tb3_true(), Quote(trivial))), (), 10).result ==
+              SortError(:primitive_contract)
+        # Gap 3: sorts are checked where a term becomes a description.
+        @test_throws ArgumentError quote_program(sampler_stub; sort=:Decider)
+        @test_throws ArgumentError quote_program(trivial; sort=:Compressor)
+        @test_throws ArgumentError quote_program(tb3_true(); sort=:Sampler)
+        @test_throws ArgumentError quote_program(tb3_bits("101"); sort=:MachineDesc)
+        @test quote_program(tb3_machine_loop(); sort=:MachineDesc).term isa Quoted{:MachineDesc}
+        @test_throws ArgumentError Fix(Lambda(2, Eval(Hole(:self_code, :Decider), (), FuelLiteral(1))))
+        @test_throws ArgumentError specialize(Lambda(1, If(Hole(:flag, :Bit), tb3_true(), tb3_false())),
+                                              (:flag => tb3_true(),); sort=:Decider)
+        # ... and at evaluation, as SortError, never a host exception: a
+        # MachineDesc is not applicable code.
+        @test eval_program(Eval(Quote(tb3_machine_loop(), :MachineDesc), (), FuelLiteral(5)), (), 100).result ==
+              SortError(:eval_sort)
+        @test all(sort in DECLARED_SORTS for sort in FUNCTION_SORTS)
+        # Gap 4: FuelBound(P{Nat}, P{Nat}); an overflowing n^lambda is a
+        # budget beyond the ambient fuel, so the outcome is Value or
+        # OutOfFuel, never SortError.
+        literal_args = (tb3_nat(1), Prim(Bool[], Concrete(1), ()), Prim(Bool[], Concrete(1), ()),
+                        Prim(Bool[true], Concrete(1), ()), Prim(Bool[false], Concrete(1), ()))
+        huge = Eval(Quote(trivial), literal_args, FuelBound(tb3_nat(1 << 40), tb3_nat(3)))
+        @test eval_program(huge, (), 200).result.value === true
+        @test eval_program(huge, (), 70).result isa OutOfFuel
+        @test eval_program(Eval(Quote(trivial), literal_args, FuelBound(tb3_true(), tb3_nat(3))), (), 200).result ==
+              SortError(:eval_fuel)
+        # Gap 6: the Verifier carrier is reachable from Quoted and checks
+        # the payload sorts.
+        sampler_q = quote_program(sampler_stub; sort=:Sampler).term
+        decider_q = quoted_d.term
+        gap = (Opaque("value 1 accepted", ()), Opaque("value <= 1/2 rejected", ()))
+        verifier = Verifier(sampler_q, decider_q, Concrete(0), Concrete(1),
+                            Opaque("poly(n, lambda)", (:n, :lambda)), gap, 9)
+        @test verifier.levels == 9 && description_size(verifier) ==
+              description_size(sampler_q) + description_size(decider_q)
+        @test_throws ArgumentError Verifier(decider_q, decider_q, Concrete(0), Concrete(1),
+                                            Concrete(1), gap, 9)
+        @test_throws ArgumentError Verifier(sampler_q, sampler_q, Concrete(0), Concrete(1),
+                                            Concrete(1), gap, 9)
+        @test_throws ArgumentError Verifier(sampler_q, decider_q, Concrete(0), Concrete(1),
+                                            Concrete(1), gap, 0)
+        println("TB3 tb4prep: |D_halt| = ", description_size(quoted_d.term), " bytes; hash = ",
+                quote_hash(quoted_d.term), "; halting branch used ", halt_branch.used,
+                "; compressed branch used ", compressed_branch.used, "; looping used ", looping.used)
     end
 end
