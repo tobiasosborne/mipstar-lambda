@@ -20,8 +20,8 @@ A COMPLETE executable implementation of `Compress = Repeat ∘ AnswerReduce ∘ 
 | Design v1 (§1–8) | converged, design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | — |
 | TB0 | **CONVERGED** r4 PASS (`verdicts/tb0-r4.md`); C1, C2, C3, C8 TESTED; N13–N16 MINOR folded into brief 23 | — |
-| TB1 / TB2 | repair r3 landed 1919aff (serializer injective + decode round trip); C4a, C4b, C9 TESTED; C4c (D^ld) proposed | **critics r4 RUNNING (briefs 57, 58)** → expect PASS; paste authorized rows (C4c new) |
-| TB3 | **RUNNING (brief 23 + addenda, Fable)** — program IR, fuel-bounded evaluator, bounded trace → succinct 3SAT → decoupled 5SAT → TB0 PCP; C16/C19 first machine evidence | when it lands: verify, commit, Opus critic r1 (template), worker → brief 24 (TB4) |
+| TB1 / TB2 | critics r4: tb1 FAIL(N23), tb2 FAIL(NF1,NF2) — small; C4a, C4b, C9 TESTED (re-affirmed r4); C4c pre-written pending N23 | **repair r4 RUNNING (brief 59, Fable)** → commit, critics r5 (template; expect PASS + C4c) |
+| TB3 | **landed 0093328** (807/807, 77/77): program IR, CEK evaluator, bounded trace → 3SAT → 5SAT → TB0/TB2 on the GENERATED description; C10 proposed; C16/C19 first evidence | **critic r1 RUNNING (brief 60)** → adjudicate DESIGN §1.1/§1.2/§5.5 wording proposals in `briefs/23-tb3.last.md`; paste C10 if authorized |
 | TB4 → TB7 | briefs 24 (+addendum), 39 (+G1–G5 addendum), 43, 44 written | sequential on the one Fable worker; critics in parallel |
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
 | **Analytic doc (sidequest)** | **CONVERGED** r3 PASS (`verdicts/analytic-doc-r3.md`); 92 pp, 110 figures; PDF v6 sent | pedagogy round (bd d48: n6–n10) and lockstep updates as TB3–TB7 land — low priority |
