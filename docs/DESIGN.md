@@ -991,7 +991,7 @@ and one clause, and the padded circuit `m=1`, `s=6`, `m'=16`: one live gate `AND
 off the output, the output unchanged, contributing Tseitin variables but nothing to `C`). Its relation has 256/1024 present signed index
 tuples and 512/1024 `phi_C` witnesses. This is NOT TB0's six-gate circuit and not its 128-clause relation: the front-end normalization does
 not preserve the TB0 fixture, so TB3's PCP evidence rests on a different circuit from TB0's (the five `g_i` stay non-constant with
-`dependency_coordinates(g_i) = {i}`, so TB2's block-locality evidence survives: 7/7 guard cases). It is not claimed to meet the asymptotic
+`dependency_coordinates(g_i) = {i}`, so TB2's block-locality evidence survives: 9/9 guard cases). It is not claimed to meet the asymptotic
 construction of `prop:explicit-padded-succinct-deciders`; obligation 1, `2^m >= 2T`, is a construction step (`pad5` widens `m`).
 
 Exhaustively compare program result, bounded-trace acceptance, the small 3SAT relation, the 256/1024 decoupled relation table, and all 1,024

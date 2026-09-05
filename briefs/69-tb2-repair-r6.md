@@ -1,0 +1,7 @@
+# Brief 69 — TB2 repair r6 (work order = verdicts/tb2-r6.md: NG3 MAJOR; NG6–NG9 NOTE) — closing round; also TB3 N13/N14 if TB4 did not take them
+
+Proposer (Fable). Autonomous; no questions; **no git**. Lane: `test/tb2_answer_reduce.jl`, `test/mutations/tb2_*.jl`, `test/mutations/tb1_*.jl` (NG7 only), `test/mutations/run.jl` (additively), `src/verifiers/answer_reduce.jl` only if a witness needs it. Report: `briefs/69-tb2-repair-r6.last.md` (≤ 15 lines).
+
+Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/tb2-r6/`
+
+Read `verdicts/tb2-r6.md` IN FULL. **NG3**: add the swapped orientation to `replay_seeds`: for each of the nine cases and each of the three seeds run `(case.right, case.left)` with the corrupted side flipped, asserting honest accept, corrupted reject, the expected rule and the reached step — 27 more outcomes, 54 in all (the critic's block is the test; it is green on clean code and red under MG1/MG2/MG3); register `test/mutations/tb2_{input,individual,simultaneous}_ld_only_alice.jl` (target `tb2_replay_seeds`) and show them KILLED. **NG7**: register the unregistered TB1 mutation the critic's MG5 exposed (revert the all-`t` line) as a TB1 mutant. NG6/NG8/NG9: one-line dispositions. Baseline-first runner exit 0, every mutant KILLED; suite quiet (`uptime`). MERGE PROPOSAL: C9 with the "Scope (orientation)" sentence deleted (verbatim; proposal only).
