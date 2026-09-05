@@ -13,10 +13,10 @@
   \node[panel title, text=term] at ([xshift=2mm,yshift=-2mm]right.north west)
     {TERM \(\longrightarrow\) MACHINE};
   \node[stage, below=8mm of right.north] (r0) {$f(n)\le n^\lambda$};
-  \node[stage, below=5mm of r0] (r1) {$C_L(\lambda+n^\lambda+1)^6$};
+  \node[stage, below=5mm of r0] (r1) {$C_L(\lambda+n^\lambda+1)^8$};
   \node[checked, below=5mm of r1, text width=52mm] (r2)
-    {$C_L(3n^\lambda)^6\le
-      n^{(6+\lceil\log_2(C_L3^6)\rceil)\lambda}$};
+    {$C_L(3n^\lambda)^8\le
+      n^{(8+\lceil\log_2(C_L3^8)\rceil)\lambda}$};
   \draw[xform] (r0)--(r1); \draw[xform] (r1)--(r2);
   \node[redex, below=5mm of left.south east, xshift=37mm] (A) {$A$};
   \node[lbl, left=3mm of A] {choose one universal exponent};

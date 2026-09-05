@@ -1,0 +1,58 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  % ---- column 1: transcribed from the source
+  \node[citedbox, anchor=north west, text width=3.9cm, align=left,
+        minimum height=1.0cm] (h1) at (0,0)
+    {\textbf{transcribed from the paper}\\[1pt]
+     \scriptsize a ground-truth footnote names the source label};
+  \node[tag cited, anchor=north west] at (0,-1.15) {CITED};
+  \node[citedbox, anchor=north west, text width=3.9cm, align=left,
+        minimum height=3.6cm] (b1) at (0,-1.55)
+    {\scriptsize
+     Definitions~\ref{def:paper-decider}--\ref{def:paper-lambda}
+     (\code{def:decider}, \code{def:sampler}, \code{def:normal-ver},
+     \code{def:lambda})\\[3pt]
+     the three \(\Compress\) calls (\code{fig:compress})\\[3pt]
+     \code{thm:introspection}, \code{thm:ar}, \code{thm:repetition},
+     \code{thm:compression}\\[3pt]
+     \code{lem:ld-soundness}, \code{thm:pcp-decider},
+     \code{lem:detyping-verifiers}};
+
+  % ---- column 2: this document's own derivations
+  \node[stage, draw=focus, fill=focuslt, anchor=north west, text width=3.9cm,
+        align=left, minimum height=1.0cm] (h2) at (4.5,0)
+    {\textbf{derived here, in this document}\\[1pt]
+     \scriptsize written proofs; no row in \code{claims/CLAIMS.md}};
+  \node[tag focus, anchor=north west] at (4.5,-1.15) {SKETCH --- NOT VERIFIED};
+  \node[stage, draw=focus, fill=focuslt, anchor=north west, text width=3.9cm,
+        align=left, minimum height=3.6cm] (b2) at (4.5,-1.55)
+    {\scriptsize
+     Theorems~\ref{thm:l-determinism}, \ref{thm:fuel-monotonicity},
+     \ref{thm:quote-eval} and Lemma~\ref{lem:specialization}
+     (semantics and fuel)\\[3pt]
+     Theorems~\ref{thm:tm-to-l}--\ref{thm:lambda-preservation}
+     (the simulation bridge, constants \(c_0,C_L\), exponent \(8\))\\[3pt]
+     Lemma~\ref{lem:smn} and
+     Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence}
+     (self-reference, \(c_Y=3\))\\[3pt]
+     Lemma~\ref{lem:transition-window} and
+     Theorem~\ref{thm:l-succinct-sat} (Cook--Levin for \(\mathcal L\))};
+
+  % ---- column 3: machine-checked and ratcheted
+  \node[checked, anchor=north west, text width=3.9cm, align=left,
+        minimum height=1.0cm] (h3) at (9.0,0)
+    {\textbf{executed and ratcheted}\\[1pt]
+     \scriptsize a row of \code{claims/CLAIMS.md} with a converged verdict};
+  \node[tag check, anchor=north west] at (9.0,-1.15) {TESTED / PROVED};
+  \node[checked, anchor=north west, text width=3.9cm, align=left,
+        minimum height=3.6cm] (b3) at (9.0,-1.55)
+    {\scriptsize
+     C3, C8 --- polynomial and occurrence fixtures (TB0)\\[3pt]
+     C4a --- the three CL maps at \((q,m,d)=(8,2,1)\) (TB1)\\[3pt]
+     C4b, C9 --- the 18-type sampler and the guarded decider (TB2)\\[3pt]
+     C6, N1 --- the midpoint diagnostic, \textsc{proved} (TB0.5)};
+
+  \node[lblsm, anchor=north west, align=left, text width=12.9cm] at (0,-5.45)
+    {Nothing moves rightwards by being typeset as a theorem.  A middle-column
+     result becomes a right-column one only through a test in \code{test/}, a
+     mutation that turns it red, and a converged verdict in \code{verdicts/}.};
+\end{tikzpicture}

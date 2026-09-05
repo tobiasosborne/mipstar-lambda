@@ -107,7 +107,7 @@ fixes an evaluator instead of treating all beta paths as operationally equal.
 \paragraph{Worked strategy example.}
 For \(K=\lambda x.\lambda y.x\),
 \[
- K\;I\;\Omega\longrightarrow_\beta I
+ K\;I\;\Omega\longrightarrow_\beta^* I
 \]
 under normal order, which reduces the leftmost outermost redex first and never
 evaluates the unused argument.  Call-by-value first tries to turn \(\Omega\)
@@ -137,8 +137,9 @@ Define
  \qquad \mathsf{false}=\lambda t.\lambda f.f.
 \]
 They choose the first or second continuation.  For example,
-\(\mathsf{true}\;A\;B\to_\beta A\), whereas
-\(\mathsf{false}\;A\;B\to_\beta B\).
+\(\mathsf{true}\;A\;B\to_\beta^*A\), whereas
+\(\mathsf{false}\;A\;B\to_\beta^*B\) --- two steps each, since both arguments
+must be consumed.
 
 \paragraph{Why booleans matter here.}
 A verifier ultimately returns one acceptance bit.  In the resource language
@@ -150,8 +151,8 @@ Define
 \(\mathsf{if}=\lambda b.\lambda t.\lambda e.b\;t\;e\).  Then
 \[
  \mathsf{if}\;\mathsf{false}\;A\;B
- \to_\beta\mathsf{false}\;A\;B
- \to_\beta B.
+ \to_\beta^*\mathsf{false}\;A\;B
+ \to_\beta^*B.
 \]
 Figure~\ref{fig:church-bool-if} draws both Church booleans as two-port
 selectors and follows the false branch of this conditional.
@@ -178,7 +179,7 @@ Let
 Writing \(\langle A,B\rangle=\mathsf{pair}\;A\;B\),
 \[
  \mathsf{fst}\;\langle A,B\rangle
- \to_\beta\mathsf{true}\;A\;B\to_\beta A.
+ \to_\beta\mathsf{true}\;A\;B\to_\beta^*A.
 \]
 The packing and two projections appear together in
 Figure~\ref{fig:church-pair}.
@@ -204,7 +205,7 @@ The Church numeral \(n\) is
  \quad
  \overline2=\lambda f.\lambda x.f(fx).
 \]
-It represents iteration: \(\overline2\;s\;z\to_\beta s(sz)\).
+It represents iteration: \(\overline2\;s\;z\to_\beta^*s(sz)\).
 
 \paragraph{Why numerals matter here.}
 An index \(n\), a timeout, and a fuel counter are all iterated control data.
@@ -217,7 +218,7 @@ Define
 \[
  \mathsf{succ}\;\overline2
  \to_\beta\lambda f.\lambda x.f(\overline2 f x)
- \to_\beta\lambda f.\lambda x.f(f(fx))=\overline3.
+ \to_\beta^*\lambda f.\lambda x.f(f(fx))=\overline3.
 \]
 Figure~\ref{fig:church-numeral} exposes the iteration spine and the one extra
 application installed by successor.
@@ -239,8 +240,8 @@ Define
 \(\mathsf{add}=\lambda m.\lambda n.\lambda f.\lambda x.mf(nfx)\).  Thus
 \[
  \mathsf{add}\;\overline1\;\overline2\;f\;x
- \to_\beta \overline1 f(\overline2 f x)
- \to_\beta f(f(fx)),
+ \to_\beta^*\overline1 f(\overline2 f x)
+ \to_\beta^*f(f(fx)),
 \]
 so the result is \(\overline3\).
 
@@ -337,9 +338,16 @@ The promised equation is a direct beta calculation:
  (\lambda x.F(xx))(\lambda x.F(xx))\\
  &\longrightarrow_\beta
  F\bigl((\lambda x.F(xx))(\lambda x.F(xx))\bigr)\\
- &=F(YF).
+ &=_\beta F(YF).
 \end{aligned}
 \]
+The last line is a beta \emph{conversion}, not a further reduction:
+\((\lambda x.F(xx))(\lambda x.F(xx))\) is a reduct of \(YF\), not \(YF\)
+itself, so \(YF\twoheadrightarrow_\beta F(YF)\) is false for Curry's \(Y\).
+Turing's combinator
+\(\Theta=(\lambda x.\lambda y.y(xxy))(\lambda x.\lambda y.y(xxy))\) is the one
+that does satisfy \(\Theta F\twoheadrightarrow_\beta F(\Theta F)\); the project
+uses the equation, never the reduction.
 There is no recursive name in the finite syntax of \(Y\); recursion appears
 when two copies are applied.
 Figure~\ref{fig:y-derivation} follows the hole equation into that finite seed
@@ -348,7 +356,7 @@ and then watches the seed grow only by reduction.
 \begin{figure}[t]
 \centering
 \input{figs/fig-y-derivation.tex}
-\caption{The fixed-point equation is solved by self-application, yielding finite $Y$ syntax whose reduction grows the tree $F(YF),F(F(YF)),\ldots$.  Recursion is produced by running the seed rather than by storing an infinite or recursively named term.}
+\caption{The fixed-point equation is solved by self-application, yielding finite $Y$ syntax whose unfolding grows the tree $F(YF),F(F(YF)),\ldots$.  Recursion is produced by running the seed rather than by storing an infinite or recursively named term.}
 \label{fig:y-derivation}
 \end{figure}
 
@@ -392,7 +400,7 @@ Call-by-value evaluates an argument before entering the function body, so
 \]
 Now
 \[
- ZF\to_\beta F(\lambda u.(ZF)u),
+ ZF=_\beta F(\lambda u.(ZF)u),
 \]
 and the recursive computation remains under a lambda until an actual argument
 arrives.  Under call-by-value the conditional branches must likewise be
@@ -633,10 +641,10 @@ separated in Figure~\ref{fig:pipeline-stages}.
 \end{figure}
 
 \paragraph{Why the fixed point enters.}
-For a supplied machine \(M\) and level parameter \(L\), the Halting verifier
+For a supplied machine \(M\) and resource bound \(\lambda\), the Halting verifier
 must arrange that its decider is the one appearing inside the verifier fed to
 \(\Compress\).  This is a fixed-point equation on descriptions.  Kleene's
-theorem, the explicit \(\mathcal F(\mathcal F,M,L,\ldots)\) program, and the
+theorem, the explicit \(\mathcal F(\mathcal F,M,\lambda,\ldots)\) program, and the
 lambda fixed-point constructor are three presentations of the same outer
 operation.  The point is not mystical self-awareness: it is a finite compiler
 which prints code containing an appropriate code literal.
@@ -669,7 +677,6 @@ soundness argument.  The paper needs both layers: computability theory with
 polynomial bookkeeping on the outside, and the genuinely quantum analytic
 theorems on the inside.  The resource-accounted description language in
 Part~II is designed for the first layer and records exactly where it must call
-the second.
 upon the cited second layer, as Figure~\ref{fig:two-layers} makes explicit.
 
 \begin{figure}[t]

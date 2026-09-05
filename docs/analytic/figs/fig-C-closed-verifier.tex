@@ -1,16 +1,16 @@
 \begin{tikzpicture}
-  \node[ctrl, minimum width=28mm] (S) {$S_L$\\[-1pt]\scriptsize \(\ComputeSampler(L)\)};
+  \node[ctrl, minimum width=28mm] (S) {$S_\lambda$\\[-1pt]\scriptsize \(\ComputeSampler(\lambda)\)};
   \node[closure, right=31mm of S, minimum width=33mm] (D)
-    {$D_{M,L}$\\[-1pt]\scriptsize \(\operatorname{YCode}(\Psi_{M,L})\)};
-  \node[descbox, right=8mm of D] (QD) {$\Quote(D_{M,L})$};
+    {$D_{M,\lambda}$\\[-1pt]\scriptsize \(\operatorname{YCode}(\Psi_{M,\lambda})\)};
+  \node[descbox, right=8mm of D] (QD) {$\Quote(D_{M,\lambda})$};
   \node[stage, below=12mm of D, minimum width=55mm] (V)
-    {$V_{M,L}=(S_L,\Quote(D_{M,L}))$};
+    {$V_{M,\lambda}=(S_\lambda,\Quote(D_{M,\lambda}))$};
   \draw[->,machine,line width=.8pt] (S.south) to[bend right=14] (V.west);
   \draw[quote] (D)--(QD);
   \draw[quote] (QD.south) to[bend left=14] (V.east);
   \draw[bind] (D.north) to[bend left=50]
     node[above,lblsm,text=term] {\(\mathsf{self\_code}\)} (D.north east);
-  \node[descbox, left=8mm of S] (L) {$L$};
+  \node[descbox, left=8mm of S] (L) {$\lambda$};
   \draw[quote] (L)--(S);
   \node[tag focus, below=3mm of V] {ONE CLOSED SAMPLER--DECIDER DESCRIPTION};
 \end{tikzpicture}

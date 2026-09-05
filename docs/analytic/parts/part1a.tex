@@ -541,22 +541,22 @@ Figure~\ref{fig:quine} traces the identical finite string from code to output.
 \end{figure}
 
 \subsection{The paper's
-\texorpdfstring{\(\mathcal F(\mathcal F,M,L,\ldots)\)}
-{F(F,M,L,...)} construction}
+\texorpdfstring{\(\mathcal F(\mathcal F,M,\lambda,\ldots)\)}
+{F(F,M,lambda,...)} construction}
 
 The paper writes the fixed point in an unrolled form.  Begin with an
 eight-input machine
 \[
- \mathcal F(f,m,L,n,x,y,a,b).
+ \mathcal F(f,m,\lambda,n,x,y,a,b).
 \]
 After its initial \(n\)-step simulation has not halted, its first source action
 is computable: hardwire
-\((f,m,L)\) into the first three slots of \(\mathcal F\)'s template, obtaining
+\((f,m,\lambda)\) into the first three slots of \(\mathcal F\)'s template, obtaining
 a five-input decider description \(d\).  It pairs \(d\) with a sampler
 description, invokes \(\Compress\) on that verifier description, and runs the
 resulting decider on \((n,x,y,a,b)\).  The published call is
 \[
- \mathcal F(\langle\mathcal F\rangle,\langle M\rangle,L,n,x,y,a,b).
+ \mathcal F(\langle\mathcal F\rangle,\langle M\rangle,\lambda,n,x,y,a,b).
 \]
 After the first three arguments have been fixed, the produced \(d\) is exactly
 the description of the five-input program currently being run.  Hence the
@@ -567,7 +567,7 @@ and the complete feedback path through \(\Compress\).
 \begin{figure}[t]
 \centering
 \input{figs/fig-halt-f-construction}
-\caption{The eight-input machine first accepts a witnessed \(n\)-step halt; otherwise it hardwires \((f,m,L)\), feeds the resulting self-code \(d\) into \((S_L,d)\), compresses, and runs the returned decider.  Green boxes are executed source operations while the dashed slate box is the cited game-theoretic guarantee (after \code{fig:halt_f}).}
+\caption{The eight-input machine first accepts a witnessed \(n\)-step halt; otherwise it hardwires \((f,m,\lambda)\), feeds the resulting self-code \(d\) into \((S_\lambda,d)\), compresses, and runs the returned decider.  Green boxes are executed source operations while the dashed slate box is the cited game-theoretic guarantee (after \code{fig:halt_f}).}
 \label{fig:halt-f-construction}
 \end{figure}
 
@@ -580,7 +580,7 @@ earlier version of the paper invoked Kleene's recursion theorem explicitly;
 the published presentation changes the notation, not the computability fact.
 
 \paragraph{Worked schematic expansion.}
-Suppress the fixed parameters \(M,L\) and denote the five live inputs by
+Suppress the fixed parameters \(M,\lambda\) and denote the five live inputs by
 \(u\).  For a proposed self-description \(f\), put
 \(d_f=\operatorname{hardwire}(\langle\mathcal F\rangle,f)\).
 Substituting \(f=\langle\mathcal F\rangle\) gives

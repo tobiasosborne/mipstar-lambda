@@ -4,7 +4,7 @@ Mandate (user, 2026-09-04): **at least one excellent figure on every page** of
 `analytic-underpinnings.pdf`. Turing machines, lambda terms, descriptions,
 traces, the fixed point, the Cook–Levin tableau, the PCP and the CL layer are
 all *drawn*, not merely described. Figures are built from the document's own
-objects (the equality machine M_=, the three-step trace, Ψ_{M,L}, the toy
+objects (the equality machine M_=, the three-step trace, Ψ_{M,λ}, the toy
 dimensions), never generic clip-art.
 
 ## 1. Visual system (single source: `figstyle.tex`)
@@ -25,9 +25,9 @@ learns them once:
 Rules:
 1. **One idea per figure.** If a figure needs a paragraph to explain, split it.
 2. **Draw the real object.** M_= has exactly the five rows in §1.2; the trace has
-   exactly 4 time rows × 4 tapes; Ψ_{M,L} has exactly the constructors of (10.4).
+   exactly 4 time rows × 4 tapes; Ψ_{M,λ} has exactly the constructors of (10.4).
    Numbers in figures are the document's numbers (fuel constants c_Y=3,
-   h(d,u)=3+|d|+|enc(u)|, exponent 6, level chain 9→5→7→9, dims 206→840→848→1696).
+   h(d,u)=3+|d|+|enc(u)|, exponent 8, level chain 9→5→7→9, dims 206→840→848→1696).
 3. **Before/after and side-by-side** are the two workhorse layouts: a machine
    step, a beta step, Y vs Z, TM vs λ, normal order vs call-by-value, executed vs cited.
 4. **Sans-serif labels** (`lbl`/`lblsm`), maths in the text font. No emoji, no
@@ -88,7 +88,7 @@ pages; re-run after every batch. Overfull hboxes in figure files: zero.
 - F12 `semidecision`: stages t=0,1,2,… along a timeline; a halting witness at stage T vs a search that never returns (RE side).
 - F13 ★ `kleene-square`: the proof of Thm 3.1 as a diagram: p → s(p,p)=e_Q; e_Q runs as p(p,x) → Q(s(p,p)) → universal simulation; the four displayed equalities as a commuting chain.
 - F14 `quine`: Q(z) = “print z”; e_Q prints e_Q.
-- F15 ★ `halt-f-construction`: the eight-input F(f,m,L,n,x,y,a,b): hardwire (f,m,L) → d; pair with sampler; Compress; run returned decider on (n,x,y,a,b); the arrow from d back into the verifier fed to Compress.
+- F15 ★ `halt-f-construction`: the eight-input F(f,m,λ,n,x,y,a,b): hardwire (f,m,λ) → d; pair with sampler; Compress; run returned decider on (n,x,y,a,b); the arrow from d back into the verifier fed to Compress.
 
 ### Lane B — Part I §4–6 (`parts/part1b.tex`)
 - F16 ★ `term-tree-scope`: λx.(x y) as a tree; bound x with `bind` arc to its λ; free y marked.
@@ -129,12 +129,12 @@ pages; re-run after every batch. Overfull hboxes in figure files: zero.
 - F49 ★ `loop-term`: the term (9.1) loop_m = Fix(λC. If(halt C, out C, self(move(C, TMDelta(m, view C))))) as a tree, TMDelta charge ≤ 8(|m|+k+2).
 - F50 ★ `simulation-ladder`: machine configuration after i steps ↔ functional configuration (commuting ladder), views agree, one iteration ≤ c₀(|M|+k+1) units.
 - F51 `u-l-heap`: U_L work-tape heap: node records, environment frames, continuation records, binary fuel; lazy input handles reading at most f symbols.
-- F52 ★ `resource-dictionary`: the quantitative bridge: Time_D(n) ≤ C_L(|D_L|+f_D(n)+1)^6 one way, fuel c_D T(T+|u|) the other; sizes linear both ways.
-- F53 `lambda-preservation`: λ → Aλ both directions, with the two exponent computations 3+⌈log₂72c₀⌉ and 6+⌈log₂C_L3⁶⌉.
+- F52 ★ `resource-dictionary`: the quantitative bridge: Time_D(n) ≤ C_L(|D_L|+f_D(n)+1)^8 one way, fuel c_D T(T+|u|) the other; sizes linear both ways.
+- F53 `lambda-preservation`: λ → Aλ both directions, with the two exponent computations 3+⌈log₂72c₀⌉ and 8+⌈log₂C_L3⁸⌉.
 - F54 `smn-sizes`: Lemma 10.1 wrapper with its size bound.
 - F55 ★ `kleene-sizes`: Kleene with size accounting: |e_Q| in terms of |p|.
 - F56 ★ `ycode-link`: runtime: a constant-size heap link self_code ↦ Code(Fix P) (c_Y=3) versus the materialised unfold Specialize(P,{self_code↦d_P}) as a big tree.
-- F57 ★ `psi-ml`: Ψ_{M,L} of (10.4) as a term tree: If(halts_within(M,n), true, Eval(ans(Eval(Quote(Compress), (quoted_pair(Quote(S_L), Hole(self_code)), L), F_C)), (n,x,y,a,b), FuelBound(n,L))); the hole amber; D_{M,L}=YCode(Ψ).
+- F57 ★ `psi-ml`: Ψ_{M,λ} of (10.4) as a term tree: If(halts_within(M,n), true, Eval(ans(Eval(Quote(Compress), (quoted_pair(Quote(S_L), Hole(self_code)), L), F_C)), (n,x,y,a,b), FuelBound(n,L))); the hole amber; D_{M,L}=YCode(Ψ).
 - F58 ★ `three-presentations`: triangle: paper’s F(F̄,M̄,L,…) — Kleene fixed point — D_{M,L}; all edges “same partial function, sizes O(|M|+log L+1)”.
 
 ### Lane D — Part II §11–15 (`parts/part2b.tex`)
@@ -167,8 +167,24 @@ pages; re-run after every batch. Overfull hboxes in figure files: zero.
 - F73 `correspondence-map`: each correspondence table (§14.1–14.6) gets a compact figure: the paper object → the Julia object → the evidence grade (`checked`/`citedbox`). At least one figure per page of §14 (the longtables are long; interleave).
 - F74 ★ `evidence-boundary`: EXECUTED / CHECKED / CITED as a horizontal boundary through the whole pipeline of F0, every stage placed on the correct side.
 - F75 `midpoint-diagnostic`: the midpoint toy (C6/N1): what it measured, as a small pgfplots histogram or bar chart if the numbers are in the text; otherwise a diagram.
-- F76 ★ `final-accounting`: closing figure: the fixed point D_{M,L} = YCode(Ψ_{M,L}) drawn once more with the three cited leaves (LDT soundness, rigidity, gap-preserving compression) marked slate.
+- F76 ★ `final-accounting`: closing figure: the fixed point D_{M,L} = YCode(Ψ_{M,λ}) drawn once more with the three cited leaves (LDT soundness, rigidity, gap-preserving compression) marked slate.
 
 Lanes may add figures beyond the plan; they may not drop a ★ figure. If a
 plan item does not match the text (the text has no such object), replace it
 with a figure of what the text actually has and say so in the report.
+
+### Added in brief 47 (repair round 1)
+
+Nine figures were added, all outside the original plan; no ★ item was dropped.
+
+- `symbol-table` (front matter, before the TOC) — S5: the nine quantities that travel through both parts, with where each is fixed.
+- `parameter-card` (§7.1) — S2: the eight universal constants of `Compress` (λ, 9, μ, γ, τ, k(n), ε₁/ε₂, C₀) with their ground-truth labels.
+- `ar-invokes-pcp` (§7.3) — m12: which of `fig:decider-pcp` and `fig:pcpverifier` owns Step 1.
+- `three-provenances` (§8 head) — M7: every named Part II result sorted into cited / derived-here-unverified / executed-and-ratcheted.
+- `grades` (§8.2) — M11: the five `CertNode` grades and what each obliges its author to supply.
+- `certificate-tree` (§8.2) — M11: the real `AnswerReduce` certificate tree of `test/tb2_answer_reduce.jl`.
+- `exponent-ladder` (§9.2) — M6: the five-step cost ladder ending at the one-tape conversion that squares the bound.
+- `miniature` (§11.3) — S1: one `Apply` microstep carried through window → clause index → five blocks.
+- `tb7-card` (§14.7) — M5: the TB7 toy instantiation, its level/dimension chains, and its printed predicate report.
+
+Redrawn: `decoupled-5sat` (M2, m18), `four-layers` (M8, moved to the head of §12 per S3), `ladder` (M4, m17), `correspondence-map` (m15), `D-threshold-margin` (m3), `three-presentations`, `psi-ml`, `halt-f-construction`, `C-closed-verifier` (M1), `y-derivation` (m16, m9), `roadmap` (m5), `D-correspondence-description` (m14), `D-correspondence-typed`, `D-correspondence-midpoint`, `tseitin-fanout`, `succinct-circuit`, `trace-tableau` (m6, m20).

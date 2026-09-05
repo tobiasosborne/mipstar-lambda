@@ -1,0 +1,29 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \node[lblsm,anchor=south west] at (0,0.14) {$N=|d|+|u|+f+1$};
+  \node[stage, anchor=north west, text width=6.4cm, align=left,
+        minimum height=7mm, font=\scriptsize] (r1) at (0,0)
+    {heap length \(\leq cN\) at all times};
+  \node[stage, anchor=north west, text width=6.4cm, align=left,
+        minimum height=7mm, font=\scriptsize] (r2) at (0,-1.20)
+    {one microstep: scan \(+\) address compare \(\leq(cN)^2\)};
+  \node[stage, anchor=north west, text width=6.4cm, align=left,
+        minimum height=7mm, font=\scriptsize] (r3) at (0,-2.40)
+    {at most \(f\leq N\) microsteps \(\Rightarrow c^2N^3\)};
+  \node[stage, anchor=north west, text width=6.4cm, align=left,
+        minimum height=7mm, font=\scriptsize] (r4) at (0,-3.60)
+    {\(+\) decode, serialize and charged primitives
+     (\(e_{\max}=\max_pe_p\)) \(\Rightarrow C\,N^{e_0}\) with
+     \(e_0=\max\{4,\,1+e_{\max}\}\)};
+  \node[tag machine, anchor=west] at (6.9,-4.05) {MULTITAPE};
+  \node[checked, anchor=north west, text width=6.4cm, align=left,
+        minimum height=7mm, font=\scriptsize] (r5) at (0,-5.20)
+    {one-tape conversion squares the bound \(\Rightarrow
+      C_L\,N^{2e_0}\); here \(e_0=4\), so the exponent is \(8\)};
+  \node[tag check, anchor=west] at (6.9,-5.65) {ONE TAPE, (9.3)};
+  \foreach \a/\b in {r1/r2,r2/r3,r3/r4,r4/r5} {\draw[xform] (\a) -- (\b);}
+  \node[lblsm, anchor=north west, align=left, text width=13.2cm] at (0,-6.55)
+    {Nothing downstream reads the number \(8\): Theorem~\ref{thm:lambda-preservation}
+     and the \(A\)-rescaling use only that \emph{some} fixed \(e\) and \(C_L\)
+     exist with \(\Time_{U_{\mathcal L}}(d,u,f)\leq C_L\,N^{e}\).  A different
+     primitive registry replaces \(8\) by \(2\max\{4,1+e_{\max}\}\).};
+\end{tikzpicture}

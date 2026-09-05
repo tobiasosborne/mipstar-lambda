@@ -34,6 +34,7 @@
 \newcommand{\ComputeParrepVerifier}{\mathsf{ComputeParrepVerifier}}
 \newcommand{\ComputeSampler}{\mathsf{ComputeSampler}}
 \newcommand{\poly}{\operatorname{poly}}
+\newcommand{\degF}{\operatorname{deg}_F}
 \newcommand{\code}[1]{\nolinkurl{#1}}
 \newcommand{\gt}[2]{\footnote{Ground truth: \code{#1} in \code{#2}.}}
 \newcommand{\grade}[1]{\textsc{\MakeLowercase{#1}}}
@@ -86,6 +87,13 @@ exact resource bounds on the same ideas.
 \label{fig:pipeline-glance}
 \end{figure}
 
+\begin{figure}[H]
+\centering
+\input{figs/fig-symbol-table}
+\caption{Nine quantities recur in both parts and are given here once, with the place each is fixed.  Reading the notation before the table of contents is what lets Part~I's qualitative statements and Part~II's bounds be recognised as the same quantities.}
+\label{fig:symbol-table}
+\end{figure}
+
 \setcounter{tocdepth}{2}
 {\footnotesize\setlength{\parskip}{0pt}\setlength{\columnsep}{2em}\begin{multicols}{2}\tableofcontents\end{multicols}}
 
@@ -93,7 +101,7 @@ exact resource bounds on the same ideas.
 \begin{figure}[h]
 \centering
 \input{figs/fig-roadmap}
-\caption{The upper path introduces machines, self-description, and lambda simulation before the lower path assigns sizes, costs, tableaux, and evidence grades.  The vertical arrows identify exactly which qualitative refresher each resource-accounted construction upgrades.}
+\caption{The upper path introduces machines, self-description, and lambda simulation before the lower path assigns sizes, costs, tableaux, and evidence grades.  The vertical arrows name which qualitative refresher each resource-accounted construction upgrades; \S2's universal machine is used throughout rather than upgraded at one place, and \S12's PCP algebra is new material with no Part~I counterpart.}
 \label{fig:roadmap}
 \end{figure}
 \input{parts/part1a}

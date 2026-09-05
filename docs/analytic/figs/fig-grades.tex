@@ -1,0 +1,27 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \node[checked, anchor=north west, text width=12.6cm, align=left,
+        minimum height=8mm] (g1) at (0,0)
+    {\textbf{\grade{CHECKED}} \ \scriptsize a deterministic recomputation
+     against the attached term \ --- \ \emph{must} carry
+     \(\mathtt{replay}:T\to\mathtt{CheckResult}\), re-run by
+     \code{verify\_certificate}};
+  \node[stage, anchor=north west, text width=12.6cm, align=left,
+        minimum height=8mm] (g2) at (0,-1.05)
+    {\textbf{\grade{CONSTRUCTED}} \ \scriptsize the constructor could not have
+     built the term otherwise \ --- \ a datatype fact, no replay};
+  \node[stage, draw=focus, fill=focuslt, anchor=north west, text width=12.6cm,
+        align=left, minimum height=8mm] (g3) at (0,-2.10)
+    {\textbf{\grade{SOURCE\_REPAIR}} \ \scriptsize a deliberate deviation from
+     the source text \ --- \ carries what was changed and why};
+  \node[citedbox, anchor=north west, text width=12.6cm, align=left,
+        minimum height=8mm] (g4) at (0,-3.15)
+    {\textbf{\grade{ASSUMED}} \ \scriptsize a hypothesis of the imported
+     theorem, taken on faith here \ --- \ carries its visible residue};
+  \node[citedbox, anchor=north west, text width=12.6cm, align=left,
+        minimum height=8mm] (g5) at (0,-4.20)
+    {\textbf{\grade{CITED}} \ \scriptsize imported from a named ground-truth
+     statement \ --- \ carries source, statement and hypotheses};
+  \draw[brace] (-0.25,0) -- (-0.25,-5.0);
+  \node[lblsm, anchor=south, rotate=90] at (-0.65,-2.5)
+    {evidence supplied here \(\longrightarrow\) evidence imported};
+\end{tikzpicture}

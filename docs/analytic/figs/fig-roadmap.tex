@@ -36,7 +36,11 @@
   \draw[->, machine, line width=1pt]
     (s1.south) -- node[upgrade] {machine model\\$\to$ cost bounds} (s7.north);
   \draw[->, desc, line width=1pt]
-    (s3.south) -- node[upgrade] {fixed point\\$\to$ sized code} (s810.north);
+    (s3.south) -- node[upgrade, pos=0.34] {fixed point\\$\to$ sized code}
+    ([xshift=-5mm]s810.north);
+  \draw[->, term, line width=1pt]
+    (s4.south) -- node[upgrade, pos=0.72] {bare $\lambda$-terms\\$\to$ costed
+    $\mathcal L$} ([xshift=5mm]s810.north);
   \draw[->, term, line width=1pt]
     (s5.south) -- node[upgrade] {simulation\\$\to$ tableau} (s11.north);
   \draw[->, check, line width=1pt]

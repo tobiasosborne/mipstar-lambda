@@ -42,9 +42,9 @@
   \node[descbox, minimum width=20mm] (self)
     at ([yshift=-25mm]ca.south -| topmid) {$\langle d\rangle$\\\scriptsize self code};
   \node[stage, left=21mm of self, minimum width=29mm] (halt)
-    {Halting verifier\\$V^{\mathrm h}=(S_L,d)$};
+    {Halting verifier\\$V^{\mathrm h}=(S_\lambda,d)$};
   \node[checked, right=21mm of self, minimum width=31mm] (compress)
-    {$\Compress(\langle S_L,d\rangle,\lambda)$};
+    {$\Compress(\langle S_\lambda,d\rangle,\lambda)$};
   \draw[xform] (halt) -- node[xformlbl, yshift=1pt] {exposes} (self);
   \draw[xform] (self) -- node[xformlbl, yshift=1pt] {fed to} (compress);
   \draw[->, focus, line width=1.2pt, rounded corners=4pt]

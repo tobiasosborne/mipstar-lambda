@@ -9,7 +9,7 @@
   \node[descbox,below=12mm of self] (ysrc)
     {$Y=\lambda F.(\lambda x.F(xx))(\lambda x.F(xx))$\\[-1pt]
      \scriptsize finite syntax; no recursive name};
-  \draw[quote] (hdef.south) to[bend left=15]
+  \draw[copyflow] (hdef.south) to[bend left=15]
     node[lblsm,right=1mm] {assemble} (ysrc.east);
 
   \node[tnode,below left=14mm and 18mm of ysrc] (yf) {$F$};
@@ -20,7 +20,7 @@
   \node[tleaf,below=7mm of ff2] (leaf2) {$YF$};
   \draw[tedge] (ff)--(ff2) (ff2)--(leaf2);
   \draw[beta] (ysrc.south west) --
-    node[lblsm,left=6mm] {$YF\to F(YF)$} (yf.north);
+    node[lblsm,left=6mm] {$YF=_\beta F(YF)$} (yf.north);
   \draw[beta] (yf.east) -- node[lblsm,above] {unfold once more} (ff.west);
   \node[tag focus,below=2mm of leaf2] {THE SAME FINITE SEED};
 \end{tikzpicture}

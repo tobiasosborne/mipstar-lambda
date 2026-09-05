@@ -1,0 +1,58 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  % ---------- step 1: the 2 x 4 tableau of one Apply microstep at F=1
+  \node[lbl,anchor=east] at (-0.15,-0.35) {\(C_0\)};
+  \foreach \j/\txt in {0/{$\langle q_0,\mathsf{Ap}\rangle$}, 1/{$\lambda$},
+                       2/{$v$}, 3/{$\sqcup$}}{
+    \node[cell, minimum width=1.55cm, minimum height=7mm, font=\scriptsize,
+          anchor=north west] (a\j) at (\j*1.55,0) {\txt};
+  }
+  \node[lbl,anchor=east] at (-0.15,-1.55) {\(C_1\)};
+  \foreach \j/\txt in {0/{$\mathsf{ret}$}, 1/{$\langle q_1,v\rangle$},
+                       2/{$v$}, 3/{$\sqcup$}}{
+    \node[cell, minimum width=1.55cm, minimum height=7mm, font=\scriptsize,
+          anchor=north west] (b\j) at (\j*1.55,-1.2) {\txt};
+  }
+  \node[draw=focus, line width=1.1pt, rounded corners=1.5pt,
+        fit=(a0)(a2), inner sep=1.2pt] (win) {};
+  \node[cell head, minimum width=1.55cm, minimum height=7mm, font=\scriptsize,
+        anchor=north west] at (1.55,-1.2) {$\langle q_1,v\rangle$};
+  \node[lblsm,text=term,anchor=south west] at (0,0.12)
+    {radius-one window \((j{-}1,j,j{+}1)\) at \(j=2\)};
+  \draw[->,machine,line width=1pt] (2.33,-0.78) -- (2.33,-1.2)
+    node[midway,right=1mm,lblsm,text=machine] {\(\omega\)};
+  \node[lbl,anchor=west,align=left,text width=6.6cm] at (6.5,-0.9)
+    {\textbf{one \(\operatorname{Apply}\) microstep.}\ \ The term
+     \(\operatorname{Apply}(\operatorname{Lambda}(1,\operatorname{BoundVar}(0,0)),v)\)
+     at fuel \(F=1\) has a \(2\times4\) tableau: two rows, width four.  The
+     amber window of row \(C_0\) fixes the amber cell of row \(C_1\).};
+
+  % ---------- step 2: one clause index of the succinct 3SAT circuit
+  \node[descbox, anchor=north west, minimum width=4.6cm, font=\scriptsize\sffamily]
+       (idx) at (0,-2.55) {index \((\mathrm{transition},\,i=0,\,j=2)\)};
+  \node[checked, anchor=north west, minimum width=7.4cm, font=\small]
+       (cl3) at (5.4,-2.55)
+    {\(\neg y_w\ \vee\ x_{1,2,s}\ \vee\ x_{1,2,s}\)};
+  \draw[xform] (idx.east) -- (cl3.west);
+  \node[lblsm,anchor=north west,align=left,text width=12.8cm] at (0,-3.55)
+    {\(y_w\) is the Tseitin variable for ``row \(0\) shows
+     \((\lambda,v,\sqcup)\) at this window''; \(x_{1,2,s}\) says ``row \(1\),
+     cell \(2\) carries \(s=\langle q_1,v\rangle\)''.  A two-literal clause is
+     padded to three by repetition, as Theorem~\ref{thm:l-succinct-sat}
+     requires.};
+
+  % ---------- step 3: the same clause after decoupling
+  \node[checked, anchor=north west, text width=12.2cm, align=center, font=\small]
+       (cl5) at (0,-4.65)
+    {\(a_{i_1}^{o_1}\ \vee\ b_{i_2}^{o_2}\ \vee\ (u_3)^{0}_{\,y_w}\ \vee\
+       (u_4)^{1}_{\,x_{1,2,s}}\ \vee\ (u_5)^{1}_{\,x_{1,2,s}}\)\\[1pt]
+      {\scriptsize\sffamily for every \(i_1,i_2\) and every
+       \(o_1,o_2\in\{0,1\}\)}};
+  \draw[xform] (6.4,-4.20) -- (6.4,-4.65);
+  \node[tag check, anchor=north east] at (12.7,-6.05) {ONE BIT PER BLOCK};
+  \node[lblsm,anchor=north west,align=left,text width=12.8cm] at (0,-6.35)
+    {The first, second and third literal go to \(u_3,u_4,u_5\).  Because both
+     polarities \(o_1,o_2\) occur for every pair \(i_1,i_2\), some clause of the
+     family has both answer literals false, so the family is equivalent to the
+     original three-literal clause --- which is why decoupling costs nothing but
+     the equality gadgets \(u_3=u_4=u_5\).};
+\end{tikzpicture}

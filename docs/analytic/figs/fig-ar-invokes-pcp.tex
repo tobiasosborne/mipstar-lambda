@@ -1,0 +1,34 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  % ---- the answer-reduced decider and its five guards
+  \node[stage, anchor=north west, text width=5.6cm, align=left,
+        minimum height=1.0cm] (dec) at (0,0)
+    {\textbf{\(\widehat D^{\rm ar}\)} \ \scriptsize (\code{fig:decider-pcp})};
+  \foreach \i/\txt in {0/{global consistency}, 1/{input consistency},
+                       2/{input low degree}, 3/{proof encoding}}{
+    \node[checked, anchor=north west, text width=5.2cm, align=left,
+          minimum height=6mm, font=\scriptsize] at (0.2,-1.25-\i*0.85) {\txt};
+  }
+  \node[checked, anchor=north west, text width=5.2cm, align=left,
+        minimum height=6mm, font=\scriptsize] (g5) at (0.2,-4.65)
+    {game check --- \emph{invokes} \code{pcpverifier}};
+
+  % ---- pcpverifier, whose Step 1 builds the succinct circuit
+  \node[citedbox, anchor=north west, text width=6.4cm, align=left,
+        minimum height=1.0cm] (pcp) at (7.2,-3.30)
+    {\textbf{\code{pcpverifier}} \ \scriptsize (\code{fig:pcpverifier})};
+  \node[descbox, anchor=north west, text width=6.0cm, align=left,
+        minimum height=6mm, font=\scriptsize] (s1) at (7.4,-4.55)
+    {Step 1: \(\mathsf{Circuit}=\mathsf{PaddedSuccinctDecider}
+      (\overline D,n,T,Q,\sigma,x,y)\)};
+  \node[citedbox, anchor=north west, text width=6.0cm, align=left,
+        minimum height=6mm, font=\scriptsize] (s2) at (7.4,-5.75)
+    {Step 2: the formula test and the zero test at the sampled view};
+  \draw[xform] (g5.east) -- (s1.west);
+  \node[lblsm, anchor=south, text=ink] at (6.7,-4.45) {calls};
+
+  \node[lblsm, anchor=north west, align=left, text width=13.4cm] at (0,-6.85)
+    {Only the last guard leaves \(\widehat D^{\rm ar}\).  Step 1 therefore
+     belongs to \code{pcpverifier}, not to the answer-reduced decider, and it
+     consumes the \emph{description} \(\overline D\) --- of length at most
+     \(\sigma\) --- rather than the tableau it describes.};
+\end{tikzpicture}

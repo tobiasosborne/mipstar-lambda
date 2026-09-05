@@ -44,7 +44,7 @@ the cells under the heads, and the head positions by at most one.
 There is a finite alphabet \(\Gamma_{\mathcal L}\), a fixed number \(r_0\) of
 tracks, and a Boolean function
 \[
- \tau:\bigl(\Gamma_{\mathcal L}^{3}\bigr)^{r_0}
+ \omega:\bigl(\Gamma_{\mathcal L}^{3}\bigr)^{r_0}
        \times Q_{\mathcal L}\longrightarrow
        \Gamma_{\mathcal L}^{r_0}\times Q_{\mathcal L}
 \]
@@ -53,7 +53,7 @@ cell \(j\) of row \(i+1\), together with the next finite-control state, are
 determined by the radius-one windows
 \((j-1,j,j+1)\) of row \(i\) and the current control state.  Boundary cells use
 a fixed endmarker version of the same rule.  Conversely, if two consecutive
-rows have one head marker on each track, agree with \(\tau\) at every window,
+rows have one head marker on each track, agree with \(\omega\) at every window,
 and have valid endmarkers, then the second row is exactly the successor of the
 first under the small-step semantics.
 \end{lemma}
@@ -68,7 +68,7 @@ left and right neighbors, the table determines whether the head marker enters;
 it cannot enter any other cell because heads move by at most one.  These cases
 depend only on the three displayed cells on each track.  They are mutually
 exclusive once the old row has one head per track, and therefore define the
-finite function \(\tau\).  Endmarkers replace missing neighbors by a fixed
+finite function \(\omega\).  Endmarkers replace missing neighbors by a fixed
 boundary symbol.
 
 For the converse, consider each track.  Away from the unique old head, the
@@ -128,7 +128,7 @@ Given a clause index, the circuit first decodes whether the requested clause is
 an initialization, uniqueness/format, transition, or acceptance clause.  Row
 and column numbers use \(O(\log F+\log W)\) bits.  For a transition clause it
 computes the addresses of a radius-one window and evaluates the finite truth
-table \(\tau\) from Lemma~\ref{lem:transition-window}; binary addition,
+table \(\omega\) from Lemma~\ref{lem:transition-window}; binary addition,
 comparison, and multiplexing have size polynomial in those address lengths.
 For an initialization clause it selects a bit of the canonical code or public
 input.  A balanced selector for a hardwired string has size linear in
@@ -181,11 +181,11 @@ blocks to be valid padded tape rows; the backward direction fills those blocks
 from the accepting trace.  This is the exact placement property needed when
 the two blocks are separated in \eqref{eq:decoupled-five}.
 Figure~\ref{fig:decoupled-5sat} makes the three kinds of constraints visible
-on the five equal-length blocks.
+on the five power-of-two blocks.
 \begin{figure}[t]
 \centering
 \input{figs/fig-decoupled-5sat.tex}
-\caption{Five power-of-two blocks separate the two answer tapes from three independently queried tableau assignments, with amber prefixes marking the first \(2F\) answer bits.  Copy, equality, and padding gadgets make the decoupled five-literal view equivalent to the original accepting trace.}
+\caption{Each 3SAT clause places its first, second and third literal in \(u_3,u_4,u_5\) respectively, and the equality gadgets restore \(u_3=u_4=u_5\); the two answer blocks are copied out of the first and second \(2F\) cells of \(u_3\).  One addressed bit per block is all \eqref{eq:decoupled-five} permits, which is why decoupling is what makes three independent low-degree answers usable.}
 \label{fig:decoupled-5sat}
 \end{figure}
 
@@ -212,16 +212,37 @@ must query them as independent blocks.  Make five assignments
  (u_5)_{i_5}^{o_5}.
 \tag{11.2}\label{eq:decoupled-five}
 \]
-The original 3SAT clauses are applied to \(u_3\); constant-size five-literal
-gadgets enforce \(u_3=u_4=u_5\), copy the first \(2F\) encoded answer bits to
-\(a,b\), and pad unused positions by the alternating blank encoding.  Each
+Figure~\ref{fig:miniature} carries one concrete object through all three
+steps of this section before the general statement, so that ``window'',
+``clause index'' and ``block'' can be seen to name the same thing three times.
+\begin{figure}[H]
+\centering
+\input{figs/fig-miniature.tex}
+\caption{One \(\operatorname{Apply}\) microstep at fuel \(F=1\): its \(2\times4\) tableau and the window of Figure~\ref{fig:trace-tableau}, the single clause index that window produces, and the five-block family that clause becomes.  Following one object rather than a schema shows where each literal of a 3SAT clause actually lands.}
+\label{fig:miniature}
+\end{figure}
+
+Each original 3SAT clause contributes its \emph{first} literal to \(u_3\), its
+\emph{second} to \(u_4\) and its \emph{third} to \(u_5\); this is forced by the
+shape of \eqref{eq:decoupled-five}, which addresses exactly one bit per block,
+and is exactly the paper's convention that in
+\(\varphi_{\mathrm{3SAT}}(u_3,u_4,u_5)\) the first variable of each constraint
+is taken from \(u_3\), the second from \(u_4\) and the third from \(u_5\).
+Constant-size five-literal gadgets then enforce \(u_3=u_4=u_5\), so the
+decoupled instance is satisfiable exactly when the shared-assignment one is;
+further gadgets copy the first \(2F\) encoded answer cells of \(u_3\) to
+\(a\) and its second \(2F\) cells to \(b\), and pad unused positions by the
+alternating blank encoding.  Each
 gadget is indexed by comparisons and additions on
 \(O(\log F+\log\sigma)\)-bit addresses, so it adds only that many gates.
 Therefore the succinct decoupled circuit retains the bound
-\eqref{eq:l-succinct-size}.  Its padded form makes all five blocks have one
-common power-of-two length.  A satisfying five-tuple restricts to a satisfying
-trace assignment, and a satisfying trace extends by copying and padding; this
-proves the required if-and-only-if.
+\eqref{eq:l-succinct-size}.  Its padded form gives each block \(i\) a
+power-of-two length \(N_i=2^{n_i}\): the two answer blocks share the length
+\(L=2^{\ell_0}\) with \(\ell_0=\lceil\log 2F\rceil\), and the three tableau
+blocks share \(R=2^{r_0}\) with \(r_0\) the succinct index width; the lengths
+need not agree across the two groups.  A satisfying five-tuple restricts to a
+satisfying trace assignment, and a satisfying trace extends by copying and
+padding; this proves the required if-and-only-if.
 \gt{sec:succinct-deciders}{ground-truth/gt-10-answer-reduction.tex}
 
 The intended analytic chain is
@@ -314,7 +335,7 @@ literal-occurrence account and the bounded-fan-out repair.
 \begin{figure}[t]
 \centering
 \input{figs/fig-tseitin-fanout.tex}
-\caption{As we read the gate-equivalence formula, a wire used by \(f\) later gates contributes \(2+2f\) literal occurrences, and the two-gate fixture reaches individual degree four.  Bounded fan-out restores the conservative \(\delta_F\leq7\), \(d\geq8\) route without conflating a tested account with the cited source proposition.}
+\caption{As we read the gate-equivalence formula, a wire used by \(f\) later gates contributes \(2+2f\) literal occurrences, and the two-gate fixture reaches individual degree four.  Bounded fan-out restores the conservative \(\degF\leq7\), \(d\geq8\) route without conflating a tested account with the cited source proposition.}
 \label{fig:tseitin-fanout}
 \end{figure}
 Reading the NW19 formula literally as a formula tree, arithmetization is
@@ -357,16 +378,27 @@ and singles out the coordinates that exceed two.
 \end{figure}
 The general occurrence formula is a written derivation, not a machine theorem.
 The downstream soundness repair is only \claim{C5}{SKETCH}.  With a symbolic
-bound \(\delta_F=\max_v\operatorname{occ}_v(F)\), the conservative formula-test
-term becomes \((\delta_F+5d)m'/q\), and
+bound \(\degF=\max_v\operatorname{occ}_v(F)\), the conservative formula-test
+term becomes \((\degF+5d)m'/q\), and
 \code{P_formula_structural} is an additional obligation.  Under an explicit
 fanout-reduction hypothesis, \(\operatorname{fanout}_{\max}\leq2\) gives
-\(\delta_F\leq7\) with the output literal, and \(d\geq8\) suffices for the
+\(\degF\leq7\) with the output literal, and \(d\geq8\) suffices for the
 individual-degree construction bound.  Absorption into the asymptotic
 parameter choice still needs the stated growth hypotheses; it is not promoted
 by the two finite computations.
 
 \section{The low-degree PCP as algebra}
+
+This section is one argument in four layers, and Figure~\ref{fig:four-layers}
+is its roadmap: what the prototype evaluates, what the evaluation is allowed to
+conclude, and the two imported theorems on either side.  Sections~12.1--12.3
+build the algebra the top row needs; \S12.4 walks the boxes in order.
+\begin{figure}[t]
+\centering
+\input{figs/fig-four-layers.tex}
+\caption{Layer 1 is split: the green box is the identity evaluation the prototype performs, the dashed box beside it is the conditional theorem that turns that evaluation into an accepting computation, and only the second carries C5.  The arrows are the real dependency --- layers 2 and 3 feed layer 1, and layers 1 and 4 feed \code{thm:ar} --- not a top-to-bottom chain.}
+\label{fig:four-layers}
+\end{figure}
 
 \subsection{Interpolation and the vanishing polynomial}
 
@@ -415,6 +447,7 @@ generated by these \(m'\) polynomials.
 The implementation uses the following deterministic monomial rewrite.
 
 \begin{lemma}[Executable zero-basis rewrite]
+\label{lem:zero-rewrite}
 For a coefficient \(a\), a monomial \(u\) independent of the displayed power,
 and \(e\geq2\),
 \[
@@ -505,19 +538,13 @@ degree checking, and stored certified views.
 \subsection{The four soundness layers}
 
 The four layers must not be collapsed.
-Figure~\ref{fig:four-layers} draws the evidence boundary through the four
-logically distinct steps.
-\begin{figure}[t]
-\centering
-\input{figs/fig-four-layers.tex}
-\caption{Green strata are computations or finite checks, while dashed slate strata are imported low-degree and quantum implications.  The boundary prevents successful local evaluations from being mistaken for a proof of soundness against arbitrary strategies.}
-\label{fig:four-layers}
-\end{figure}
+The four layers are Figure~\ref{fig:four-layers}, printed at the head of this
+section; each paragraph below is one of its boxes.
 
 \paragraph{1. Algebraic soundness under a low-degree premise.}
 Assume every submitted \(g_i,c_j\) has individual degree at most \(d\).  If the
 formula-test polynomials are unequal, their difference has total degree at most
-\((\delta_F+5d)m'\) under the occurrence-vector account.  If the zero-test
+\((\degF+5d)m'\) under the occurrence-vector account.  If the zero-test
 polynomials are unequal, their difference has total degree at most
 \((2+d)m'\).  Schwartz--Zippel states that unequal polynomials of total degree
 at most \(\Delta\) agree at a uniform point of \(\F_q^{m'}\) with probability
@@ -526,12 +553,12 @@ at most \(\Delta/q\).
 Consequently
 \[
  \Pr[\text{false formula identity}]
- \leq \frac{(\delta_F+5d)m'}{q},\qquad
+ \leq \frac{(\degF+5d)m'}{q},\qquad
  \Pr[\text{false zero identity}]
  \leq \frac{(2+d)m'}{q}.
 \]
 The paper's displayed first numerator uses \(2+5d\); the structural project
-obligation substitutes the measured \(\delta_F\) under the discrepancy stated
+obligation substitutes the measured \(\degF\) under the discrepancy stated
 above.  The field size enters nowhere mysteriously: \(q=2^k\) is chosen so
 both fractions are below the acceptance threshold \(1/2\), together with the
 other PCP parameter obligations.  The first structural inequality is extra to
@@ -541,7 +568,7 @@ threshold.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-threshold-margin.tex}
-\caption{Both Schwartz--Zippel bounds must fall left of the amber acceptance threshold, which is exactly what the choice \(q=2^k\) buys.  The two bounds are cited analytic input; only the parameter arithmetic that compares them with \(1/2\) is executed here.}
+\caption{Both Schwartz--Zippel bounds must fall left of the amber acceptance threshold, which is exactly what the choice \(q=2^k\) buys; the formula bound \(b_1\) is the larger of the two for every \(d\geq1\), so it is the binding one.  The bounds themselves are cited analytic input; only the parameter arithmetic that compares them with \(1/2\) is executed here.}
 \label{fig:D-threshold-margin}
 \end{figure}
 
@@ -582,11 +609,13 @@ identity.
 The computer adds exactly this: on a named instance it constructs the
 polynomials, executes the division, compares normalized coefficients, computes
 degree and dependency vectors, and evaluates the two local equations.  It does
-not test the theorem.  Current statuses reflect that separation: C3 is
-\textsc{TESTED}, C5 is \textsc{SKETCH}, C1 and C2 remain
-\textsc{CONJECTURE}, and C8 is \textsc{TESTED} only on its two named circuits.
+not test the theorem.  Current statuses reflect that separation: C2, C3 and
+C8 are \textsc{TESTED} on their named fixtures only, C5 is \textsc{SKETCH},
+and C1 --- the acceptance of the constructed proof at every \(z\) --- remains
+\textsc{CONJECTURE}.
 
 \section{The typed layer: conditionally linear functions}
+\label{sec:typed-layer}
 
 \subsection{The inductive object and its laws}
 
@@ -600,6 +629,7 @@ the full level diagram.
 \end{figure}
 
 \begin{definition}[Conditionally linear function]
+\label{def:cl-func-doc}
 Let \(V=\F^n\) with fixed coordinate-register subspaces.  The unique level-zero
 conditionally linear (CL) function is zero.  A level-\(\ell\) CL function
 chooses complementary registers \(V_1\oplus V_{>1}=V\), applies a linear map
@@ -629,39 +659,67 @@ of \code{lem:cl-kth} in
 \code{ground-truth/gt-04-cl.tex}.  Julia's \code{marginal_k} returns a
 \code{CLMarginal}; \code{sum_stage_outputs} recomputes its value.
 
+A level is a property a CL function \emph{has}, never one it has uniquely.  The
+source says so directly: the marginal functions, factor spaces and linear maps
+of a CL function need not be unique, and the identity on \(\F^n\) is a
+\(1\)-level CL function which may equally be presented as a \(k\)-level one for
+any \(k\in\{2,\ldots,n\}\).  Correspondingly, every \((\ell-1)\)-level CL
+function is also \(\ell\)-level.\gt{rk:higher-level}{ground-truth/gt-04-cl.tex}
+Both facts are used below, and neither can be strengthened to an equality.
+
 \begin{lemma}[Level laws]
-Let \(L\) be level \(k\), let every continuation \(R_u\) be level \(\ell\),
-and let \(L_j\) act on pairwise disjoint registers at levels \(\ell_j\).
-Then
+\label{lem:level-laws}
+Let \(L\) be a \(k\)-level CL function on \(U\), let every continuation
+\(R_u\) be an \(\ell\)-level CL function on \(V\), and let \(L_j\) be
+\(\ell_j\)-level CL functions on pairwise disjoint registers \(V^{(j)}\) with
+\(V=\bigoplus_jV^{(j)}\).  Then
 \[
- \operatorname{level}(\operatorname{concatenate}(L,R))=k+\ell,
- \qquad
- \operatorname{level}\!\left(\bigoplus_jL_j\right)=\max_j\ell_j.
+\begin{aligned}
+ \operatorname{concatenate}(L,R)&\ \text{\emph{is} a }(k+\ell)\text{-level CL
+   function on }U\oplus V,\\
+ \textstyle\bigoplus_jL_j&\ \text{\emph{is} a }\bigl(\max_j\ell_j\bigr)
+   \text{-level CL function on }V.
+\end{aligned}
 \]
 For CL distributions \(S_1,S_2\), their product, formed by direct-summing the
-left maps and the right maps on independent seed registers, has level the
+left maps and the right maps on independent seed registers, is CL of the
 maximum of the two levels.
 \end{lemma}
 
 \begin{proof}
 For concatenation, induct on the outer constructor of \(L\).  At level zero,
-grafting \(R_0\) supplies exactly \(\ell\) stages.  At a \code{CLStep}, retain
+grafting \(R_0\) supplies \(\ell\) stages.  At a \code{CLStep}, retain
 its first linear stage and apply the induction hypothesis to each child; this
-gives \(1+(k-1+\ell)=k+\ell\).  This is the construction in
+exhibits \(1+(k-1+\ell)=k+\ell\) stages.  This is the construction in
 \code{lem:cl-concat} of \code{ground-truth/gt-04-cl.tex}.
 
 For direct sum, pad each component by zero stages to
-\(r=\max_j\ell_j\).  At stage \(i\), use the direct sum of the components'
-stage matrices on the direct sum of their factor registers.  The continuation
+\(r=\max_j\ell_j\), which is legitimate by \code{rk:higher-level}.  At stage
+\(i\), use the direct sum of the components' stage matrices on the direct sum
+of their factor registers.  The continuation
 depends only on the tuple of earlier outputs, hence remains CL.  Induction on
-\(r\) proves the law, matching \code{lem:cl-func-prod} in
-\code{ground-truth/gt-04-cl.tex}.  A distribution product applies this law
-separately to its left and right maps, so its level is the same maximum.
+\(r\) exhibits an \(r\)-stage presentation, matching \code{lem:cl-func-prod} in
+\code{ground-truth/gt-04-cl.tex}.  A distribution product applies this
+construction separately to its left and right maps, so it is CL of the same
+maximum.
 \end{proof}
 
+Both statements are memberships, not invariants, and both proofs establish only
+the \(\leq\) direction: they exhibit a presentation with that many stages and
+never argue that fewer are impossible.  The converse fails.  Take
+\(U=V=\F^1\), \(L=\operatorname{id}_U\) and \(R_u=\operatorname{id}_V\) for
+every \(u\), each of level one; their concatenation is
+\(T(x)=x^U+x^V=x\), the identity on \(U\oplus V\), which is linear and hence
+level one, not \(k+\ell=2\).  Likewise, regarding the zero map on \(V^{(1)}\)
+as \(5\)-level (legitimate, again by \code{rk:higher-level}) and the zero map
+on \(V^{(2)}\) as \(0\)-level makes \(\max_j\ell_j=5\) while the direct sum is
+the zero map, which is level zero.
+
 The code functions are \code{concatenate}, \code{direct_sum},
-\code{distribution}, and \code{product}.  Their type constructions carry the
-level laws.  The stronger structural hypothesis that all compiler operations
+\code{distribution}, and \code{product}.  Their type constructions carry these
+constructed presentations, which is why C4a and C4b record nesting depths as
+\emph{upper bounds in the sense of} \code{rk:higher-level} and disclaim
+minimality.  The stronger structural hypothesis that all compiler operations
 of interest close inside one useful algebra is not implied by these individual
 lemmas.
 
@@ -674,7 +732,7 @@ prefix projection \(\pi_{\chi(s)-1}\) explicitly.
 \begin{figure}[H]
 \centering
 \input{figs/fig-chi-axis-buckets.tex}
-\caption{The amber seed coordinate \(s=5\) falls in the second of the two \(q/m=4\)-element buckets, so \(\chi(s)=2\) and the axis-line map takes its direction \(e_2\) from a stage that reads \(s\) alone.  The second stage is then linear on \(u\) with the choice already fixed, which is exactly why \(L_{\rm ALine}\) is conditionally linear of level two rather than one.}
+\caption{The amber seed coordinate \(s=5\) falls in the second of the two \(q/m=4\)-element buckets, so \(\chi(s)=2\) and the axis-line map takes its direction \(e_2\) from a stage that reads \(s\) alone.  The second stage is then linear on \(u\) with the choice already fixed, which is why the constructed presentation of \(L_{\rm ALine}\) has two stages --- an upper bound in the sense of \code{rk:higher-level}, with no minimality claimed.}
 \label{fig:chi-axis-buckets}
 \end{figure}
 \begin{figure}[H]
@@ -702,8 +760,9 @@ L_{\rm DLine}(u,s,v)&=(L_{\pi_{\chi(s)-1}(v)}^{\rm lnf}u,
                          s,\pi_{\chi(s)-1}(v)).
 \end{aligned}
 \]
-Their levels are respectively one, two, and three by their stage
-factorizations.\gt{sec:ld-game}{ground-truth/gt-07-ldt.tex}
+Their stage factorizations exhibit them as CL functions of level one, two and
+three respectively; by \code{rk:higher-level} these are upper bounds, and no
+minimality is claimed.\gt{sec:ld-game}{ground-truth/gt-07-ldt.tex}
 The implementation names are \code{L_Point}, \code{L_ALine},
 \code{L_DLine}, \code{L_lnf}, \code{chi}, and \code{pi_prefix}.  Since the
 source's kernel-basis definition does not cover \(v=0\), the code uses
@@ -733,9 +792,10 @@ the sixth simultaneous proof test.
 
 A \emph{typed sampler} is a finite type-graph-indexed family of CL maps sharing
 one ambient seed space.  It first samples an oriented type edge and then pushes
-one uniform seed through the selected left/right maps.
-\gt{def:typed-sampler}{ground-truth/gt-06-types.tex}
-Its induced distribution is \code{def:typed-sampler-sample} in the same file.
+one uniform seed through the selected left/right maps.  The seven-input
+machine interface itself is \code{def:typed-sampler}; the two-step sampling
+behaviour just described is its induced distribution
+\code{def:typed-sampler-sample}.\gt{def:typed-sampler, def:typed-sampler-sample}{ground-truth/gt-06-types.tex}
 Julia's \code{TypedSampler} checks exact type coverage, a common field and seed
 dimension, graph endpoints, and a padded common level.
 
@@ -756,8 +816,11 @@ copy 6 queries the bundle \((g_1,\ldots,g_5,c_0,\ldots,c_{m'})\) in dimension
 \(m'\).  The six-copy construction and its ambient direct sums are in
 \code{sec:ld-compiler} of
 \code{ground-truth/gt-10-answer-reduction.tex}.
-The current code uses \code{PCPType}, \code{PCPRegisterLayout}, \code{PCPCLMap},
-\code{PCPPaddedMap}, and \code{pcp_sampler}.  It carries a visible
+The current code uses \code{PCPType} and \code{PCPRegisterLayout} for the
+type and register bookkeeping, the private constructor \code{_pcp_cl_map}
+(\code{src/samplers/pcp_sampler.jl}) for the 18 maps, \code{pad_level}
+(\code{src/samplers/typed.jl}) to bring them to a common level, and
+\code{pcp_sampler} for the family.  It carries a visible
 \grade{SOURCE\_REPAIR} for the copy-6 coordinate-register conflict between the
 displayed ambient space and the parser table.
 
@@ -769,11 +832,14 @@ the common seed and can reconstruct both; the code name is
 The typed
 answer-reduced sampler is the product of this three-role family with the
 18-type PCP family.  \code{typed_sampler_product} produces 54 types and
-combines levels by a maximum.  The code constructs the product and checks its
-shape, but C4b remains \textsc{CONJECTURE}: the latest TB2 critic held promotion
-because the lazy \code{PCPCLMap}'s stage depth was not itself enough to make
-the full CL decomposition a constructor-level fact.  Local certificate labels
-must not be confused with a promoted claim.
+combines levels by a maximum.  The lazy object here is \code{CLStep}
+(\code{src/samplers/cl.jl}), whose \code{branch} continuation is evaluated only
+at the seeds actually reached and memoised after a field/dimension/register/level
+check.  \claim{C4b}{TESTED} is scoped to exactly what that buys: type and edge
+counts, the common level, and self-consistent marginals.  The decider's questions
+are generated by an explicit seed split rather than by applying the product maps,
+so the product is not evidenced as the source of the questions.  Local
+certificate labels must not be confused with a wider promoted claim.
 
 The typed decider implements the five guarded checks of
 \code{fig:decider-pcp}: global consistency, input consistency, input low degree,
@@ -858,6 +924,7 @@ the global closure hypothesis they do not establish.
 \end{figure}
 
 \section{Correspondence tables}
+\label{sec:tables}
 
 The evidence grade describes the local certificate leaf.  The claim column is
 the current status in \code{claims/CLAIMS.md}; it can remain weaker than a
@@ -865,16 +932,21 @@ certificate label when an adversarial verdict has not promoted the claim.
 \grade{CONSTRUCTED} means enforced by a constructor,
 \grade{CHECKED} means deterministic replay against an attached object, and
 \grade{CITED} means imported from the named ground-truth statement.
+A claim column reading ``none'' or ``no current row'' means exactly that: no
+row of \code{claims/CLAIMS.md} governs the object.  In particular every
+theorem and lemma of Part~II is a written derivation of this project at
+\textsc{SKETCH --- not yet adversarially verified} status, with no ratchet
+row, as stated at the head of Section~\ref{sec:resource-lambda}.
 Figure~\ref{fig:ladder} gives the status-bearing order of the tracer-bullet
 rungs, and Figure~\ref{fig:correspondence-map} compresses the six tables into
 one evidence map.
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \input{figs/fig-ladder.tex}
-\caption{The tracer-bullet ladder advances from the tested polynomial and CL fixtures through typed answer reduction to the planned description, introspection, repetition, and compression compilers.  Status chips reproduce \texttt{claims/CLAIMS.md} at this writing and therefore describe claims, not implementation completeness.}
+\caption{The ladder runs TB0--TB3 along the top and TB4--TB7 back along the bottom: TB5 is anchoring and \(\Repeat\) (C13), TB6 the Pauli test and \(\Introspect\) (C14), TB7 the end-to-end \(\Compress\) (C15), and all three rest on the DL9 description API (C12).  Every chip is transcribed from \texttt{claims/CLAIMS.md}, so the ladder grades claims rather than implementation completeness.}
 \label{fig:ladder}
 \end{figure}
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \input{figs/fig-correspondence-map.tex}
 \caption{Each row aligns a paper object with its current Julia representation and the narrowest evidence leaf actually available.  Green instance checks occupy the middle rungs, while missing front-end and compression implementations remain visibly cited.}
@@ -888,7 +960,7 @@ description-to-SAT implementation without weakening the analytic interface.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-correspondence-description.tex}
-\caption{The paper's bounded decider passes through quoted and succinct IR sorts toward three named front-end operations that are still absent.  The dashed final arrow marks this row as a cited contract rather than an executed construction.}
+\caption{The paper's bounded decider passes through quoted and succinct IR sorts toward three named front-end operations that are still absent.  The dashed final arrow marks this row as a cited contract rather than an executed construction; the Part~II theorems it rests on are \textsc{sketch --- not yet adversarially verified} and carry no ratchet row.}
 \label{fig:D-correspondence-description}
 \end{figure}
 
@@ -945,7 +1017,7 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 \code{def:tseitin}\newline\code{gt-10-answer-reduction.tex}
 & Circuit becomes a linear-size formula with auxiliary wires &
 \code{Circuit}, \code{TseitinFormula} & \code{tseitin}, \code{occurrences}
-& \grade{CHECKED} occurrence & C2 \textsc{Conj.} \\
+& \grade{CHECKED} occurrence & C2 \textsc{Tested} \\
 \code{def:formula-arithmetization}\newline\code{gt-10-answer-reduction.tex}
 & Boolean connectives become a formal polynomial & \code{Poly}
 & \code{arith_q}, \code{actual_degrees} & \grade{CHECKED} & C8 \textsc{Tested} \\
@@ -954,9 +1026,10 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 & \code{g_a}, \code{dependency_blocks} & \constructed/\newline\grade{Checked}
 & C3 \textsc{Tested} \\
 \code{prop:zero-basis}\newline\code{gt-10-answer-reduction.tex}
-& Divide by \(z_i(1-z_i)\) and require zero remainder &
+& Divide by \(z_i(1-z_i)\) and require zero remainder; the executable rewrite is
+Lemma~\ref{lem:zero-rewrite} &
 \code{ZeroDecomposition} & \code{zero_basis_decompose},
-\code{verify_zero_decomposition} & \grade{CHECKED} & C2 \textsc{Conj.} \\
+\code{verify_zero_decomposition} & \grade{CHECKED} & C2 \textsc{Tested} \\
 \code{fig:pcpverifier}\newline\code{gt-10-answer-reduction.tex}
 & Check formula and zero identities at one view & \code{PCPView}
 & \code{pcpverifier} & \grade{CHECKED} finite views & C1 \textsc{Conj.} \\
@@ -986,7 +1059,8 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 \midrule
 \endhead
 \code{def:cl-func}\newline\code{gt-04-cl.tex}
-& CL functions are inductive conditional linear stages & \code{AbstractCL}
+& CL functions are inductive conditional linear stages
+(Definition~\ref{def:cl-func-doc}) & \code{AbstractCL}
 & \code{CLZero}, \code{CLStep}, \code{level} & \constructed
 & C4a \textsc{Tested} \\
 \code{lem:cl-kth}\newline\code{gt-04-cl.tex}
@@ -994,16 +1068,17 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 & \code{marginal_k}, \code{sum_stage_outputs} & \grade{CHECKED}
 & C4a \textsc{Tested} \\
 \code{lem:cl-concat}, \code{lem:cl-func-prod}\newline\code{gt-04-cl.tex}
-& Concatenation adds levels; direct sum takes a maximum & \code{AbstractCL}
+& Concatenation \emph{is} \((k+\ell)\)-level; direct sum \emph{is}
+\(\max_j\ell_j\)-level (Lemma~\ref{lem:level-laws}) & \code{AbstractCL}
 & \code{concatenate}, \code{direct_sum}, \code{product}
-& \constructed & C7 \textsc{Conj.} \\
+& \constructed & no current row \\
 \code{lem:alnf}, \code{lem:dlnf}\newline\code{gt-07-ldt.tex}
 & CL pushforwards equal the line/point distributions & \code{CLDistribution}
 & \code{L_Point}, \code{L_ALine}, \code{L_DLine}, \code{histogram}
 & \grade{CHECKED} TB1 & C4a \textsc{Tested} \\
 \code{fig:ld-decider}\newline\code{gt-07-ldt.tex}
 & Point/line answer consistency and degree format & \code{LDParams}
-& \code{ld_decider}, \code{restrict} & \grade{CHECKED} fixture & C4a \textsc{Tested} \\
+& \code{ld_decider}, \code{D_ld}, \code{restrict} & \grade{CHECKED} fixture & no current row \\
 \code{lem:ld-soundness}\newline\code{gt-07-ldt.tex}
 & Successful quantum strategy yields polynomial measurements & theorem leaf
 & no proof checker & \grade{CITED} & C5 \textsc{Sketch} \\
@@ -1018,7 +1093,7 @@ decider execution to their cited theorem boundary.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-correspondence-typed.tex}
-\caption{The 18-type sampler and guarded answer-reduced decider have constructed or finite-checked shapes.  Detyping and the quantum implication in \texttt{thm:ar} remain dashed at C4b \textsc{Conjecture} and C5 \textsc{Sketch}.}
+\caption{The 18-type sampler and guarded answer-reduced decider have constructed or finite-checked shapes, carrying C4b and C9 at \textsc{Tested}.  Detyping and the quantum implication in \texttt{thm:ar} stay dashed: detyping has no ratchet row and \texttt{thm:ar} is only C5 \textsc{Sketch}.}
 \label{fig:D-correspondence-typed}
 \end{figure}
 
@@ -1031,23 +1106,23 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 \code{def:typed-sampler}\newline\code{gt-06-types.tex}
 & A type graph selects a pair of CL maps sharing one seed & \code{TypedSampler}
 & \code{TypedSampler}, \code{sample}, \code{pad_level}
-& \constructed\ base & C4b \textsc{Conj.} \\
+& \constructed\ base & C4b \textsc{Tested} \\
 \code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
-& Six low-degree copies form an 18-type family & \code{PCPCLMap}
-& \code{pcp_sampler}, \code{intrinsic_pcp_levels}
-& local \grade{CHECKED}; held & C4b \textsc{Conj.} \\
+& Six low-degree copies form an 18-type family & \code{CLStep}
+& \code{_pcp_cl_map}, \code{pcp_sampler}, \code{intrinsic_pcp_levels}
+& local \grade{CHECKED} & C4b \textsc{Tested} \\
 \code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
 & Product with the oracularized sampler has 54 types &
-\code{TypedProductCL} & \code{oracularize_sampler},
+\code{Checked\{TypedSampler\}} & \code{oracularize_sampler},
 \code{typed_sampler_product} & \grade{CHECKED} shape; theorem cited
-& C4b \textsc{Conj.} \\
+& C4b \textsc{Tested} \\
 \code{fig:decider-pcp}\newline\code{gt-10-answer-reduction.tex}
 & Five guarded checks connect input, proof, low degree, and PCP &
 \code{TypedAnswer}\newline\code{ReducedDecider} & \code{typed_answer_reduced_decider}
-& \grade{CHECKED} finite paths & no current row \\
+& \grade{CHECKED} finite paths & C9 \textsc{Tested} \\
 \code{lem:detyping-verifiers}\newline\code{gt-06-types.tex}
 & Remove types at cost \(+2\) levels and \(16^{54}\) soundness factor &
-\code{CitedDetyped}\newline\code{Verifier} & \code{detype} & \grade{CITED} & C4b \textsc{Conj.} \\
+\code{CitedDetyped}\newline\code{Verifier} & \code{detype} & \grade{CITED} & no current row \\
 \code{thm:ar}\newline\code{gt-10-answer-reduction.tex}
 & Conditional complexity, completeness, soundness, entanglement contract &
 \code{TypedAnswer}\newline\code{ReducedVerifier} & \code{answer_reduce_pcp},
@@ -1079,20 +1154,32 @@ Analytic anchor & Analytic statement & IR sort & Implementation & Grade & Claim 
 & proof plus exact tests & C6 \textsc{Proved} \\
 \code{toys/midpoint/PROOF.md}
 & Sequential \(r\)-copy AND value is \((1-2^{-n})^r\); constant gap costs
-\(\Theta(2^n)\) copies & exact dynamic program & \code{sequential_value}
+\(\Theta(2^n)\) copies & exact dynamic program & \code{sequential_and_optval}
 & proof plus exact tests & N1 \textsc{Proved} \\
 \bottomrule
 \end{longtable}
 \normalsize
 
-\subsection{Compression and fixed point (planned TB4)}
+\subsection{Compression and fixed point (TB4--TB7)}
+\label{sec:tables-compression}
+
+Rungs TB0--TB2 are landed and have been through critic rounds; the four rungs
+of this subsection are not.  What exists for them is a converged \emph{design}:
+\code{docs/DESIGN.md} \S9 fixes the sampler-description API, \S10 anchoring and
+repetition (TB5), \S11 the Pauli test and introspection (TB6), \S12 the
+end-to-end \(\Compress\) and the halting fixed point (TB7).  Four ratchet rows
+were opened for that design and all four stand at \textsc{Conjecture}: C12 for
+the description-level closure laws, C13 for TB5, C14 for TB6, C15 for TB7.  No
+line of \code{src/} implements them at this writing, so every grade below is
+\grade{CITED} and every claim column is \textsc{Conjecture}: the rows record a
+design commitment, not evidence.
 
 Figure~\ref{fig:D-correspondence-compression} keeps the fixed-point mechanism
 distinct from the three cited compression transformations.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-correspondence-compression.tex}
-\caption{Introspection, answer reduction, and repetition compose syntactically into the planned \(\Compress\) row, but their soundness leaves remain dashed and the implementation is absent.  The amber fixed point supplies self-reference only; it does not discharge those analytic contracts.}
+\caption{Introspection, answer reduction, and repetition compose syntactically into the \(\Compress\) row, but their soundness leaves remain dashed and no implementation exists.  The amber fixed point supplies self-reference only; it does not discharge those analytic contracts.}
 \label{fig:D-correspondence-compression}
 \end{figure}
 
@@ -1102,21 +1189,62 @@ distinct from the three cited compression transformations.
 Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 \midrule
 \endhead
+\code{def:sampler} queries\newline\code{gt-04-cl.tex}
+& Six description-level transformations are definable from field/level headers
+and the four sampler queries alone & \code{SamplerDescription}
+& absent; designed in \textsc{design} \S9 & \grade{CITED} & C12 \textsc{Conj.} \\
+\code{prop:anchoring}, \code{thm:repetition}\newline\code{gt-11-parallel-repetition.tex}
+& Anchoring plus \(k(n)\)-fold parallel repetition; levels and dimensions
+\(1,1\to3,9\to3,729\) on the TB5 fixture & \code{AnchoredVerifier}
+& absent; designed in \textsc{design} \S10 (TB5) & \grade{CITED} & C13 \textsc{Conj.} \\
+\code{thm:pauli}, \code{thm:introspection}\newline\code{gt-08-introspection.tex}
+& Introspection takes a level-\(9\) verifier to a level-\(5\) one; TB6 type/edge
+counts \(34/116\) and \(38/128\), detyped level \(5\) & \code{IntroVerifier}
+& absent; designed in \textsc{design} \S11 (TB6) & \grade{CITED} & C14 \textsc{Conj.} \\
 \code{fig:compress}\newline\code{gt-12-compression.tex}
-& \(\Repeat\circ\AnswerReduce\circ\Introspect\) &
-\code{ClosedProgram}\newline\code{{Compressor}} & \code{Compress} & \grade{CITED}; absent
-& C7 \textsc{Conj.} \\
+& \(\Repeat\circ\AnswerReduce\circ\Introspect\), in that order, on
+\((\overline V,\lambda)\) &
+\code{ClosedProgram}\newline\code{{Compressor}} & absent; designed in
+\textsc{design} \S12 (TB7) & \grade{CITED} & C15 \textsc{Conj.} \\
 \code{thm:compression}\newline\code{gt-12-compression.tex}
-& Nine-level gap-preserving compression with dimension bound & contract tree
-& no current implementation & \grade{CITED} & C7 \textsc{Conj.} \\
+& Nine-level gap-preserving compression, sampler independent of \(\overline V\)
+& contract tree
+& no current implementation & \grade{CITED} & C15 \textsc{Conj.} \\
 \code{fig:halt_f}\newline\code{gt-12-compression.tex}
 & Self-application, Kleene, and YCode coincide by
 Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence} &
 \code{PartialProgram}, \code{Quoted} & \code{Hole}, \code{Specialize},
-\code{Fix}/\code{YCode} & \grade{CITED}; absent & none \\
+\code{Fix}/\code{YCode} & \grade{CITED}; absent & C15 \textsc{Conj.} \\
 \bottomrule
 \end{longtable}
 \normalsize
+
+\subsection{The TB7 fixture and its two non-executed layers}
+\label{sec:tb7-card}
+
+Figure~\ref{fig:tb7-card} is the design's own instantiation of the constants of
+Figure~\ref{fig:parameter-card}, together with the level and dimension chains
+it predicts and the two layers it declares it does \emph{not} execute.  It is
+printed here for one reason: it is the only place where the document's
+compression chapter carries numbers that can be falsified.  Nothing in it has
+been run.
+\begin{figure}[H]
+\centering
+\input{figs/fig-tb7-card.tex}
+\caption{The toy instantiation at \(n=2\), \(\lambda=32768\), \(s_0=9\): four constructed levels, four dimensions, and the two predicates whose failure is the reason two layers of the chain are declared unexecuted.  Printing the failures beside the chain is what keeps a green construction from reading as a discharged theorem.}
+\label{fig:tb7-card}
+\end{figure}
+
+The two named non-executed layers are exactly those of C15.  First,
+\code{enu:ar-game} against the actual \(D^{(1)}\): the PCP instance supplied at
+\((m_A,s_A)=(1,6)\) cannot arithmetize a trace of length
+\(T=(2^{\lambda n})^\mu\), so \(P_{\mathrm{pcp\_encodes\_D1}}\) is \code{FAIL}
+and the game branch is \code{NOT\_EXECUTED}.  Second, the non-Pauli
+introspection answer schemas: with \(M_I=2\) the introspection register carries
+\(Q_I=2\) bits while the input verifier needs \(s_0(N)=9\), and
+\(3Q_I=6<9\), so Introspect, Sample, Read and Hide are \code{VACUOUS} in both
+roles and only the Pauli-typed predicates would execute.  Neither failure is
+folded into a pass.
 
 \section{What is analytic and what is computed}
 
@@ -1173,8 +1301,12 @@ same operator layer.  Detyping additionally needs a formal probability and
 rejection-sampling argument with the \(16^{|\mathrm{Type}|}\) loss.
 
 Anchoring and parallel repetition are combined in \(\Repeat\) and are
-theorem-backed rather than executed here.  Introspection and compression would
-require a still broader object: a
+theorem-backed rather than executed here.  They are, however, no longer
+undesigned: \code{docs/DESIGN.md} \S\S9--12 fixes the description-level API
+and the TB5, TB6 and TB7 constructions, and C12--C15 record that design at
+\textsc{Conjecture} (Section~\ref{sec:tables-compression}).  What is missing is
+implementation and adversarial verification, not a plan.  Introspection and
+compression would additionally require a still broader object: a
 formal semantics for quoted verifier descriptions, resource bounds under
 specialization and universal evaluation, and a proof that the directed value
 and entanglement implications compose.  The relevant final statements are
@@ -1229,7 +1361,7 @@ with the three analytic leaves kept visibly dashed.
 \begin{figure}[t]
 \centering
 \input{figs/fig-final-accounting.tex}
-\caption{The actual term \(\Psi_{M,L}\) places its self-code hole inside the quoted call to \(\Compress\), and the amber fixed point \(D_{M,L}=\operatorname{YCode}(\Psi_{M,L})\) closes that hole with constant overhead.  The executable algebraic middle does not discharge the three dashed leaves: low-degree soundness, rigidity/oracularization, and gap-preserving compression.}
+\caption{The actual term \(\Psi_{M,\lambda}\) places its self-code hole inside the quoted call to \(\Compress\), and the amber fixed point \(D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})\) closes that hole with constant overhead.  The executable algebraic middle does not discharge the three dashed leaves: low-degree soundness, rigidity/oracularization, and gap-preserving compression.}
 \label{fig:final-accounting}
 \end{figure}
 
@@ -1252,6 +1384,6 @@ and the three analytic obligations still visibly open.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-final-seal.tex}
-\caption{The amber description \(D_{M,L}\) completes the syntactic self-reference, but each dashed arrow still crosses into a cited analytic theorem.  Closing those low-degree, rigidity/oracularization, and gap-preservation leaves—not another finite sample—is the remaining proof task.}
+\caption{The amber description \(D_{M,\lambda}\) completes the syntactic self-reference, but each dashed arrow still crosses into a cited analytic theorem.  Closing those low-degree, rigidity/oracularization, and gap-preservation leaves—not another finite sample—is the remaining proof task.}
 \label{fig:D-final-seal}
 \end{figure}

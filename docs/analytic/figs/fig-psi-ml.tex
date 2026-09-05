@@ -17,7 +17,7 @@
   \node[tnode, below right=7mm and 21mm of eo] (fuel) {$\mathsf{FuelBound}$};
   \draw[tedge] (eo)--(ans); \draw[tedge] (eo)--(args); \draw[tedge] (eo)--(fuel);
   \node[tleaf, below left=4mm and 4mm of fuel] (fn) {$n$};
-  \node[tleaf, below right=4mm and 4mm of fuel] (fL) {$L$};
+  \node[tleaf, below right=4mm and 4mm of fuel] (fL) {$\lambda$};
   \draw[tedge] (fuel)--(fn); \draw[tedge] (fuel)--(fL);
 
   \node[tnode, below=6mm of ans] (ei) {$\mathsf{Eval}$};
@@ -29,15 +29,15 @@
   \node[tleaf, below=4mm of qc, xshift=-3mm] (comp) {$\Compress$}; \draw[tedge] (qc)--(comp);
 
   \node[tnode, below=11mm of stat, xshift=3mm] (pair) {$\mathsf{quoted\_pair}$};
-  \node[tleaf, below=5mm of stat, xshift=27mm] (litL) {$L$};
+  \node[tleaf, below=5mm of stat, xshift=27mm] (litL) {$\lambda$};
   \draw[tedge] (stat)--(pair); \draw[tedge] (stat)--(litL);
   \node[tnode, below left=5mm and 7mm of pair] (qs) {$\mathsf{Quote}$};
   \node[redex, densely dashed, below right=5mm and 7mm of pair] (hole)
     {$\mathsf{Hole}$};
   \draw[tedge] (pair)--(qs); \draw[tedge] (pair)--(hole);
-  \node[tleaf, below=4mm of qs] (SL) {$S_L$}; \draw[tedge] (qs)--(SL);
+  \node[tleaf, below=4mm of qs] (SL) {$S_\lambda$}; \draw[tedge] (qs)--(SL);
   \node[lblsm,text=term,below=2mm of hole] {$\mathsf{self\_code}:\mathsf{Quoted}(\mathsf{Decider})$};
-  \node[descbox, right=7mm of hole] (dml) {$D_{M,L}=\operatorname{YCode}(\Psi_{M,L})$};
-  \draw[quote] (hole)--(dml);
-  \node[lbl,text=term,above=3mm of lam] {$\Psi_{M,L}$};
+  \node[descbox, right=7mm of hole] (dml) {$D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})$};
+  \draw[copyflow] (hole)--(dml);
+  \node[lbl,text=term,above=3mm of lam] {$\Psi_{M,\lambda}$};
 \end{tikzpicture}

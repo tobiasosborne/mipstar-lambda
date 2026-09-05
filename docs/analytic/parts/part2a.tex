@@ -74,7 +74,7 @@ machine encodings.
 \begin{definition}[Decider]
 \label{def:paper-decider}
 A decider is a five-input machine \(D\) which halts with one bit on every
-\((n,x,y,a,b)\), where \(n\) is a positive integer in binary and
+\((n,x,y,a,b)\), where \(n\) is an integer in binary and
 \(x,y,a,b\in\{0,1\}^*\).  The first input is the \emph{index}, and
 \[
  \Time_D(n)=\max_{x,y,a,b}\Time_{D,(n,x,y,a,b)}.
@@ -147,7 +147,11 @@ For an integer \(\lambda\geq1\), \(V\) is \(\lambda\)-bounded exactly when
 No bound is required at \(n=1\).
 \end{definition}
 
-These are \code{def:normal-ver} and \code{def:lambda}.
+Here \(\operatorname{level}(S)\) is the nesting depth of the sampler as a
+conditionally linear function; the inductive definition is
+Definition~\ref{def:cl-func-doc} in Section~\ref{sec:typed-layer}, and until
+then only the integer matters.  These are \code{def:normal-ver} and
+\code{def:lambda}.
 \gt{def:normal-ver, def:lambda}{ground-truth/gt-05-games-normalform.tex}
 In the game \(V_n\), question and answer alphabets are padded to lengths
 \(\Time_S(n)\) and \(\Time_D(n)\), respectively.  The maximum-over-all-inputs
@@ -161,6 +165,18 @@ and the exceptional index (n=1).
 \input{figs/fig-lambda-bounded.tex}
 \caption{A single bound \(\lambda\) caps both source descriptions and both worst-case running times, with the time ruler beginning at \(n=2\).  This common scale is what can later be rescaled uniformly to \(A\lambda\).}
 \label{fig:lambda-bounded}
+\end{figure}
+
+Four further symbols travel with \(\lambda\) through the whole of Part~II and
+are collected once, in Figure~\ref{fig:parameter-card}, rather than introduced
+where they are first used.  They are the constants \(\Compress\) is
+parameterized by; the toy values at which the project instantiates them are in
+Figure~\ref{fig:tb7-card}.\gt{fig:compress, eq:mu-gamma, eq:c\_rep}{ground-truth/gt-12-compression.tex}
+\begin{figure}[H]
+\centering
+\input{figs/fig-parameter-card.tex}
+\caption{The eight constants \(\Compress\) carries, each with the ground-truth label that fixes it, so that \(\mu,\gamma,\tau\) and \(k(n)\) are defined before they are used in Sections~\ref{sec:self-reference} and~\ref{sec:tables}.  Reading them together also shows that only \(\lambda\) is supplied per call; the rest are decided once and for all.}
+\label{fig:parameter-card}
 \end{figure}
 
 \subsection{What a verifier description means}
@@ -245,16 +261,24 @@ overlong description by a trivial verifier.  Thus introspection consumes the
 sampler description, not merely its induced distribution.
 \gt{lem:intro-decider-complexity, thm:introspection}{ground-truth/gt-08-introspection.tex}
 
-\item \textbf{Answer reduction.}  In Step 1 of \code{fig:pcpverifier}, the
-answer-reduced decider computes
+\item \textbf{Answer reduction.}  In Step 1 of \code{fig:pcpverifier}, which
+the answer-reduced decider invokes from its game-check step, the verifier
+computes
 \[
  \mathsf{Circuit}=\mathsf{PaddedSuccinctDecider}
    (\overline D,n,T,Q,\sigma,x,y)
 \]
 from the \emph{description} of \(D\).  The Cook--Levin circuit depends on the
 transition table even though it is much smaller than the computation tableau.
-The construction uses \(|D|\leq\sigma\) quantitatively.
-\gt{fig:pcpverifier, prop:standard-succinct-sat}{ground-truth/gt-10-answer-reduction.tex}
+The construction uses \(|D|\leq\sigma\) quantitatively.\gt{fig:pcpverifier, prop:standard-succinct-sat}{ground-truth/gt-10-answer-reduction.tex}
+Figure~\ref{fig:ar-invokes-pcp} separates the two machines that this one step
+belongs to.
+\begin{figure}[H]
+\centering
+\input{figs/fig-ar-invokes-pcp.tex}
+\caption{The answer-reduced decider owns the five guards of \code{fig:decider-pcp}; only its last guard calls \code{pcpverifier}, and Step 1 --- the succinct-circuit construction from \(\overline D\) --- lives inside that call.  Keeping the two apart is what makes the description, rather than the tableau, the object the compiler handles.}
+\label{fig:ar-invokes-pcp}
+\end{figure}
 
 \item \textbf{Compiler composition.}  The three machines displayed in the
 preceding subsection traverse and assemble source descriptions.  The proof
@@ -283,6 +307,35 @@ finite, inspectable descriptions.
 
 \section{A lambda calculus with resources}
 \label{sec:resource-lambda}
+
+Figure~\ref{fig:three-provenances} sorts every named result of Part~II into
+three provenances, and the reminder below states the consequence for the
+middle column.
+\begin{figure}[H]
+\centering
+\input{figs/fig-three-provenances.tex}
+\caption{Every named result of Part~II belongs to exactly one of three columns: transcribed from the paper, derived here and unverified, or executed and ratcheted.  The middle column is the largest, which is the honest shape of a document that costs a construction rather than proving its soundness.}
+\label{fig:three-provenances}
+\end{figure}
+
+\begin{reminder}
+\textbf{Status of everything typeset as a theorem from here to
+Section~\ref{sec:tables}.}  Sections~\ref{sec:resource-lambda}--%
+\ref{sec:l-cook-levin} state results about \(\mathcal L\) --- the language
+defined here --- and not about the paper.  They are this project's own
+derivations: Theorems~\ref{thm:l-determinism}, \ref{thm:fuel-monotonicity},
+\ref{thm:quote-eval}, \ref{thm:tm-to-l}, \ref{thm:l-to-tm},
+\ref{thm:lambda-preservation}, \ref{thm:kleene-two}, \ref{thm:ycode},
+\ref{thm:fixed-point-equivalence} and \ref{thm:l-succinct-sat}, and
+Lemmas~\ref{lem:specialization}, \ref{lem:smn} and
+\ref{lem:transition-window}, are written proofs which have \emph{not} been
+adversarially verified and carry \emph{no} row in \code{claims/CLAIMS.md}.
+Their status is \textsc{SKETCH --- not yet adversarially verified}, and the
+constants they name (\(a_0,b_0,c_0,a_U,b_U,C_L,c_Y=3,a_s,b_s,a_K,b_K\)) and
+exponents (\(8\), \(3+\lceil\log_2 72c_0\rceil\)) are fixed by those proofs
+alone.  Results transcribed from the paper are marked instead by a
+ground-truth footnote and are \grade{CITED}; the two kinds are never mixed.
+\end{reminder}
 
 \subsection{Syntax, phases, and canonical bytes}
 
@@ -416,6 +469,62 @@ that are allowed to inspect it.
 \label{fig:representations}
 \end{figure}
 
+\subsection{Certificates and the derivation tree}
+\label{sec:certificates}
+
+Every evidence grade printed in Section~\ref{sec:tables} is a node of a
+concrete data structure, not a marginal note.  The single source is
+\code{docs/DESIGN.md} \S3; the implementation is
+\code{src/certificates.jl}.  A transformation does not return a bare term; it
+returns
+\[
+ \mathtt{Checked}\{T,C\}
+ \;=\;
+ (\,\mathtt{term}::T,\ \mathtt{certificate}::C\,),
+\]
+where \(C\) is a \code{CertNode}: a grade, a rule name, a finite record of
+facts, an ordered tuple of children, and --- for one grade only --- a replay
+function.  The grades are exactly five, and Figure~\ref{fig:grades} lists
+them with what each obliges its author to supply.
+
+\begin{figure}[H]
+\centering
+\input{figs/fig-grades.tex}
+\caption{The five grades a \code{CertNode} may carry, in decreasing order of what they oblige the author to supply; only \grade{CHECKED} carries executable evidence, and only it is re-run at test time.  Reading them as a scale makes an all-\grade{CITED} subtree visibly worthless as evidence, however green the code around it looks.}
+\label{fig:grades}
+\end{figure}
+
+\code{verify\_certificate} walks the tree and re-runs every
+\grade{CHECKED} replay against the term actually attached; a
+\grade{CHECKED} node with no replay function is a verification failure, not a
+pass.  That is what makes stale evidence unrepresentable: there is no detached
+cache to go out of date, and a mutation that changes the term but not the
+certificate turns the suite red.  Symbolic bounds are either
+\(\operatorname{Concrete}(k)\) or
+\(\operatorname{Opaque}(\text{description},\text{parameters})\); no
+\(\poly(\cdot)\) is silently given an exponent.
+
+Figure~\ref{fig:certificate-tree} is the tree that
+\code{AnswerReduce} actually builds on the TB2 fixture, exactly as
+\code{test/tb2\_answer\_reduce.jl} inspects it.  Reading it top down answers the
+question the grade columns of Section~\ref{sec:tables} raise: the
+\emph{root} of the executed answer-reduction certificate is \grade{CITED},
+because detyping is imported; the executed content sits strictly below it.
+\begin{figure}[H]
+\centering
+\input{figs/fig-certificate-tree.tex}
+\caption{The certificate that \code{AnswerReduce} returns on the TB2 fixture, with each node's grade, rule name and printed facts.  A \grade{CITED} root over \grade{CHECKED} children is the normal shape here, and it is why an executed subtree never promotes the theorem above it.}
+\label{fig:certificate-tree}
+\end{figure}
+
+The TB5--TB7 design adds four \emph{predicate outcomes} on top of these
+grades, for the parameter guards a toy instantiation cannot satisfy:
+\code{PASS}, \code{FAIL}, \code{NOT\_EVALUABLE} (the cost or fit was never
+measured) and \code{VACUOUS} (the guard set is empty, or a promised margin is
+\(\geq1/2\)).  They are outcomes printed beside a predicate, not grades on a
+node, and none of them may be folded into \code{PASS}; the TB7 report of
+Figure~\ref{fig:tb7-card} is where they appear.
+
 \subsection{Small-step semantics and fuel}
 
 \begin{reminder}
@@ -448,8 +557,10 @@ registers of the CEK configuration.
 
 For reference, the contractions after all indicated subterms have become
 values are the following.  The notation \(C\longrightarrow_k C'\) means that
-the transition has charge \(k\); continuations and heaps not shown are carried
-unchanged.
+the transition has charge \(k\).  Every row is a full five-register
+configuration \(\langle q,\eta,K,H,f\rangle\); in the application row
+\(\eta'\) is the ambient environment at the call site, which is discarded in
+favour of the closure's own \(\eta\) extended by the argument frame.
 \[
 \begin{array}{rcll}
 \langle\operatorname{BoundVar}(d,j),\eta,K,H,f\rangle
@@ -457,18 +568,18 @@ unchanged.
  &\text{if the address exists},\\
 \langle\operatorname{Lambda}(r,t),\eta,K,H,f\rangle
  &\longrightarrow_1&\langle[\lambda r.t,\eta],\eta,K,H,f-1\rangle,&\\
-\langle\operatorname{Apply}([\lambda r.t,\eta],\vec v),K,H,f\rangle
+\langle\operatorname{Apply}([\lambda r.t,\eta],\vec v),\eta',K,H,f\rangle
  &\longrightarrow_1&\langle t,(\vec v)::\eta,K,H,f-1\rangle
  &(|\vec v|=r),\\
-\langle\operatorname{If}(1,v_1,v_0),K,H,f\rangle
- &\longrightarrow_1&\langle v_1,K,H,f-1\rangle,&\\
-\langle\operatorname{If}(0,v_1,v_0),K,H,f\rangle
- &\longrightarrow_1&\langle v_0,K,H,f-1\rangle,&\\
-\langle\operatorname{Prim}(p,B,\vec v),K,H,f\rangle
+\langle\operatorname{If}(1,v_1,v_0),\eta,K,H,f\rangle
+ &\longrightarrow_1&\langle v_1,\eta,K,H,f-1\rangle,&\\
+\langle\operatorname{If}(0,v_1,v_0),\eta,K,H,f\rangle
+ &\longrightarrow_1&\langle v_0,\eta,K,H,f-1\rangle,&\\
+\langle\operatorname{Prim}(p,B,\vec v),\eta,K,H,f\rangle
  &\longrightarrow_{\kappa_p(\vec v)}&
- \langle p(\vec v),K,H,f-\kappa_p(\vec v)\rangle,&\\
-\langle\operatorname{Quote}(\operatorname{Closed}(t)),K,H,f\rangle
- &\longrightarrow_1&\langle\operatorname{Code}(t),K,H,f-1\rangle.&
+ \langle p(\vec v),\eta,K,H,f-\kappa_p(\vec v)\rangle,&\\
+\langle\operatorname{Quote}(\operatorname{Closed}(t)),\eta,K,H,f\rangle
+ &\longrightarrow_1&\langle\operatorname{Code}(t),\eta,K,H,f-1\rangle.&
 \end{array}
 \tag{8.2}\label{eq:cek-core}
 \]
@@ -512,7 +623,7 @@ both the inner budget and the ambient budget.  Exhausting either produces
 
 The paired counters in Figure~\ref{fig:eval-delimiter} expose how an inner Eval
 budget remains subordinate to the ambient run.
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \input{figs/fig-eval-delimiter.tex}
 \caption{The Eval delimiter nests an \(F\)-unit budget inside ambient fuel \(f\), charging two units for installation and removal and one from both counters per inner microstep.  Exhausting either ledger therefore ends the same finite outer computation.}
@@ -630,7 +741,11 @@ Quote is a syntax pointer.  Define
 The quoted evaluator \(\Eval_{\mathcal L}(d,u;F)\) checks and decodes \(d\),
 installs the argument tuple, and then runs the CEK machine.  By definition the
 front-end scan uses exactly \(h(d,u)\) fuel; malformed code returns
-\(\mathsf{TypeError}\) during that scan.
+\(\mathsf{TypeError}\) during that scan.  The constant \(3\) is not a spare
+allowance: it pays for installing the Eval delimiter, removing it, and the one
+tag check that decides whether \(d\) is well-formed code.  It therefore
+\emph{absorbs} the two delimiter units charged above, and the two accounts do
+not double-count.
 
 Figure~\ref{fig:quote-eval} aligns the byte-decoding run with direct execution
 at the first identical CEK configuration.
@@ -685,7 +800,7 @@ The construction takes at most \(1+|P|+\sum_h|\sigma(h)|\) CEK microsteps.
 
 Figure~\ref{fig:specialize} depicts the unique prefix-order splice at an affine
 hole and the exact one-hole size identity.
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \input{figs/fig-specialize.tex}
 \caption{Prefix traversal replaces the unique amber \(\operatorname{Hole}(h,A)\) by the closed tree \(\sigma(h)\) and copies every other node unchanged.  Affineness turns the serialization cost into one deletion plus one insertion, yielding the stated linear size bound.}
@@ -737,6 +852,15 @@ left move is symmetric.  These are fixed list primitives of charge at most
 four.  A configuration is a tuple of the finite control state and the
 \(k+2\) zippers for input, work, and output tapes.
 
+Figure~\ref{fig:C-tmdelta-scan} zooms into the highlighted matching row of the
+bounded table scan the next paragraph charges for.
+\begin{figure}[H]
+\centering
+\input{figs/fig-C-tmdelta-scan.tex}
+\caption{The \(\mathsf{TMDelta}\) primitive validates and scans the bytes of \(m\) until the current state-symbol tuple selects one row, then returns the next state, write symbols, and motions.  Keeping the table as data explains both the single-copy description size and charge \(8(|m|+k+2)\).}
+\label{fig:C-tmdelta-scan}
+\end{figure}
+
 For a machine description \(m\), the primitive
 \(\mathsf{TMDelta}(m,q,s_1,\ldots,s_{k+2})\) scans the encoded transition table
 and returns the next state, written symbols, and head motions.  Its declared
@@ -748,15 +872,6 @@ The primitive validates \(m\); malformed descriptions use a fixed rejecting
 transition.  Its implementation is an ordinary finite table scan.  Thus the
 description of the table remains data of length \(|m|\), rather than being
 duplicated into a nest of conditionals.
-
-Figure~\ref{fig:C-tmdelta-scan} zooms into the highlighted matching row of that
-bounded table scan.
-\begin{figure}[t]
-\centering
-\input{figs/fig-C-tmdelta-scan.tex}
-\caption{The \(\mathsf{TMDelta}\) primitive validates and scans the bytes of \(m\) until the current state-symbol tuple selects one row, then returns the next state, write symbols, and motions.  Keeping the table as data explains both the single-copy description size and charge \(8(|m|+k+2)\).}
-\label{fig:C-tmdelta-scan}
-\end{figure}
 
 Let \(\mathsf{init}_k\) parse the \(k\)-tuple encoding into input zippers and
 blank work/output zippers, and let \(\mathsf{out}\) read the longest nonblank
@@ -863,6 +978,16 @@ itself is linear in \(T\) apart from the hardwired table scan.
 
 For the paper, the next theorem buys a route back from the IR to the exact
 Turing-machine model in which verifier bounds and compression are stated.
+Figure~\ref{fig:u-l-heap} lays the records the proof builds onto the universal
+evaluator's literal work tape and follows its lazy handle to a separate input
+tape.
+\begin{figure}[H]
+\centering
+\input{figs/fig-u-l-heap.tex}
+\caption{The work tape of \(U_{\mathcal L}\) stores syntax nodes, environments, continuations, binary fuel, and lazy input handles as finite records, with the active fuel record highlighted.  Because a handle reaches only the visited prefix, an \(f\)-unit run is independent of every dashed unread suffix.}
+\label{fig:u-l-heap}
+\end{figure}
+
 \begin{theorem}[A universal evaluator for \(\mathcal L\)]
 \label{thm:l-to-tm}
 There is a fixed three-input Turing machine \(U_{\mathcal L}\), of description
@@ -871,7 +996,7 @@ length \(b_U=O(1)\), and a universal constant \(C_L\geq1\), such that on input
 \(\Eval_{\mathcal L}(d,u;f)\), and
 \[
  \Time_{U_{\mathcal L}}(d,u,f)
- \leq C_L\bigl(|d|+|u|+f+1\bigr)^6.
+ \leq C_L\bigl(|d|+|u|+f+1\bigr)^8.
 \tag{9.3}\label{eq:l-to-tm-bound}
 \]
 Given closed \(t\), hardwiring \(d=\operatorname{ser}(t)\) produces a machine
@@ -882,10 +1007,10 @@ Given closed \(t\), hardwiring \(d=\operatorname{ser}(t)\) produces a machine
 On the paper's separate input tapes it may represent each argument by a lazy
 head-and-position handle.  Consequently, a run with fuel \(f\) accesses at
 most \(f\) symbols of those tapes and has the refined bound
-\(C_L(|t|+f+1)^6\), independent of unread suffixes.  Hence a total decider term
+\(C_L(|t|+f+1)^8\), independent of unread suffixes.  Hence a total decider term
 with fuel schedule \(f_D(n)\) is a decider in the paper's sense and
 \[
- \Time_D(n)\leq C_L(|t|+f_D(n)+1)^6.
+ \Time_D(n)\leq C_L(|t|+f_D(n)+1)^8.
 \tag{9.4}\label{eq:decider-term-time}
 \]
 \end{theorem}
@@ -895,29 +1020,40 @@ The machine first checks the prefix serialization and writes node records on a
 work-tape heap.  It stores a node address, environment-frame addresses,
 continuation records, and binary fuel counters.  During at most \(f\)
 microsteps the heap acquires at most a fixed number of records per step, so its
-length is at most \(c(|d|+|u|+f+1)\) for a universal \(c\).  A conservative
-single-tape implementation finds a record by a full scan, performs binary
-address arithmetic, and returns to the simulated head in at most the square of
-that length.
+length is at most \(c(|d|+|u|+f+1)\) for a universal \(c\).  Write
+\(N=|d|+|u|+f+1\).  A conservative \emph{multitape} implementation finds a
+record by a full scan of the heap track, compares binary addresses cell by
+cell, and returns to the simulated head, all in at most \((cN)^2\) steps.
 
-Figure~\ref{fig:u-l-heap} lays these records onto the universal evaluator's
-literal work tape and follows its lazy handle to a separate input tape.
-\begin{figure}[t]
+Figure~\ref{fig:exponent-ladder} is the whole cost ladder of this proof in one
+column, with the point where the exponent doubles marked.
+\begin{figure}[H]
 \centering
-\input{figs/fig-u-l-heap.tex}
-\caption{The work tape of \(U_{\mathcal L}\) stores syntax nodes, environments, continuations, binary fuel, and lazy input handles as finite records, with the active fuel record highlighted.  Because a handle reaches only the visited prefix, an \(f\)-unit run is independent of every dashed unread suffix.}
-\label{fig:u-l-heap}
+\input{figs/fig-exponent-ladder.tex}
+\caption{The five steps that produce \eqref{eq:l-to-tm-bound}, ending at the one-tape conversion that squares a multitape bound.  Making the doubling explicit is what keeps the statement and the proof of Theorem~\ref{thm:l-to-tm} in agreement.}
+\label{fig:exponent-ladder}
 \end{figure}
 
-Decoding, \(f\) simulated steps, and final serialization are
-therefore bounded by a universal constant times the fourth power of the
-length.  Converting the fixed multitape implementation to the paper's
-one-tape convention and allowing the paper's polynomial universal-simulation
-overhead is bounded by the sixth power after increasing \(C_L\).  This proves
-\eqref{eq:l-to-tm-bound}.  Primitive microstates use their fixed reference
-machines and have charged running time; their polynomial exponents were fixed
-when \(\mathcal L\) was fixed and are included in the exponent six (or, for a
-different registry, in another fixed exponent).
+There are at most \(f\leq N\) microsteps, so the simulation itself costs at
+most \(c^2N^3\); decoding the input serialization and writing the final answer
+each take a constant number of passes over a track of length at most \(cN\),
+which is absorbed.  Charged primitives run on their fixed reference machines
+in at most \(c_p(1+\kappa_p+\sum_i|v_i|)^{e_p}\) steps, and
+\(\kappa_p\leq f\leq N\) with \(\sum_i|v_i|\leq cN\), so each such step costs
+at most \(c_p(c'N)^{e_p}\); since the registry is fixed when \(\mathcal L\) is
+fixed, \(e_{\max}=\max_pe_p\) is a constant.  Taking
+\(e_0=\max\{4,\,1+e_{\max}\}\) and increasing the constant, the whole
+\emph{multitape} run is bounded by \(C\,N^{e_0}\).
+
+Converting that fixed multitape machine to the paper's one-tape convention
+costs the standard quadratic overhead, so the one-tape running time is at most
+\(C_L\,N^{2e_0}\).  With the registry fixed here, \(e_0=4\) and the stated
+exponent is \(8\); this proves \eqref{eq:l-to-tm-bound}.  The exponent is not
+optimized and nothing downstream depends on its value: Theorem~\ref{thm:lambda-preservation}
+and the \(A\)-rescaling use only the existence of \emph{some} fixed \(e\) and
+\(C_L\) with \(\Time_{U_{\mathcal L}}(d,u,f)\leq C_L(|d|+|u|+f+1)^e\).  A
+different primitive registry replaces \(8\) by \(2\max\{4,1+e_{\max}\}\)
+throughout.
 
 The simulator description contains only the parser, CEK transition table,
 primitive registry, and serializers, so its length is \(b_U\), independent of
@@ -940,6 +1076,15 @@ table below is the quantitative version: it records the polynomials rather
 than merely asserting that simulations exist.
 \end{reminder}
 
+Figure~\ref{fig:resource-dictionary} states the two principal rows as a
+bidirectional quantitative bridge, including both linear description bounds.
+\begin{figure}[H]
+\centering
+\input{figs/fig-resource-dictionary.tex}
+\caption{Compiling a term costs a fixed polynomial in fuel and description size, interpreting a machine costs a fixed polynomial in time and input, and the description bounds are linear in both directions.  Naming the polynomials, rather than asserting that simulations exist, is what lets \(\lambda\)-boundedness survive the change of language.}
+\label{fig:resource-dictionary}
+\end{figure}
+
 For a term program, let \(s_t=|t|\) and let \(f_t(n)\) be a proved fuel
 schedule which suffices for every legal call at index \(n\).  The translations
 above give the following dictionary.
@@ -951,7 +1096,7 @@ above give the following dictionary.
 Paper quantity & \(\mathcal L\) counterpart & Quantitative relation \\
 \midrule
 \(\Time_D(n)\) & decider fuel \(f_D(n)\) & Term to TM:
-\(\Time_D(n)\leq C_L(|D_{\mathcal L}|+f_D(n)+1)^6\).  TM to term:
+\(\Time_D(n)\leq C_L(|D_{\mathcal L}|+f_D(n)+1)^8\).  TM to term:
 fuel \(c_DT(T+|u|)\). \\
 \(\Time_S(n)\) & maximum sampler-mode fuel \(f_S(n)\) & Same two bounds,
 taking the maximum over the dimension, marginal, linear, and factor calls. \\
@@ -969,17 +1114,18 @@ change \(n\); resource estimates may replace it by
 \end{tabularx}
 \end{center}
 
-Figure~\ref{fig:resource-dictionary} turns the two principal rows into a
-bidirectional quantitative bridge, including both linear description bounds.
-\begin{figure}[t]
-\centering
-\input{figs/fig-resource-dictionary.tex}
-\caption{Compiling an \(\mathcal L\) term incurs the sixth-power Turing bound, while interpreting a \(T\)-step machine uses fuel \(c_DT(T+|u|)\); both source translations remain linear in description size.  These explicit arrows are the quantitative content hidden by a bare appeal to Church--Turing equivalence.}
-\label{fig:resource-dictionary}
-\end{figure}
 
 For the paper, the next theorem buys invariance of the verifier class under a
 change of programming language, after one universal rescaling of \(\lambda\).
+Figure~\ref{fig:lambda-preservation} records the two exponent calculations of
+its proof, whose maximum determines the universal rescaling \(A\).
+\begin{figure}[H]
+\centering
+\input{figs/fig-lambda-preservation.tex}
+\caption{The machine-to-term direction contributes exponent \(3+\lceil\log_2(72c_0)\rceil\), while the term-to-machine direction contributes \(8+\lceil\log_2(C_L3^8)\rceil\).  Choosing one universal \(A\) above both calculations preserves the bounded verifier class in either language.}
+\label{fig:lambda-preservation}
+\end{figure}
+
 \begin{theorem}[Preservation of \(\lambda\)-boundedness]
 \label{thm:lambda-preservation}
 Fix the encodings and primitive registry above.  There is a universal integer
@@ -1016,9 +1162,9 @@ For the second direction, hardwiring gives description size at most
 \((a_U+b_U)\lambda\).  With fuel at most \(n^\lambda\), the lazy-input form of
 \eqref{eq:decider-term-time} is at most
 \[
- C_L(\lambda+n^\lambda+1)^6
- \leq C_L(3n^\lambda)^6
- \leq n^{(6+\lceil\log_2(C_L3^6)\rceil)\lambda}.
+ C_L(\lambda+n^\lambda+1)^8
+ \leq C_L(3n^\lambda)^8
+ \leq n^{(8+\lceil\log_2(C_L3^8)\rceil)\lambda}.
 \]
 We used \(\lambda\leq2^\lambda\leq n^\lambda\).  The same calculation holds
 for every sampler mode.  Taking \(A\) to be the maximum of the four displayed
@@ -1027,14 +1173,6 @@ preserved by Theorems~\ref{thm:tm-to-l} and~\ref{thm:l-to-tm}; neither
 translation changes the binary index.
 \end{proof}
 
-Figure~\ref{fig:lambda-preservation} records the two exponent calculations
-whose maximum determines the universal rescaling \(A\).
-\begin{figure}[t]
-\centering
-\input{figs/fig-lambda-preservation.tex}
-\caption{The machine-to-term direction contributes exponent \(3+\lceil\log_2(72c_0)\rceil\), while the term-to-machine direction contributes \(6+\lceil\log_2(C_L3^6)\rceil\).  Choosing one universal \(A\) above both calculations preserves the bounded verifier class in either language.}
-\label{fig:lambda-preservation}
-\end{figure}
 
 The constants \(a_0,b_0,c_0,a_U,b_U,C_L\), fixed arities, serialization tags,
 and the universal simulation exponent are absorbed when the paper writes
@@ -1127,8 +1265,9 @@ construction through the behavioral equality.
 \end{figure}
 
 \begin{proof}
-By Lemma~\ref{lem:smn}, let \(s(z,z)\) denote the description obtained by
-hardwiring two copies of \(z\) into the first two inputs of a suitable
+By Lemma~\ref{lem:smn} with \(r=1\), let \(s(z,z)\) denote the description
+obtained by hardwiring the string \(z\) into the first input of the program
+\(z\) itself --- the same operation as in Part~I --- for a suitable
 \((k+2)\)-input machine.  Define the partial computable function
 \[
  G(z,x)=\varphi_{Q(s(z,z))}^{(k)}(x).
@@ -1234,35 +1373,35 @@ self-code link.  This proves the size equality.
 \subsection{The paper's explicit diagonal program}
 
 \begin{reminder}
-The expression \(\mathcal F(\mathcal F,M,L,\ldots)\) is the recursion theorem
+The expression \(\mathcal F(\mathcal F,M,\lambda,\ldots)\) is the recursion theorem
 unrolled: hardwiring the first copy of \(\mathcal F\) manufactures the
 five-input decider whose code is then supplied to \(\Compress\).
 \end{reminder}
 
 Figure~\ref{fig:C-diagonal-five-steps} transcribes the published machine's five
-operations before expressing the same construction as \(\Psi_{M,L}\).
+operations before expressing the same construction as \(\Psi_{M,\lambda}\).
 \begin{figure}[t]
 \centering
 \input{figs/fig-C-diagonal-five-steps.tex}
-\caption{The machine \(\mathcal F\) first takes the amber early-halt branch or else hardwires its own description, computes \(S_L\), calls \(\Compress\), and runs the returned decider (after \code{fig:halt_f}).  The dashed box isolates the cited compression guarantee from the green source operations that are actually performed.}
+\caption{The machine \(\mathcal F\) first takes the amber early-halt branch or else hardwires its own description, computes \(S_\lambda\), calls \(\Compress\), and runs the returned decider (after \code{fig:halt_f}).  The dashed box isolates the cited compression guarantee from the green source operations that are actually performed.}
 \label{fig:C-diagonal-five-steps}
 \end{figure}
 
 Let \(M:P\{\mathsf{MachineDesc}\}\) and
-\(L:P\{\mathsf{Level}\}\) be closed literal terms, let \(S_L\) be the sampler
-description returned by \(\ComputeSampler(L)\), and let \(n,x,y,a,b\) be the
+\(\lambda:P\{\mathsf{Nat}\}\) be closed literal terms, let \(S_\lambda\) be the sampler
+description returned by \(\ComputeSampler(\lambda)\), and let \(n,x,y,a,b\) be the
 five bound inputs.  The partial body corresponding to \code{fig:halt_f} is
 \[
 \begin{split}
- \Psi_{M,L}=\lambda(n,x,y,a,b).\ \operatorname{If}(&
+ \Psi_{M,\lambda}=\lambda(n,x,y,a,b).\ \operatorname{If}(&
   \operatorname{Prim}(\mathsf{halts\_within},M,n),\ \mathsf{true},\\
  &\operatorname{Eval}(
    \operatorname{ans}(\operatorname{Eval}(
       \Quote(\Compress),\\[-2pt]
- &\quad (\operatorname{quoted\_pair}(\Quote(S_L),
+ &\quad (\operatorname{quoted\_pair}(\Quote(S_\lambda),
        \operatorname{Hole}(\mathsf{self\_code},
-          \mathsf{Quoted}(\mathsf{Decider}))),L),F_C)),\\[-2pt]
- &\quad(n,x,y,a,b),\operatorname{FuelBound}(n,L))).
+          \mathsf{Quoted}(\mathsf{Decider}))),\lambda),F_C)),\\[-2pt]
+ &\quad(n,x,y,a,b),\operatorname{FuelBound}(n,\lambda))).
 \end{split}
 \tag{10.4}\label{eq:psi-ml}
 \]
@@ -1270,26 +1409,42 @@ The finite-fuel symbol \(F_C\) is any proved bound for the terminating
 \(\Compress\) call; \(\operatorname{ans}\) selects the returned decider
 description.  Define
 \[
- D_{M,L}=\operatorname{YCode}(\Psi_{M,L}),\qquad
- V_{M,L}=(S_L,\Quote(D_{M,L})).
+ D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda}),\qquad
+ V_{M,\lambda}=(S_\lambda,\Quote(D_{M,\lambda})).
 \tag{10.5}\label{eq:dml}
 \]
+
+Three points at which \eqref{eq:psi-ml} and the surrounding sections deviate
+from the single source \code{docs/DESIGN.md} \S1.1 are declared here as
+\grade{SOURCE\_REPAIR} against that file rather than left implicit.  First,
+\S1.1's display carries one \(\Eval\) and neither an \(\mathsf{ans}\) selector
+nor a fuel symbol for the compression call; \eqref{eq:psi-ml} uses two nested
+\(\Eval\)s, \(\mathsf{ans}\), and \(F_C\), because the outer evaluation must
+run the \emph{returned} decider and the inner one must be given a terminating
+budget.  Second, \S1.1 writes the fixed-point equation with the \emph{same}
+fuel on both sides, while Theorem~\ref{thm:ycode} charges \(f-c_Y\) with
+\(c_Y=3\) for the self-code link.  Third, \S1.1 fixes the hole sort to
+\(\mathsf{Quoted}\{\mathsf{Decider}\}\), whereas
+Section~\ref{sec:resource-lambda} admits \(\mathsf{Quoted}(A)\) for any result
+sort \(A\).  All three are strengthenings, not simplifications; each is a
+proposed edit to \code{DESIGN.md} \S1.1, so that the two documents move in
+lockstep rather than silently diverging.
 
 Figure~\ref{fig:C-closed-verifier} closes the construction into the exact
 sampler--decider pair passed to the later game machinery.
 \begin{figure}[t]
 \centering
 \input{figs/fig-C-closed-verifier.tex}
-\caption{The literal level \(L\) produces \(S_L\), while \(\operatorname{YCode}(\Psi_{M,L})\) closes its sole self-code socket before quotation places \(D_{M,L}\) beside that sampler.  The resulting \(V_{M,L}\) is one finite normal-form verifier description, not an oracle for either component.}
+\caption{The literal bound \(\lambda\) produces \(S_\lambda\), while \(\operatorname{YCode}(\Psi_{M,\lambda})\) closes its sole self-code socket before quotation places \(D_{M,\lambda}\) beside that sampler.  The resulting \(V_{M,\lambda}\) is one finite normal-form verifier description, not an oracle for either component.}
 \label{fig:C-closed-verifier}
 \end{figure}
 
 The complete constructor tree in Figure~\ref{fig:psi-ml} locates the single
 self-code hole inside the nested bounded evaluations.
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \input{figs/fig-psi-ml.tex}
-\caption{The real term \(\Psi_{M,L}\) first tests \(\mathsf{halts\_within}(M,n)\); on failure it evaluates quoted \(\Compress\) on \((\mathsf{quoted\_pair}(\Quote(S_L),\operatorname{Hole}(\mathsf{self\_code})),L)\), selects the answer decider, and evaluates it on \((n,x,y,a,b)\).  The lone amber hole is exactly the source position closed by \(D_{M,L}=\operatorname{YCode}(\Psi_{M,L})\).}
+\caption{The real term \(\Psi_{M,\lambda}\) first tests \(\mathsf{halts\_within}(M,n)\); on failure it evaluates quoted \(\Compress\) on \((\mathsf{quoted\_pair}(\Quote(S_\lambda),\operatorname{Hole}(\mathsf{self\_code})),\lambda)\), selects the answer decider, and evaluates it on \((n,x,y,a,b)\).  The lone amber hole is exactly the source position closed by \(D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})\).}
 \label{fig:psi-ml}
 \end{figure}
 
@@ -1300,23 +1455,23 @@ For the paper, the next theorem buys the identification of the published
 The following are translations of the same description-level construction:
 \begin{enumerate}
 \item the paper's explicit
-\(\mathcal F(\overline{\mathcal F},\overline M,L,n,x,y,a,b)\);
+\(\mathcal F(\overline{\mathcal F},\overline M,\lambda,n,x,y,a,b)\);
 \item the Kleene fixed point of the transformer which hardwires
-\((\overline M,L)\) and inserts the resulting decider code into \(\Compress\);
-\item the closed description \(D_{M,L}\) in \eqref{eq:dml}.
+\((\overline M,\lambda)\) and inserts the resulting decider code into \(\Compress\);
+\item the closed description \(D_{M,\lambda}\) in \eqref{eq:dml}.
 \end{enumerate}
 Under the simulations of Section~\ref{sec:simulation}, their deciders compute
 the same partial function.  Their description lengths are all
-\(O(|M|+\log L+1)\), and their running times differ by a polynomial in
-\(|M|,\log L,n\), the invoked fuel bounds, and the invoked machine times.
+\(O(|M|+\log\lambda+1)\), and their running times differ by a polynomial in
+\(|M|,\log\lambda,n\), the invoked fuel bounds, and the invoked machine times.
 \end{theorem}
 
 Figure~\ref{fig:three-presentations} identifies the translation along each
 edge of the paper--Kleene--YCode triangle.
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \input{figs/fig-three-presentations.tex}
-\caption{The published \(\mathcal F(\overline{\mathcal F},\overline M,L,\ldots)\), Kleene's \(e_Q=s(p,p)\), and \(D_{M,L}=\operatorname{YCode}(\Psi_{M,L})\) are three finite descriptions of the same partial function (after \code{fig:halt_f}).  Every edge preserves the self-code substitution and keeps size \(O(|M|+\log L+1)\).}
+\caption{The published \(\mathcal F(\overline{\mathcal F},\overline M,\lambda,\ldots)\), Kleene's \(e_Q=s(p,p)\), and \(D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})\) are three finite descriptions of the same partial function (after \code{fig:halt_f}).  Every edge preserves the self-code substitution and keeps size \(O(|M|+\log\lambda+1)\).}
 \label{fig:three-presentations}
 \end{figure}
 
@@ -1325,24 +1480,24 @@ In the paper, Step 2 of \(\mathcal F\) applies the hardwiring operation to the
 eight-input code supplied in its first argument.  When that argument is
 \(\overline{\mathcal F}\), the resulting five-input code is precisely the code
 of the outer decider
-\(D(n,x,y,a,b)=\mathcal F(\overline{\mathcal F},\overline M,L,n,x,y,a,b)\).
+\(D(n,x,y,a,b)=\mathcal F(\overline{\mathcal F},\overline M,\lambda,n,x,y,a,b)\).
 Thus the string given to \(\Compress\) is its own decider description.  This
 is the concrete \(s\)-\(m\)-\(n\) operation of Lemma~\ref{lem:smn} with the
 diagonal argument already chosen.
 
 Alternatively, let \(Q(e)\) output the code which performs the halting test and,
-on failure, applies \(\Compress\) to \((S_L,e)\) and runs the returned decider.
+on failure, applies \(\Compress\) to \((S_\lambda,e)\) and runs the returned decider.
 Theorem~\ref{thm:kleene-two} gives \(e_Q\) with
 \(\varphi_{e_Q}=\varphi_{Q(e_Q)}\), which is exactly the behavior just
 described.  Equation~\eqref{eq:ycode-source} performs the same substitution
 with \(e_Q\) represented by \(d_P\); Theorem~\ref{thm:ycode} proves the
-operational equation for \(D_{M,L}\).  Translating it to a machine with
+operational equation for \(D_{M,\lambda}\).  Translating it to a machine with
 Theorem~\ref{thm:l-to-tm}, or translating \(\mathcal F\) with
 Theorem~\ref{thm:tm-to-l}, preserves that behavior.
 
-The displayed term contains one copy of \(M\), one binary literal \(L\), and
+The displayed term contains one copy of \(M\), one binary literal \(\lambda\), and
 fixed code for the remaining operations.  Theorem~\ref{thm:ycode} therefore
-gives \(|D_{M,L}|=O(|M|+\log L+1)\).  The paper's hardwiring and the size
+gives \(|D_{M,\lambda}|=O(|M|+\log\lambda+1)\).  The paper's hardwiring and the size
 calculation in Theorem~\ref{thm:kleene-two} give the same bound for the first
 two forms.  Finally, the two simulation theorems replace each bounded call by a
 fixed polynomial overhead.  Composition of finitely many such polynomials is
@@ -1371,7 +1526,7 @@ remain cited inputs.
 \begin{figure}[H]
 \centering
 \input{figs/fig-C-selfref-boundary.tex}
-\caption{The green path closes \(\Psi_{M,L}\) with \(\operatorname{YCode}\) and emits the finite bytes of \(\overline{V_{M,L}}\), after which the arrow crosses a dashed boundary to low-degree soundness, rigidity, repetition, and gap preservation.  Self-reference supplies the program consumed by those theorems; it supplies none of their analytic conclusions.}
+\caption{The green path closes \(\Psi_{M,\lambda}\) with \(\operatorname{YCode}\) and emits the finite bytes of \(\overline{V_{M,\lambda}}\), after which the arrow crosses a dashed boundary to low-degree soundness, rigidity, repetition, and gap preservation.  Self-reference supplies the program consumed by those theorems; it supplies none of their analytic conclusions.}
 \label{fig:C-selfref-boundary}
 \end{figure}
 

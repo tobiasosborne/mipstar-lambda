@@ -1,7 +1,7 @@
 \begin{tikzpicture}[node distance=6mm and 4mm]
   %% ---------------- top row: the eight-input machine and its early exit
   \node[descbox, minimum width=34mm] (inputs)
-    {$\langle\mathcal F\rangle,\langle M\rangle,L$\\
+    {$\langle\mathcal F\rangle,\langle M\rangle,\lambda$\\
      \(u=(n,x,y,a,b)\)};
   \node[ctrl, right=8mm of inputs, minimum width=24mm] (f)
     {$\mathcal F$\\eight inputs};
@@ -16,14 +16,14 @@
 
   %% ---------------- middle row: the executed source construction
   \node[checked, below=20mm of inputs, minimum width=24mm] (hardwire)
-    {hardwire\\\((f,m,L)\)};
+    {hardwire\\\((f,m,\lambda)\)};
   \node[descbox, right=10mm of hardwire, minimum width=14mm,
         fill=focuslt, draw=focus] (d)
     {$\langle d\rangle$};
   \node[descbox, right=13mm of d, minimum width=25mm] (verifier)
-    {$\langle V\rangle=$\\$(\langle S_L\rangle,\langle d\rangle)$};
+    {$\langle V\rangle=$\\$(\langle S_\lambda\rangle,\langle d\rangle)$};
   \node[checked, right=10mm of verifier, minimum width=25mm] (compress)
-    {$\Compress$\\on \((\langle V\rangle,L)\)};
+    {$\Compress$\\on \((\langle V\rangle,\lambda)\)};
   \node[descbox, right=10mm of compress, minimum width=16mm] (dc)
     {$\langle d^{\mathrm c}\rangle$};
   \draw[xform] (hardwire) -- (d);
@@ -47,7 +47,7 @@
   %% ---------------- what feeds the verifier, and what stays cited
   \node[checked, minimum width=30mm] (sampler)
     at ([yshift=-11mm]$(d.south)!0.5!(verifier.south)$)
-    {$\ComputeSampler(L)$\\$\Downarrow\ \langle S_L\rangle$};
+    {$\ComputeSampler(\lambda)$\\$\Downarrow\ \langle S_\lambda\rangle$};
   \draw[->, desc, line width=.9pt] (sampler) -- (verifier);
   \node[citedbox, below=11mm of compress, minimum width=28mm] (theorem)
     {compression\\soundness and\\completeness};

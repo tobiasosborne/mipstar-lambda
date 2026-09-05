@@ -1,0 +1,50 @@
+\begin{tikzpicture}[node distance=6mm]
+  % ---- the constructed level / dimension chain
+  \node[descbox, minimum width=2.35cm, minimum height=1.15cm, font=\scriptsize\sffamily]
+    (v0) {input \(V\)\\level \(9\)\\dim \(s_0=9\)};
+  \node[citedbox, right=of v0, minimum width=2.35cm, minimum height=1.15cm,
+        font=\scriptsize\sffamily] (v1) {\(V^{(1)}\)\\level \(5\)\\dim \(206\)};
+  \node[citedbox, right=of v1, minimum width=2.35cm, minimum height=1.15cm,
+        font=\scriptsize\sffamily] (v2) {\(V^{(2)}\)\\level \(7\)\\dim \(840\)};
+  \node[citedbox, right=of v2, minimum width=2.35cm, minimum height=1.15cm,
+        font=\scriptsize\sffamily] (v2a) {anchored\\level \(9\)\\dim \(848\)};
+  \node[citedbox, right=of v2a, minimum width=2.35cm, minimum height=1.15cm,
+        font=\scriptsize\sffamily] (v3) {\(V^{(3)}\)\\level \(9\)\\dim \(1696\)};
+  \draw[xform] (v0) -- node[midway, above=8mm, text=ink,
+    font=\scriptsize\sffamily\bfseries] {\(\Introspect\)} (v1);
+  \draw[xform] (v1) -- node[midway, above=8mm, text=ink,
+    font=\scriptsize\sffamily\bfseries] {AR\,+\,detype} (v2);
+  \draw[xform] (v2) -- node[midway, above=8mm, text=ink,
+    font=\scriptsize\sffamily\bfseries] {anchor} (v2a);
+  \draw[xform] (v2a) -- node[midway, above=8mm, text=ink,
+    font=\scriptsize\sffamily\bfseries] {\(\Repeat\)} (v3);
+  \node[lblsm, below=2mm of v0, align=center, text width=3.4cm]
+    {toy: \(n=2\), \(N=4\),\\\(\lambda=32768\), \(s_0=9\)};
+  \node[lblsm, below=2mm of v3, align=center, text width=3.6cm]
+    {\(\mu=\gamma=\tau=1\), \(c_3'=1\),\\\(2\) repeated copies};
+
+  % ---- the printed predicate report
+  \node[panel, below=13mm of v2, inner sep=6pt, text width=0.90\textwidth] (rep) {%
+    {\footnotesize\sffamily\bfseries\color{inkmute} PRINTED PREDICATE REPORT}\par\smallskip
+    \scriptsize
+    \begin{tabular}{@{}p{0.62\textwidth}@{\quad}l@{}}
+    \toprule
+    predicate & outcome \\
+    \midrule
+    input field, level, \(\lambda\)-boundedness; \(n\geq2\) & \textcolor{check}{PASS} \\
+    introspection field admissible, \(m_I\mid q_I\), \(d_I=1\) & \textcolor{check}{PASS} \\
+    answer-reduction shape, formula, tail, divisibility, degree & \textcolor{check}{PASS} \\
+    repeat question and answer component guard, \((\lambda n)^\tau=65{,}536\) & \textcolor{check}{PASS} \\
+    \midrule
+    introspection embedding \(Q_I\geq s_0(N)\): \(2\geq9\) & \textcolor{bad}{FAIL} \\
+    \(P_{\mathrm{pcp\_encodes\_D1}}\): the PCP instance arithmetizes the actual \(D^{(1)}\) trace & \textcolor{bad}{FAIL} \\
+    \code{enu:ar-game} against the actual \(D^{(1)}\) & \textcolor{cited}{NOT EXECUTED} \\
+    non-Pauli \(\Introspect\)/Sample/Read/Hide answer schemas (\(3Q_I=6<9\)) & \textcolor{cited}{VACUOUS} \\
+    universal \(\mu,\gamma,\tau\); \(n\geq C_0\); answer-reduction growth & \textcolor{inkmute}{NOT EVALUABLE} \\
+    \bottomrule
+    \end{tabular}};
+  \node[lblsm, below=1.5mm of rep, align=center]
+    {level chain \(9\to5\to7\to9\) \quad$\bullet$\quad dimension chain
+     \(206\to840\to848\to1696\)\\
+     designed in \textsc{design} \S12; C15 \textsc{Conjecture}; nothing here has been executed};
+\end{tikzpicture}

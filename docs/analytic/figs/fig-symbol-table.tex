@@ -1,0 +1,48 @@
+\begin{tikzpicture}
+  \node[panel, inner sep=8pt] (card) {%
+    \begin{minipage}{0.95\textwidth}
+    \setlength{\parskip}{0pt}
+    {\footnotesize\sffamily\bfseries\color{inkmute} NOTATION: THE NINE QUANTITIES THAT TRAVEL THROUGH BOTH PARTS}\par\smallskip
+    \footnotesize
+    \begin{tabular}{@{}l@{\quad}p{0.50\textwidth}@{\quad}p{0.17\textwidth}@{}}
+    \toprule
+    symbol & reading & fixed at \\
+    \midrule
+    \(\Time\) & machine steps to halt: \(\Time_M(x)\) on one input, and
+      \(\Time_D(n)=\max_{x,y,a,b}\Time_{D,(n,x,y,a,b)}\) for a decider &
+      \S1.1; Definition~\ref{def:paper-decider} \\
+    \(|M|,|t|\) & description size in bits, with
+      \(|t|=|\operatorname{ser}(t)|\) for a term & \S1.4;
+      Definition~\ref{def:l-serialization} \\
+    \(f,F\) & remaining fuel, and a fuel budget supplied to one bounded run &
+      \S8.3 \\
+    \(\kappa_p\) & the \emph{charge} of one primitive step; every microstep
+      spends one fuel unit & \S8.3 \\
+    \(\operatorname{level}\) & the CL nesting depth;
+      \(\operatorname{level}(V)=\operatorname{level}(S)\), and it is an upper
+      bound, never a minimum &
+      Definitions~\ref{def:paper-lambda} and~\ref{def:cl-func-doc} \\
+    \(\lambda\) & the resource bound: \(|V|\leq\lambda\) and
+      \(\Time_S(n),\Time_D(n)\leq n^\lambda\); also \(\Compress\)'s second
+      argument & Definition~\ref{def:paper-lambda} \\
+    \(Q\) & a bound on the public question lengths \(|x|,|y|\); the
+      answer-reduction contract sets \(Q(n)=(\lambda n)^\mu\) &
+      Theorem~\ref{thm:l-succinct-sat} \\
+    \(R\) & \(R=2^{r_0}\), the succinct index range of the three tableau
+      blocks of a decoupled 5SAT instance & \S11.3 \\
+    \(k(n)\) & \(k(n)=(\lambda n)^{(1+c_3')\tau}\), the number of copies
+      \(\Repeat\) runs & Figure~\ref{fig:parameter-card} \\
+    \bottomrule
+    \end{tabular}\par\smallskip
+    {\scriptsize\sffamily\color{inkmute}
+     The remaining constants are collected where they are first needed:
+     \(\mu,\gamma,\tau,C_0\) and the level \(9\) in
+     Figure~\ref{fig:parameter-card}; \(h(d,u)=3+|d|+|\operatorname{enc}(u)|\)
+     and \(c_Y=3\) in \S8.4 and \S10.2; \(C_L\) and the exponent \(8\) in
+     Theorem~\ref{thm:l-to-tm}; \(A\) in
+     Theorem~\ref{thm:lambda-preservation}; \(q=2^k\), \(m\), \(m'\), \(d\)
+     and \(\degF\) in \S11.5 and \S12.  Two names are deliberately kept apart:
+     \(\tau\) is always the repetition constant, and the transition-window
+     function of Lemma~\ref{lem:transition-window} is \(\omega\).}
+    \end{minipage}};
+\end{tikzpicture}

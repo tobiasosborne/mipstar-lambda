@@ -1,30 +1,39 @@
 \begin{tikzpicture}[node distance=3mm]
-  \matrix (M) [matrix of nodes, row sep=2.6mm, column sep=8mm,
+  \matrix (M) [matrix of nodes, row sep=2.6mm, column sep=6mm,
     nodes={minimum height=8mm},
-    column 1/.style={nodes={descbox, text width=3.9cm, align=center}},
-    column 2/.style={nodes={stage, text width=3.6cm, align=center}},
-    column 3/.style={nodes={citedbox, text width=2.4cm, align=center}}] {
+    column 1/.style={nodes={descbox, text width=3.6cm, align=center}},
+    column 2/.style={nodes={stage, text width=3.4cm, align=center}},
+    column 3/.style={nodes={citedbox, text width=2.3cm, align=center}},
+    column 4/.style={nodes={draw=none, fill=none, align=center,
+                            font=\scriptsize\sffamily\bfseries, text width=2.0cm}}] {
     |[draw=none,fill=none,lbl,text=desc]| paper object &
     |[draw=none,fill=none,lbl,text=desc]| Julia object &
-    |[draw=none,fill=none,lbl,text=desc]| evidence leaf \\
+    |[draw=none,fill=none,lbl,text=desc]| evidence leaf &
+    |[draw=none,fill=none,lbl,text=desc]| claim \\
     bounded decider trace / succinct $5$SAT &
     \texttt{bounded\_trace}, \texttt{decouple5} &
-    absent; cited \\
+    absent; cited &
+    |[text=cited]| NO ROW \\
     Tseitin / arithmetization / zero basis &
-    \texttt{tseitin}, \texttt{arith\_q}, \texttt{zero\_basis} &
-    |[checked, text width=2.4cm, align=center]| checked instances \\
+    \texttt{tseitin}, \texttt{arith\_q}, \texttt{zero\_basis\_decompose} &
+    |[checked, text width=2.3cm, align=center]| checked instances &
+    |[text=check]| {C2, C3,\\C8 TESTED} \\
     CL maps and low-degree marginals &
     \texttt{CLStep}, \texttt{marginal\_k}, \texttt{histogram} &
-    |[checked, text width=2.4cm, align=center]| TB1 exact \\
+    |[checked, text width=2.3cm, align=center]| TB1 exact &
+    |[text=check]| C4a TESTED \\
     typed PCP sampler and guarded decider &
     \texttt{pcp\_sampler}, \texttt{answer\_reduce\_pcp} &
-    shape checked; theorem cited \\
+    shape checked; theorem cited &
+    |[text=check]| C4b, C9 TESTED \\
     midpoint recurrence and sequential AND &
-    \texttt{sequential\_value} &
-    |[checked, text width=2.4cm, align=center]| C6,N1 proved \\
+    {\texttt{sequential\_and\_}\\\texttt{optval}} &
+    |[checked, text width=2.3cm, align=center]| C6,N1 proved &
+    |[text=check]| C6, N1 PROVED \\
     $\Repeat\circ\AnswerReduce$ $\circ\,\Introspect$ &
     \texttt{Compress} &
-    absent; cited \\
+    absent; cited &
+    |[text=cited]| C15 CONJ. \\
   };
   \foreach \r in {2,...,7}{
     \draw[xform] (M-\r-1) -- (M-\r-2);

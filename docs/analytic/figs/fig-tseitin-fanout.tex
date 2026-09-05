@@ -25,9 +25,9 @@
   \draw[->,machine,line width=0.8pt] (wr) -- (cp);
   \draw[->,machine,line width=0.8pt] (cp) -- (uses);
   \node[checked, minimum width=4.2cm, anchor=north] (repair)
-    at ([yshift=-8mm]cp.south) {$\delta_F\leq7,\qquad d\geq8$};
+    at ([yshift=-8mm]cp.south) {$\degF\leq7,\qquad d\geq8$};
   \node[lblsm, text=check, below=1.4mm of repair] (rn)
-    {soundness term $(\delta_F+5d)m'/q$};
+    {soundness term $(\degF+5d)m'/q$};
   \node[panel title, anchor=south west, inner sep=0pt] (rt)
     at ([yshift=4mm]wr.west |- g2.north) {bounded fan-out repair};
   % filler so the two panels end at the same height

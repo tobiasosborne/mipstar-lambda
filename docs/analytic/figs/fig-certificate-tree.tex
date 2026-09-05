@@ -1,0 +1,71 @@
+\begin{tikzpicture}[x=1cm,y=1cm]
+  % one node of the tree: grade chip, rule name, printed facts
+  % depth 0 -------------------------------------------------------------
+  \node[citedbox, anchor=north west, text width=11.6cm, align=left,
+        minimum height=8mm] (n0) at (0,0)
+    {\textbf{\ttfamily Detype}\ \ \scriptsize\code{lem:detyping-verifiers}; \(+2\) levels; factor \(16^{54}\)};
+  \node[tag cited, anchor=east] at (-0.25,-0.4) {CITED};
+  % depth 1
+  \node[checked, anchor=north west, text width=10.9cm, align=left,
+        minimum height=8mm] (n1) at (0.7,-1.15)
+    {\textbf{\ttfamily TypedAnswerReduce}\ \ \scriptsize finite \code{fig:decider-pcp} executable; typed level \(=\max(\ell,3)=3\)};
+  \node[tag check, anchor=east] at (-0.25,-1.55) {CHECKED};
+  % depth 2
+  \node[checked, anchor=north west, text width=10.2cm, align=left,
+        minimum height=8mm] (n2) at (1.4,-2.30)
+    {\textbf{\ttfamily AnswerReduceSamplerProduct}\ \ \scriptsize \(3\times18=54\) types; complete \(54^2\) graph; level \(=\max(\ell,3)\)};
+  \node[tag check, anchor=east] at (-0.25,-2.70) {CHECKED};
+  % depth 3
+  \node[citedbox, anchor=north west, text width=9.5cm, align=left,
+        minimum height=8mm] (n3) at (2.1,-3.45)
+    {\textbf{\ttfamily Oracularization}\ \ \scriptsize roles \(=\{\)oracle, alice, bob\(\}\); oracle \(=\) Id; \code{gt-09:36-86}};
+  \node[tag cited, anchor=east] at (-0.25,-3.85) {CITED};
+  \node[checked, anchor=north west, text width=9.5cm, align=left,
+        minimum height=8mm] (n4) at (2.1,-4.60)
+    {\textbf{\ttfamily TypedPCPSampler}\ \ \scriptsize 18 types; complete \(18^2\) graph; \(\dim V_6=(16,6,16)\)};
+  \node[tag check, anchor=east] at (-0.25,-5.00) {CHECKED};
+  % depth 4
+  \node[stage, anchor=north west, text width=8.8cm, align=left,
+        minimum height=8mm] (n5) at (2.8,-5.75)
+    {\textbf{\ttfamily PCPCLDatatype}\ \ \scriptsize intrinsic levels \(1/2/3\); padded common level \(3\)};
+  \node[tag machine, anchor=east] at (-0.25,-6.15) {CONSTRUCTED};
+  \node[stage, anchor=north west, text width=8.8cm, align=left, draw=focus,
+        fill=focuslt, minimum height=8mm] (n6) at (2.8,-6.90)
+    {\textbf{\ttfamily PCPCopy6CoordinateScalar}\ \ \scriptsize \(\dim V_{6,\rm coord}=6\) but \code{table:tpcp} exposes one scalar};
+  \node[tag focus, anchor=east] at (-0.25,-7.30) {SOURCE\_REPAIR};
+  % back to depth 2
+  \node[stage, anchor=north west, text width=10.2cm, align=left,
+        minimum height=8mm] (n7) at (1.4,-8.05)
+    {\textbf{\ttfamily AnswerReduceHypotheses}\ \ \scriptsize normal form; \(T(n)=(2^{\lambda n})^\mu\), \(Q(n)=(\lambda n)^\mu\); time bounds};
+  \node[tag cited, anchor=east] at (-0.25,-8.45) {ASSUMED};
+  \node[stage, anchor=north west, text width=10.2cm, align=left, draw=focus,
+        fill=focuslt, minimum height=8mm] (n8) at (1.4,-9.20)
+    {\textbf{\ttfamily PCPVerifierFixedFormula}\ \ \scriptsize \code{fig:pcpverifier} steps 1--2 are not executed on the TB0 fixture};
+  \node[tag focus, anchor=east] at (-0.25,-9.60) {SOURCE\_REPAIR};
+  \node[stage, anchor=north west, text width=10.2cm, align=left, draw=focus,
+        fill=focuslt, minimum height=8mm] (n9) at (1.4,-10.35)
+    {\textbf{\ttfamily PCPGameOtherwiseFallthrough}\ \ \scriptsize \code{fig:decider-pcp} step 5's otherwise-accept read as fallthrough};
+  \node[tag focus, anchor=east] at (-0.25,-10.75) {SOURCE\_REPAIR};
+  \node[citedbox, anchor=north west, text width=10.2cm, align=left,
+        minimum height=8mm] (n10) at (1.4,-11.50)
+    {\textbf{\ttfamily AnswerReduceQuantumContract}\ \ \scriptsize \code{thm:ar} completeness/soundness/Ent; \code{gt-10:2077-2116}};
+  \node[tag cited, anchor=east] at (-0.25,-11.90) {CITED};
+
+  % ---- parent/child elbows: one spine per parent, stubs to each child
+  \draw[inkmute,line width=0.5pt] (0.35,-0.80) -- (0.35,-1.55) -- (0.70,-1.55);
+  \draw[inkmute,line width=0.5pt] (1.05,-1.95) -- (1.05,-11.90);
+  \foreach \y in {-2.70,-8.45,-9.60,-10.75,-11.90}
+    {\draw[inkmute,line width=0.5pt] (1.05,\y) -- (1.40,\y);}
+  \draw[inkmute,line width=0.5pt] (1.75,-3.10) -- (1.75,-5.00);
+  \foreach \y in {-3.85,-5.00}
+    {\draw[inkmute,line width=0.5pt] (1.75,\y) -- (2.10,\y);}
+  \draw[inkmute,line width=0.5pt] (2.45,-5.40) -- (2.45,-7.30);
+  \foreach \y in {-6.15,-7.30}
+    {\draw[inkmute,line width=0.5pt] (2.45,\y) -- (2.80,\y);}
+
+  \node[lblsm, anchor=north west, align=left, text width=12.0cm] at (0,-12.55)
+    {Printed by \code{traceprint} and matched node-for-node by
+     \code{test/tb2\_answer\_reduce.jl}: grade, rule name, facts and child order
+     are all part of the test.  \code{verify\_certificate} re-runs the replay of
+     every \grade{CHECKED} node against the attached term.};
+\end{tikzpicture}

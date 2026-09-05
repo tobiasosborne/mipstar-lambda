@@ -1,9 +1,9 @@
 \begin{tikzpicture}
-  \node[tnode] (psi) {$\Psi_{M,L}$};
+  \node[tnode] (psi) {$\Psi_{M,\lambda}$};
   \node[checked, right=8mm of psi] (fix)
     {$\operatorname{YCode}$\\[-1pt]\scriptsize close self-code hole};
   \node[descbox, right=8mm of fix] (v)
-    {$\overline{V_{M,L}}$\\[-1pt]\scriptsize finite inspectable bytes};
+    {$\overline{V_{M,\lambda}}$\\[-1pt]\scriptsize finite inspectable bytes};
   \draw[beta] (psi)--(fix);
   \draw[quote] (fix)--(v);
   \node[tag check, below=3mm of fix] {CONSTRUCTED AND COSTED};

@@ -1,14 +1,14 @@
 \begin{tikzpicture}[node distance=6mm and 8mm]
   \node[descbox,fill=focuslt,draw=focus,line width=1pt,minimum width=6.0cm] (fixed)
-    {$D_{M,L}=\operatorname{YCode}(\Psi_{M,L})$\\
-     \scriptsize $V_{M,L}=(S_L,\Quote(D_{M,L}))$};
+    {$D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})$\\
+     \scriptsize $V_{M,\lambda}=(S_\lambda,\Quote(D_{M,\lambda}))$};
   \node[closure,below=7mm of fixed,minimum width=14.5cm] (psi)
-    {$\displaystyle\Psi_{M,L}=\lambda(n,x,y,a,b).\ \operatorname{If}\Bigl($\\
+    {$\displaystyle\Psi_{M,\lambda}=\lambda(n,x,y,a,b).\ \operatorname{If}\Bigl($\\
      $\quad\operatorname{Prim}(\mathsf{halts\_within},M,n),\ \mathsf{true},$\\
      $\quad\operatorname{Eval}\!\bigl(\operatorname{ans}\!\bigl(\operatorname{Eval}
-       \bigl(\Quote(\Compress),(\operatorname{quoted\_pair}(\Quote(S_L),$\\[-1mm]
+       \bigl(\Quote(\Compress),(\operatorname{quoted\_pair}(\Quote(S_\lambda),$\\[-1mm]
      $\hspace{40mm}\operatorname{Hole}(\mathsf{self\_code},\mathsf{Quoted}(\mathsf{Decider}))),L),F_C\bigr)\bigr),$\\[-1mm]
-     $\hspace{54mm}(n,x,y,a,b),\operatorname{FuelBound}(n,L)\bigr)\Bigr)$};
+     $\hspace{54mm}(n,x,y,a,b),\operatorname{FuelBound}(n,\lambda)\bigr)\Bigr)$};
   \draw[quote] (fixed) -- node[right,lblsm,text=desc] {constant-size self-code link} (psi);
   \node[checked,below=7mm of psi,minimum width=5.1cm] (middle)
     {executed middle\\Tseitin $\to$ polynomials $\to$ CL maps};

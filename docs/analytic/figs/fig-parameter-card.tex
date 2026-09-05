@@ -1,0 +1,38 @@
+\begin{tikzpicture}
+  \node[panel, inner sep=8pt] (card) {%
+    \begin{minipage}{0.93\textwidth}
+    \setlength{\parskip}{0pt}
+    {\footnotesize\sffamily\bfseries\color{inkmute} THE UNIVERSAL CONSTANTS OF \(\Compress\)}\par\smallskip
+    \footnotesize
+    \begin{tabular}{@{}l@{\quad}p{0.55\textwidth}@{\quad}l@{}}
+    \toprule
+    symbol & what it fixes & source \\
+    \midrule
+    \(\lambda\) & the resource bound: \(|V|\leq\lambda\) and
+      \(\Time_S(n),\Time_D(n)\leq n^\lambda\) for \(n\geq2\); also
+      \(\Compress\)'s second argument & \code{def:lambda} \\
+    \(9\) & the level requested of \(\ComputeIntroVerifier\), and the level of
+      the verifier \(\Compress\) returns & \code{fig:compress} \\
+    \(\mu=\lceil C_{\mathrm{intro}}\rceil\) & answer-reduction time exponent
+      passed to \(\ComputeAnsVerifier\) & \code{eq:mu-gamma} \\
+    \(\gamma=\bigl\lceil 2a_1/(b_1b_2)\bigr\rceil\) & answer-reduction
+      soundness exponent passed with \(\mu\) & \code{eq:mu-gamma} \\
+    \(\tau\) & least integer with \(\tau\geq C_{\mathrm{ar}}\) and
+      \((\lambda n)^\tau\geq c_3^{-1}\varepsilon_2^{-17}\ln(8/\varepsilon_2)\)
+      for all \(n\geq\tau\) and all integers \(\lambda\geq1\) & \code{eq:c\_rep} \\
+    \(k(n)=(\lambda n)^{(1+c_3')\tau}\) & the number of repeated copies
+      \(\Repeat\) runs & \code{gt-12:355} \\
+    \(\varepsilon_1,\varepsilon_2\) & the two soundness parameters substituted
+      into \(\tau\) & \code{eq:re-eps-1}, \code{eq:re-eps-2} \\
+    \(C_0\) & index threshold: completeness and soundness are asserted only for
+      \(n\geq C_0\) & \code{thm:compression} \\
+    \bottomrule
+    \end{tabular}\par\smallskip
+    {\scriptsize\sffamily\color{inkmute}
+     All eight are universal constants of the source, fixed before any verifier
+     is supplied; none is given a numerical value here.  \(\tau\) always means
+     this repetition constant --- the transition-window function of
+     Lemma~\ref{lem:transition-window} is written \(\omega\) --- and the
+     formula-occurrence bound is written \(\degF\), as in \code{claims/CLAIMS.md}.}
+    \end{minipage}};
+\end{tikzpicture}
