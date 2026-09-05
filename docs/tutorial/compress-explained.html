@@ -349,18 +349,18 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     <div class="grid3">
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">executed</p>
-        <p class="readout" style="font-size:26px">1038 / 1038</p>
-        <p class="note">assertions pass in <code>test/runtests.jl</code> (commit 7423c53, TB0 test body <span class="num">20.7 s</span> against a 60 s wall-clock gate under the performance power profile; the same body reads 74–85 s in powersave at ~1 GHz — the gate is CPU-clock-bound, not structurally marginal).</p>
+        <p class="readout" style="font-size:26px">1364 / 1364</p>
+        <p class="note">assertions pass in <code>test/runtests.jl</code> (commit 8a1b6e2, TB0 test body <span class="num">15.5 s</span> against a 60 s wall-clock gate under the performance power profile; the same body reads 74–85 s in powersave at ~1 GHz — the gate is CPU-clock-bound, not structurally marginal).</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">red-capable</p>
-        <p class="readout" style="font-size:26px">101 / 101</p>
-        <p class="note">registered mutants KILLED, 47/47 baselines OK, 400.6 s. Nothing SURVIVED, nothing UNATTRIBUTABLE.</p>
+        <p class="readout" style="font-size:26px">119 / 119</p>
+        <p class="note">registered mutants KILLED, 55/55 baselines OK, 492 s. Nothing SURVIVED, nothing UNATTRIBUTABLE.</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">still open</p>
-        <p class="readout" style="font-size:26px">2 lanes</p>
-        <p class="note">TB2 <code>FAIL(NG3)</code> at r6 and TB3 <code>FAIL(N11)</code> at r2 — one MAJOR each, both small. TB0, TB1, the design and the analytic document have converged.</p>
+        <p class="readout" style="font-size:26px">3 lanes</p>
+        <p class="note">TB2 <code>FAIL(NG10)</code> at r7, TB3 <code>FAIL(N11)</code> at r2, TB4 <code>FAIL(O1–O5)</code> at r1 — all with repair briefs written. TB0, TB1, the design and the analytic document have converged.</p>
       </div></div>
     </div>
   </div>
@@ -983,7 +983,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
             <tr><td>game</td><td class="mono">pcpverifier</td><td class="mono">(oracle,Point_6) × (bob,Point_2)</td></tr>
           </tbody>
         </table>
-        <p class="note" style="margin-top:12px">Each of the nine certificate cases is replayed at three seeds (the zero seed, <span class="mono">tb2_seed 5</span>, and RNG <span class="mono">0x9E</span>): 27 honest outcomes accepted, 27 corrupted outcomes rejected. Separately, the decider's trace was compared against an independent enumerator on all <span class="num">2,916</span> pairs at the zero seed and again at <span class="mono">tb2_seed 5</span> with honest TB0-proof answers — 2,736 silent, 180 guarded, no mismatches. Still open (tb2-r6 NG3): every corrupted-reject witness puts the Point type on the left; the <span class="mono">:bob</span> orientation of three steps has no witness yet.</p>
+        <p class="note" style="margin-top:12px">Each of the nine certificate cases is replayed at three seeds (the zero seed, <span class="mono">tb2_seed 5</span>, and RNG <span class="mono">0x9E</span>): 27 honest outcomes accepted, 27 corrupted outcomes rejected. Separately, the decider's trace was compared against an independent enumerator on all <span class="num">2,916</span> pairs at the zero seed and again at <span class="mono">tb2_seed 5</span> with honest TB0-proof answers — 2,736 silent, 180 guarded, no mismatches. Brief 69 then ran all nine cases in both orientations (54 outcomes, the rejecting player asserted). Still open (tb2-r7 NG10): the trace key's copy index has no corrupted-reject witness at 19 of the 37 guard keys; the 114-outcome block that closes it is written and queued.</p>
       </div>
     </div>
 
@@ -1269,13 +1269,13 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
       <div class="panel-bar"><b>Objection trajectories, by lane</b><span>25 verdict files · MAJOR objections, the count each verdict itself tracks</span></div>
       <div class="panel-body">
         <div id="traj"></div>
-        <p class="note" style="margin-top:12px">Six lanes converged to zero MAJOR objections and a PASS. Two are still open: TB2 at <span class="mono">FAIL(NG3)</span> after six rounds, TB3 at <span class="mono">FAIL(N11)</span> after two. No verdict line ever reads PROMOTE — only PASS or FAIL(…); promotions live inside the per-claim decision sections.</p>
+        <p class="note" style="margin-top:12px">Six lanes converged to zero MAJOR objections and a PASS. Three are still open: TB2 at <span class="mono">FAIL(NG10)</span> after seven rounds, TB3 at <span class="mono">FAIL(N11)</span> after two, TB4 at <span class="mono">FAIL(O1–O5)</span> after one. No verdict line ever reads PROMOTE — only PASS or FAIL(…); promotions live inside the per-claim decision sections.</p>
       </div>
       <dl class="evidence">
-        <div class="ev"><dt>verdict files</dt><dd>30<small>6 PASS · 24 FAIL(…)</small></dd></div>
-        <div class="ev good"><dt>mutants killed</dt><dd>101 / 101<small>47/47 baselines OK, 400.6 s</small></dd></div>
-        <div class="ev"><dt>suite assertions</dt><dd>1038 / 1038</dd></div>
-        <div class="ev"><dt>TB0 test body</dt><dd>20.7 s<small>vs a 60 s gate; 74–85 s in powersave at ~1 GHz</small></dd></div>
+        <div class="ev"><dt>verdict files</dt><dd>32<small>6 PASS · 26 FAIL(…)</small></dd></div>
+        <div class="ev good"><dt>mutants killed</dt><dd>119 / 119<small>55/55 baselines OK, 492 s</small></dd></div>
+        <div class="ev"><dt>suite assertions</dt><dd>1364 / 1364</dd></div>
+        <div class="ev"><dt>TB0 test body</dt><dd>15.5 s<small>vs a 60 s gate; 74–85 s in powersave at ~1 GHz</small></dd></div>
       </dl>
     </div>
 
@@ -2277,8 +2277,9 @@ var AR=(function(){
    {n:"tb0",v:[7,5,1,0],end:"PASS"},
    {n:"analytic-doc",v:[11,6,0],end:"PASS"},
    {n:"tb1",v:[4,3,2,1,1,0],end:"PASS"},
-   {n:"tb2",v:[6,1,1,2,2,1],end:"FAIL(NG3)"},
-   {n:"tb3",v:[3,1],end:"FAIL(N11)"}];
+   {n:"tb2",v:[6,1,1,2,2,1,1],end:"FAIL(NG10)"},
+   {n:"tb3",v:[3,1],end:"FAIL(N11)"},
+   {n:"tb4",v:[5],end:"FAIL(O1–O5)"}];
   var MAX=13, W=200, H=86, PADL=8, PADB=22, PADT=10;
   var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px">';
   LANES.forEach(function(L){
@@ -2321,6 +2322,7 @@ var AR=(function(){
    ["C8","Refutation of prop:tseitin-arith-degree as we read NW19: deg_v(F_arith) ≤ occ_v, and occ grows with fan-out.","TESTED","—","tb0-r1 (scoped), r2, r3"],
    ["C9","The typed answer-reduced decider on the TB0 fixture: 2,736 of 2,916 ordered pairs trigger no check; nine replay cases at three seeds, 27 (case, seed) pairs.","TESTED","D1, D2, C3, C4a, C4b","tb2-r2 … tb2-r5"],
    ["N1","Negative, sequential repetition only: adaptive r-copy repetition gives exactly (1 − 2⁻ⁿ)ʳ.","PROVED","C6","midpoint-r2"],
+   ["C11","The Compress skeleton composes the three contracts in fig:compress order with the quoted fixed point D = Y Ψ (388 bytes) and c_Y = 3 pinned at every fuel; weaker row.","TESTED","C10, C9, C16, C18","tb4-r1"],
    ["C10","Front-end faithfulness on the two one-bit-answer fixtures: quote → trace → 3SAT → 5SAT → padded circuit → PCP, every stage replayed and identity-bound.","TESTED","C1, C9, C16, C19","tb3-r2"],
    ["C12","Description-level CL closure for downsize, direct sum, product, detype, anchor and repeat.","CONJECTURE","C4a, C4b","design-v2-r2"],
    ["C13","The TB5 Repeat fixture: levels and dimensions 1,1 → 3,9 → 3,729 at n = 9, λ = τ = c′ = 1.","CONJECTURE","C12","design-v2-r2"],
