@@ -19,11 +19,12 @@ A COMPLETE executable implementation of `Compress = Repeat ∘ AnswerReduce ∘ 
 |---|---|---|
 | Design v1 (§1–8) | converged, design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | — |
-| TB0 | repair r4 landed 44160d1; C2, C3, C8 TESTED; C1 one step (N8) from TESTED | **critic r4 RUNNING (brief 55)** → expect PASS + C1 PROMOTE; paste the authorized row |
-| TB1 / TB2 | repair r2 + describability landed 9a55215; critics r3: tb1 FAIL(N12,N13), tb2 FAIL(N6) — serializer not tied to the map; C4a, C4b, C9 TESTED (re-affirmed) | **repair r3 RUNNING (brief 54, Fable; small)** → commit, then critics r4 (template; expect PASS) |
-| TB3, TB4 | briefs 23, 24 written (codex-era wording; launch prompt says "Proposer (Fable)") | Fable order after 46: 23 → 24 → 39 (TB5) → 43 (TB6) → 44 (TB7); Opus critic on each landed rung from the template while the worker builds the next |
+| TB0 | **CONVERGED** r4 PASS (`verdicts/tb0-r4.md`); C1, C2, C3, C8 TESTED; N13–N16 MINOR folded into brief 23 | — |
+| TB1 / TB2 | repair r3 landed 1919aff (serializer injective + decode round trip); C4a, C4b, C9 TESTED; C4c (D^ld) proposed | **critics r4 RUNNING (briefs 57, 58)** → expect PASS; paste authorized rows (C4c new) |
+| TB3 | **RUNNING (brief 23 + addenda, Fable)** — program IR, fuel-bounded evaluator, bounded trace → succinct 3SAT → decoupled 5SAT → TB0 PCP; C16/C19 first machine evidence | when it lands: verify, commit, Opus critic r1 (template), worker → brief 24 (TB4) |
+| TB4 → TB7 | briefs 24 (+addendum), 39 (+G1–G5 addendum), 43, 44 written | sequential on the one Fable worker; critics in parallel |
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
-| **Analytic doc (sidequest)** | critic r1 FAIL(11) → repair r1 → critic r2 FAIL(6) → repair r2 landed 8eb67ba (92 pp, 110 figs, page-verified rows); PDF v6 sent | **critic r3 RUNNING (brief 56)** → expect PASS or a short r3 repair; then pedagogy NOTEs become a future round |
+| **Analytic doc (sidequest)** | **CONVERGED** r3 PASS (`verdicts/analytic-doc-r3.md`); 92 pp, 110 figures; PDF v6 sent | pedagogy round (bd d48: n6–n10) and lockstep updates as TB3–TB7 land — low priority |
 | Figure atlas canvas | published: https://claude.ai/code/artifact/d3c355d4-541f-4983-a57f-4d6d7ca097f1 (user approved the direction) | optional: re-seed with rendered figure PNGs as a review gallery (working files in the session scratchpad `atlas/` — regenerate from `docs/analytic` if lost) |
 | Tutorial artifact | bd issue open | after TB4; drive from real trace printouts |
 
