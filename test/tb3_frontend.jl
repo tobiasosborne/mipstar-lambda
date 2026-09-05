@@ -628,7 +628,8 @@ if tb3_runs("tb3_pcp")
                                              upstream=(equality.padded,))
         @test_throws ArgumentError upstream_circuit(plain.tf)
         # TB2's typed answer-reduced decider on the generated proof: the
-        # seven fig:decider-pcp guard cases with honest answers.
+        # nine fig:decider-pcp guard cases with honest answers (brief 65:
+        # the diagonal orientations of steps 4(b)/4(c) were added).
         proof11 = change_field(fx.proof, GF2048, 11).term
         original = trivial_original_verifier(GF2048, TB3_PARAMS, fx.tf;
                                              n=2, T=1, Q_len=1, sigma=description_size(pipeline.quoted.term),
@@ -646,10 +647,10 @@ if tb3_runs("tb3_pcp")
             push!(decisions, (case.case, passed(decision)))
         end
         @test all(last, decisions)
-        @test length(decisions) == 7
+        @test length(decisions) == 9
         println("TB3 pcp: |c0| (i)=", monomial_count(plain.c0), " (ii)=", monomial_count(fx.c0),
                 " build (i)=", round(seconds_i; digits=3), " s (ii)=", round(seconds_ii; digits=3),
-                " s; decider cases accepted=", count(last, decisions), "/7 in ",
+                " s; decider cases accepted=", count(last, decisions), "/9 in ",
                 round(seconds_ar; digits=3), " s; peak_rss=", Sys.maxrss())
         traceprint(stdout, fx.certificate)
     end

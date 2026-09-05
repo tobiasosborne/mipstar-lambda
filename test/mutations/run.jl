@@ -184,6 +184,9 @@ include("tb1_describe_transpose.jl")
 include("tb1_describe_zero_register.jl")
 include("tb1_pad_subregister.jl")
 include("tb1_decode_ambient.jl")
+# verdicts/tb1-r5.md N29 (NM15), N30 (brief 65).
+include("tb1_degenerate_line.jl")
+include("tb1_dsum_zero_spellings.jl")
 include("tb2_formula.jl")
 include("tb2_g3.jl")
 include("tb2_line.jl")
@@ -203,6 +206,9 @@ include("tb2_guard_split.jl")
 # verdicts/tb2-r4.md NF1, NF2 (brief 59).
 include("tb2_decider_guard_widened.jl")
 include("tb2_global_consistency_first_entry.jl")
+# verdicts/tb2-r5.md NG1, NG2 (brief 65).
+include("tb2_individual_diagonal_never_rejects.jl")
+include("tb2_simultaneous_diagonal_never_rejects.jl")
 # briefs/23-tb3.md: the five TB3 front-end mutants.
 include("tb3_acc.jl")
 include("tb3_size.jl")
@@ -229,7 +235,8 @@ const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_FACTOR_REACHABILITY_MUTANT,
                      TB1_OFF_LINE_MUTANT, TB1_DESCRIBE_TRANSPOSE_MUTANT,
                      TB1_DESCRIBE_ZERO_REGISTER_MUTANT, TB1_PAD_SUBREGISTER_MUTANT,
-                     TB1_DECODE_AMBIENT_MUTANT)
+                     TB1_DECODE_AMBIENT_MUTANT,
+                     TB1_DEGENERATE_LINE_MUTANT, TB1_DSUM_ZERO_SPELLINGS_MUTANT)
 const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_GUARD_MUTANT, TB2_I345_MUTANT,
                      TB2_MC1_MUTANT, TB2_MC2_MUTANT, TB2_MC3_MUTANT,
@@ -237,7 +244,9 @@ const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_OPAQUE_MUTANT, TB2_DESCRIBE_BYAXIS_COLLAPSE_MUTANT,
                      TB2_GUARD_SPLIT_MUTANT,
                      TB2_DECIDER_GUARD_WIDENED_MUTANT,
-                     TB2_GLOBAL_CONSISTENCY_FIRST_ENTRY_MUTANT)
+                     TB2_GLOBAL_CONSISTENCY_FIRST_ENTRY_MUTANT,
+                     TB2_INDIVIDUAL_DIAGONAL_NEVER_REJECTS_MUTANT,
+                     TB2_SIMULTANEOUS_DIAGONAL_NEVER_REJECTS_MUTANT)
 const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
                      TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT, TB3_R1_MUTANTS...)
 

@@ -197,10 +197,11 @@ if tb2_runs("sampler")
         # accept and a corrupted reject with the expected rule per guard.
         replay = MIPStarLambda._answer_reduce_replay(verifier)
         @test passed(replay)
-        @test length(replay.actual.outcomes) == 7
+        @test length(replay.actual.outcomes) == 9
         @test [o[4] for o in replay.actual.outcomes] ==
               [:global_consistency, :input_consistency, :ld_axis_point,
-               :ld_diagonal_point, :proof_consistency, :ld_axis_point, :pcpverifier]
+               :ld_diagonal_point, :proof_consistency, :ld_diagonal_point,
+               :ld_axis_point, :ld_diagonal_point, :pcpverifier]
         @test all(o[2] && !o[3] for o in replay.actual.outcomes)
         println("TB2 certificate replay outcomes: ", replay.actual.outcomes)
         @test tb2_has_node(checked.certificate, ASSUMED, :AnswerReduceHypotheses)
@@ -483,6 +484,28 @@ if tb2_runs("branches")
                   for player in (:alice, :bob), line_kind in (:ALine, :DLine))
         @test all((5, :game, player, 6, :none) in covered
                   for player in (:alice, :bob))
+        # verdicts/tb2-r5.md N28: the 37 keys above are ALL the keys, not a
+        # subset — an extra or mislabelled (branch, line_kind) entry fails.
+        expected_keys = Set{Tuple{Int,Symbol,Symbol,Int,Symbol}}()
+        push!(expected_keys, (1, :global_consistency, :both, 0, :none))
+        for player in (:alice, :bob)
+            for role in (:alice, :bob)
+                copy = role == :alice ? 1 : 2
+                push!(expected_keys, (2, :input_consistency, player, copy, :none))
+                push!(expected_keys, (3, :input_axis, player, copy, :ALine))
+                push!(expected_keys, (3, :input_diagonal, player, copy, :DLine))
+            end
+            for i in 3:5
+                push!(expected_keys, (4, :proof_consistency, player, i, :none))
+                push!(expected_keys, (4, :proof_individual_axis, player, i, :ALine))
+                push!(expected_keys, (4, :proof_individual_diagonal, player, i, :DLine))
+            end
+            push!(expected_keys, (4, :proof_simultaneous_axis, player, 6, :ALine))
+            push!(expected_keys, (4, :proof_simultaneous_diagonal, player, 6, :DLine))
+            push!(expected_keys, (5, :game, player, 6, :none))
+        end
+        @test length(expected_keys) == 37
+        @test covered == expected_keys
         @test any(entry -> entry.ldparams == (2048, 1, 11, 1),
                   Iterators.flatten(run.decision.trace for run in values(traces)))
         @test any(entry -> entry.ldparams == (2048, 16, 11, 22),
@@ -563,7 +586,11 @@ if tb2_runs("no_check")
 end
 
 # The decider names its low-degree branches by line kind; the enumerator
-# names the check (verdicts/tb2-r4.md NF1).
+# names the check (verdicts/tb2-r4.md NF1). The lockstep compares
+# (check, line_kind) keys: the decider's key is its branch name plus the
+# trace entry's line kind (which must agree with the branch's suffix), the
+# enumerator's is its check name plus the kind of the pair's line-typed side
+# (verdicts/tb2-r5.md N28).
 const TB2_GUARD_NAMES = Dict(
     :global_consistency => :global_consistency,
     :input_consistency => :input_consistency,
@@ -574,6 +601,22 @@ const TB2_GUARD_NAMES = Dict(
     :proof_simultaneous_axis => :proof_simultaneous_low_degree,
     :proof_simultaneous_diagonal => :proof_simultaneous_low_degree,
     :game => :game)
+const TB2_LOW_DEGREE_CHECKS = (:input_low_degree, :proof_individual_low_degree,
+                               :proof_simultaneous_low_degree)
+
+function tb2_decider_guard_key(entry)
+    name = TB2_GUARD_NAMES[entry.branch]
+    suffix = endswith(String(entry.branch), "_axis") ? :ALine :
+             endswith(String(entry.branch), "_diagonal") ? :DLine : :none
+    suffix == entry.line_kind || error("branch $(entry.branch) carries line kind $(entry.line_kind)")
+    (name, entry.line_kind)
+end
+
+function tb2_enumerator_guard_keys(decider, left, right)
+    line_kinds = [t.pcp.kind for t in (left, right) if t.pcp.kind in (:ALine, :DLine)]
+    Set((name, name in TB2_LOW_DEGREE_CHECKS ? only(line_kinds) : :none)
+        for name in answer_reduce_guard_branches(decider, left, right))
+end
 
 if tb2_runs("lockstep")
     @testset "TB2 decider/enumerator lockstep on all 2916 pairs; step 1 at arity 22 (verdicts/tb2-r4.md NF1, NF2)" begin
@@ -595,8 +638,8 @@ if tb2_runs("lockstep")
             right_a = MIPStarLambda._answer_reduce_replay_answer(F, right.pcp, reduced.decider.params)
             decision = typed_answer_reduced_decider(reduced.decider, left, left_q,
                                                     right, right_q, left_a, right_a)
-            expected = Set(answer_reduce_guard_branches(reduced.decider, left, right))
-            actual = Set(TB2_GUARD_NAMES[entry.branch] for entry in decision.trace)
+            expected = tb2_enumerator_guard_keys(reduced.decider, left, right)
+            actual = Set(tb2_decider_guard_key(entry) for entry in decision.trace)
             if actual != expected
                 mismatches += 1
                 first_mismatch === nothing &&
@@ -610,6 +653,48 @@ if tb2_runs("lockstep")
         @test mismatches == 0
         @test accepted == 2916
         @test silent == 2736
+        # verdicts/tb2-r5.md N27: the all-zero answers are honest only at the
+        # all-zero seed. The same 2916-pair lockstep at the nonzero full-field
+        # seed tb2_seed 5 with honest answers from the TB0 proof (witness
+        # (ii) where a pair fires step 4(a)/4(b), the degenerate proof
+        # elsewhere), cached per (witness, type) since a type's question at
+        # a fixed seed is fixed.
+        honest_strategies = Dict(:degenerate => honest_pcp_strategy(tb2_proof(:degenerate), TB2_PARAMS),
+                                 :nondegenerate => honest_pcp_strategy(tb2_proof(:nondegenerate), TB2_PARAMS))
+        honest_seed = tb2_seed(reduced.sampler, 5)
+        @test !all(iszero, honest_seed)
+        honest_cache = Dict{Tuple{Symbol,Any},Any}()
+        honest_mismatches = 0
+        honest_accepted = 0
+        honest_silent = 0
+        honest_first = nothing
+        for left in reduced.sampler.types, right in reduced.sampler.types
+            witness = answer_reduce_requires_nondegenerate(reduced.decider, left, right) ?
+                      :nondegenerate : :degenerate
+            strategy = honest_strategies[witness]
+            left_q, right_q = sample_answer_reduce_questions(reduced, left, right, honest_seed)
+            left_a = get!(() -> honest_pcp_answer(strategy, left.pcp, left_q.pcp),
+                          honest_cache, (witness, left))
+            right_a = get!(() -> honest_pcp_answer(strategy, right.pcp, right_q.pcp),
+                           honest_cache, (witness, right))
+            decision = typed_answer_reduced_decider(reduced.decider, left, left_q,
+                                                    right, right_q, left_a, right_a)
+            expected = tb2_enumerator_guard_keys(reduced.decider, left, right)
+            actual = Set(tb2_decider_guard_key(entry) for entry in decision.trace)
+            if actual != expected
+                honest_mismatches += 1
+                honest_first === nothing &&
+                    (honest_first = (left, right, actual, expected, decision.result.rule))
+            end
+            honest_accepted += passed(decision)
+            honest_silent += isempty(decision.trace)
+        end
+        println("MUTATION_EXPECTED_RULE guard_lockstep_honest seed=tb2_seed5 mismatches=",
+                honest_mismatches, " accepted=", honest_accepted, " silent=", honest_silent,
+                " first=", honest_first)
+        @test honest_mismatches == 0
+        @test honest_accepted == 2916
+        @test honest_silent == 2736
         # NF2: fig:decider-pcp item 1 compares the FULL answer. On the five
         # equal-type copy-6 pairs (22-entry bundles; step 1 is the only
         # guard except on (oracle,Point_6)), corrupting entry 1, 6, 7 or
@@ -643,17 +728,18 @@ if tb2_runs("lockstep")
         println("MUTATION_EXPECTED_RULE global_consistency arity=22 rejected_with_rule=",
                 rejected_with_rule, "/", trials)
         @test (rejected_with_rule, trials) == (20, 20)
-        println("TB2 lockstep: decider trace == enumerator on 2916/2916 ordered pairs",
-                " (2736 silent, 180 guarded) at the zero seed; step 1 rejects entries",
-                " 1/6/7/22 on 5 equal-type copy-6 pairs at tb2_seed 5")
+        println("TB2 lockstep: decider trace == enumerator (check, line_kind) on 2916/2916",
+                " ordered pairs (2736 silent, 180 guarded) at the zero seed with all-zero",
+                " answers AND at tb2_seed 5 with honest TB0-proof answers; step 1 rejects",
+                " entries 1/6/7/22 on 5 equal-type copy-6 pairs at tb2_seed 5")
     end
 end
 
 if tb2_runs("replay_seeds")
-    @testset "TB2 seven-case replay at three seeds (verdicts/tb2-r3.md N9)" begin
+    @testset "TB2 nine-case replay at three seeds (verdicts/tb2-r3.md N9, tb2-r5.md NG1/NG2)" begin
         # The certificate replay (`_answer_reduce_replay_steps`) runs the
-        # seven fig:decider-pcp cases at the all-zero seed with all-zero
-        # answers. Here the same seven cases, honest answers from the TB0
+        # nine fig:decider-pcp cases at the all-zero seed with all-zero
+        # answers. Here the same nine cases, honest answers from the TB0
         # proof, run at the zero seed and two nonzero full-field seeds, and
         # the same four facts are asserted for every (case, seed).
         reduced = tb2_checked_reduction().term
@@ -687,8 +773,10 @@ if tb2_runs("replay_seeds")
             @test corrupted.result.rule == case.expected_rule
             @test case.step in Set(e.step for e in honest.trace)
         end
-        @test length(outcomes) == 21
-        println("TB2 replay at 3 seeds (zero, tb2_seed 5, rng 0x9E): cases=7 outcomes=",
+        @test length(outcomes) == 27
+        @test count(o -> o[1] in (:proof_individual_diagonal, :proof_simultaneous_diagonal),
+                    outcomes) == 6
+        println("TB2 replay at 3 seeds (zero, tb2_seed 5, rng 0x9E): cases=9 outcomes=",
                 length(outcomes), " honest=", count(o -> o[3], outcomes),
                 " corrupted_rejected=", count(o -> !o[4], outcomes))
     end

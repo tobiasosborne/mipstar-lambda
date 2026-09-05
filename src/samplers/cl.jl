@@ -738,10 +738,24 @@ function _combine_embedded(nodes::Vector{AbstractCL{F}}, total::Int) where {F}
     end; require_ambient=false)
 end
 
+# A whole-space zero map in either spelling (DESIGN 9.4): its full register
+# or the empty register.
+_whole_space_zero(L::CLZero) = isempty(L.indices) || _register(L) == 1:seed_dim(L)
+
 function direct_sum(functions::AbstractCL{F}...) where {F}
     # lem:cl-func-prod (gt-04-cl.tex:315-327): levels combine by maximum.
     isempty(functions) && throw(ArgumentError("direct_sum needs at least one CL function"))
     total = sum(seed_dim, functions)
+    # verdicts/tb1-r5.md N30: the direct sum of whole-space zero maps is the
+    # whole-space zero map on the summed ambient whatever spelling each
+    # summand used (full register unless every summand used the empty one),
+    # so the two spellings stay interchangeable under `pad_level`. A summand
+    # declared on a proper sub-register is transported verbatim and is
+    # refused downstream by `pad_level` (verdicts/tb1-r4.md N25).
+    if all(L -> L isa CLZero{F} && _whole_space_zero(L), functions)
+        return all(L -> isempty(L.indices), functions) ? CLZero(F, total, Int[]) :
+                                                        CLZero(F, total)
+    end
     offset = 0
     embedded = AbstractCL{F}[]
     for L in functions

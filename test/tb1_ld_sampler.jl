@@ -198,6 +198,22 @@ if tb1_runs("levels")
               [[2], Int[]]
         println("MUTATION_EXPECTED_RULE pad_subregister refused=",
                 try pad_level(CLZero(TB1_F, 5, (2,)), 2); false catch e; e isa ArgumentError end)
+        # verdicts/tb1-r5.md N30: the two spellings of a whole-space zero map
+        # stay interchangeable under direct_sum: full (+) empty is the zero map
+        # on F^5 spelled with its full register, empty (+) empty keeps the
+        # empty spelling, and both promote; a proper sub-register summand is
+        # transported verbatim and still refused.
+        mixed = direct_sum(CLZero(TB1_F, 3), CLZero(TB1_F, 2, Int[]))
+        @test register_indices(mixed) == (1, 2, 3, 4, 5)
+        @test marginal_k(pad_level(mixed, 1), seed, 1).factor_spaces == [collect(1:5)]
+        @test register_indices(direct_sum(CLZero(TB1_F, 3, Int[]), CLZero(TB1_F, 2, Int[]))) == ()
+        @test marginal_k(pad_level(direct_sum(CLZero(TB1_F, 3, Int[]), CLZero(TB1_F, 2, Int[])), 1),
+                         seed, 1).factor_spaces == [collect(1:5)]
+        @test register_indices(direct_sum(CLZero(TB1_F, 3, (2,)), CLZero(TB1_F, 2))) == (2, 4, 5)
+        @test_throws ArgumentError pad_level(direct_sum(CLZero(TB1_F, 3, (2,)), CLZero(TB1_F, 2)), 1)
+        println("MUTATION_EXPECTED_RULE dsum_zero_spellings promoted=",
+                try marginal_k(pad_level(mixed, 1), seed, 1).factor_spaces == [collect(1:5)]
+                catch e; e isa ArgumentError ? false : rethrow() end)
     end
 end
 
@@ -391,6 +407,11 @@ if tb1_runs("describe")
         @test register_indices(decode_cl(canonical_bytes(describe_cl(CLZero(TB1_F, 5, Int[]))))) == ()
         @test length(Set(canonical_bytes(describe_cl(L)) for L in
                          (sub_zero, CLZero(TB1_F, 5), CLZero(TB1_F, 5, Int[])))) == 3
+        # verdicts/tb1-r5.md N31: registers are serialized in their DECLARED
+        # order, so canonical bytes are canonical in the bytes-to-map
+        # direction only (C4a scope): the same map, spelled [2,1] and [1,2].
+        @test register_indices(CLZero(TB1_F, 5, [2, 1])) == register_indices(CLZero(TB1_F, 5, [1, 2])) == (1, 2) &&
+              canonical_bytes(describe_cl(CLZero(TB1_F, 5, [2, 1]))) != canonical_bytes(describe_cl(CLZero(TB1_F, 5, [1, 2])))
         # verdicts/tb2-r4.md N26: decode_cl re-imposes the top stage's
         # ambient partition factor (+) rest = {1..n}; a description whose top
         # stage spans only {1,2} of F^5 (buildable only through the internal
@@ -648,6 +669,12 @@ if tb1_runs("decider")
         # fig:ld-decider items 2/3 (gt-07-ldt.tex:377-384), never reached by
         # honest play.
         @test report.off_line_hits == 0
+        # verdicts/tb1-r5.md N29: 1,024 of the 37,888 line-versus-point
+        # decisions are against a zero-direction diagonal line (512 support
+        # points, both orders); accepted with off_line_hits == 0 means the
+        # point equals the base on every one, and item 3 was checked at all
+        # eight t there.
+        @test report.degenerate_hits == 1_024
         # verdicts/tb1-r3.md N15: the sweep is a CHECKED node whose replay
         # re-runs it; the off-line SOURCE_REPAIR hangs under it, the answer
         # bounds d/md and kappa are its facts.
@@ -662,6 +689,7 @@ if tb1_runs("decider")
               evidence.certificate.facts.kappa == 1
         @test (evidence.certificate.facts.equal_type,
                evidence.certificate.facts.line_vs_point) == (2_880, 37_888)
+        @test evidence.certificate.facts.degenerate_line_vs_point == 1_024
         @test passed(verify_certificate(evidence))
         # The replay is a recount, not a re-reading of the report: a tampered
         # report is rejected.
@@ -678,6 +706,7 @@ if tb1_runs("decider")
                 " (equal-type tautologies=", report.equal_type,
                 " line_vs_point=", report.line_vs_point,
                 ") off_line_hits=", report.off_line_hits,
+                " degenerate_line_vs_point=", report.degenerate_hits,
                 " equal-type mismatch_rule=", report.mismatch.rule)
     end
 end
@@ -750,6 +779,40 @@ if tb1_runs("decider_rejections")
         @test off_line.location == :question
         @test off_line.expected == :point_on_line
 
+        # verdicts/tb1-r5.md N29: a zero-direction diagonal line. Seed
+        # (0,0,0,0,0) gives base (0,0), direction (0,0); with the point at
+        # the base every t in F_8 satisfies item 3's constraint
+        # (gt-07-ldt.tex:379-384). The honest restriction is the constant
+        # g(0,0) = 1 and is accepted; the degree-1 cheat f(t) = 1 + t agrees
+        # with the point answer at t = 0 only and is rejected at the first
+        # other parameter (named negative transcript: degenerate_t0_cheat).
+        # A point off a degenerate line is the off-line SOURCE_REPAIR
+        # (location :question), never a t = 0 comparison.
+        raw_degenerate = ntuple(_ -> GF8(0), 5)
+        @test all(iszero, diagonal_line(raw_degenerate, 2).direction)
+        raw_base_point = ntuple(_ -> GF8(0), 5)
+        honest_degenerate = restrict(g, diagonal_line(raw_degenerate, 2))
+        base_answer = (evaluate(g, GF8[0, 0]),)
+        @test base_answer == (GF8(1),)
+        @test passed(ld_decider(params, :DLine, raw_degenerate, :Point,
+                                raw_base_point, (honest_degenerate,), base_answer))
+        degenerate_t0_cheat = constant_poly(GF8, lay1, GF8(1)) + polyvar(GF8, lay1, 1)
+        @test univariate_degree(degenerate_t0_cheat) == 1
+        @test evaluate(degenerate_t0_cheat, GF8[0]) == GF8(1)
+        t0_lr = ld_decider(params, :DLine, raw_degenerate, :Point, raw_base_point,
+                           (degenerate_t0_cheat,), base_answer)
+        t0_rl = ld_decider(params, :Point, raw_base_point, :DLine, raw_degenerate,
+                           base_answer, (degenerate_t0_cheat,))
+        @test t0_lr.rule == :ld_diagonal_point && !passed(t0_lr) && t0_lr.location == 1
+        @test t0_rl.rule == :ld_diagonal_point && !passed(t0_rl) && t0_rl.location == 1
+        raw_off_base = (GF8(1), GF8(0), GF8(0), GF8(0), GF8(0))
+        off_base = ld_decider(params, :DLine, raw_degenerate, :Point, raw_off_base,
+                              (honest_degenerate,), (evaluate(g, GF8[1, 0]),))
+        @test off_base.rule == :ld_diagonal_point && !passed(off_base)
+        @test off_base.location == :question && off_base.expected == :point_on_line
+        println("MUTATION_EXPECTED_RULE degenerate_line off_base=", off_base.rule,
+                "@", off_base.location, " t0_cheat_passed=", passed(t0_lr))
+
         malformed = ld_decider(params, :Point, (GF8(1), GF8(2)),
             :Point, (GF8(1), GF8(2)), (GF8(0),), (GF8(0),))
         @test malformed.rule == :ld_question_format && !passed(malformed)
@@ -771,7 +834,8 @@ if tb1_runs("decider_rejections")
                             honest2, pa)
         @test short2.rule == :ld_answer_arity && !passed(short2)
         println("TB1 rejection owners: axis/diagonal cheating both orders; ",
-                "projected DLine; off-line guard; arity guard; kappa=2 ",
+                "projected DLine; off-line guard; degenerate line (t0 cheat, ",
+                "off-base point); arity guard; kappa=2 ",
                 "accept/second-entry cheat/short answer")
     end
 end

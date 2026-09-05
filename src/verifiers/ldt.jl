@@ -124,8 +124,14 @@ function _line_point_test(params::LDParams{F}, kind::Symbol, line_raw, point_raw
     # play at (8,2,1) (see `ld_off_line_repair`).
     on_line || return CheckResult(false, rule; location=:question,
                                   expected=:point_on_line, actual=point)
-    for j in 1:params.kappa
-        line_value = evaluate(line_answer[j], [t])
+    # Item 3 (gt-07-ldt.tex:379-384) reads "the t such that x = u_0 + t v'".
+    # On a zero-direction line (DESIGN DD-4) with x = u_0 EVERY t in F_q
+    # satisfies that constraint, so the answers are compared at all of them:
+    # the literal item, not a t=0 totalization (verdicts/tb1-r5.md N29,
+    # variant (b)). On a nondegenerate line the admissible t is unique.
+    admissible = all(iszero, line.direction) ? field_elements(F) : (t,)
+    for j in 1:params.kappa, s in admissible
+        line_value = evaluate(line_answer[j], [s])
         point_value_j = point_answer[j]
         line_value == point_value_j ||
             return CheckResult(false, rule; location=j,
@@ -202,8 +208,10 @@ const _LD_KINDS = (:Point, :ALine, :DLine)
 Run `ld_decider` on every distinct (left, right) question pair the three
 samplers produce over `seeds` for all nine ordered type pairs, answered
 honestly for `g`. Counts the non-noop decisions, the equal-type tautologies,
-the line-versus-point checks and how often the off-line branch
-(`ld_off_line_repair`) was reached.
+the line-versus-point checks, how often the off-line branch
+(`ld_off_line_repair`) was reached, and how many diagonal line-versus-point
+decisions were against a zero-direction line (`degenerate_hits`; item 3 is
+then checked at every `t in F_q`, verdicts/tb1-r5.md N29).
 """
 function ld_honest_sweep(params::LDParams{F}, g::Poly, samplers, seeds) where {F}
     supports = Dict((left, right) => Set{Any}()
@@ -221,6 +229,7 @@ function ld_honest_sweep(params::LDParams{F}, g::Poly, samplers, seeds) where {F
     equal_type = 0
     line_vs_point = 0
     off_line_hits = 0
+    degenerate_hits = 0
     accepted = true
     for left in _LD_KINDS, right in _LD_KINDS
         for (left_q, right_q) in supports[(left, right)]
@@ -235,12 +244,16 @@ function ld_honest_sweep(params::LDParams{F}, g::Poly, samplers, seeds) where {F
             if result.rule in (:ld_axis_point, :ld_diagonal_point)
                 line_vs_point += 1
                 off_line_hits += result.location == :question
+                if result.rule == :ld_diagonal_point
+                    line_raw = left == :DLine ? left_q : right_q
+                    degenerate_hits += all(iszero, diagonal_line(line_raw, params.m).direction)
+                end
             end
             checked += 1
         end
     end
     (; accepted, checked, non_noop, equal_type, line_vs_point, off_line_hits,
-       support_count=sum(length, values(supports)),
+       degenerate_hits, support_count=sum(length, values(supports)),
        nonempty=all(support -> !isempty(support), values(supports)))
 end
 
@@ -269,7 +282,8 @@ function ld_sweep_evidence(params::LDParams{F}, g::Poly, samplers, seeds) where 
         facts=(q=field_size(F), m=params.m, d=params.d, md=params.m * params.d,
                kappa=params.kappa, support_decisions=report.checked,
                non_noop=report.non_noop, equal_type=report.equal_type,
-               line_vs_point=report.line_vs_point),
+               line_vs_point=report.line_vs_point,
+               degenerate_line_vs_point=report.degenerate_hits),
         children=(repair,), replay=_replay_ld_sweep)
     Checked((; params, g, samplers, seeds, report), root)
 end

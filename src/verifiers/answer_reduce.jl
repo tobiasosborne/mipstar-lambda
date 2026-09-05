@@ -607,7 +607,11 @@ end
 # answers are honest for every check (the zero polynomial agrees with the
 # zero point value, and the PCP view is z = 0 so both pcpverifier sides
 # vanish); corrupting the named answer entry must be rejected by the named
-# rule (verdicts/tb2-r2.md N2).
+# rule (verdicts/tb2-r2.md N2). Nine cases: one per fig:decider-pcp guard
+# branch with a rejecting side, the diagonal orientations of steps 4(b) and
+# 4(c) included (verdicts/tb2-r5.md NG1, NG2); at the all-zero seed every
+# DLine direction is zero, so those lines are degenerate and item 3 of
+# fig:ld-decider is checked at every t (verdicts/tb1-r5.md N29).
 function _answer_reduce_replay_cases()
     (
         (case=:global_consistency, step=1,
@@ -630,10 +634,18 @@ function _answer_reduce_replay_cases()
          left=AnswerReduceType(:oracle, PCPType(:Point, 3)),
          right=AnswerReduceType(:oracle, PCPType(:Point, 6)),
          corrupt=(:left, 1), expected_rule=:proof_consistency),
+        (case=:proof_individual_diagonal, step=4,
+         left=AnswerReduceType(:oracle, PCPType(:Point, 3)),
+         right=AnswerReduceType(:oracle, PCPType(:DLine, 3)),
+         corrupt=(:right, 1), expected_rule=:ld_diagonal_point),
         (case=:proof_simultaneous_axis, step=4,
          left=AnswerReduceType(:oracle, PCPType(:Point, 6)),
          right=AnswerReduceType(:oracle, PCPType(:ALine, 6)),
          corrupt=(:right, 7), expected_rule=:ld_axis_point),
+        (case=:proof_simultaneous_diagonal, step=4,
+         left=AnswerReduceType(:oracle, PCPType(:Point, 6)),
+         right=AnswerReduceType(:oracle, PCPType(:DLine, 6)),
+         corrupt=(:right, 7), expected_rule=:ld_diagonal_point),
         (case=:game, step=5,
          left=AnswerReduceType(:oracle, PCPType(:Point, 6)),
          right=AnswerReduceType(:bob, PCPType(:Point, 2)),
