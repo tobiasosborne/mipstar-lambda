@@ -1,0 +1,11 @@
+# Brief 61 — CRITIC verdict r5 on rung TB1 after repair r4 (brief 59) — closing round
+
+You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb1-r5.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; instantiate there; cold precompile ~190 s). Never read src/test from the live tree; `claims/CLAIMS.md` may be read live.
+
+Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/critic-tb1-r5/`
+
+Read: `~/.claude/skills/rk-light/SKILL.md`; `CLAUDE.md`; `docs/DESIGN.md` §1.5, §9; `claims/CLAIMS.md`; `verdicts/tb1-r4.md` (your prior — the work order); `briefs/59-tb1-tb2-repair-r4.md`, `briefs/59-tb1-tb2-repair-r4.last.md` (response table, runs, MERGE PROPOSALS, the two judgment calls: N25 throw branch; NF2 eighth replay case not taken).
+
+Obligations: run suite (summary + TB0 wall; quiet re-run per caveat — note the suite is now 907 assertions and the TB0 body sits at ~40 s quiet; the gate is a test-body budget) and runner (`MUTATION REGISTRY` line; all KILLED; baselines ok). Adjudicate every r4 row: ACCEPTED / REJECTED / PARTIAL. Recompute on a COPY: tb1_off_line KILLED and `off_line.location == :question` pinned; row-major window 35:38 on the [1 1; 0 1] map (transpose differs only there); the N25 THROW decision (top-level CLZero on a proper nonempty sub-register refused) — adjudicate as a design decision against rk:higher-level and DESIGN §9.4; CLZero register round trip; decode_cl re-imposing factor ⊎ rest = {1..n} (a non-spanning description refused). Two NEW semantic mutations; survivors MAJOR with the red test as FIX DEMAND. Per-claim: C4a (re-affirm with the brief-59 scope edits) and C4c (your pre-written row — PROMOTE to TESTED now that N23 landed, or HOLD) — AUTHORIZED verbatim row text. This is intended as the closing round for this rung: if no MAJOR remains, say PASS and list residual MINOR/NOTE items for the record without demanding another round.
+
+Output: `verdicts/tb1-r5.md` — adjudication table; recomputations; new objections; runs + walls; your mutations; per-claim block; final line exactly `VERDICT: PASS` or `VERDICT: FAIL(<ids>)`.
