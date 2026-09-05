@@ -19,12 +19,12 @@ that tree from being reported as a local proof.
 The lambda layer is a phase-separated, explicitly represented calculus. It is not `Expr`, and a macro cannot create an IR node except
 through the same checked constructors used by ordinary functions.
 
-Let `Name`, `PrimName`, `Nat`, `MachineDesc`, `Level`, and `StaticEnv` be finite serializable data, and let `Sampler` and `Compressor` be
+Let `Name`, `PrimName`, `Nat`, `MachineDesc`, and `StaticEnv` be finite serializable data, and let `Sampler` and `Compressor` be
 declared program-result sorts. The mutually defined auxiliary sorts are
 
 ```text
 Pargs ::= P*
-Fuel  ::= FuelLiteral(Nat) | FuelBound(P{Nat},P{Level})
+Fuel  ::= FuelLiteral(Nat) | FuelBound(P{Nat},P{Nat})
 ```
 
 and the inductive grammar is
@@ -48,7 +48,7 @@ addresses internally; a side table retains source names for printing. A `Partial
 defined only for a total, sort-correct environment covering exactly the remaining holes. Every primitive carries a total input contract and
 a symbolic cost bound. Literal values use nullary primitives; in particular, `true` abbreviates `Prim(true,Concrete(1),())`. `Eval` takes
 `Pargs : P*`, consumes a value of sort `Fuel`, and returns `Value`, `OutOfFuel`, or `TypeError`, never a host-language exception. `Fix(P)`
-requires the distinguished hole `self_code : Quoted{Decider}`, ties it to the quote of the result, and returns closed syntax.
+requires the distinguished hole `self_code : Quoted{A}`, ties it to the quote of the result, and returns closed syntax.
 
 Only the two representations used by the rungs are IR types:
 
@@ -71,24 +71,24 @@ eval(Quote(Fix(P)),u;fuel) = eval(specialize(P,{self_code=>Quote(Fix(P))}),u;fue
 ```
 
 for every fuel at which both sides terminate. It is syntax, not Julia recursion. In the display below, `M:P{MachineDesc}` and
-`L:P{Level}` are closed literal terms, `n:P{Nat}` and `x,y,a,b` are the five bound arguments, `S_L:ClosedProgram{Sampler}`, and
+`lambda:P{Nat}` (the resource bound of `def:lambda`, `gt-12-compression.tex:L435-L440`; not a CL level) are closed literal terms, `n:P{Nat}` and `x,y,a,b` are the five bound arguments, `S_lambda:ClosedProgram{Sampler}`, and
 `Compress:ClosedProgram{Compressor}`. The names `halts_within`, `true`, and `quoted_pair` are declared `PrimName`s, while `self_code` is
 the displayed typed hole; consequently the display has no other free symbols. The halting verifier is the following term:
 
 ```text
-Psi_M_L = Lambda(5,                         -- n,x,y,a,b
+Psi_M_lambda = Lambda(5,                         -- n,x,y,a,b
   If(Prim(halts_within, Opaque("n steps",(n,)), M, n),
      Prim(true, Concrete(1), ()),
      Eval(Apply(Quote(Compress),
-                Prim(quoted_pair, Concrete(1), Quote(S_L),
+                Prim(quoted_pair, Concrete(1), Quote(S_lambda),
                      Hole(self_code,Quoted{Decider})), L),
-          (n,x,y,a,b), FuelBound(n,L))))
+          (n,x,y,a,b), FuelBound(n,lambda))))
 
-D_M_L = Fix(Psi_M_L)
+D_M_lambda = Fix(Psi_M_lambda)
 ```
 
-Thus `D_M_L = Fix(Psi_M_L)` is a finite closed term, matching the fixed-point equation in `handoff.md:L21-L35`. The bounded `quoted_pair`
-primitive joins two code values without capture. `Compress` sees the resulting quote `(S_L,d)`, traverses and specializes that body,
+Thus `D_M_lambda = Fix(Psi_M_lambda)` is a finite closed term, matching the fixed-point equation in `handoff.md:L21-L35`. The bounded `quoted_pair`
+primitive joins two code values without capture. `Compress` sees the resulting quote `(S_lambda,d)`, traverses and specializes that body,
 computes its byte length, and never attempts to compare or serialize the function computed by `d`.
 
 Program invariants are recorded as follows.
@@ -369,7 +369,7 @@ TypedSampler(TypeSet, TypeGraph,
   left::Dict{Type,CL{<=ell,V}}, right::Dict{Type,CL{<=ell,V}})
 ```
 
-with functions padded to the common maximum level. Sampling first chooses an oriented edge of the type graph and then pushes one uniform
+with functions padded to the common maximum level. Padding appends empty stages (`BranchPadded`) so every marginal of the child survives; a zero map on a register is promoted with that register as stage 1 under the zero map (`SOURCE_REPAIR(zero-map-factor-partition)`, §9.4). Branches are `QuotedBranch` values (`BranchConst`, `BranchByAxis`, `BranchLnf`, `BranchPadded`) or an `OpaqueBranch` host closure; the `_child` memo holds at most `CL_MEMO_LIMIT=4096` continuations per node. Sampling first chooses an oriented edge of the type graph and then pushes one uniform
 ambient seed through the selected pair. This is the typed-CL notion, not an independent mixture (`gt-06-types.tex:L57-L93`, `L95-L151`).
 Detyping is a separate CITED transformation which adds two levels and has a `16^|TypeSet|` soundness loss (`gt-06-types.tex:L435-L475`).
 
@@ -510,7 +510,7 @@ states its otherwise-accept convention explicitly (`gt-07-ldt.tex:L368 (fig:ld-d
 | 2 input consistency | `t_Q,w=oracle`, `t_Q,bar(w)=v in {alice,bob}`, and `(t_Pi,w,t_Pi,bar(w))=(Point_6,Point_v)` | reject iff `alpha_v != alpha'_v` |
 | 3 input low degree | `t_Q,w=t_Q,bar(w)=v in {alice,bob}` and `(t_Pi,w,t_Pi,bar(w))=(Point_v,ALine_v)` or `(Point_v,DLine_v)` | run `D^ld_(q,m,d,1)` with the matching line type; reject iff it rejects |
 | 4 proof encoding | `t_Q,w=t_Q,bar(w)=oracle`; then (a) `(Point_i,Point_6)`, `i in {3,4,5}`: require `alpha_i=alpha'_i`; (b) `(Point_i,ALine_i)` or `(Point_i,DLine_i)`, `i in {3,4,5}`: run `D^ld_(q,m,d,1)`; (c) `(Point_6,ALine_6)` or `(Point_6,DLine_6)`: run `D^ld_(q,m',d,m'+6)` | reject on the named inequality or low-degree rejection |
-| 5 game | `t_Q,w=oracle`; compute `x_(w,v)=L^v(x_Q,w)` for both `v in {alice,bob}`; additionally `t_Pi,w=Point_6` | run `pcpverifier((D,n,T,Q_len,gamma,x_(w,alice),x_(w,bob)),(z,a_w))`; reject iff it rejects, otherwise accept — the executable reads “otherwise, accept” as fallthrough to the remaining checks, not as an early accept (`SOURCE_REPAIR :PCPGameOtherwiseFallthrough`, `verdicts/tb2-r1.md` O8) |
+| 5 game | `t_Q,w=oracle`; compute `x_(w,v)=L^v(x_Q,w)` for both `v in {alice,bob}`; additionally `t_Pi,w=Point_6` | run `pcpverifier((D,n,T,Q_len,gamma,x_(w,alice),x_(w,bob)),(z,a_w))`; reject iff it rejects, otherwise accept — the executable reads “otherwise, accept” as fallthrough to the remaining checks, not as an early accept (`SOURCE_REPAIR :PCPGameOtherwiseFallthrough`, `verdicts/tb2-r1.md` O8)  The executable decider runs player-outer (alice's steps 2–5, then bob's); the source's "for all w" is step-outer. Verdicts coincide because every rejection is terminal; only the first-reported rule can differ (`verdicts/tb2-r2.md` N4). |
 
 Thus `ldparams=(q,m,d,kappa=1)` in steps 3 and 4b, while `ldparams'=(q,m',d,kappa=m'+6)` in step 4c. The source's game-call omission of
 `sigma=|D|` remains a visible typo; the executable specification reconstructs it from the quoted `D`, as recorded in risk 5.
@@ -935,8 +935,8 @@ measured. Confidence is medium: measure whether the front-end circuit normalizat
 
 ### 5.6 TB4 — `Compress` skeleton and quoted fixed point
 
-Construct `D_M_L=Fix(Psi_M_L)` for a two-state machine `M` and a symbolic `L`. Specialize its quoted body and pass it through
-`Compress = Repeat o AnswerReduce o Introspect`. Assert the outer result is a 9-level `StubVerifier`, that `|D_M_L|` is computed from
+Construct `D_M_lambda=Fix(Psi_M_lambda)` for a two-state machine `M` and a symbolic `lambda`. Specialize its quoted body and pass it through
+`Compress = Repeat o AnswerReduce o Introspect`. Assert the outer result is a 9-level `StubVerifier`, that `|D_M_lambda|` is computed from
 canonical bytes, and that the trace has CHECKED program/specialization nodes, the CHECKED PCP subtree, and exactly named CITED leaves for
 introspection, quantum answer reduction, repetition, and compression.
 
@@ -1157,7 +1157,7 @@ The checker grades the two `IntroGap` branches separately.  TB7 evaluates, by ex
 node's coordinate indicator. `Linear` walks the same prefix and multiplies the stage matrix by the projection of `y`.  None enumerates `image(A)`.
 
 An arbitrary Julia `Function` is not serializable.  The description adapter accepts only branches built from a named pure `QuotedBranch` constructor with canonical captured data.  Existing in-memory `CLStep` values remain usable inside TB1/TB2, but an opaque host branch returns `NotDescribable`;
-transformations never fall back to serializing a closure.      This is the remaining adapter work after the lazy-branch repair described by Brief 21.
+transformations never fall back to serializing a closure.      The `QuotedBranch` constructors landed in brief 46; `direct_sum`/`concatenate` still wrap host closures, so their outputs are `NotDescribable` until `DL9-direct-sum` answers them at the description level. `describe_cl(L)` serializes one lazy CL value to `CLDescription` (canonical term, `canonical_bytes`, `description_size`) or `NotDescribable`; the pair adapter `describe_cl(LA,LB,q)` wraps it. `Dimension`, `Marginal`, `Linear` and `Factor` exist on `AbstractCL` with the §9.1 domains (`Factor` enforces `u in L_{<j}(V)` by per-stage column-space membership); illegal calls throw `ArgumentError`, which the adapter maps to `QueryError`.
 
 The adapter certificate checks, on a finite fixture, every legal `j`, every seed, every reachable `Factor` prefix, every legal `Linear` prefix, and every factor basis vector against `marginal_k`, `apply`, and the stored matrix.  It also performs the §9.2 direct-sum and telescoping replay.
 Generally, level and both well-formedness invariants are CONSTRUCTED by nesting and the query compiler is proved by structural recursion in code.  The source marginal decomposition is `lem:cl-kth`; the machine interface exposing it is `def:sampler` (`gt-04-cl.tex:L151-L180`, `L572-L595`).
@@ -1181,7 +1181,7 @@ For `downsize`, ASSUME `q(n)=p^k` with odd extension degree `k`, as required by 
 The output CL functions are the conjugates `downsize o L o downsize^-1`. Level, field, dimension, distribution, and runtime are the laws in `def:downsize_sampler` and `lem:downsize_sampler` (`gt-04-cl.tex:L628-L680`).
 
 For `direct_sum`, every vector and prefix is split into its registered blocks, the same query is sent to each child, and results or factor indicators are concatenated.  A genuine `r>=1`-level child padded to a larger level keeps its first `r` factors and appends empty factors.  A whole-space zero
-map is instead promoted from level 0 by `rk:higher-level`: stage 1 reports the all-ones indicator for its entire ambient space and the zero linear map, and stages `2..ell` report empty factors and zero maps (`gt-04-cl.tex:L122-L130`).  This rule is tagged
+map is instead promoted from level 0 by `rk:higher-level`: stage 1 reports the all-ones indicator for its entire ambient space and the zero linear map, and stages `2..ell` report empty factors and zero maps (`gt-04-cl. (`pad_level` implements this for any register zero map and exposes the node `ZERO_MAP_FACTOR_PARTITION`.)tex:L122-L130`).  This rule is tagged
 `SOURCE_REPAIR(zero-map-factor-partition)` where the source machines print an all-zero factor indicator.
 
 The constructors which originate whole-space zero maps are exactly: `typed_anchor_sampler` on `Anchor`; the Pauli sampler on `PauliX` and `PauliZ`; `tilde S^intro` on every type in `TypeIntro \ TypePauli`; and `detype_sampler`'s conditional child on a zero opposite-edge view.
@@ -1804,17 +1804,17 @@ TB7 owns these named mutations:
     Introspect/Sample/Read/Hide sub-test; the required
     `VACUOUS(owner=Q_I<s_0)` outcome and zero executed-schema count fail validation.
 
-### 12.6 Executing `D_{M,L}=Y Psi_{M,L}`
+### 12.6 Executing `D_{M,lambda}=Y Psi_{M,lambda}`
 
-Use the TB4 description-level `Fix`/`YCode`, set `L=lambda=32768`, and use a two-state machine `M_loop` whose start state loops and whose halt state is unreachable.  Index `n=2` is the smallest shared index for the lambda-bound and answer-reduction contracts.  The input transcript is deliberately a
+Use the TB4 description-level `Fix`/`YCode`, set `lambda=32768`, and use a two-state machine `M_loop` whose start state loops and whose halt state is unreachable.  Index `n=2` is the smallest shared index for the lambda-bound and answer-reduction contracts.  The input transcript is deliberately a
 legal repeated anchor/typed pair on which no introspection game guard calls the child decider.
 
 The run must:
 
-1. construct and reserialize `D_{M,L}=Fix(Psi_{M,L})`;
+1. construct and reserialize `D_{M,lambda}=Fix(Psi_{M,lambda})`;
 2. check that the embedded `self_code` hash equals the outer quote hash;
 3. simulate exactly two steps of `M_loop` and take the nonhalting branch;
-4. construct `S_L` from `lambda`, construct `Compress((S_L,D_{M,L}),lambda)` under
+4. construct `S_lambda` from `lambda`, construct `Compress((S_lambda,D_{M,lambda}),lambda)` under
    the same ToyPolicy, and compare its sampler hash with TB7's independent hash;
 5. execute the compressed decider on the supplied transcript and terminate without
    recursive host evaluation.
