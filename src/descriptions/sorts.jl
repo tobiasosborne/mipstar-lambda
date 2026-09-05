@@ -15,6 +15,9 @@
 #   (:Detype, T)                             DL9-detype: graph maps + conditional child
 #   (:Product, T_1, T_2)                     DL9-product: tensor type graph
 #   (:Downsize, S)                           DL9-downsize: F_q -> F_2 conjugation
+#   (:Pauli, q, m, d)                        TB6: the typed Pauli family (gt-07:1070-1120), 26 types
+#   (:Intro, lambda, ell, q, m, d)           TB6: tilde S^intro (gt-08:317-345), 32 + 2 ell types
+#   (:Graph, labels, edges)                  TB6: graph_sampler(G) (gt-06:225-339), level 2, dim 4|Type|
 # Bytes: 0xC3 then the term; tags below; integers u32 big-endian; labels as
 # u32-length-prefixed UTF-8; CL terms exactly as `describe_cl` writes them.
 
@@ -158,7 +161,8 @@ Base.show(io::IO, D::DeciderDescription) =
 const SAMPLER_HEADER = 0xC3
 const _SAMPLER_TAGS = Dict(:Pair => 0x01, :TypedFamily => 0x02, :DirectSum => 0x03,
                            :Repeat => 0x04, :Anchor => 0x05, :Detype => 0x06,
-                           :Product => 0x07, :Downsize => 0x08)
+                           :Product => 0x07, :Downsize => 0x08,
+                           :Pauli => 0x09, :Intro => 0x0A, :Graph => 0x0B)
 const _SAMPLER_TAG_NAMES = Dict(byte => tag for (tag, byte) in _SAMPLER_TAGS)
 
 _field_width(q::Int) = cld(round(Int, log2(q)), 8)
@@ -220,6 +224,12 @@ function _encode_sampler_term!(buffer::IOBuffer, term)
     elseif tag == :Product
         _encode_sampler_term!(buffer, term[2])
         _encode_sampler_term!(buffer, term[3])
+    elseif tag == :Pauli
+        foreach(v -> _encode_int!(buffer, v), term[2:4])
+    elseif tag == :Intro
+        foreach(v -> _encode_int!(buffer, v), term[2:6])
+    elseif tag == :Graph
+        _encode_typing!(buffer, term[2], term[3])
     else
         throw(ArgumentError("unknown sampler term"))
     end
@@ -249,6 +259,13 @@ function _decode_sampler_term!(buffer::IOBuffer)
     elseif tag == :Product
         left = _decode_sampler_term!(buffer)
         return (:Product, left, _decode_sampler_term!(buffer))
+    elseif tag == :Pauli
+        return (:Pauli, [_decode_int!(buffer) for _ in 1:3]...)
+    elseif tag == :Intro
+        return (:Intro, [_decode_int!(buffer) for _ in 1:5]...)
+    elseif tag == :Graph
+        labels, edges = _decode_typing!(buffer)
+        return (:Graph, labels, edges)
     else
         return (tag, _decode_sampler_term!(buffer))
     end
@@ -276,15 +293,19 @@ _term_children(term) = term[1] == :DirectSum ? term[2] :
                        term[1] == :Repeat ? Any[term[6]] :
                        term[1] == :Product ? Any[term[2], term[3]] :
                        term[1] in (:Anchor, :Detype, :Downsize) ? Any[term[2]] : Any[]
-_is_leaf(term) = term[1] in (:Pair, :TypedFamily)
+_is_leaf(term) = term[1] in (:Pair, :TypedFamily, :Pauli, :Intro, :Graph)
 
 """
     dependency_walk(bytes) :: Set
 
 DESIGN 9.2: the dependency set read off the bytes. A leaf description is its
 own content (`:S`); a composite depends on the canonical hash of every leaf
-description it embeds and on every parameter literal it carries
-(`:lambda`, `:tau`, `:c_prime` for a repetition), never on a decider.
+description it embeds and on the parameter SYMBOLS it carries (`:lambda`,
+`:tau`, `:c_prime` for a repetition -- the symbols, not their values, so
+lambda = 1 and lambda = 2 share one dependency set while their bytes
+differ; gt-11-parallel-repetition.tex:L257 names the parameters, and c' is
+a universal constant the executable additionally encodes; verdicts/tb5-r1.md
+O10), never on a decider.
 """
 function dependency_walk(bytes::AbstractVector{UInt8})
     term = decode_sampler_term(bytes)

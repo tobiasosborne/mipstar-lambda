@@ -15,7 +15,7 @@ function _integrality_node(lambda::Int, tau::Int, c_prime::Rational{Int}, n::Int
         error isa ArgumentError ? (FAIL, error.msg) : rethrow()
     end
     CertNode(ASSUMED, :KRepIntegrality;
-        facts=(display="the source calls k(n) an integer while declaring only c' > 0 (gt-11:200, 237); the stored term is $(K_REP_LAW) with c' = $(c_prime) an explicit toy substitution; $(detail) => $(status)",
+        facts=(display="the source calls k(n) an integer while declaring only c' > 0 (gt-11:200, 237); the stored term is $(K_REP_LAW) with c' = $(c_prime) an explicit toy substitution; integrality is decided on the VALUE (lambda*n)^((1+c')*tau) by exact root extraction, not on the exponent (verdicts/tb5-r1.md O3); $(detail) => $(status)",
                status=status, c_prime=c_prime))
 end
 
@@ -25,6 +25,15 @@ const UNIVERSAL_CONSTANT_BOUND = CertNode(ASSUMED, :UniversalConstantBound;
 
 const REPETITION_COUNT_FINDING = CertNode(SOURCE_REPAIR, :RepetitionCountInconsistency;
     facts=(display="gt-12-compression.tex:L70 prints k(n) = (lambda*n)^tau inside ComputeParrepVerifier, conflicting with gt-11-parallel-repetition.tex:L200 and gt-12-compression.tex:L355, which give (lambda*n)^((1+c')*tau); the executable retains the latter two and does not use L70",))
+
+# verdicts/tb5-r1.md O4: gt-11:L219 guards every component at (lambda n)^tau,
+# while L220 claims k(n) (lambda n)^tau = (lambda n)^((1 + 2c')tau); since
+# k(n) (lambda n)^tau = (lambda n)^((2 + c')tau), the two lines agree only
+# when c' = 1 (and L220's right-hand side would follow from a per-component
+# guard (lambda n)^(tau c'), contradicting L219). B_rep implements L219.
+const REPEAT_GUARD_EXPONENT = CertNode(SOURCE_REPAIR, :RepeatGuardExponent;
+    facts=(display="gt-11-parallel-repetition.tex:L219 guards each component at (lambda*n)^tau while L220 states k(n)*(lambda*n)^tau = (lambda*n)^((1+2c')*tau); with k(n) = (lambda*n)^((1+c')*tau) the product is (lambda*n)^((2+c')*tau), so L219 and L220 are consistent only when c' = 1 (L220's right-hand side would instead follow from a per-component guard (lambda*n)^(tau*c')); B_rep(n) = (lambda*n)^tau implements the L219 reading, and the toy c' = 1 identifies the two candidate guards, so DD-26 cannot distinguish them (DESIGN 10.2 source finding)",
+           source="gt-11-parallel-repetition.tex", lines=219:220))
 
 const REPEAT_TUPLE_FRAMING = CertNode(SOURCE_REPAIR, :RepeatTupleFraming;
     facts=(display="the source parses x, y, a, b as k(n)-tuples (gt-11:216-220) without fixing the tuple encoding; the executable frames every component with a $(FRAME_BITS)-bit length field checked against B(n) before its payload is read, so |question|, |answer| <= k(n) * (B(n) + $(FRAME_BITS)) replace the source's k(n) * B(n)",))
@@ -65,14 +74,16 @@ D^rep: B(n) = (lambda n)^tau first, the streamed guard on all four tuples
 child call), then exactly k(n) calls of D^anch combined by AND.
 """
 function repeat_decider(D::Union{DeciderDescription,Checked}, lambda::Integer, tau::Integer;
-                        c_prime::Union{Integer,Rational}=1 // 1)
+                        c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=2)
     child = _ddesc(D)
     child.typing isa Untyped || throw(ArgumentError("the repeated decider wraps an untyped (detyped) decider"))
     c = Rational{Int}(c_prime)
     term = (:Repeat, Int(lambda), Int(tau), numerator(c), denominator(c), child.term)
     desc = _decider_from_term(term; parts=(child,))
+    # The guard replay runs at the construction index (verdicts/tb5-r1.md
+    # O3/O11: k(n) must be an integer THERE, e.g. c' = 1/2 admits n = 9, not n = 2).
+    n = Int(tracer_index)
     replay = x -> begin
-        n = 2
         k = k_rep(lambda, tau, c, n)
         B = B_rep(lambda, tau, n)
         empties = [Bool[] for _ in 1:k]
@@ -89,7 +100,7 @@ function repeat_decider(D::Union{DeciderDescription,Checked}, lambda::Integer, t
                     actual=(; honest_calls=length(honest[2]), oversized, oversized_answer, short, trailing))
     end
     _decider_certificate(:RepeatDecider, desc,
-        "B(n) = $(B_REP_LAW) computed first; x, y, a, b each parsed as exactly k(n) framed components streaming at most B(n) payload bits per component, rejecting before any child call on failure; then exactly k(n) calls of D^anch combined by AND (DD-26)",
+        "B(n) = $(B_REP_LAW) computed first; x, y, a, b each parsed as exactly k(n) framed components streaming at most B(n) payload bits per component, rejecting before any child call on failure; then exactly k(n) calls of D^anch combined by AND (DD-26); guard replay at n = $(n)",
         replay, (), (D,))
 end
 
@@ -134,7 +145,7 @@ function anchored_repeat(V::VerifierDescription, lambda::Integer, tau::Integer;
     anchored = anchor(V; tracer_index=n, seeds)
     A = anchored.term
     sampler = repeat_sampler(A.sampler, lambda, tau; c_prime=c, tracer_index=n, seeds)
-    decider = repeat_decider(A.decider, lambda, tau; c_prime=c)
+    decider = repeat_decider(A.decider, lambda, tau; c_prime=c, tracer_index=n)
     R = VerifierDescription(sampler.term, decider.term)
     original_sampler = quote_hash(V.sampler)
     original_decider = quote_hash(V.decider)
@@ -150,7 +161,7 @@ function anchored_repeat(V::VerifierDescription, lambda::Integer, tau::Integer;
     root = CertNode(CONSTRUCTED, :Repeat;
         facts=(display="V^rep = repeat(anchor(V), lambda = $(lambda), tau = $(tau)); c' = $(c) (toy substitution); at n = $(n): B = $(B_rep(lambda, tau, n)), k = $(k); field 2; level ell + 2 = $(V.sampler.level) + 2 = $(R.sampler.level); dimension k(n)(s(n) + 8) = $(Dimension(R.sampler, n)); |S^rep| = $(description_size(R.sampler)) bytes, |D^rep| = $(description_size(R.decider)) bytes",),
         children=(hypotheses..., _relocate(audit, x -> VerifierDescription(x.sampler.parts[1].parts[1].parts[1], x.decider.parts[1].parts[1].parts[1])),
-                  _cited_leaf(REPEAT_CONTRACT), UNIVERSAL_CONSTANT_BOUND, REPETITION_COUNT_FINDING, REPEAT_TUPLE_FRAMING,
+                  _cited_leaf(REPEAT_CONTRACT), UNIVERSAL_CONSTANT_BOUND, REPETITION_COUNT_FINDING, REPEAT_GUARD_EXPONENT, REPEAT_TUPLE_FRAMING,
                   independence,
                   _relocate(sampler.certificate, x -> x.sampler),
                   _relocate(decider.certificate, x -> x.decider),

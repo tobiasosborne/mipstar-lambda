@@ -29,13 +29,42 @@ function evaluate_law(law, env::AbstractDict{Symbol,Any})
             return Int(log2(v))
         end
         base, exponent = values
-        exponent isa Rational && (isinteger(exponent) ? (exponent = Int(exponent)) :
-            throw(ArgumentError("k(n) = $(base)^$(exponent) is not an integer: the exponent (1 + c')tau is not integral")))
         exponent >= 0 || throw(ArgumentError("negative exponent"))
-        return big(base)^exponent
+        return _exact_power(base, exponent)
     end
     haskey(env, f) || throw(ArgumentError("unbound law function $(f)"))
     env[f]([evaluate_law(a, env) for a in law.args[2:end]]...)
+end
+
+# base^exponent for a rational exponent p/q, decided on the VALUE (DESIGN
+# 10.2: "valid only when this expression denotes a positive integer";
+# verdicts/tb5-r1.md O3): the exact integer q-th root of base^p when it
+# exists (9^(3/2) = 27 is admitted), otherwise an ArgumentError naming the
+# actual quantity; never a rounded exponent.
+function _exact_power(base, exponent)
+    exponent isa Rational || return big(base)^exponent
+    isinteger(exponent) && return big(base)^Int(exponent)
+    p, q = numerator(exponent), denominator(exponent)
+    (base isa Integer && base >= 1) || throw(ArgumentError("a rational power needs a positive integer base, got $(base)^$(exponent)"))
+    power = big(base)^p
+    root = _integer_root(power, q)
+    root === nothing && throw(ArgumentError("k(n) = $(base)^($(p)/$(q)) is not a positive integer: $(power) has no exact integer $(q)-th root"))
+    root
+end
+function _integer_root(value::BigInt, q::Integer)
+    # Newton iteration from above, exact in BigInt, then the two candidates.
+    value <= 1 && return value
+    r = BigInt(isqrt(value)) + 1
+    q == 2 || (r = BigInt(2)^(cld(ndigits(value; base=2), q)))
+    while true
+        next = ((q - 1) * r + value ÷ r^(q - 1)) ÷ q
+        next >= r && break
+        r = next
+    end
+    for candidate in (r - 1, r, r + 1)
+        candidate >= 1 && candidate^q == value && return candidate
+    end
+    nothing
 end
 
 _law_int(value) = value isa BigInt ? (value <= typemax(Int) ? Int(value) : throw(ArgumentError("law value exceeds Int"))) : Int(value)

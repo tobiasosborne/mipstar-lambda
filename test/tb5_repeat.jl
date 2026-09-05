@@ -13,7 +13,10 @@ Base.Experimental.@optlevel 0
 
 const TB5_TARGET = get(ENV, "TB5_TARGET", "all")
 tb5_runs(name) = TB5_TARGET == "all" || TB5_TARGET == name
-const TB5_ROOT = normpath(joinpath(@__DIR__, ".."))
+# The repository root: this file's parent, or (for a mutated copy of this
+# file run from a sandbox by test/mutations/run.jl) the package's own root.
+const TB5_ROOT = isdir(joinpath(@__DIR__, "..", "ground-truth")) ? normpath(joinpath(@__DIR__, "..")) :
+                 normpath(joinpath(dirname(pathof(MIPStarLambda)), ".."))
 const TB5_CACHE = Dict{Symbol,Any}()
 const TB5_N = 9
 const TB5_LAMBDA = 1
@@ -53,12 +56,43 @@ tb5_anchor() = get!(TB5_CACHE, :anchor) do
     anchor(tb5_copy_verifier(); tracer_index=TB5_N)
 end
 tb5_repeat() = get!(TB5_CACHE, :repeat) do
+    # verdicts/tb5-r1.md O5: the DESIGN 10.3 construction wall is a WARM
+    # measurement (a small n = 2 construction first compiles the path), the
+    # allocation figure is total bytes allocated (not a peak), and the peak
+    # is the process maxrss delta around the construction (0 when TB0's
+    # earlier peak already dominates) plus the GC live-heap delta.
+    anchored_repeat(tb5_copy_verifier(), TB5_LAMBDA, TB5_TAU; c_prime=TB5_C_PRIME, tracer_index=2, seeds=2)
+    GC.gc()
+    rss_before = Sys.maxrss()
+    live_before = Base.gc_live_bytes()
     stats = @timed anchored_repeat(tb5_copy_verifier(), TB5_LAMBDA, TB5_TAU;
-                                   c_prime=TB5_C_PRIME, tracer_index=TB5_N)
+                                   c_prime=TB5_C_PRIME, tracer_index=TB5_N, seeds=32)
     TB5_LOG[:construction_seconds] = round(stats.time; digits=3)
     TB5_LOG[:construction_alloc_MiB] = round(stats.bytes / 2^20; digits=1)
+    TB5_LOG[:construction_peak_rss_delta_MiB] = round((Sys.maxrss() - rss_before) / 2^20; digits=1)
+    TB5_LOG[:construction_live_delta_MiB] = round((Base.gc_live_bytes() - live_before) / 2^20; digits=1)
     stats.value
 end
+
+# verdicts/tb5-r1.md O2: a level-3 F_2 child on F_2^4 whose stage-2 factor
+# register is {2} (stage-1 bit 0) or {2,3} (stage-1 bit 1), with stage 3 on
+# the complement; both branches partition the ambient, so the child's own
+# certificate passes while its per-block Factor answers depend on the prefix.
+function tb5_prefix_dependent_child()
+    F = GF2
+    id(k) = F[F(i == j) for i in 1:k, j in 1:k]
+    tail = CLZero(F, 4, Int[])
+    step(factor, rest, child) = MIPStarLambda._clstep(F, 4, factor, rest, id(length(factor)), child,
+                                                       BranchConst(child); require_ambient=false)
+    on0 = step([2], [3, 4], step([3, 4], Int[], tail))
+    on1 = step([2, 3], [4], step([4], Int[], tail))
+    CLStep(F, 4, [1], [2, 3, 4], id(1), on0, BranchByAxis(2, 1, AbstractCL{F}[on0, on1]))
+end
+tb5_prefix_dependent_repeat() = get!(TB5_CACHE, :prefix_repeat) do
+    child = describe_cl(tb5_prefix_dependent_child(), tb5_prefix_dependent_child(), 2; tracer_index=2)
+    (; child, repeat=repeat_sampler(child.term, 1, 1; c_prime=1, tracer_index=2, seeds=16))
+end
+tb5_e(i, s) = GF2[GF2(Int(j == i)) for j in 1:s]
 
 # The TB1 maps at (q, m, d) = (8, 2, 1) as untyped pair descriptions.
 tb1_pairs() = get!(TB5_CACHE, :tb1_pairs) do
@@ -518,8 +552,56 @@ if tb5_runs("tb5_repeat")
         @test length(finding) == 1 && finding[1].grade == SOURCE_REPAIR
         @test occursin("gt-12-compression.tex:L70", finding[1].facts.display)
         @test occursin("(lambda*n)^tau", finding[1].facts.display)
-        # A non-integer k(n) is refused at the boundary.
-        @test Dimension(anchored_repeat(tb5_copy_verifier(), 1, 1; c_prime=1 // 2, tracer_index=2, seeds=0).term.sampler, 3) isa QueryError
+        # A non-integer k(n) is refused at the boundary, on the VALUE: 3^(3/2)
+        # is irrational, but 9^(3/2) = 27 is admitted (verdicts/tb5-r1.md O3).
+        refused = Dimension(anchored_repeat(tb5_copy_verifier(), 1, 1; c_prime=1 // 2, tracer_index=2, seeds=0).term.sampler, 3)
+        @test refused isa QueryError && occursin("3^(3/2) is not a positive integer", refused.reason)
+        @test k_rep(1, 1, 1 // 2, 9) == 27 && k_rep(1, 1, 2 // 3, 8) == 32
+        @test_throws ArgumentError k_rep(2, 1, 1 // 2, 9)   # 18^(3/2) = sqrt(5832) is irrational
+        R27 = anchored_repeat(tb5_copy_verifier(), 1, 1; c_prime=1 // 2, tracer_index=TB5_N, seeds=4)
+        @test Dimension(R27.term.sampler, TB5_N) == 27 * 9
+        @test only(tb5_find(R27.certificate, :KRepIntegrality)).facts.status == PASS
+        @test occursin("k(9) = (1*9)^((1 + 1//2)*1) = 27", only(tb5_find(R27.certificate, :KRepIntegrality)).facts.display)
+        @test passed(verify_certificate(R27))
+        println("MUTATION_EXPECTED_RULE tb5_integrality k(9)@c'=1/2=", k_rep(1, 1, 1 // 2, 9), " dimension=", Dimension(R27.term.sampler, TB5_N))
+        # verdicts/tb5-r1.md O4: the gt-11:L219/L220 guard-exponent finding is disclosed.
+        guard = tb5_find(R.certificate, :RepeatGuardExponent)
+        @test length(guard) == 1 && guard[1].grade == SOURCE_REPAIR
+        @test occursin("gt-11-parallel-repetition.tex:L219", guard[1].facts.display) && occursin("c' = 1", guard[1].facts.display)
+        @test guard[1].facts.lines == 219:220
+        # verdicts/tb5-r1.md O2 (ii): the prefix-dependent-factor child repeated
+        # 4-fold at n = 2 (k = 4, dimension 16): each block's Factor is that
+        # block's child factor at that block's prefix (gt-11:L281).
+        pr = tb5_prefix_dependent_repeat()
+        @test pr.child isa Checked && passed(verify_certificate(pr.child))
+        @test level(tb5_prefix_dependent_child()) == 3
+        @test Factor(pr.child.term, 2, :alice, 2, tb5_zero(4)) == [0, 1, 0, 0]
+        @test Factor(pr.child.term, 2, :alice, 2, tb5_e(1, 4)) == [0, 1, 1, 0]
+        Sp = pr.repeat.term
+        @test Dimension(Sp, 2) == 16 && Sp.level == 3
+        @test Factor(Sp, 2, :alice, 2, tb5_e(1, 16)) == Bool[0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]
+        @test Factor(Sp, 2, :bob, 2, tb5_e(5, 16)) == Bool[0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0]
+        @test Factor(Sp, 2, :alice, 2, tb5_e(1, 16) + tb5_e(13, 16)) == Bool[0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0]
+        @test Factor(Sp, 2, :alice, 3, tb5_e(1, 16) + tb5_e(2, 16) + tb5_e(6, 16)) == Bool[0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1]
+        @test Factor(Sp, 2, :alice, 2, tb5_e(6, 16)) isa QueryError      # block 2's coordinate 2 is not in L_{<2}(V) of that block
+        @test Factor(Sp, 2, :alice, 2, tb5_e(1, 16) + tb5_e(7, 16)) isa QueryError
+        @test passed(verify_certificate(pr.repeat))
+        # O2 (i): the metered counts are pinned exactly (Marginal, Factor AND Linear = k).
+        for (mode, q) in (("Marginal", MarginalQuery(2, :alice, 3, tb5_zero(16), nothing)),
+                          ("Factor", FactorQuery(2, :alice, 1, tb5_zero(16), nothing)),
+                          ("Linear", LinearQuery(2, :alice, 1, tb5_zero(16), tb5_zero(16), nothing)))
+            @test metered_query(Sp, q)[2].child_calls == 4
+        end
+        @test metered_query(Sp, FactorQuery(2, :alice, 2, tb5_e(1, 16), nothing))[2].child_calls == 4
+        metered_pr = only(tb5_find(pr.repeat.certificate, :MeteredCalls))
+        @test metered_pr.facts.measured == (; marginal=4, factor=4, linear=4)
+        @test occursin("exactly 4", metered_pr.facts.display)
+        println("MUTATION_EXPECTED_RULE tb5_prefix_factor block_factors=", Factor(Sp, 2, :alice, 2, tb5_e(1, 16)), " metered=", metered_pr.facts.measured)
+        # verdicts/tb5-r1.md O7 (a): DESIGN 10.2 and the emitted law agree.
+        design = read(joinpath(TB5_ROOT, "docs", "DESIGN.md"), String)
+        @test occursin("question_length(n), answer_length(n) <= k(n)*(B(n)+32)", design)
+        @test !occursin("question_length(n), answer_length(n) <= k(n)*B(n)\n", design)
+        @test V.decider.question_length == :(k(n) * (B(n) + 32))
         # Decider metadata (DESIGN 10.2).
         @test V.decider.question_length == :(k(n) * (B(n) + 32))
         @test V.decider.answer_length == :(k(n) * (B(n) + 32))
@@ -550,8 +632,13 @@ if tb5_runs("tb5_repeat")
         @test meter.child_calls == 81
         metered = tb5_find(R.certificate, :MeteredCalls)
         @test length(metered) >= 3 && all(m.grade == CHECKED for m in metered)   # S^rep, S^anch, the typed anchor
-        println("TB5 (f) construction seconds = ", TB5_LOG[:construction_seconds], " (target < 2)")
-        @test TB5_LOG[:construction_seconds] < 20
+        println("TB5 (f) warm construction seconds = ", TB5_LOG[:construction_seconds],
+                " (DESIGN 10.3 gate < 2); total bytes allocated during construction MiB = ", TB5_LOG[:construction_alloc_MiB],
+                "; peak RSS delta MiB = ", TB5_LOG[:construction_peak_rss_delta_MiB],
+                "; GC live-heap delta MiB = ", TB5_LOG[:construction_live_delta_MiB])
+        println("MUTATION_EXPECTED_RULE tb5_walls construction<2 => ", TB5_LOG[:construction_seconds] < 2)
+        @test TB5_LOG[:construction_seconds] < 2
+        @test TB5_LOG[:construction_peak_rss_delta_MiB] < 256
     end
 end
 
@@ -568,21 +655,52 @@ end
 
 if tb5_runs("tb5_transcripts")
     @testset "TB5 (g) 128 seeded honest repeated pairs accept; T5-game-seed1, T5-anchor-one, T5-one-corrupt, T5-boundary" begin
-        started = time()
         V = tb5_repeat().term
         A = tb5_anchor().term
         D = V.decider
+        labels, edges = A.decider.term[2], A.decider.term[3]
+        game = findfirst(==("Game"), labels)
+        # Warm the transcript path once (compilation), then time the 128
+        # draws and the named transcripts (DESIGN 10.3's transcript wall).
+        let t0 = tb5_honest_transcript(V, A, tb5_gf2(falses(729)))
+            decide_traced(D, TB5_N, frame_components(t0.xs), frame_components(t0.ys), frame_components(t0.as), frame_components(t0.bs))
+        end
+        started = time()
         rng = MersenneTwister(0x5E)
         accepted = 0
+        edge_views = 0     # components whose two graph views encode an oriented edge (verdicts/tb5-r1.md O8)
+        game_pairs = 0     # ... and are (Game, Game), reaching the child decider
+        seed_views = 0     # the same census read off the SEEDS: z_eA = z_eB = (1,1), z_vA and z_vB unit
+        seed_games = 0
         for _ in 1:128
             z = GF2[rand(rng, (zero(GF2), one(GF2))) for _ in 1:729]
+            for i in 1:81
+                blk = tb5_bits(z[(i - 1) * 9 + 1:i * 9])
+                (blk[3:4] == [true, true] && blk[7:8] == [true, true] && sum(blk[1:2]) == 1 && sum(blk[5:6]) == 1) || continue
+                seed_views += 1
+                blk[1] && blk[5] && (seed_games += 1)   # e_Game = e_1 on both sides
+            end
             t = tb5_honest_transcript(V, A, z)
             bit, calls = decide_traced(D, TB5_N, frame_components(t.xs), frame_components(t.ys),
                                        frame_components(t.as), frame_components(t.bs))
             bit && length(calls) == 81 && (accepted += 1)
+            for i in 1:81
+                tA = MIPStarLambda._graph_view_type(labels, edges, :alice, t.xs[i])
+                tB = MIPStarLambda._graph_view_type(labels, edges, :bob, t.ys[i])
+                (tA === nothing || tB === nothing || !((tA, tB) in edges)) && continue
+                edge_views += 1
+                tA == game == tB && (game_pairs += 1)
+            end
         end
-        println("MUTATION_EXPECTED_RULE tb5_transcripts honest_accepts=", accepted, "/128")
+        println("MUTATION_EXPECTED_RULE tb5_transcripts honest_accepts=", accepted, "/128 edge_views=", edge_views,
+                "/10368 game_game=", game_pairs, "/10368 (the rest accept on the literal invalid-view branch, gt-06:409-427)")
         @test accepted == 128
+        # These are this test's own seeds (rand from the tuple (0, 1) on
+        # MersenneTwister(0x5E)); the critic's 159 / 40 (verdicts/tb5-r1.md O8)
+        # is the count on the `rand(rng, Bool, 729)` stream of the same
+        # seed, i.e. different draws (expected 10368/64 = 162 either way).
+        @test edge_views == 185 && game_pairs == 42
+        @test (edge_views, game_pairs) == (seed_views, seed_games)
         # T5-game-seed1: seed 1 = the (Game, Game) view with body 1; the
         # reference Game question is 1 and the golden answer is 1. Mapping
         # Game to zero changes the question but not the golden answer.
@@ -628,6 +746,25 @@ if tb5_runs("tb5_transcripts")
         @test !bit && length(calls) == 81
         @test count(c -> !c.accepted, calls) == 1 && calls[i].accepted == false
         println("MUTATION_EXPECTED_RULE T5-one-corrupt reject=true child_calls=", length(calls))
+        # T5-last-corrupt (verdicts/tb5-r1.md O1): the all-Game transcript
+        # (every component a (Game, Game) edge view) with component k = 81
+        # flipped must reject with exactly one rejecting child call, the last.
+        @test all(MIPStarLambda._graph_view_type(labels, edges, :alice, xi) == game for xi in t1.xs)
+        @test all(MIPStarLambda._graph_view_type(labels, edges, :bob, yi) == game for yi in t1.ys)
+        last_corrupt = copy(t1.as)
+        last_corrupt[81] = Bool[!t1.as[81][1]]
+        bit_last, calls_last = decide_traced(D, TB5_N, frame_components(t1.xs), frame_components(t1.ys),
+                                             frame_components(last_corrupt), frame_components(t1.bs))
+        @test !bit_last && length(calls_last) == 81
+        @test count(c -> !c.accepted, calls_last) == 1 && !calls_last[81].accepted
+        for i in (1, 40)
+            mid_corrupt = copy(t1.as)
+            mid_corrupt[i] = Bool[!t1.as[i][1]]
+            bit_i, calls_i = decide_traced(D, TB5_N, frame_components(t1.xs), frame_components(t1.ys),
+                                           frame_components(mid_corrupt), frame_components(t1.bs))
+            @test !bit_i && count(c -> !c.accepted, calls_i) == 1 && !calls_i[i].accepted
+        end
+        println("MUTATION_EXPECTED_RULE T5-last-corrupt reject=", !bit_last, " rejecting_index=", findfirst(c -> !c.accepted, calls_last))
         # T5-boundary (NOTE-D): the exactly-9-bit component is a QUESTION
         # component and is accepted; a 10-bit component is rejected with the
         # child-call log EMPTY (DD-26).
@@ -652,7 +789,9 @@ if tb5_runs("tb5_transcripts")
                             frame_components(t.as), frame_components(t.bs)) == (false, [])
         println("MUTATION_EXPECTED_RULE T5-boundary accept9=", bit9, " reject10=", !bit10, " pre_call_log_empty=", isempty(calls10))
         TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)
-        println("TB5 (g) transcript seconds = ", TB5_LOG[:transcript_seconds], " (target < 5)")
+        println("TB5 (g) warm transcript seconds = ", TB5_LOG[:transcript_seconds], " (DESIGN 10.3 gate < 5)")
+        println("MUTATION_EXPECTED_RULE tb5_walls transcripts<5 => ", TB5_LOG[:transcript_seconds] < 5)
+        @test TB5_LOG[:transcript_seconds] < 5
     end
 end
 
@@ -730,12 +869,23 @@ if tb5_runs("tb5_tree")
                 " CONSTRUCTED=", grades[CONSTRUCTED], " CHECKED=", grades[CHECKED], " CITED=", grades[CITED],
                 " ASSUMED=", grades[ASSUMED], " SOURCE_REPAIR=", grades[SOURCE_REPAIR])
         traceprint(R.certificate)
-        @test grades[CHECKED] >= 8 && grades[CITED] >= 5 && grades[SOURCE_REPAIR] >= 2
+        # verdicts/tb5-r1.md O6: the census is pinned exactly (nodes,
+        # CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR) and every
+        # CHECKED node carries a replay.
+        census = (length(tb5_nodes(R.certificate)), grades[CONSTRUCTED], grades[CHECKED], grades[CITED], grades[ASSUMED], grades[SOURCE_REPAIR])
+        println("MUTATION_EXPECTED_RULE tb5_tree census=", census)
+        @test census == (56, 9, 27, 10, 4, 6)
+        @test all(n.grade != CHECKED || n.replay !== nothing for n in tb5_nodes(R.certificate))
         @test passed(verify_certificate(R))
         walls = (; construction=get(TB5_LOG, :construction_seconds, nothing),
                    transcripts=get(TB5_LOG, :transcript_seconds, nothing),
                    product=get(TB5_LOG, :product_seconds, nothing))
-        println("TB5 walls: ", walls, "; construction allocation MiB = ", get(TB5_LOG, :construction_alloc_MiB, nothing),
+        println("TB5 walls (warm): ", walls, "; total bytes allocated during construction MiB = ", get(TB5_LOG, :construction_alloc_MiB, nothing),
+                "; construction peak RSS delta MiB = ", get(TB5_LOG, :construction_peak_rss_delta_MiB, nothing),
                 "; process peak RSS MiB = ", round(Sys.maxrss() / 2^20; digits=1))
+        if walls.construction !== nothing && walls.transcripts !== nothing
+            println("MUTATION_EXPECTED_RULE tb5_walls total<7 => ", walls.construction + walls.transcripts < 7)
+            @test walls.construction + walls.transcripts < 7
+        end
     end
 end

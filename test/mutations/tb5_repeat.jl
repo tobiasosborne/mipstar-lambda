@@ -13,8 +13,8 @@
 const TB5_ANCHOR_ZERO_MUTANT = Mutant(
     "TB5 M5-anchor-zero game_mapped_to_zero",
     "src/descriptions/machines.jl",
-    "    _anchor_type(t) == :game && return _forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, z, nothing, ctx))\n    _zeros(F, length(z))",
-    "    _anchor_type(t)\n    _zeros(F, length(z))",
+    "    _anchor_type(t) == :game && return _forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, z, nothing, ctx))\n    _zeros(F, length(z), ctx)",
+    "    _anchor_type(t)\n    _zeros(F, length(z), ctx)",
     "tb5_transcripts")
 
 # M5-anchor-answer: an Anchor-typed answer 1 is accepted; T5-anchor-one kills it.
@@ -39,8 +39,8 @@ const TB5_DETYPE_LEVEL_MUTANT = Mutant(
 const TB5_SHARED_SEED_MUTANT = Mutant(
     "TB5 M5-shared-seed block_one_reused",
     "src/descriptions/machines.jl",
-    "    reduce(vcat, (_forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, zi, t, ctx)) for zi in _repeat_blocks(m, n, z, ctx)))",
-    "    reduce(vcat, (_forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, first(_repeat_blocks(m, n, z, ctx)), t, ctx)) for zi in _repeat_blocks(m, n, z, ctx)))",
+    "    _concat((_forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, zi, t, ctx)) for zi in _repeat_blocks(m, n, z, ctx)), ctx)",
+    "    _concat((_forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, first(_repeat_blocks(m, n, z, ctx)), t, ctx)) for zi in _repeat_blocks(m, n, z, ctx)), ctx)",
     "tb5_repeat")
 
 # M5-or: the repeated decisions are combined by OR; T5-one-corrupt kills it.
@@ -93,8 +93,8 @@ const TB5_SIZE_UNROLLED_MUTANT = Mutant(
 const TB5_ADAPTER_ENUMERATES_MUTANT = Mutant(
     "TB5 M9-adapter-enumerates marginal_walks_all_branches",
     "src/descriptions/machines.jl",
-    "    ctx.leaf_calls += 1\n    collect(Marginal(_leaf_map(m, w, t), j, z))",
-    "    ctx.leaf_calls += 1\n    L = _leaf_map(m, w, t)\n    L isa CLStep && L.branch isa BranchByAxis && foreach(k -> _child(L, F[k]), field_elements(F))\n    collect(Marginal(L, j, z))",
+    "    ctx.leaf_calls += 1\n    _metered_marginal(_leaf_map(m, w, t), j, z, ctx)",
+    "    ctx.leaf_calls += 1\n    L = _leaf_map(m, w, t)\n    L isa CLStep && L.branch isa BranchByAxis && foreach(k -> _child(L, F[k]), field_elements(F))\n    _metered_marginal(L, j, z, ctx)",
     "tb5_queries")
 
 # M-law-drift: the emitted direct-sum dimension law is a product; the
@@ -191,6 +191,96 @@ const TB5_VALIDITY_VIEWS_MUTANT = Mutant(
     "    views = S.typing isa Untyped ? [(:alice, nothing)] :\n                                   [(:alice, t) for t in S.typing.labels]",
     "tb5_replay")
 
+
+# ---------------------------------------------------------------------------
+# briefs/77-tb5-repair-r1.md (verdicts/tb5-r1.md O1-O8): one owned mutant per
+# new assertion, each KILLED under the baseline-first runner.
+
+# O1 M5-and-drops-last (the critic's CRIT-1): the k-th component's verdict
+# is discarded; T5-last-corrupt (all-Game transcript, component 81 flipped)
+# kills it.
+const TB5_AND_DROPS_LAST_MUTANT = Mutant(
+    "TB5 M5-and-drops-last kth_verdict_discarded",
+    "src/descriptions/deciders.jl",
+    "        verdict &= accepted\n    end\n    verdict",
+    "        i < k && (verdict &= accepted)\n    end\n    verdict",
+    "tb5_transcripts", "T5-last-corrupt reject=false")
+
+# O2 M5-repeat-factor-block1 (the critic's CRIT-2): block 1's child Factor is
+# computed once and replicated; the prefix-dependent-factor fixture's
+# blockwise answer and the exactly-pinned metered Factor count kill it.
+const TB5_REPEAT_FACTOR_BLOCK1_MUTANT = Mutant(
+    "TB5 M5-repeat-factor-block1 block_one_factor_replicated",
+    "src/descriptions/machines.jl",
+    "    _concat((_forward(ctx, :factor, () -> _factor(m.child, n, w, j, ui, t, ctx)) for ui in _repeat_blocks(m, n, u, ctx)), ctx)",
+    "    first_block = _forward(ctx, :factor, () -> _factor(m.child, n, w, j, first(_repeat_blocks(m, n, u, ctx)), t, ctx))\n    _concat((first_block for _ in _repeat_blocks(m, n, u, ctx)), ctx)",
+    "tb5_repeat", "block_factors=[0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0]")
+
+# O3 M5-exponent-integrality: integrality decided on the exponent again;
+# k(9) = 9^(3/2) = 27 at c' = 1/2 is refused and the red test fails.
+const TB5_EXPONENT_INTEGRALITY_MUTANT = Mutant(
+    "TB5 M5-exponent-integrality refuse_nonintegral_exponent",
+    "src/descriptions/laws.jl",
+    "        return _exact_power(base, exponent)",
+    "        exponent isa Rational && (isinteger(exponent) ? (exponent = Int(exponent)) : throw(ArgumentError(\"the exponent (1 + c')tau is not integral\")))\n        return big(base)^exponent",
+    "tb5_repeat")
+
+# O4 M5-drop-guard-exponent: the gt-11:L219/L220 finding is not disclosed;
+# the node assertion (f) and the exact census (j) fail.
+const TB5_DROP_GUARD_EXPONENT_MUTANT = Mutant(
+    "TB5 M5-drop-guard-exponent finding_not_disclosed",
+    "src/repeat/repeat.jl",
+    "REPETITION_COUNT_FINDING, REPEAT_GUARD_EXPONENT, REPEAT_TUPLE_FRAMING,",
+    "REPETITION_COUNT_FINDING, REPEAT_TUPLE_FRAMING,",
+    "tb5_repeat")
+
+# O6 M5-drop-framing-disclosure: a SOURCE_REPAIR disclosure silently dropped;
+# only the exact census tuple sees it.
+const TB5_DROP_FRAMING_DISCLOSURE_MUTANT = Mutant(
+    "TB5 M5-drop-framing-disclosure census_loses_source_repair",
+    "src/repeat/repeat.jl",
+    "REPETITION_COUNT_FINDING, REPEAT_GUARD_EXPONENT, REPEAT_TUPLE_FRAMING,",
+    "REPETITION_COUNT_FINDING, REPEAT_GUARD_EXPONENT,",
+    "tb5_tree", "census=(55, 9, 27, 10, 4, 5)")
+
+# O5 M5-wall-construction: the construction's chain set is inflated 128x;
+# the hard DESIGN 10.3 construction gate (< 2 s) fails.
+const TB5_WALL_CONSTRUCTION_MUTANT = Mutant(
+    "TB5 M5-wall-construction chain_set_inflated",
+    "test/tb5_repeat.jl",
+    "c_prime=TB5_C_PRIME, tracer_index=TB5_N, seeds=32)",
+    "c_prime=TB5_C_PRIME, tracer_index=TB5_N, seeds=4096)",
+    "tb5_repeat", "construction<2 => false")
+
+# O5 M5-wall-transcripts: every honest transcript samples its questions 1000
+# times; the hard transcript gate (< 5 s) fails while every verdict holds.
+const TB5_WALL_TRANSCRIPTS_MUTANT = Mutant(
+    "TB5 M5-wall-transcripts question_sampling_inflated",
+    "test/tb5_repeat.jl",
+    "    x, y = sample_questions(V.sampler, TB5_N, z)\n    xs = [",
+    "    foreach(_ -> sample_questions(V.sampler, TB5_N, z), 1:999)\n    x, y = sample_questions(V.sampler, TB5_N, z)\n    xs = [",
+    "tb5_transcripts", "transcripts<5 => false")
+
+# O7 M5-law-framing-dropped: the emitted question law loses the 32 framing
+# bits; the law assertion and the DESIGN 10.2 lockstep fail.
+const TB5_LAW_FRAMING_DROPPED_MUTANT = Mutant(
+    "TB5 M5-law-framing-dropped question_law_without_framing",
+    "src/descriptions/deciders.jl",
+    "question=:(k(n) * (B(n) + \$(FRAME_BITS))),",
+    "question=:(k(n) * B(n)),",
+    "tb5_repeat")
+
+# O8 M5-view-vertex-only: a graph view is accepted on the two vertex
+# registers alone, ignoring both edge registers (a view whose own edge
+# register is not neigh(t) is no encoding, gt-06:412-414); the edge-view
+# census of the 128 draws (185 of 10368) fails while every verdict holds.
+const TB5_VIEW_VERTEX_ONLY_MUTANT = Mutant(
+    "TB5 M5-view-vertex-only edge_view_ignores_edge_registers",
+    "src/repeat/anchor.jl",
+    "        G == expected && return t",
+    "        (G[1:T] == expected[1:T] && G[2T+1:3T] == expected[2T+1:3T]) && return t",
+    "tb5_transcripts", "honest_accepts=128/128 edge_views=")
+
 const TB5_MUTANTS = (TB5_ANCHOR_ZERO_MUTANT, TB5_ANCHOR_ANSWER_MUTANT, TB5_DETYPE_LEVEL_MUTANT,
                      TB5_SHARED_SEED_MUTANT, TB5_OR_MUTANT, TB5_NO_GUARD_MUTANT,
                      TB5_DECIDER_HASH_MUTANT, TB5_FACTOR_PARTITION_MUTANT,
@@ -198,4 +288,9 @@ const TB5_MUTANTS = (TB5_ANCHOR_ZERO_MUTANT, TB5_ANCHOR_ANSWER_MUTANT, TB5_DETYP
                      TB5_LAW_DRIFT_MUTANT, TB5_DEPENDENCY_MUTANT, TB5_TENSOR_MUTANT,
                      TB5_DOWNSIZE_MUTANT, TB5_BOUNDARY_MUTANT, TB5_DETYPE_PARSER_MUTANT,
                      TB5_FRAME_TRAILING_MUTANT, TB5_ZERO_PROMOTION_MUTANT,
-                     TB5_REPEAT_LEVEL_MUTANT, TB5_ANCHOR_GRAPH_MUTANT, TB5_VALIDITY_VIEWS_MUTANT)
+                     TB5_REPEAT_LEVEL_MUTANT, TB5_ANCHOR_GRAPH_MUTANT, TB5_VALIDITY_VIEWS_MUTANT,
+                     TB5_AND_DROPS_LAST_MUTANT, TB5_REPEAT_FACTOR_BLOCK1_MUTANT,
+                     TB5_EXPONENT_INTEGRALITY_MUTANT, TB5_DROP_GUARD_EXPONENT_MUTANT,
+                     TB5_DROP_FRAMING_DISCLOSURE_MUTANT, TB5_WALL_CONSTRUCTION_MUTANT,
+                     TB5_WALL_TRANSCRIPTS_MUTANT, TB5_LAW_FRAMING_DROPPED_MUTANT,
+                     TB5_VIEW_VERTEX_ONLY_MUTANT)

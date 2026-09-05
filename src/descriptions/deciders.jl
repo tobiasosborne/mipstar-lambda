@@ -7,11 +7,21 @@
 #   (:TypedAnchor, D)                          gt-11:98-103 over {Game, Anchor}
 #   (:Detype, labels, edges, D)                gt-06:409-427 parser + one child call
 #   (:Repeat, lambda, tau, c_num, c_den, D)    gt-11:216-220 guard, then exactly k child calls
+#   (:TypedDecider, labels, body)              TB6 (briefs/43 addendum, Blocker 2): the general
+#                                              typed term whose bytes carry the type labels;
+#                                              body = (:Pauli, q, m, d) (fig:decider_pauli) or
+#                                              (:Intro, lambda, ell, q, m, d, fuel, S, D) (fig:intro-decider);
+#                                              :TypedAnchor is the compact spelling of the
+#                                              TypedDecider(["Game","Anchor"], anchor) instance
+#   (:ZeroAnswers, coords)                     TB6b-M's diagnostic child decider: a == b == [0] and y zero on coords
 # Every interpreter path halts; malformed input REJECTS except where the
 # source prescribes accept-on-invalid (the detyped parser).
 
 const DECIDER_HEADER = 0xC4
-const _DECIDER_TAGS = Dict(:Copy => 0x01, :Trivial => 0x02, :TypedAnchor => 0x03, :Detype => 0x04, :Repeat => 0x05)
+const _DECIDER_TAGS = Dict(:Copy => 0x01, :Trivial => 0x02, :TypedAnchor => 0x03, :Detype => 0x04, :Repeat => 0x05,
+                           :TypedDecider => 0x06, :ZeroAnswers => 0x07)
+const _TYPED_BODY_TAGS = Dict(:Pauli => 0x01, :Intro => 0x02)
+const _TYPED_BODY_NAMES = Dict(byte => tag for (tag, byte) in _TYPED_BODY_TAGS)
 const _DECIDER_TAG_NAMES = Dict(byte => tag for (tag, byte) in _DECIDER_TAGS)
 
 function _encode_decider_term!(buffer::IOBuffer, term)
@@ -25,6 +35,19 @@ function _encode_decider_term!(buffer::IOBuffer, term)
     elseif tag == :Repeat
         foreach(v -> _encode_int!(buffer, v), term[2:5])
         _encode_decider_term!(buffer, term[6])
+    elseif tag == :TypedDecider
+        _encode_typing!(buffer, term[2], Tuple{Int,Int}[])
+        body = term[3]
+        write(buffer, _TYPED_BODY_TAGS[body[1]])
+        if body[1] == :Pauli
+            foreach(v -> _encode_int!(buffer, v), body[2:4])
+        else
+            foreach(v -> _encode_int!(buffer, v), body[2:7])
+            _encode_sampler_term!(buffer, body[8])
+            _encode_decider_term!(buffer, body[9])
+        end
+    elseif tag == :ZeroAnswers
+        _encode_indices!(buffer, term[2])
     end
     buffer
 end
@@ -38,6 +61,19 @@ function _decode_decider_term!(buffer::IOBuffer)
         labels, edges = _decode_typing!(buffer)
         return (:Detype, labels, edges, _decode_decider_term!(buffer))
     end
+    if tag == :TypedDecider
+        labels, _ = _decode_typing!(buffer)
+        bytesavailable(buffer) >= 1 || throw(ArgumentError("truncated description"))
+        body_tag = get(_TYPED_BODY_NAMES, read(buffer, UInt8), nothing)
+        body_tag === nothing && throw(ArgumentError("unknown typed decider body"))
+        if body_tag == :Pauli
+            return (:TypedDecider, labels, (:Pauli, [_decode_int!(buffer) for _ in 1:3]...))
+        end
+        values = [_decode_int!(buffer) for _ in 1:6]
+        S = _decode_sampler_term!(buffer)
+        return (:TypedDecider, labels, (:Intro, values..., S, _decode_decider_term!(buffer)))
+    end
+    tag == :ZeroAnswers && return (:ZeroAnswers, _decode_indices!(buffer))
     values = [_decode_int!(buffer) for _ in 1:4]
     (:Repeat, values..., _decode_decider_term!(buffer))
 end
@@ -57,16 +93,34 @@ function decode_decider_term(bytes::AbstractVector{UInt8})
 end
 
 _decider_child(term) = term[1] == :TypedAnchor ? term[2] : term[1] == :Detype ? term[4] :
-                       term[1] == :Repeat ? term[6] : nothing
+                       term[1] == :Repeat ? term[6] :
+                       (term[1] == :TypedDecider && term[3][1] == :Intro) ? term[3][9] : nothing
+# The type labels are read from the bytes of the general typed term
+# (briefs/43 addendum, Blocker 2); :TypedAnchor is its compact instance.
 function _decider_typing(term)
     term[1] == :TypedAnchor && return ANCHOR_TYPING
+    term[1] == :TypedDecider && return Typed(term[2], Tuple{String,String}[])
     Untyped()
+end
+# Parameter SYMBOLS carried by a term (verdicts/tb5-r1.md O10 convention).
+function _decider_parameter_symbols(term)
+    term[1] == :Repeat && return (:lambda, :tau, :c_prime)
+    if term[1] == :TypedDecider
+        body = term[3]
+        body[1] == :Pauli && return (:introparams,)
+        return body[7] == 0 ? (:lambda, :ell, :introparams) : (:lambda, :ell, :introparams, :F_child)
+    end
+    ()
 end
 function _decider_dependencies(term)
     child = _decider_child(term)
-    child === nothing && return Set{Any}([:D])
+    if child === nothing
+        term[1] == :TypedDecider && return Set{Any}([_decider_parameter_symbols(term)...])
+        return Set{Any}([:D])
+    end
     found = Set{Any}()
-    term[1] == :Repeat && push!(found, :lambda, :tau, :c_prime)
+    union!(found, _decider_parameter_symbols(term))
+    term[1] == :TypedDecider && push!(found, quote_hash(sampler_term_bytes(term[3][8])))
     _decider_leaf_hashes!(found, child)
     found
 end
@@ -75,7 +129,8 @@ function _decider_leaf_hashes!(found::Set{Any}, term)
     if child === nothing
         push!(found, quote_hash(decider_term_bytes(term)))
     else
-        term[1] == :Repeat && push!(found, :lambda, :tau, :c_prime)
+        union!(found, _decider_parameter_symbols(term))
+        term[1] == :TypedDecider && push!(found, quote_hash(sampler_term_bytes(term[3][8])))
         _decider_leaf_hashes!(found, child)
     end
     found
@@ -85,7 +140,17 @@ decider_dependency_walk(bytes::AbstractVector{UInt8}) = _decider_dependencies(de
 
 function _decider_laws(term)
     tag = term[1]
-    tag in (:Copy, :Trivial) && return (; time=1, question=1, answer=1, B=nothing, k=nothing)
+    tag in (:Copy, :Trivial, :ZeroAnswers) && return (; time=1, question=1, answer=1, B=nothing, k=nothing)
+    if tag == :TypedDecider
+        body = term[3]
+        # fig:decider_pauli / fig:intro-decider: questions are the (3m+3) log q
+        # downsized Pauli-register bits; the maximum answer is Q = 2^m log q
+        # (a (Pauli, W) answer) resp. 3Q (the Hide tuple, gt-08:588-591).
+        body[1] == :Pauli && return (; time=:(O(poly(2 ^ m * log2(q)))), question=:((3 * m + 3) * log2(q)),
+                                       answer=:(2 ^ m * log2(q)), B=nothing, k=nothing)
+        return (; time=:(O(poly(2 ^ (lambda * n), ell))), question=:((3 * m + 3) * log2(q)),
+                  answer=:(3 * 2 ^ m * log2(q)), B=nothing, k=nothing)
+    end
     tag == :TypedAnchor && return (; time=:(1 + TIME_1(n)), question=:(Q_1(n)), answer=:(max(A_1(n), 1)), B=nothing, k=nothing)
     tag == :Detype && return (; time=:(1 + TIME_1(n)), question=:(Q_1(n) + 4 * TypeCount), answer=:(A_1(n)), B=nothing, k=nothing)
     # SOURCE_REPAIR(repeat-tuple-framing): the source parses x, y, a, b as
@@ -186,11 +251,12 @@ end
 
 _bits(v) = v isa AbstractVector{Bool} ? Vector{Bool}(v) : throw(ArgumentError("decider inputs are bit strings"))
 
-function _decide(term, n::Int, x::Vector{Bool}, y::Vector{Bool}, a::Vector{Bool}, b::Vector{Bool}, trace::Vector{ChildCall})
+function _decide(term, n::Int, x::Vector{Bool}, y::Vector{Bool}, a::Vector{Bool}, b::Vector{Bool}, trace::Vector)
     tag = term[1]
     tag == :Copy && return a == x && b == y
     tag == :Trivial && return true
-    tag == :TypedAnchor && throw(ArgumentError("a typed decider takes (n, tA, x, tB, y, a, b)"))
+    tag == :ZeroAnswers && return _decide_zero_answers(term, x, y, a, b)
+    tag in (:TypedAnchor, :TypedDecider) && throw(ArgumentError("a typed decider takes (n, tA, x, tB, y, a, b)"))
     if tag == :Detype
         labels, edges, child = term[2], term[3], term[4]
         T = length(labels)
@@ -231,8 +297,9 @@ function _decide(term, n::Int, x::Vector{Bool}, y::Vector{Bool}, a::Vector{Bool}
     verdict
 end
 
-function _decide_typed(term, n::Int, tA, x::Vector{Bool}, tB, y::Vector{Bool}, a::Vector{Bool}, b::Vector{Bool}, trace::Vector{ChildCall})
+function _decide_typed(term, n::Int, tA, x::Vector{Bool}, tB, y::Vector{Bool}, a::Vector{Bool}, b::Vector{Bool}, trace::Vector)
     tag = term[1]
+    tag == :TypedDecider && return _decide_typed_body(term[2], term[3], n, tA, x, tB, y, a, b, trace)
     tag == :TypedAnchor || throw(ArgumentError("an untyped decider takes (n, x, y, a, b)"))
     child = term[2]
     (tA in ANCHOR_TYPING.labels && tB in ANCHOR_TYPING.labels) || return false
@@ -251,15 +318,18 @@ end
 decide(D::DeciderDescription, n::Integer, x, y, a, b) = decide_traced(D, n, x, y, a, b)[1]
 decide(D::DeciderDescription, n::Integer, tA, x, tB, y, a, b) = decide_traced(D, n, tA, x, tB, y, a, b)[1]
 "decide_traced(...) -> (bit, child_calls): the bit and the log of child calls made by a repeated decider (empty on a guard failure)."
+# A term embedding a TypedDecider (TB6's detyped introspection decider) logs IntroChildCall records too.
+_embeds_typed_decider(term) = term[1] == :TypedDecider || (_decider_child(term) !== nothing && _embeds_typed_decider(_decider_child(term)))
 function decide_traced(D::DeciderDescription, n::Integer, x, y, a, b)
     n >= 1 || return (false, ChildCall[])
     D.typing isa Untyped || throw(ArgumentError("a typed decider takes (n, tA, x, tB, y, a, b)"))
-    trace = ChildCall[]
+    trace = _embeds_typed_decider(D.term) ? Any[] : ChildCall[]
     (_decide(D.term, Int(n), _bits(x), _bits(y), _bits(a), _bits(b), trace), trace)
 end
 function decide_traced(D::DeciderDescription, n::Integer, tA, x, tB, y, a, b)
     n >= 1 || return (false, ChildCall[])
     D.typing isa Typed || throw(ArgumentError("an untyped decider takes (n, x, y, a, b)"))
-    trace = ChildCall[]
+    # A TypedDecider's trace carries TB6's child-call records (IntroChildCall), not only ChildCall.
+    trace = D.term[1] == :TypedDecider ? Any[] : ChildCall[]
     (_decide_typed(D.term, Int(n), String(tA), _bits(x), String(tB), _bits(y), _bits(a), _bits(b), trace), trace)
 end

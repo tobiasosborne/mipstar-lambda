@@ -7,19 +7,61 @@
 
 abstract type SamplerMachine end
 
-"Per-query meter: same-mode calls issued by the ROOT machine to its direct children, dimension calls, and in-memory leaf calls."
+"""
+    Meter
+
+Per-query meter: same-mode calls issued by the ROOT machine to its direct
+children, dimension calls, in-memory leaf calls, and (TB6, DESIGN 11.4 /
+briefs/43 addendum) the STEP meter: `steps` counts primitive steps of the
+universal interpreter machine executing a description -- every register
+read/write, every matrix-row multiply-accumulate over one field element,
+every branch selection, every input-decoding and output-serialization
+symbol and every control transfer counts 1; a whole vector operation or a
+whole child query never counts 1. `budget` = 0 is unmetered; otherwise the
+step that would be number `budget + 1` is never executed (`FuelExhausted`
+is thrown before it), while a return at step `budget` is permitted.
+`by_depth[d]` attributes the steps to the machine depth (Gap 5).
+"""
 mutable struct Meter
     child_calls::Int
     dimension_calls::Int
     leaf_calls::Int
     depth::Int
+    steps::Int
+    budget::Int
+    by_depth::Vector{Int}
 end
-Meter() = Meter(0, 0, 0, 0)
+Meter() = Meter(0, 0, 0, 0, 0, 0, Int[])
+"A metered meter with a step budget (TB6 child fuel)."
+Meter(budget::Integer) = Meter(0, 0, 0, 0, 0, Int(budget), Int[])
+
+"Thrown BEFORE the step that would exceed the meter's budget executes (DESIGN 11.4)."
+struct FuelExhausted <: Exception
+    steps::Int
+    budget::Int
+end
+Base.showerror(io::IO, e::FuelExhausted) = print(io, "FuelExhausted: step ", e.steps, " exceeds the budget of ", e.budget, " steps")
+
+# Charge k primitive steps at the current depth; refuse before executing
+# the (budget + 1)-th step.
+@inline function _charge!(ctx::Meter, k::Int)
+    d = max(ctx.depth, 1)
+    while length(ctx.by_depth) < d
+        push!(ctx.by_depth, 0)
+    end
+    total = ctx.steps + k
+    ctx.budget > 0 && total > ctx.budget && throw(FuelExhausted(total, ctx.budget))
+    ctx.steps = total
+    ctx.by_depth[d] += k
+    nothing
+end
 
 # A composite calls a child through `_forward`, so the root's direct child
-# calls are counted exactly once each (DESIGN 9.2 metered interpreter).
+# calls are counted exactly once each (DESIGN 9.2 metered interpreter);
+# the control transfer is one step.
 function _forward(ctx::Meter, mode::Symbol, f::Function)
     ctx.depth == 1 && (mode == :dimension ? (ctx.dimension_calls += 1) : (ctx.child_calls += 1))
+    _charge!(ctx, 1)
     ctx.depth += 1
     result = f()
     ctx.depth -= 1
@@ -86,17 +128,23 @@ function _leaf_map(m::LeafMachine, w::Symbol, t)
     L === nothing && throw(ArgumentError("type out of range for this description"))
     L
 end
+# The leaf answers are computed by the METERED walk of the CL term
+# (src/introspect/meter.jl; TB6 step meter): the same stage-by-stage
+# evaluation as cl.jl's `Marginal`/`Linear`/`Factor`, charging every read,
+# multiply-accumulate, write and branch selection; agreement with the
+# unmetered cl.jl functions is a CHECKED replay of TB6 and is exercised by
+# every TB5 leaf assertion.
 function _marginal(m::LeafMachine{F}, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
     ctx.leaf_calls += 1
-    collect(Marginal(_leaf_map(m, w, t), j, z))
+    _metered_marginal(_leaf_map(m, w, t), j, z, ctx)
 end
 function _linear(m::LeafMachine{F}, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
     ctx.leaf_calls += 1
-    collect(Linear(_leaf_map(m, w, t), j, u, y))
+    _metered_linear(_leaf_map(m, w, t), j, u, y, ctx)
 end
 function _factor(m::LeafMachine{F}, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
     ctx.leaf_calls += 1
-    Factor(_leaf_map(m, w, t), j, u)
+    _metered_factor(_leaf_map(m, w, t), j, u, ctx)
 end
 
 # ---------------------------------------------------------------------------
@@ -107,28 +155,32 @@ end
 # the zero map, stages 2..ell empty. SOURCE_REPAIR(zero-map-factor-partition).
 
 _zeros(::Type{F}, s::Int) where {F} = fill(zero(F), s)
+# A metered zero answer / copy: one write per element.
+_zeros(::Type{F}, s::Int, ctx::Meter) where {F} = (_charge!(ctx, s); fill(zero(F), s))
 
 function _padded_marginal(child::SamplerMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
     r = machine_level(child)
-    r == 0 && return _zeros(F, length(z))
+    r == 0 && return _zeros(F, length(z), ctx)
     _forward(ctx, :marginal, () -> _marginal(child, n, w, min(j, r), z, t, ctx))
 end
 function _padded_linear(child::SamplerMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
     r = machine_level(child)
     if r == 0
+        _charge!(ctx, length(u))
         j == 1 && !all(iszero, u) && throw(ArgumentError("prefix has support outside V_{<1} = {0}"))
-        return _zeros(F, length(y))
+        return _zeros(F, length(y), ctx)
     end
-    j > r && return _zeros(F, length(y))
+    j > r && return _zeros(F, length(y), ctx)
     _forward(ctx, :linear, () -> _linear(child, n, w, j, u, y, t, ctx))
 end
 function _padded_factor(child::SamplerMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
     r = machine_level(child)
     if r == 0
+        _charge!(ctx, 2 * length(u))
         all(iszero, u) || throw(ArgumentError("Factor prefix is not a reachable marginal L_{<j}(V) = {0} of the zero map"))
         return j == 1 ? ones(Int, length(u)) : zeros(Int, length(u))
     end
-    j > r && (_require_image(child, n, w, u, t, ctx); return zeros(Int, length(u)))
+    j > r && (_require_image(child, n, w, u, t, ctx); _charge!(ctx, length(u)); return zeros(Int, length(u)))
     _forward(ctx, :factor, () -> _factor(child, n, w, j, u, t, ctx))
 end
 
@@ -151,11 +203,13 @@ function _require_image(child::SamplerMachine, n::Int, w::Symbol, u::Vector{F}, 
             image = _forward(ctx, :linear, () -> _linear(child, n, w, j, prefix, e, t, ctx))
             columns[:, c] = image[support]
         end
-        _in_column_space(columns, u[support]) ||
+        _metered_in_column_space(columns, u[support], ctx) ||
             throw(ArgumentError("Factor prefix is not a reachable marginal L_{<j}(V)"))
+        _charge!(ctx, 2 * length(support))
         prefix[support] = u[support]
         covered[support] .= true
     end
+    _charge!(ctx, s)
     all(covered[c] || iszero(u[c]) for c in 1:s) || throw(ArgumentError("prefix has support outside V_{<j}"))
     nothing
 end
@@ -184,8 +238,9 @@ _block_dims(m::DirectSumMachine, n::Int, ctx::Meter) =
     Int[_forward(ctx, :dimension, () -> _dimension(c, n, ctx)) for c in m.children]
 _dimension(m::DirectSumMachine, n::Int, ctx::Meter) = sum(_block_dims(m, n, ctx))
 
-function _split_blocks(v::Vector{F}, dims::Vector{Int}) where {F}
+function _split_blocks(v::Vector{F}, dims::Vector{Int}, ctx::Union{Meter,Nothing}=nothing) where {F}
     length(v) == sum(dims) || throw(ArgumentError("vector does not split into the registered blocks"))
+    ctx === nothing || _charge!(ctx, length(v))
     offset = 0
     blocks = Vector{F}[]
     for d in dims
@@ -195,18 +250,20 @@ function _split_blocks(v::Vector{F}, dims::Vector{Int}) where {F}
     blocks
 end
 
+# Concatenating the blocks' answers writes every element once.
+_concat(parts, ctx::Meter) = (out = reduce(vcat, parts); _charge!(ctx, length(out)); out)
 function _marginal(m::DirectSumMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
-    blocks = _split_blocks(z, _block_dims(m, n, ctx))
-    reduce(vcat, (_padded_marginal(c, n, w, j, b, t, ctx) for (c, b) in zip(m.children, blocks)))
+    blocks = _split_blocks(z, _block_dims(m, n, ctx), ctx)
+    _concat((_padded_marginal(c, n, w, j, b, t, ctx) for (c, b) in zip(m.children, blocks)), ctx)
 end
 function _linear(m::DirectSumMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
     dims = _block_dims(m, n, ctx)
-    us, ys = _split_blocks(u, dims), _split_blocks(y, dims)
-    reduce(vcat, (_padded_linear(c, n, w, j, ui, yi, t, ctx) for (c, ui, yi) in zip(m.children, us, ys)))
+    us, ys = _split_blocks(u, dims, ctx), _split_blocks(y, dims, ctx)
+    _concat((_padded_linear(c, n, w, j, ui, yi, t, ctx) for (c, ui, yi) in zip(m.children, us, ys)), ctx)
 end
 function _factor(m::DirectSumMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
-    blocks = _split_blocks(u, _block_dims(m, n, ctx))
-    reduce(vcat, (_padded_factor(c, n, w, j, b, t, ctx) for (c, b) in zip(m.children, blocks)))
+    blocks = _split_blocks(u, _block_dims(m, n, ctx), ctx)
+    _concat((_padded_factor(c, n, w, j, b, t, ctx) for (c, b) in zip(m.children, blocks)), ctx)
 end
 
 # ---------------------------------------------------------------------------
@@ -246,20 +303,20 @@ _product_dims(m::ProductMachine, n::Int, ctx::Meter) =
 _dimension(m::ProductMachine, n::Int, ctx::Meter) = sum(_product_dims(m, n, ctx))
 function _marginal(m::ProductMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
     l, r = _product_types(m, t)
-    zl, zr = _split_blocks(z, _product_dims(m, n, ctx))
-    vcat(_padded_marginal(m.left, n, w, j, zl, l, ctx), _padded_marginal(m.right, n, w, j, zr, r, ctx))
+    zl, zr = _split_blocks(z, _product_dims(m, n, ctx), ctx)
+    _concat((_padded_marginal(m.left, n, w, j, zl, l, ctx), _padded_marginal(m.right, n, w, j, zr, r, ctx)), ctx)
 end
 function _linear(m::ProductMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
     l, r = _product_types(m, t)
     dims = _product_dims(m, n, ctx)
-    ul, ur = _split_blocks(u, dims)
-    yl, yr = _split_blocks(y, dims)
-    vcat(_padded_linear(m.left, n, w, j, ul, yl, l, ctx), _padded_linear(m.right, n, w, j, ur, yr, r, ctx))
+    ul, ur = _split_blocks(u, dims, ctx)
+    yl, yr = _split_blocks(y, dims, ctx)
+    _concat((_padded_linear(m.left, n, w, j, ul, yl, l, ctx), _padded_linear(m.right, n, w, j, ur, yr, r, ctx)), ctx)
 end
 function _factor(m::ProductMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
     l, r = _product_types(m, t)
-    ul, ur = _split_blocks(u, _product_dims(m, n, ctx))
-    vcat(_padded_factor(m.left, n, w, j, ul, l, ctx), _padded_factor(m.right, n, w, j, ur, r, ctx))
+    ul, ur = _split_blocks(u, _product_dims(m, n, ctx), ctx)
+    _concat((_padded_factor(m.left, n, w, j, ul, l, ctx), _padded_factor(m.right, n, w, j, ur, r, ctx)), ctx)
 end
 
 # ---------------------------------------------------------------------------
@@ -283,18 +340,19 @@ function _repeat_blocks(m::RepeatMachine, n::Int, v::Vector{F}, ctx::Meter) wher
     s = _s_prime(m, n, ctx)
     k = _k(m, n)
     length(v) == k * s || throw(ArgumentError("vector does not parse as a k(n)-tuple of F_2^s' blocks"))
+    _charge!(ctx, length(v))
     [v[(i-1)*s+1:i*s] for i in 1:k]
 end
 function _marginal(m::RepeatMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
-    reduce(vcat, (_forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, zi, t, ctx)) for zi in _repeat_blocks(m, n, z, ctx)))
+    _concat((_forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, zi, t, ctx)) for zi in _repeat_blocks(m, n, z, ctx)), ctx)
 end
 function _linear(m::RepeatMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
     us = _repeat_blocks(m, n, u, ctx)
     ys = _repeat_blocks(m, n, y, ctx)
-    reduce(vcat, (_forward(ctx, :linear, () -> _linear(m.child, n, w, j, ui, yi, t, ctx)) for (ui, yi) in zip(us, ys)))
+    _concat((_forward(ctx, :linear, () -> _linear(m.child, n, w, j, ui, yi, t, ctx)) for (ui, yi) in zip(us, ys)), ctx)
 end
 function _factor(m::RepeatMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
-    reduce(vcat, (_forward(ctx, :factor, () -> _factor(m.child, n, w, j, ui, t, ctx)) for ui in _repeat_blocks(m, n, u, ctx)))
+    _concat((_forward(ctx, :factor, () -> _factor(m.child, n, w, j, ui, t, ctx)) for ui in _repeat_blocks(m, n, u, ctx)), ctx)
 end
 
 # ---------------------------------------------------------------------------
@@ -327,15 +385,17 @@ function _anchor_type(t)
 end
 function _marginal(m::AnchorMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
     _anchor_type(t) == :game && return _forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, z, nothing, ctx))
-    _zeros(F, length(z))
+    _zeros(F, length(z), ctx)
 end
 function _linear(m::AnchorMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
     _anchor_type(t) == :game && return _forward(ctx, :linear, () -> _linear(m.child, n, w, j, u, y, nothing, ctx))
+    _charge!(ctx, length(u))
     j == 1 && !all(iszero, u) && throw(ArgumentError("prefix has support outside V_{<1} = {0}"))
-    _zeros(F, length(y))
+    _zeros(F, length(y), ctx)
 end
 function _factor(m::AnchorMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
     _anchor_type(t) == :game && return _forward(ctx, :factor, () -> _factor(m.child, n, w, j, u, nothing, ctx))
+    _charge!(ctx, 2 * length(u))
     all(iszero, u) || throw(ArgumentError("Factor prefix is not a reachable marginal L_{<j}(V) = {0} of the Anchor zero map"))
     # rk:higher-level: V_1 = V under the zero map, V_{>1} = {0}.
     j == 1 ? ones(Int, length(u)) : zeros(Int, length(u))
@@ -349,7 +409,11 @@ end
 # stages >= 3 forward stage j-2 to the typed child for the revealed type or
 # to the promoted zero map when the selected edge register is zero.
 
-struct DetypeMachine <: SamplerMachine
+# The graph-register logic is shared with TB6's stand-alone `GraphMachine`
+# (graph_sampler(G), src/introspect/pauli_sampler.jl).
+abstract type AbstractGraphMachine <: SamplerMachine end
+
+struct DetypeMachine <: AbstractGraphMachine
     child::SamplerMachine
     typing::Typed
     neighbors::Vector{Vector{Bool}}
@@ -368,20 +432,20 @@ _field(m::DetypeMachine) = _field(m.child)
 machine_field_size(m::DetypeMachine) = 2
 machine_level(m::DetypeMachine) = machine_level(m.child) + 2
 machine_typing(m::DetypeMachine) = Untyped()
-_type_count(m::DetypeMachine) = TypeCount(m.typing)
+_type_count(m::AbstractGraphMachine) = TypeCount(m.typing)
 _body_dim(m::DetypeMachine, n::Int, ctx::Meter) = _forward(ctx, :dimension, () -> _dimension(m.child, n, ctx))
 _dimension(m::DetypeMachine, n::Int, ctx::Meter) = 4 * _type_count(m) + _body_dim(m, n, ctx)
 
 # Player w's own (vertex, edge) registers and the opposite player's.
-function _graph_registers(m::DetypeMachine, w::Symbol)
+function _graph_registers(m::AbstractGraphMachine, w::Symbol)
     T = _type_count(m)
     vA, eA, vB, eB = 1:T, T+1:2T, 2T+1:3T, 3T+1:4T
     w == :alice ? (; own_v=vA, own_e=eA, other_v=vB, other_e=eB) : (; own_v=vB, own_e=eB, other_v=vA, other_e=eA)
 end
-_body(m::DetypeMachine, v::Vector) = v[4*_type_count(m)+1:end]
+_body(m::AbstractGraphMachine, v::Vector) = v[4*_type_count(m)+1:end]
 
 # The type t with (x_own_v, x_own_e) = enc_G(t) = (e_t, neigh_G(t)), or nothing.
-function _encoded_type(m::DetypeMachine, x::Vector{F}, regs) where {F}
+function _encoded_type(m::AbstractGraphMachine, x::Vector{F}, regs) where {F}
     ones_at = findall(!iszero, x[regs.own_v])
     length(ones_at) == 1 || return nothing
     t = ones_at[1]
@@ -391,14 +455,14 @@ end
 # The revealed type at stages >= 3 (def:detyped-CL): the opposite-edge
 # register selected by the own vertex encoding is nonzero. On unreachable
 # prefixes the own vertex must still be a unit vector e_t; otherwise zero.
-function _revealed_type(m::DetypeMachine, z::Vector{F}, regs) where {F}
+function _revealed_type(m::AbstractGraphMachine, z::Vector{F}, regs) where {F}
     ones_at = findall(!iszero, z[regs.own_v])
     length(ones_at) == 1 || return nothing
     t = ones_at[1]
     iszero(z[regs.other_e[t]]) ? nothing : t
 end
 
-function _graph_marginal(m::DetypeMachine, j::Int, z::Vector{F}, regs) where {F}
+function _graph_marginal(m::AbstractGraphMachine, j::Int, z::Vector{F}, regs) where {F}
     out = _zeros(F, length(z))
     out[regs.own_v] = z[regs.own_v]
     out[regs.own_e] = z[regs.own_e]
@@ -410,8 +474,10 @@ end
 
 function _marginal(m::DetypeMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
     regs = _graph_registers(m, w)
+    _charge!(ctx, 4 * _type_count(m) + length(z))   # graph register reads/writes and the zero body
     out = _graph_marginal(m, j, z, regs)
     j <= 2 && return out
+    _charge!(ctx, 2 * _type_count(m))                 # the revealed-type scan
     revealed = _revealed_type(m, out, regs)
     revealed === nothing && return out
     body = _forward(ctx, :marginal, () -> _marginal(m.child, n, w, j - 2, _body(m, z), m.typing.labels[revealed], ctx))
@@ -421,7 +487,7 @@ end
 
 # u in L_{<j}(V_G (+) V) for the graph part: stage 1 reaches every own
 # value; stage 2 reaches 0 or the selected edge bit only.
-function _require_graph_prefix(m::DetypeMachine, j::Int, u::Vector{F}, regs) where {F}
+function _require_graph_prefix(m::AbstractGraphMachine, j::Int, u::Vector{F}, regs) where {F}
     G = 4 * _type_count(m)
     if j == 1
         all(iszero, u) || throw(ArgumentError("prefix has support outside V_{<1} = {0}"))
@@ -440,6 +506,7 @@ end
 
 function _factor(m::DetypeMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
     regs = _graph_registers(m, w)
+    _charge!(ctx, 2 * length(u))                      # prefix domain scan and the indicator writes
     _require_graph_prefix(m, j, u, regs)
     G = 4 * _type_count(m)
     indicator = zeros(Int, length(u))
@@ -467,7 +534,8 @@ end
 function _linear(m::DetypeMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
     regs = _graph_registers(m, w)
     G = 4 * _type_count(m)
-    out = _zeros(F, length(y))
+    _charge!(ctx, length(u))                          # prefix domain scan
+    out = _zeros(F, length(y), ctx)
     if j == 1
         all(iszero, u) || throw(ArgumentError("prefix has support outside V_{<1} = {0}"))
         out[regs.own_v] = y[regs.own_v]
@@ -497,7 +565,9 @@ struct DownsizeMachine <: SamplerMachine
     function DownsizeMachine(child::SamplerMachine)
         q = machine_field_size(child)
         kappa = round(Int, log2(q))
-        (q >= 4 && 1 << kappa == q) || throw(ArgumentError("downsize takes a sampler over F_{2^kappa}, kappa >= 2"))
+        # kappa = 1 (q = 2) is the identity conjugation and is admitted (odd
+        # extension degree; TB6b-E's (q, m, d) = (2, 1, 1), DESIGN 11.3).
+        (q >= 2 && 1 << kappa == q) || throw(ArgumentError("downsize takes a sampler over F_{2^kappa}, kappa >= 1"))
         isodd(kappa) || throw(ArgumentError("downsize assumes an odd extension degree (lem:downsize-cl-dist)"))
         new(child, kappa)
     end
@@ -518,17 +588,21 @@ function _field_from_bits(::Type{F}, bits::Vector{GF2}, kappa::Int) where {F}
     F[F(foldl((acc, b) -> (acc << 1) | Int(b.bits), bits[(i-1)*kappa+1:i*kappa]; init=0))
       for i in 1:length(bits) ÷ kappa]
 end
+# Each bit-to-field and field-to-bit conversion reads/writes every bit.
 function _marginal(m::DownsizeMachine, n::Int, w::Symbol, j::Int, z::Vector{GF2}, t, ctx::Meter)
     F = _field(m.child)
+    _charge!(ctx, 2 * length(z))
     field_bit_vector(_forward(ctx, :marginal, () -> _marginal(m.child, n, w, j, _field_from_bits(F, z, m.kappa), t, ctx)))
 end
 function _linear(m::DownsizeMachine, n::Int, w::Symbol, j::Int, u::Vector{GF2}, y::Vector{GF2}, t, ctx::Meter)
     F = _field(m.child)
+    _charge!(ctx, 3 * length(u))
     field_bit_vector(_forward(ctx, :linear, () -> _linear(m.child, n, w, j, _field_from_bits(F, u, m.kappa),
                                                        _field_from_bits(F, y, m.kappa), t, ctx)))
 end
 function _factor(m::DownsizeMachine, n::Int, w::Symbol, j::Int, u::Vector{GF2}, t, ctx::Meter)
     F = _field(m.child)
+    _charge!(ctx, 2 * length(u))
     indicator = _forward(ctx, :factor, () -> _factor(m.child, n, w, j, _field_from_bits(F, u, m.kappa), t, ctx))
     repeat(indicator; inner=m.kappa)
 end
@@ -566,6 +640,10 @@ function compile_sampler(term)
     tag == :Detype && return DetypeMachine(compile_sampler(term[2]))
     tag == :Product && return ProductMachine(compile_sampler(term[2]), compile_sampler(term[3]))
     tag == :Downsize && return DownsizeMachine(compile_sampler(term[2]))
+    # TB6 primitives (src/introspect/): compact terms compiled to in-memory families.
+    tag == :Pauli && return _compile_pauli(term)
+    tag == :Intro && return _compile_intro(term)
+    tag == :Graph && return GraphMachine(Typed(term[2], [(term[2][i], term[2][j]) for (i, j) in term[3]]))
     throw(ArgumentError("unknown sampler term $(tag)"))
 end
 
@@ -581,25 +659,42 @@ _as_field_vector(::Type{F}, v, s::Int, what::String) where {F} =
 # The validated public wrapper (DESIGN 9.1): player, stage, type and vector
 # lengths are checked before the quoted machine runs; the raw typed machine
 # would return 0 on an out-of-range type (gt-06-types.tex:133-136).
+# The input decoding (mode, index bits, player, stage, type label bytes,
+# one symbol per vector element) and the output serialization (one symbol
+# per element) are charged on the SAME meter as the machine; the sizing
+# Dimension probe does not bypass it (briefs/43 addendum, Blocker 1).
 function _validated_answer(m::SamplerMachine, q::SamplerQuery, ctx::Meter)
     q.n >= 1 || throw(ArgumentError("index n must be positive"))
     ctx.depth = 1
-    q isa DimensionQuery && return _dimension(m, q.n, ctx)
+    _charge!(ctx, 1 + ndigits(q.n; base=2))
+    q isa DimensionQuery && return (d = _dimension(m, q.n, ctx); _charge!(ctx, 1); d)
     q.w in PLAYERS || throw(ArgumentError("player must be alice or bob"))
     1 <= q.j <= machine_level(m) || throw(ArgumentError("stage index out of range"))
+    _charge!(ctx, 2)
     typing = machine_typing(m)
     if typing isa Untyped
         q.type === nothing || throw(ArgumentError("this description is untyped"))
     else
         (q.type isa AbstractString && String(q.type) in typing.labels) ||
             throw(ArgumentError("type out of range for this description"))
+        _charge!(ctx, ncodeunits(String(q.type)))
     end
     t = q.type === nothing ? nothing : String(q.type)
     F = _field(m)
-    s = _dimension(m, q.n, Meter())
-    q isa MarginalQuery && return _marginal(m, q.n, q.w, q.j, _as_field_vector(F, q.z, s, "seed"), t, ctx)
-    q isa FactorQuery && return _factor(m, q.n, q.w, q.j, _as_field_vector(F, q.u, s, "prefix"), t, ctx)
-    _linear(m, q.n, q.w, q.j, _as_field_vector(F, q.u, s, "prefix"), _as_field_vector(F, q.y, s, "Linear input"), t, ctx)
+    s = _dimension(m, q.n, ctx)
+    ctx.depth = 1
+    answer = if q isa MarginalQuery
+        _charge!(ctx, s)
+        _marginal(m, q.n, q.w, q.j, _as_field_vector(F, q.z, s, "seed"), t, ctx)
+    elseif q isa FactorQuery
+        _charge!(ctx, s)
+        _factor(m, q.n, q.w, q.j, _as_field_vector(F, q.u, s, "prefix"), t, ctx)
+    else
+        _charge!(ctx, 2 * s)
+        _linear(m, q.n, q.w, q.j, _as_field_vector(F, q.u, s, "prefix"), _as_field_vector(F, q.y, s, "Linear input"), t, ctx)
+    end
+    _charge!(ctx, length(answer))
+    answer
 end
 
 "query(S, q): the answer, or QueryError for a malformed call (never throws for an ArgumentError)."

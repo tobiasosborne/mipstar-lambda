@@ -32,6 +32,18 @@ include("descriptions/deciders.jl")
 include("compress.jl")
 include("repeat/anchor.jl")
 include("repeat/repeat.jl")
+# TB6: the step meter, linear algebra, Pauli/introspection samplers and
+# deciders, the stabilizer simulator (DESIGN 11).
+include("introspect/meter.jl")
+include("introspect/linear.jl")
+include("introspect/pauli_types.jl")
+include("introspect/pauli_params.jl")
+include("introspect/pauli_sampler.jl")
+include("introspect/pauli_decider.jl")
+include("introspect/stabilizer.jl")
+include("introspect/intro_decider.jl")
+include("introspect/honest.jl")
+include("introspect/introspect.jl")
 
 export Program, BoundExpr, Concrete, Opaque, Fuel, FuelLiteral, FuelBound,
        BoundVar, Hole, Lambda, Apply, Fix, YCode, If, Prim, Quote, Eval, Specialize,
@@ -145,6 +157,13 @@ export GF2, QueryError, Untyped, Typed, TypeCount, SamplerQuery, DimensionQuery,
        decide_traced, typed_anchor_decider, detype_decider, anchor,
        anchored_honest_answer, repeat_sampler, repeat_decider, anchored_repeat,
        ExecutableRepeat, StageVerifier, AbstractStageVerifier
+
+# TB6: the executable Pauli test and introspection (DESIGN 11).
+export PauliTuple, PauliParams, pauli_sampler, tilde_S_intro, graph_sampler, intro_sampler,
+       pauli_decider, diagnostic_decider, typed_intro_decider, introspect, ExecutableIntrospect,
+       IntroChildCall, intro_decide_traced, intro_query_plan, pauli_policy_report, policy_report_text,
+       IntroInstance, honest_transcript, typed_decision, detyped_decision, enumerate_branches,
+       seeded_chooser, epr_tableau, measure!, measure_family!, PauliString, pauli_string, FuelExhausted
 
 include("precompile.jl")
 include("frontend/precompile_frontend.jl")

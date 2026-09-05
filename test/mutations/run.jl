@@ -234,6 +234,12 @@ include("tb3_r2.jl")
 include("tb4_compress.jl")
 # briefs/39-tb5-descriptions-repeat.md: the TB5 mutants (M5-*, M-factor-partition, M9-*, per-check-family).
 include("tb5_repeat.jl")
+# briefs/77-tb5-repair-r1.md: the TB0 ratio gate's red witness (suite driver mutant).
+include("tb5_gate.jl")
+# briefs/43-tb6-introspect.md: the TB6 mutants (M6-*, M-factor-partition, M-detype-view-orientation, M-intro-fuel, TB6a's three).
+include("tb6_introspect.jl")
+# TB6 mutants join the queue once src/introspect is included (briefs/43); until then the tuple is empty.
+const TB6_QUEUE = occursin("introspect/introspect.jl", read(joinpath(ROOT, "src", "MIPStarLambda.jl"), String)) ? TB6_MUTANTS : ()
 
 const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_DEG_MUTANT, TB1_LEVEL_MUTANT,
@@ -275,6 +281,13 @@ const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
                      TB3_N13_MUTANT)
 
 function _rung(mutant::Mutant)
+    # The suite driver itself (the TB0 calibration-ratio gate lives there):
+    # the whole suite runs, TB0 selected in full.
+    mutant.target == "tb0_gate" && return (:suite, "runtests.jl", "TB0_TARGET", "all")
+    startswith(mutant.target, "tb6a_") && return (:tb6a, "tb6a_audit.jl",
+        "TB6A_TARGET", mutant.target)
+    startswith(mutant.target, "tb6b_") && return (:tb6b, "tb6b_introspect.jl",
+        "TB6B_TARGET", mutant.target)
     startswith(mutant.target, "tb5_") && return (:tb5, "tb5_repeat.jl",
         "TB5_TARGET", mutant.target)
     startswith(mutant.target, "tb4_") && return (:tb4, "tb4_compress_ir.jl",
@@ -330,7 +343,7 @@ function unmutated_baseline(key, index::Int, temporary::String)
 end
 
 function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
-    _, test_name, target_variable, target_name = _rung(mutant)
+    rung, test_name, target_variable, target_name = _rung(mutant)
     sandbox = joinpath(temporary, "mutant-$(index)")
     mkpath(sandbox)
 
@@ -338,6 +351,23 @@ function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
     occurrences = count(mutant.before, original)
     occurrences == 1 || error("mutation $(mutant.label) matched $occurrences source sites")
     mutated_path = joinpath(sandbox, basename(mutant.source))
+    if rung == :suite
+        # A mutant of the suite driver includes its sibling rung files
+        # relative to itself and those read ground-truth/docs relative to
+        # their own directory: the sandbox shadows the repository (every
+        # top-level entry linked, `test/` rebuilt from links) with only the
+        # mutated driver replaced.
+        for entry in readdir(ROOT)
+            entry == "test" && continue
+            symlink(joinpath(ROOT, entry), joinpath(sandbox, entry))
+        end
+        mkpath(joinpath(sandbox, "test"))
+        for entry in readdir(joinpath(ROOT, "test"))
+            "test/" * entry == mutant.source && continue
+            symlink(joinpath(ROOT, "test", entry), joinpath(sandbox, "test", entry))
+        end
+        mutated_path = joinpath(sandbox, mutant.source)
+    end
     write(mutated_path, replace(original, mutant.before => mutant.after; count=1))
 
     test_path = joinpath(ROOT, "test", test_name)
@@ -380,7 +410,8 @@ println("package image ready after ", round(time() - started; digits=2), " s")
 queue = Tuple{String,Mutant}[]
 for (name, mutants) in (("TB0", MUTANTS), ("TB1", TB1_MUTANTS),
                         ("TB2", TB2_MUTANTS), ("TB3", TB3_MUTANTS),
-                        ("TB4", TB4_MUTANTS), ("TB5", TB5_MUTANTS)), mutant in mutants
+                        ("TB4", TB4_MUTANTS), ("TB5", TB5_MUTANTS),
+                        ("SUITE", SUITE_MUTANTS), ("TB6", TB6_QUEUE)), mutant in mutants
     selected(mutant) && push!(queue, (name, mutant))
 end
 baseline_keys = unique(baseline_key(mutant) for (_, mutant) in queue)

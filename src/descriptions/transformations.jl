@@ -14,7 +14,7 @@
 # `expected_laws` in laws.jl).
 function _term_laws(term, parts::Tuple)
     tag = term[1]
-    if tag in (:Pair, :TypedFamily)
+    if tag in (:Pair, :TypedFamily, :Pauli, :Intro, :Graph)
         m = compile_sampler(term)
         return (; field=m.q, level=m.level, dimension=m.dim, query_time=:(TIME_S(n)), k=nothing)
     end
@@ -141,7 +141,8 @@ end
 # Child calls per query at index n: the Marginal at the top stage on every
 # chain-set seed (the maximum over seeds is the law's count; a seed that
 # reveals no type or no reachable block issues fewer), Factor and Linear at
-# stage 1 on the zero prefix; `at_most` laws (detype, anchor) are bounds.
+# stage 1 on the zero prefix, all three pinned exactly; `at_most` laws
+# (detype, anchor) are bounds (verdicts/tb5-r1.md O2).
 function _metered_node(S::SamplerDescription, n::Int, expected::Int, law::String, seeds; at_most::Bool=false)
     counts(x) = begin
         s = _raise(Dimension(x, n))
@@ -161,8 +162,10 @@ function _metered_node(S::SamplerDescription, n::Int, expected::Int, law::String
     measured = safe(S)
     replay = x -> begin
         c = safe(x)
-        ok = (at_most ? 0 <= c.marginal <= expected : c.marginal == expected) &&
-             0 <= c.factor <= expected && 0 <= c.linear <= expected
+        # verdicts/tb5-r1.md O2: Factor and Linear are PINNED exactly (like
+        # Marginal) unless the law is an upper bound (`at_most`).
+        ok = at_most ? (0 <= c.marginal <= expected && 0 <= c.factor <= expected && 0 <= c.linear <= expected) :
+                       (c.marginal == expected && c.factor == expected && c.linear == expected)
         CheckResult(ok, :metered_calls; location=:MeteredCalls, expected, actual=c)
     end
     CertNode(CHECKED, :MeteredCalls;
