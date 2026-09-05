@@ -26,11 +26,20 @@ end
 # A top-level value is padded on its ambient space F^n. A top-level zero map
 # declared on the empty register is the zero map on F^n (the empty register
 # only marks chain terminals), so its promotion takes V_1 = {1..n}
-# (DESIGN 9.4; verdicts/tb1-r3.md N16). Continuations never pass through
-# here: `_pad_tail` promotes them on their rest register.
+# (DESIGN 9.4; verdicts/tb1-r3.md N16). A top-level zero map declared on a
+# proper nonempty sub-register is malformed: every DESIGN 9.4 originator of
+# a zero map is whole-space, and promoting such a value on its register
+# yields a level-ell value violating enu:cl-space-sum, so the promotion is
+# refused (verdicts/tb1-r4.md N25). Continuations never pass through here:
+# `_pad_tail` promotes them on their rest register.
 _pad_top(L::AbstractCL, extra::Int) = _pad_tail(L, extra)
-_pad_top(L::CLZero{F}, extra::Int) where {F} =
-    _pad_tail(isempty(L.indices) && extra > 0 ? CLZero(F, seed_dim(L)) : L, extra)
+function _pad_top(L::CLZero{F}, extra::Int) where {F}
+    extra == 0 && return L
+    isempty(L.indices) && return _pad_tail(CLZero(F, seed_dim(L)), extra)
+    _register(L) == 1:seed_dim(L) ||
+        throw(ArgumentError("a top-level zero map declared on a proper sub-register cannot be promoted (DESIGN 9.4, verdicts/tb1-r4.md N25)"))
+    _pad_tail(L, extra)
+end
 
 function _pad_tail(L::CLStep{F}, extra::Int) where {F}
     extra == 0 && return L

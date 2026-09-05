@@ -680,6 +680,11 @@ function decode_cl(bytes::AbstractVector{UInt8})
     L = _term_to_cl(F, term)
     (seed_dim(L), level(L)) == (n, ell) ||
         throw(ArgumentError("description header disagrees with its term"))
+    # Re-impose the top stage's ambient partition factor (+) rest = {1..n}
+    # that the public constructor enforces; inner stages are checked against
+    # their enclosing rest register by `_clstep` (verdicts/tb2-r4.md N26).
+    (L isa CLZero || _register(L) == 1:n) ||
+        throw(ArgumentError("description's top stage does not span the ambient basis"))
     L
 end
 

@@ -178,6 +178,12 @@ include("tb1_memo_unbounded.jl")
 include("tb1_describe_matrix.jl")
 include("tb1_prefix_walk.jl")
 include("tb1_factor_reachability.jl")
+# verdicts/tb1-r4.md N23-N26 and verdicts/tb2-r4.md N26 (brief 59).
+include("tb1_off_line.jl")
+include("tb1_describe_transpose.jl")
+include("tb1_describe_zero_register.jl")
+include("tb1_pad_subregister.jl")
+include("tb1_decode_ambient.jl")
 include("tb2_formula.jl")
 include("tb2_g3.jl")
 include("tb2_line.jl")
@@ -194,6 +200,9 @@ include("tb2_opaque.jl")
 # verdicts/tb2-r3.md N6, N10 (brief 54).
 include("tb2_describe_byaxis_collapse.jl")
 include("tb2_guard_split.jl")
+# verdicts/tb2-r4.md NF1, NF2 (brief 59).
+include("tb2_decider_guard_widened.jl")
+include("tb2_global_consistency_first_entry.jl")
 # briefs/23-tb3.md: the five TB3 front-end mutants.
 include("tb3_acc.jl")
 include("tb3_size.jl")
@@ -215,13 +224,18 @@ const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_LINEAR_NARROWED_MUTANT, TB1_REPLAY_SKIPS_K_MUTANT,
                      TB1_REPLAY_SKIPS_UNION_MUTANT, TB1_MEMO_UNBOUNDED_MUTANT,
                      TB1_DESCRIBE_MATRIX_MUTANT, TB1_PREFIX_WALK_MUTANT,
-                     TB1_FACTOR_REACHABILITY_MUTANT)
+                     TB1_FACTOR_REACHABILITY_MUTANT,
+                     TB1_OFF_LINE_MUTANT, TB1_DESCRIBE_TRANSPOSE_MUTANT,
+                     TB1_DESCRIBE_ZERO_REGISTER_MUTANT, TB1_PAD_SUBREGISTER_MUTANT,
+                     TB1_DECODE_AMBIENT_MUTANT)
 const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_GUARD_MUTANT, TB2_I345_MUTANT,
                      TB2_MC1_MUTANT, TB2_MC2_MUTANT, TB2_MC3_MUTANT,
                      TB2_ND2_MUTANT, TB2_ND4_MUTANT, TB2_TENSOR_MUTANT,
                      TB2_OPAQUE_MUTANT, TB2_DESCRIBE_BYAXIS_COLLAPSE_MUTANT,
-                     TB2_GUARD_SPLIT_MUTANT)
+                     TB2_GUARD_SPLIT_MUTANT,
+                     TB2_DECIDER_GUARD_WIDENED_MUTANT,
+                     TB2_GLOBAL_CONSISTENCY_FIRST_ENTRY_MUTANT)
 const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
                      TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT)
 

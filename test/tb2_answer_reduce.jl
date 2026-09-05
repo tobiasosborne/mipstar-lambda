@@ -562,6 +562,93 @@ if tb2_runs("no_check")
     end
 end
 
+# The decider names its low-degree branches by line kind; the enumerator
+# names the check (verdicts/tb2-r4.md NF1).
+const TB2_GUARD_NAMES = Dict(
+    :global_consistency => :global_consistency,
+    :input_consistency => :input_consistency,
+    :input_axis => :input_low_degree, :input_diagonal => :input_low_degree,
+    :proof_consistency => :proof_consistency,
+    :proof_individual_axis => :proof_individual_low_degree,
+    :proof_individual_diagonal => :proof_individual_low_degree,
+    :proof_simultaneous_axis => :proof_simultaneous_low_degree,
+    :proof_simultaneous_diagonal => :proof_simultaneous_low_degree,
+    :game => :game)
+
+if tb2_runs("lockstep")
+    @testset "TB2 decider/enumerator lockstep on all 2916 pairs; step 1 at arity 22 (verdicts/tb2-r4.md NF1, NF2)" begin
+        reduced = tb2_checked_reduction().term
+        F = GF2048
+        # NF1: `typed_answer_reduced_decider` itself, on every ordered type
+        # pair at the all-zero seed with the certificate replay's all-zero
+        # answers (honest for every check there), must fire exactly the
+        # branches `answer_reduce_guard_branches` enumerates: an empty trace
+        # on the 2736 check-free pairs, the enumerated set elsewhere.
+        zero_seed = ntuple(_ -> zero(F), seed_dim(reduced.sampler))
+        mismatches = 0
+        accepted = 0
+        silent = 0
+        first_mismatch = nothing
+        for left in reduced.sampler.types, right in reduced.sampler.types
+            left_q, right_q = sample_answer_reduce_questions(reduced, left, right, zero_seed)
+            left_a = MIPStarLambda._answer_reduce_replay_answer(F, left.pcp, reduced.decider.params)
+            right_a = MIPStarLambda._answer_reduce_replay_answer(F, right.pcp, reduced.decider.params)
+            decision = typed_answer_reduced_decider(reduced.decider, left, left_q,
+                                                    right, right_q, left_a, right_a)
+            expected = Set(answer_reduce_guard_branches(reduced.decider, left, right))
+            actual = Set(TB2_GUARD_NAMES[entry.branch] for entry in decision.trace)
+            if actual != expected
+                mismatches += 1
+                first_mismatch === nothing &&
+                    (first_mismatch = (left, right, actual, expected, decision.result.rule))
+            end
+            accepted += passed(decision)
+            silent += isempty(decision.trace)
+        end
+        println("MUTATION_EXPECTED_RULE guard_lockstep mismatches=", mismatches,
+                " accepted=", accepted, " silent=", silent, " first=", first_mismatch)
+        @test mismatches == 0
+        @test accepted == 2916
+        @test silent == 2736
+        # NF2: fig:decider-pcp item 1 compares the FULL answer. On the five
+        # equal-type copy-6 pairs (22-entry bundles; step 1 is the only
+        # guard except on (oracle,Point_6)), corrupting entry 1, 6, 7 or
+        # m'+6 = 22 of the right answer must be rejected by step 1 itself.
+        strategy = honest_pcp_strategy(tb2_proof(:degenerate), TB2_PARAMS)
+        seed = tb2_seed(reduced.sampler, 5)
+        rejected_with_rule = 0
+        trials = 0
+        for kind in (tb2_atype(:alice, :Point, 6), tb2_atype(:bob, :Point, 6),
+                     tb2_atype(:oracle, :ALine, 6), tb2_atype(:oracle, :DLine, 6),
+                     tb2_atype(:oracle, :Point, 6))
+            left_q, right_q = sample_answer_reduce_questions(reduced, kind, kind, seed)
+            left_a = honest_pcp_answer(strategy, kind.pcp, left_q.pcp)
+            right_a = honest_pcp_answer(strategy, kind.pcp, right_q.pcp)
+            @test length(right_a) == TB2_PARAMS.m_prime + 6 == 22
+            honest = typed_answer_reduced_decider(reduced.decider, kind, left_q,
+                                                  kind, right_q, left_a, right_a)
+            @test passed(honest)
+            @test 1 in Set(entry.step for entry in honest.trace)
+            for entry in (1, 6, 7, TB2_PARAMS.m_prime + 6)
+                corrupted = typed_answer_reduced_decider(reduced.decider, kind, left_q,
+                    kind, right_q, left_a, MIPStarLambda._corrupt_replay_answer(right_a, entry))
+                trials += 1
+                rejected_with_rule += !passed(corrupted) &&
+                                      corrupted.result.rule == :global_consistency
+                @test !passed(corrupted)
+                @test corrupted.result.rule == :global_consistency
+                @test corrupted.trace[end].step == 1
+            end
+        end
+        println("MUTATION_EXPECTED_RULE global_consistency arity=22 rejected_with_rule=",
+                rejected_with_rule, "/", trials)
+        @test (rejected_with_rule, trials) == (20, 20)
+        println("TB2 lockstep: decider trace == enumerator on 2916/2916 ordered pairs",
+                " (2736 silent, 180 guarded) at the zero seed; step 1 rejects entries",
+                " 1/6/7/22 on 5 equal-type copy-6 pairs at tb2_seed 5")
+    end
+end
+
 if tb2_runs("replay_seeds")
     @testset "TB2 seven-case replay at three seeds (verdicts/tb2-r3.md N9)" begin
         # The certificate replay (`_answer_reduce_replay_steps`) runs the

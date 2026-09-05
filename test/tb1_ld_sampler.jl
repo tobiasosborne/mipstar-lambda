@@ -99,12 +99,13 @@ if tb1_runs("levels")
         # enforcement of DD-7's "level cannot be forged"; each guard is
         # reached through `apply`, never at construction.
         one1 = reshape([one(TB1_F)], 1, 1)
-        # A genuine level-1 map on register {2} (promoted zero map): only the
+        # A genuine level-1 map on register {2} (a zero map promoted in-chain
+        # on its rest register, verdicts/tb1-r4.md N25): only the
         # continuation-level guard can reject it.
         wrong_level = CLStep(TB1_F, 2, (1,), (2,), one1, CLZero(TB1_F, 2, (2,))) do _
-            pad_level(CLZero(TB1_F, 2, (2,)), 1)
+            MIPStarLambda._pad_tail(CLZero(TB1_F, 2, (2,)), 1)
         end
-        @test level(pad_level(CLZero(TB1_F, 2, (2,)), 1)) == 1
+        @test level(MIPStarLambda._pad_tail(CLZero(TB1_F, 2, (2,)), 1)) == 1
         @test_throws ArgumentError apply(wrong_level, (TB1_F(1), TB1_F(2)))
         wrong_register = CLStep(TB1_F, 2, (1,), (2,), one1, CLZero(TB1_F, 2, (2,))) do _
             CLZero(TB1_F, 2, (1,))
@@ -183,9 +184,20 @@ if tb1_runs("levels")
         @test passed(verify_certificate(pad_level_evidence(
             CLZero(TB1_F, 5, Int[]), 3, pad_seeds; chain_set_id="tb1-pad-empty")))
         @test marginal_k(padded_axis, seed, 3).factor_spaces[3] == Int[]
-        # A sub-register zero map is still promoted on its own register.
-        @test marginal_k(pad_level(CLZero(TB1_F, 5, (2,)), 2), seed, 2).factor_spaces ==
+        # verdicts/tb1-r4.md N25: a top-level zero map declared on a proper
+        # sub-register is malformed (DESIGN 9.4's originators are all
+        # whole-space) and its promotion is refused rather than producing a
+        # value that fails enu:cl-space-sum; padding to its own level 0 is
+        # the identity, and the same value is still promotable in-chain on
+        # its rest register.
+        @test_throws ArgumentError pad_level(CLZero(TB1_F, 5, (2,)), 2)
+        @test_throws ArgumentError pad_level_evidence(CLZero(TB1_F, 5, (2,)), 2, pad_seeds;
+                                                      chain_set_id="tb1-pad-sub")
+        @test register_indices(pad_level(CLZero(TB1_F, 5, (2,)), 0)) == (2,)
+        @test marginal_k(MIPStarLambda._pad_tail(CLZero(TB1_F, 5, (2,)), 2), seed, 2).factor_spaces ==
               [[2], Int[]]
+        println("MUTATION_EXPECTED_RULE pad_subregister refused=",
+                try pad_level(CLZero(TB1_F, 5, (2,)), 2); false catch e; e isa ArgumentError end)
     end
 end
 
@@ -343,6 +355,54 @@ if tb1_runs("describe")
         @test point_bytes[1:40] == alt_bytes[1:40] && point_bytes[66:75] == alt_bytes[66:75]
         @test_throws ArgumentError decode_cl(point_bytes[1:74])
         @test_throws ArgumentError decode_cl(vcat(point_bytes, 0x00))
+        # verdicts/tb1-r4.md N24: every stage matrix above is diagonal, so the
+        # matrix index order is pinned on a one-stage map with the
+        # nonsymmetric [1 1; 0 1] on {1,2}: header 13, Step tag 1, seed_dim 4,
+        # factor 4+2*2, rest 4, count 4 => the four GF(8) entries sit at
+        # bytes 35:38 in row-major order (1,1),(1,2),(2,1),(2,2).
+        shear = [one(TB1_F) one(TB1_F); zero(TB1_F) one(TB1_F)]
+        shear_map = CLStep(TB1_F, 2, [1, 2], Int[], shear, CLZero(TB1_F, 2, Int[]))
+        shear_map_t = CLStep(TB1_F, 2, [1, 2], Int[], permutedims(shear),
+                             CLZero(TB1_F, 2, Int[]))
+        shear_bytes = canonical_bytes(describe_cl(shear_map))
+        shear_bytes_t = canonical_bytes(describe_cl(shear_map_t))
+        row_major = shear_bytes[35:38] == UInt8[1, 1, 0, 1] &&
+                    shear_bytes_t[35:38] == UInt8[1, 0, 1, 1]
+        println("MUTATION_EXPECTED_RULE describe_transpose row_major=", row_major)
+        @test length(shear_bytes) == 38 + 1 + 9
+        @test row_major
+        @test shear_bytes != shear_bytes_t
+        @test shear_bytes[1:34] == shear_bytes_t[1:34] && shear_bytes[39:end] == shear_bytes_t[39:end]
+        @test apply(shear_map, (TB1_F(3), TB1_F(5))) == (TB1_F(3) + TB1_F(5), TB1_F(5))
+        @test apply(decode_cl(shear_bytes), (TB1_F(3), TB1_F(5))) == apply(shear_map, (TB1_F(3), TB1_F(5)))
+        @test apply(decode_cl(shear_bytes_t), (TB1_F(3), TB1_F(5))) == apply(shear_map_t, (TB1_F(3), TB1_F(5)))
+        @test apply(shear_map, (TB1_F(3), TB1_F(5))) != apply(shear_map_t, (TB1_F(3), TB1_F(5)))
+        # verdicts/tb1-r4.md N26: a CLZero's register is in the bytes and is
+        # recovered, so decode_cl is a left inverse on zero components too.
+        sub_zero = CLZero(TB1_F, 5, (2,))
+        zero_register_ok =
+            register_indices(decode_cl(canonical_bytes(describe_cl(sub_zero)))) == (2,) &&
+            canonical_bytes(describe_cl(CLZero(TB1_F, 5))) !=
+            canonical_bytes(describe_cl(CLZero(TB1_F, 5, Int[])))
+        println("MUTATION_EXPECTED_RULE describe_zero_register ok=", zero_register_ok)
+        @test zero_register_ok
+        @test register_indices(decode_cl(canonical_bytes(describe_cl(sub_zero)))) == (2,)
+        @test register_indices(decode_cl(canonical_bytes(describe_cl(CLZero(TB1_F, 5))))) == (1, 2, 3, 4, 5)
+        @test register_indices(decode_cl(canonical_bytes(describe_cl(CLZero(TB1_F, 5, Int[]))))) == ()
+        @test length(Set(canonical_bytes(describe_cl(L)) for L in
+                         (sub_zero, CLZero(TB1_F, 5), CLZero(TB1_F, 5, Int[])))) == 3
+        # verdicts/tb2-r4.md N26: decode_cl re-imposes the top stage's
+        # ambient partition factor (+) rest = {1..n}; a description whose top
+        # stage spans only {1,2} of F^5 (buildable only through the internal
+        # constructor) is refused.
+        nonspanning = MIPStarLambda._clstep(TB1_F, 5, [1, 2], Int[], zeros(TB1_F, 2, 2),
+            CLZero(TB1_F, 5, Int[]), MIPStarLambda.BranchConst(CLZero(TB1_F, 5, Int[]));
+            require_ambient=false)
+        @test register_indices(nonspanning) == (1, 2)
+        @test describe_cl(nonspanning) isa CLDescription
+        @test_throws ArgumentError decode_cl(canonical_bytes(describe_cl(nonspanning)))
+        println("MUTATION_EXPECTED_RULE decode_ambient refused=",
+                try decode_cl(canonical_bytes(describe_cl(nonspanning))); false catch e; e isa ArgumentError end)
         # An opaque host closure stays usable in memory and is NotDescribable.
         closure = CLStep(TB1_F, 2, (1,), (2,), reshape([one(TB1_F)], 1, 1),
                          CLZero(TB1_F, 2, (2,))) do _
@@ -610,6 +670,9 @@ if tb1_runs("decider")
                                                (off_line_hits=1,)),)),
                            evidence.certificate)
         @test !passed(verify_certificate(tampered))
+        # verdicts/tb1-r4.md N23: the counter must be able to go positive.
+        println("MUTATION_EXPECTED_RULE off_line reached=", report.off_line_hits > 0,
+                " hits=", report.off_line_hits)
         println("TB1 D^ld: type_pairs=9 seeds=32768 support_decisions=",
                 report.checked, " non_noop=", report.non_noop,
                 " (equal-type tautologies=", report.equal_type,
@@ -682,6 +745,10 @@ if tb1_runs("decider_rejections")
         off_line = ld_decider(params, :ALine, raw_axis, :Point,
                               off_line_point, (honest_axis,), matching_at_pivot)
         @test off_line.rule == :ld_axis_point && !passed(off_line)
+        # verdicts/tb1-r4.md N23: the off-line branch is the one that marks
+        # the question, and `ld_honest_sweep` counts exactly that marker.
+        @test off_line.location == :question
+        @test off_line.expected == :point_on_line
 
         malformed = ld_decider(params, :Point, (GF8(1), GF8(2)),
             :Point, (GF8(1), GF8(2)), (GF8(0),), (GF8(0),))
