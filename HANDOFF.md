@@ -37,7 +37,7 @@ Session 3 was running four agents when the user restarted the machine. Everythin
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
 | **Analytic doc (sidequest)** | **CONVERGED** r3 PASS (`verdicts/analytic-doc-r3.md`); 92 pp, 110 figures; PDF v6 sent | pedagogy round (bd d48: n6–n10) and lockstep updates as TB3–TB7 land — low priority |
 | Figure atlas canvas | published: https://claude.ai/code/artifact/d3c355d4-541f-4983-a57f-4d6d7ca097f1 (user approved the direction) | optional: re-seed with rendered figure PNGs as a review gallery (working files in the session scratchpad `atlas/` — regenerate from `docs/analytic` if lost) |
-| Tutorial artifact | bd issue open | after TB4; drive from real trace printouts |
+| Tutorial artifact | **v1 PUBLISHED**: https://claude.ai/code/artifact/f58405e9-db42-4e9b-ab26-aa41c5c9ff12 (source `docs/tutorial/compress-explained.html`, brief 64; 16 chapters, six WebM clips, three.js machine room; every number from the repo) | republish (same file path in this session, or `url`) as TB3–TB7 land: chapters 11–14 flip from "designed"/"no claim row" to executed; keep the claims table verbatim |
 
 If a worker is running when you resume: `pgrep -fa 'codex exec'`; if none, its lane's files are final — verify (compile / tests), commit with a status-bearing message, push.
 
