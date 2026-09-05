@@ -294,7 +294,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     <li><a href="#ch9"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">The PCP verifier</span><span class="rail-meta">TB0 · C1 TESTED</span></span></a></li>
     <li><a href="#ch10"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Answer reduction</span><span class="rail-meta">TB2 · C9 TESTED</span></span></a></li>
     <li><a href="#ch11"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">The quoted front end</span><span class="rail-meta">TB3 · C10 TESTED</span></span></a></li>
-    <li><a href="#ch12"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="none"/></svg><span><span class="rail-name">Introspection</span><span class="rail-meta">TB6 · C14 CONJECTURE</span></span></a></li>
+    <li><a href="#ch12"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Introspection</span><span class="rail-meta">TB6 · C14 CONJECTURE (verdict pending)</span></span></a></li>
     <li><a href="#ch13"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Anchoring &amp; repetition</span><span class="rail-meta">TB5 · C13 TESTED</span></span></a></li>
     <li><a href="#ch14"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="none"/></svg><span><span class="rail-name">Compress, Y Ψ, Halting</span><span class="rail-meta">TB7 · C15 CONJECTURE</span></span></a></li>
     <li><a href="#ch15"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">How the claims were earned</span><span class="rail-meta">verdicts/ · 84 mutants</span></span></a></li>
@@ -309,7 +309,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
   <p class="kicker">A working prototype of the MIP*=RE compression step</p>
   <h1>Compress, Explained</h1>
   <p class="standfirst">Ji, Natarajan, Vidick, Wright and Yuen prove <b>MIP* = RE</b> by building a machine that eats a verifier's <em>source code</em> and returns a verifier that does the same job exponentially faster. This page is a tour of that machine as we have actually built it in Julia — every instrument below runs on objects the test suite printed, and every number is stamped with what it is allowed to claim.</p>
-  <p class="sub">The one law of this page: <b>nothing is stated more strongly than <code>claims/CLAIMS.md</code> allows.</b> Two chapters describe machinery that is designed but has not yet run (introspection, and the end-to-end Compress); they say so in the margin, in the figure, and in the text. Sixteen instruments, six clips, one machine room.</p>
+  <p class="sub">The one law of this page: <b>nothing is stated more strongly than <code>claims/CLAIMS.md</code> allows.</b> One chapter describes machinery that has not yet run end to end (the composed Compress and the halting fixed point); it says so in the margin, in the figure, and in the text. Sixteen instruments, six clips, one machine room.</p>
 </header>
 
 <section class="chapter" id="overview">
@@ -333,10 +333,10 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
           <text x="71" y="108" text-anchor="middle" font-size="11" fill="var(--inkmute)">a description</text>
 
           <line x1="140" y1="96" x2="192" y2="96" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
-          <rect x="198" y="62" width="150" height="68" rx="2" fill="var(--cited-lt)" stroke="var(--cited)" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <rect x="198" y="62" width="150" height="68" rx="2" fill="var(--check-lt)" stroke="var(--check)" stroke-width="1.4"/>
           <text x="273" y="86" text-anchor="middle" font-weight="600">Introspect</text>
           <text x="273" y="104" text-anchor="middle" font-size="11" fill="var(--inkmute)">level 9 → 5</text>
-          <text x="273" y="120" text-anchor="middle" font-size="10.5" fill="var(--inkmute)">designed</text>
+          <text x="273" y="120" text-anchor="middle" font-size="10.5" fill="var(--check)">executes</text>
 
           <line x1="354" y1="96" x2="400" y2="96" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
           <rect x="406" y="62" width="164" height="68" rx="2" fill="var(--check-lt)" stroke="var(--check)" stroke-width="1.4"/>
@@ -356,24 +356,24 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
 
           <path d="M840 130 L840 190 L71 190 L71 128" fill="none" stroke="var(--term)" stroke-width="1.4" marker-end="url(#ar)" stroke-dasharray="6 4"/>
           <text x="455" y="182" text-anchor="middle" font-size="12" fill="var(--term)">the Halting verifier feeds its own compressed code back in: D = Y Ψ</text>
-          <text x="8" y="228" font-size="11.5" fill="var(--inkmute)">Green = the prototype executes it on real objects (Repeat since TB5). Slate dashed = designed here, executed nowhere yet.</text>
+          <text x="8" y="228" font-size="11.5" fill="var(--inkmute)">Green = the prototype executes it on real objects (Repeat since TB5, Introspect since TB6). The composition itself is TB7.</text>
           <text x="8" y="42" font-size="12" fill="var(--inkmute)">Compress(V, λ) = Repeat<tspan font-size="10" dy="3">L,τ</tspan><tspan dy="-3"> ∘ AnswerReduce</tspan><tspan font-size="10" dy="3">L,μ,γ</tspan><tspan dy="-3"> ∘ Introspect</tspan><tspan font-size="10" dy="3">L,9</tspan><tspan dy="-3"> (V)</tspan></text>
         </g>
       </svg>
       </div></div>
-      <figcaption class="fig">The composition is trivial; the content is that each stage must preserve perfect completeness, keep the question distribution inside one closed algebra, and shrink runtime — all at once. Repeat became executable at TB5 (chapter 13); Introspect (chapter 12) is the remaining dashed box, and the end-to-end Compress of chapter 14 is TB7.</figcaption>
+      <figcaption class="fig">The composition is trivial; the content is that each stage must preserve perfect completeness, keep the question distribution inside one closed algebra, and shrink runtime — all at once. Repeat became executable at TB5 (chapter 13) and Introspect at TB6 (chapter 12); the end-to-end Compress of chapter 14 is TB7, now being built.</figcaption>
     </figure>
 
     <div class="grid3">
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">executed</p>
-        <p class="readout" style="font-size:26px">2393 / 2393</p>
-        <p class="note">assertions pass in <code>test/runtests.jl</code> (commit 8af9073, TB0 test body <span class="num">15.4 s</span> against a 60 s wall-clock gate under the performance power profile; the same body reads 74–85 s in powersave at ~1 GHz — the gate is CPU-clock-bound, not structurally marginal).</p>
+        <p class="readout" style="font-size:26px">12105 / 12105</p>
+        <p class="note">assertions pass in <code>test/runtests.jl</code> (commit 0ec462e, TB0 test body <span class="num">15.3 s</span> against a 60 s wall-clock gate under the performance power profile; the same body reads 74–85 s in powersave at ~1 GHz — the gate is CPU-clock-bound, not structurally marginal).</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">red-capable</p>
-        <p class="readout" style="font-size:26px">157 / 157</p>
-        <p class="note">registered mutants KILLED, 64/64 baselines OK, 666 s. Nothing SURVIVED, nothing UNATTRIBUTABLE.</p>
+        <p class="readout" style="font-size:26px">182 / 182</p>
+        <p class="note">registered mutants KILLED, 75/75 baselines OK, 1011 s. Nothing SURVIVED, nothing UNATTRIBUTABLE.</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">still open</p>
@@ -1085,11 +1085,11 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     </div>
   </div>
   <div class="ch-body">
-    <p class="lede"><span class="stamp">designed, not yet executable</span></p>
-    <p>Everything in this chapter is transcribed into <code>docs/DESIGN.md</code> §11 with source line references, and nothing in it has run. It is here because it is the piece that makes compression exponential: a verifier of index <span class="mono">n</span> would need <span class="mono">2<sup>n</sup></span>-bit questions, so instead the provers are made to generate their own questions from shared randomness, and the verifier checks the generation with a Pauli test.</p>
+    <p class="lede"><span class="stamp" style="border-color:var(--check);background:var(--check-lt)">executed at TB6 — C14 still CONJECTURE, critic round 1 in progress</span></p>
+    <p>Everything in this chapter is transcribed into <code>docs/DESIGN.md</code> §11 with source line references, and as of TB6 it runs: the Pauli sampler and decider, the introspection sampler (typed, then downsized and detyped to level 5 with dimension 142 on fixture E and 179 on fixture M), and the introspection decider, which reads the input verifier only through the four sampler queries on the paper's schedule and meters every child call in units of one primitive interpreter step. Under the paper's budget <span class="mono">R = N<sup>λ</sup></span> every honest child call on fixture M times out at exactly 16 steps — so acceptance under the source gate is withdrawn, printed as <span class="mono">toy_child_fuel = FAIL(owner=tb6-child-meter)</span> — and under the explicit toy budget of 65,536 steps every call returns (measured costs 5 to 60 steps per mode). The honest strategy is simulated exactly on a stabilizer tableau of 6 (E) and 26 (M) qubits; every one of the 14,378 enumerated outcomes on E carries an exact dyadic probability with total mass one. The paper's literal <span class="mono">≥ 3Q</span> guard rejects exactly 10 of 116 and 22 of 128 oriented type pairs, which is why the operative guard reads <span class="mono">&gt; 3Q</span>. Two further places where the source as written does not typecheck surfaced as red tests and are carried as <span class="mono">SOURCE_REPAIR</span> nodes (the dual-map complement and the hiding suffix register); the critic is adjudicating both. It is here because it is the piece that makes compression exponential: a verifier of index <span class="mono">n</span> would need <span class="mono">2<sup>n</sup></span>-bit questions, so instead the provers are made to generate their own questions from shared randomness, and the verifier checks the generation with a Pauli test.</p>
 
     <div class="panel">
-      <div class="panel-bar"><b>Instrument · the Pauli basis and the 3Q boundary</b><span>DESIGN §11.1–§11.4 · design only</span></div>
+      <div class="panel-bar"><b>Instrument · the Pauli basis and the 3Q boundary</b><span>DESIGN §11.1–§11.4 · executed at TB6 on fixtures E and M</span></div>
       <div class="panel-body">
         <div class="grid2">
           <div>
@@ -1106,13 +1106,13 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
               <tr><td>Ŝ<sup>intro</sup> typed</td><td class="n">field 2, level 3, dim (3m+3)·log₂q</td></tr>
               <tr><td>S<sup>intro</sup> untyped</td><td class="n">field 2, <b>level 5</b>, + 4·(32+2ℓ)</td></tr>
             </tbody></table>
-            <p class="note" style="margin-top:12px">These are literal finite reconstructions of <span class="mono">fig:type-graph-ms</span>, <span class="mono">fig:type-graph-pauli</span> and <span class="mono">fig:type-graph-intro</span>, checked against the explicit graphs — an audit of the transcription, not of the theorem.</p>
+            <p class="note" style="margin-top:12px">These are literal finite reconstructions of <span class="mono">fig:type-graph-ms</span>, <span class="mono">fig:type-graph-pauli</span> and <span class="mono">fig:type-graph-intro</span>, checked at TB6a against hand-transcribed edge lists (26 types, 86 oriented Pauli pairs; 34/38/50 types and 116/128/164 oriented pairs at ℓ = 1, 3, 9) — an audit of the transcription, not of the theorem.</p>
           </div>
         </div>
       </div>
       <dl class="evidence">
         <div class="ev"><dt>child fuel budget</dt><dd>R = N<sup>λ</sup><small>one metered interpreter step per unit</small></dd></div>
-        <div class="ev warn"><dt>TB6b-E substitutes</dt><dd>65,536<small>toy_child_fuel = FAIL(owner=tb6-child-meter)</small></dd></div>
+        <div class="ev warn"><dt>TB6b substitutes</dt><dd>65,536<small>toy_child_fuel = FAIL(owner=tb6-child-meter); honest calls time out at exactly R under the source budget</small></dd></div>
         <div class="ev"><dt>capacity chain</dt><dd style="font-size:15px">s(N) ≤ R ≤ M ≤ Q<small>the predicate is M ≥ R, not Q ≥ R</small></dd></div>
         <div class="ev"><dt>a, b (thm:pauli constants)</dt><dd style="font-size:15px">symbols<small>a numeric instance is NOT_EVALUABLE</small></dd></div>
       </dl>
@@ -1127,7 +1127,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
 
     <div class="paper-says">
       <span class="lbl">Status, precisely</span>
-      <p>C14 is a <b>CONJECTURE</b>, authorised as such by <code>verdicts/design-v2-r3.md</code>. The Pauli decider's predicates are ordinary field, polynomial-evaluation, parity and equality calls, so they <em>would</em> be executable; quantum rigidity — the actual content of <span class="mono">thm:pauli</span> — is not part of that predicate and remains CITED.</p>
+      <p>C14 is still a <b>CONJECTURE</b> in the claims table: TB6 landed with a proposed TESTED row and its first critic round is running. Both fixtures fail the paper's own <span class="mono">|V| ≤ λ</span> hypothesis, so every hypothesis audit refuses and no theorem conclusion is invoked; what the rung establishes is construction behaviour with every failed predicate printed with an owner. Quantum rigidity — the actual content of <span class="mono">thm:pauli</span> — remains CITED.</p>
       <span class="src">claims/CLAIMS.md C14 · docs/DESIGN.md §11 · gt-07-ldt.tex:1426–1447</span>
     </div>
   </div>
@@ -1291,9 +1291,9 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
       </div>
       <dl class="evidence">
         <div class="ev"><dt>verdict files</dt><dd>36<small>7 PASS · 29 FAIL(…)</small></dd></div>
-        <div class="ev good"><dt>mutants killed</dt><dd>157 / 157<small>64/64 baselines OK, 666 s</small></dd></div>
-        <div class="ev"><dt>suite assertions</dt><dd>2393 / 2393</dd></div>
-        <div class="ev"><dt>TB0 test body</dt><dd>15.4 s<small>vs a 60 s gate; 74–85 s in powersave at ~1 GHz</small></dd></div>
+        <div class="ev good"><dt>mutants killed</dt><dd>182 / 182<small>75/75 baselines OK, 1011 s</small></dd></div>
+        <div class="ev"><dt>suite assertions</dt><dd>12105 / 12105</dd></div>
+        <div class="ev"><dt>TB0 test body</dt><dd>15.3 s<small>vs a 60 s gate; 74–85 s in powersave at ~1 GHz</small></dd></div>
       </dl>
     </div>
 
