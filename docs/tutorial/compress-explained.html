@@ -277,7 +277,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     <li><a href="#ch10"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Answer reduction</span><span class="rail-meta">TB2 · C9 TESTED</span></span></a></li>
     <li><a href="#ch11"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">The quoted front end</span><span class="rail-meta">TB3 · C10 TESTED</span></span></a></li>
     <li><a href="#ch12"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="none"/></svg><span><span class="rail-name">Introspection</span><span class="rail-meta">TB6 · C14 CONJECTURE</span></span></a></li>
-    <li><a href="#ch13"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="none"/></svg><span><span class="rail-name">Anchoring &amp; repetition</span><span class="rail-meta">TB5 · C13 CONJECTURE</span></span></a></li>
+    <li><a href="#ch13"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Anchoring &amp; repetition</span><span class="rail-meta">TB5 · C13 TESTED</span></span></a></li>
     <li><a href="#ch14"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="none"/></svg><span><span class="rail-name">Compress, Y Ψ, Halting</span><span class="rail-meta">TB7 · C15 CONJECTURE</span></span></a></li>
     <li><a href="#ch15"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">How the claims were earned</span><span class="rail-meta">verdicts/ · 84 mutants</span></span></a></li>
     <li><a href="#ch16"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">The certificate tree</span><span class="rail-meta">CHECKED / CITED / ASSUMED</span></span></a></li>
@@ -291,7 +291,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
   <p class="kicker">A working prototype of the MIP*=RE compression step</p>
   <h1>Compress, Explained</h1>
   <p class="standfirst">Ji, Natarajan, Vidick, Wright and Yuen prove <b>MIP* = RE</b> by building a machine that eats a verifier's <em>source code</em> and returns a verifier that does the same job exponentially faster. This page is a tour of that machine as we have actually built it in Julia — every instrument below runs on objects the test suite printed, and every number is stamped with what it is allowed to claim.</p>
-  <p class="sub">The one law of this page: <b>nothing is stated more strongly than <code>claims/CLAIMS.md</code> allows.</b> Four chapters describe machinery that is designed but has never run; they say so in the margin, in the figure, and in the text. Sixteen instruments, six clips, one machine room.</p>
+  <p class="sub">The one law of this page: <b>nothing is stated more strongly than <code>claims/CLAIMS.md</code> allows.</b> Two chapters describe machinery that is designed but has not yet run (introspection, and the end-to-end Compress); they say so in the margin, in the figure, and in the text. Sixteen instruments, six clips, one machine room.</p>
 </header>
 
 <section class="chapter" id="overview">
@@ -327,10 +327,10 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
           <text x="488" y="120" text-anchor="middle" font-size="10.5" fill="var(--check)">executes</text>
 
           <line x1="576" y1="96" x2="622" y2="96" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
-          <rect x="628" y="62" width="140" height="68" rx="2" fill="var(--cited-lt)" stroke="var(--cited)" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <rect x="628" y="62" width="140" height="68" rx="2" fill="var(--check-lt)" stroke="var(--check)" stroke-width="1.4"/>
           <text x="698" y="86" text-anchor="middle" font-weight="600">Repeat</text>
           <text x="698" y="104" text-anchor="middle" font-size="11" fill="var(--inkmute)">level 9 → 9</text>
-          <text x="698" y="120" text-anchor="middle" font-size="10.5" fill="var(--inkmute)">designed</text>
+          <text x="698" y="120" text-anchor="middle" font-size="10.5" fill="var(--check)">executes</text>
 
           <line x1="774" y1="96" x2="820" y2="96" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
           <text x="828" y="92" font-family="var(--f-mono)" font-size="12" fill="var(--desc)">⟨V′⟩</text>
@@ -338,29 +338,29 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
 
           <path d="M840 130 L840 190 L71 190 L71 128" fill="none" stroke="var(--term)" stroke-width="1.4" marker-end="url(#ar)" stroke-dasharray="6 4"/>
           <text x="455" y="182" text-anchor="middle" font-size="12" fill="var(--term)">the Halting verifier feeds its own compressed code back in: D = Y Ψ</text>
-          <text x="8" y="228" font-size="11.5" fill="var(--inkmute)">Green = the prototype executes it on real objects. Slate dashed = designed here, executed nowhere yet.</text>
+          <text x="8" y="228" font-size="11.5" fill="var(--inkmute)">Green = the prototype executes it on real objects (Repeat since TB5). Slate dashed = designed here, executed nowhere yet.</text>
           <text x="8" y="42" font-size="12" fill="var(--inkmute)">Compress(V, λ) = Repeat<tspan font-size="10" dy="3">L,τ</tspan><tspan dy="-3"> ∘ AnswerReduce</tspan><tspan font-size="10" dy="3">L,μ,γ</tspan><tspan dy="-3"> ∘ Introspect</tspan><tspan font-size="10" dy="3">L,9</tspan><tspan dy="-3"> (V)</tspan></text>
         </g>
       </svg>
       </div></div>
-      <figcaption class="fig">The composition is trivial; the content is that each stage must preserve perfect completeness, keep the question distribution inside one closed algebra, and shrink runtime — all at once. Chapters 12–14 are the two dashed boxes.</figcaption>
+      <figcaption class="fig">The composition is trivial; the content is that each stage must preserve perfect completeness, keep the question distribution inside one closed algebra, and shrink runtime — all at once. Repeat became executable at TB5 (chapter 13); Introspect (chapter 12) is the remaining dashed box, and the end-to-end Compress of chapter 14 is TB7.</figcaption>
     </figure>
 
     <div class="grid3">
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">executed</p>
-        <p class="readout" style="font-size:26px">1364 / 1364</p>
-        <p class="note">assertions pass in <code>test/runtests.jl</code> (commit 8a1b6e2, TB0 test body <span class="num">15.5 s</span> against a 60 s wall-clock gate under the performance power profile; the same body reads 74–85 s in powersave at ~1 GHz — the gate is CPU-clock-bound, not structurally marginal).</p>
+        <p class="readout" style="font-size:26px">2393 / 2393</p>
+        <p class="note">assertions pass in <code>test/runtests.jl</code> (commit 8af9073, TB0 test body <span class="num">15.4 s</span> against a 60 s wall-clock gate under the performance power profile; the same body reads 74–85 s in powersave at ~1 GHz — the gate is CPU-clock-bound, not structurally marginal).</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">red-capable</p>
-        <p class="readout" style="font-size:26px">119 / 119</p>
-        <p class="note">registered mutants KILLED, 55/55 baselines OK, 492 s. Nothing SURVIVED, nothing UNATTRIBUTABLE.</p>
+        <p class="readout" style="font-size:26px">157 / 157</p>
+        <p class="note">registered mutants KILLED, 64/64 baselines OK, 666 s. Nothing SURVIVED, nothing UNATTRIBUTABLE.</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">still open</p>
         <p class="readout" style="font-size:26px">3 lanes</p>
-        <p class="note">TB2 <code>FAIL(NG10)</code> at r7, TB3 <code>FAIL(N11)</code> at r2, TB4 <code>FAIL(O1–O5)</code> at r1 — all with repair briefs written. TB0, TB1, the design and the analytic document have converged.</p>
+        <p class="note">TB3 <code>FAIL(N11)</code> at r2, TB4 <code>FAIL(O1–O5)</code> at r1 (repair landed, r2 running), TB5 <code>FAIL(O1,O2)</code> at r1 (repair running). TB0, TB1, TB2, the design and the analytic document have converged.</p>
       </div></div>
     </div>
   </div>
@@ -983,7 +983,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
             <tr><td>game</td><td class="mono">pcpverifier</td><td class="mono">(oracle,Point_6) × (bob,Point_2)</td></tr>
           </tbody>
         </table>
-        <p class="note" style="margin-top:12px">Each of the nine certificate cases is replayed at three seeds (the zero seed, <span class="mono">tb2_seed 5</span>, and RNG <span class="mono">0x9E</span>): 27 honest outcomes accepted, 27 corrupted outcomes rejected. Separately, the decider's trace was compared against an independent enumerator on all <span class="num">2,916</span> pairs at the zero seed and again at <span class="mono">tb2_seed 5</span> with honest TB0-proof answers — 2,736 silent, 180 guarded, no mismatches. Brief 69 then ran all nine cases in both orientations (54 outcomes, the rejecting player asserted). Still open (tb2-r7 NG10): the trace key's copy index has no corrupted-reject witness at 19 of the 37 guard keys; the 114-outcome block that closes it is written and queued.</p>
+        <p class="note" style="margin-top:12px">Each of the nine certificate cases is replayed at three seeds (the zero seed, <span class="mono">tb2_seed 5</span>, and RNG <span class="mono">0x9E</span>): 27 honest outcomes accepted, 27 corrupted outcomes rejected. Separately, the decider's trace was compared against an independent enumerator on all <span class="num">2,916</span> pairs at the zero seed and again at <span class="mono">tb2_seed 5</span> with honest TB0-proof answers — 2,736 silent, 180 guarded, no mismatches. Brief 69 ran all nine cases in both orientations (54 outcomes, the rejecting player asserted); brief 73 then covered every one of the 37 guard keys with a 19-case × 3-seed × 2-orientation block (114 outcomes, rejecting keys set-equal to the expected 37). TB2's critic loop closed at r8 with no MAJOR objection after eight rounds.</p>
       </div>
     </div>
 
@@ -1120,16 +1120,16 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
   <div class="ch-head">
     <div class="ch-no">§13</div>
     <div>
-      <p class="eyebrow"><span>Anchoring and repetition</span><span class="chip gt">gt-11-parallel-repetition.tex</span><span class="chip conjecture">C13 CONJECTURE</span></p>
+      <p class="eyebrow"><span>Anchoring and repetition</span><span class="chip gt">gt-11-parallel-repetition.tex</span><span class="chip tested">C13 TESTED</span></p>
       <h2 class="thesis">Compression costs soundness; parallel repetition buys it back — and the toy diagnostic in this repo shows why naive repetition cannot.</h2>
     </div>
   </div>
   <div class="ch-body">
-    <p class="lede"><span class="stamp">designed, not yet executable</span></p>
-    <p>Each stage of <span class="mono">Compress</span> degrades the soundness gap, so the last stage restores it by running <span class="mono">k(n)</span> copies in parallel. Anchoring comes first: a second question type whose only legal answer is the canonical bit 0, which gives the repetition theorem the structure it needs.</p>
+    <p class="lede"><span class="stamp" style="border-color:var(--check);background:var(--check-lt)">executed at TB5 — C13 TESTED (scoped), C12 TESTED</span></p>
+    <p>Each stage of <span class="mono">Compress</span> degrades the soundness gap, so the last stage restores it by running <span class="mono">k(n)</span> copies in parallel. Anchoring comes first: a second question type whose only legal answer is the canonical bit 0, which gives the repetition theorem the structure it needs. TB5 built both as description-level transformations: the anchored sampler on the <span class="mono">V_copy</span> fixture has level 3 and dimension 9, the 81-fold repetition is one compact loop term of 85 bytes whose size does not change with <span class="mono">k</span>, the repeated decider computes the component bound before reading any payload and rejects an oversized component with an empty child-call log, and two byte-distinct deciders yield the identical repeated-sampler hash. What stays CITED is exactly what the paper proves analytically: PCC completeness and the entanglement relation of <span class="mono">thm:repetition</span>.</p>
 
     <div class="panel">
-      <div class="panel-bar"><b>Instrument · the 81-fold direct sum</b><span>DESIGN §10.3 · TB5 fixture · design only</span></div>
+      <div class="panel-bar"><b>Instrument · the 81-fold direct sum</b><span>DESIGN §10.3 · TB5 fixture · executed: |S^rep| = 85 bytes, 128/128 honest pairs, four named transcripts</span></div>
       <div class="panel-body">
         <div class="controls" style="margin-bottom:16px">
           <label for="rep-n">index n</label>
@@ -1269,13 +1269,13 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
       <div class="panel-bar"><b>Objection trajectories, by lane</b><span>25 verdict files · MAJOR objections, the count each verdict itself tracks</span></div>
       <div class="panel-body">
         <div id="traj"></div>
-        <p class="note" style="margin-top:12px">Six lanes converged to zero MAJOR objections and a PASS. Three are still open: TB2 at <span class="mono">FAIL(NG10)</span> after seven rounds, TB3 at <span class="mono">FAIL(N11)</span> after two, TB4 at <span class="mono">FAIL(O1–O5)</span> after one. No verdict line ever reads PROMOTE — only PASS or FAIL(…); promotions live inside the per-claim decision sections.</p>
+        <p class="note" style="margin-top:12px">Seven lanes converged to zero MAJOR objections and a PASS. Three are still open: TB3 at <span class="mono">FAIL(N11)</span> after two rounds, TB4 at <span class="mono">FAIL(O1–O5)</span> after one, TB5 at <span class="mono">FAIL(O1,O2)</span> after one. No verdict line ever reads PROMOTE — only PASS or FAIL(…); promotions live inside the per-claim decision sections.</p>
       </div>
       <dl class="evidence">
-        <div class="ev"><dt>verdict files</dt><dd>32<small>6 PASS · 26 FAIL(…)</small></dd></div>
-        <div class="ev good"><dt>mutants killed</dt><dd>119 / 119<small>55/55 baselines OK, 492 s</small></dd></div>
-        <div class="ev"><dt>suite assertions</dt><dd>1364 / 1364</dd></div>
-        <div class="ev"><dt>TB0 test body</dt><dd>15.5 s<small>vs a 60 s gate; 74–85 s in powersave at ~1 GHz</small></dd></div>
+        <div class="ev"><dt>verdict files</dt><dd>36<small>7 PASS · 29 FAIL(…)</small></dd></div>
+        <div class="ev good"><dt>mutants killed</dt><dd>157 / 157<small>64/64 baselines OK, 666 s</small></dd></div>
+        <div class="ev"><dt>suite assertions</dt><dd>2393 / 2393</dd></div>
+        <div class="ev"><dt>TB0 test body</dt><dd>15.4 s<small>vs a 60 s gate; 74–85 s in powersave at ~1 GHz</small></dd></div>
       </dl>
     </div>
 
@@ -2277,9 +2277,10 @@ var AR=(function(){
    {n:"tb0",v:[7,5,1,0],end:"PASS"},
    {n:"analytic-doc",v:[11,6,0],end:"PASS"},
    {n:"tb1",v:[4,3,2,1,1,0],end:"PASS"},
-   {n:"tb2",v:[6,1,1,2,2,1,1],end:"FAIL(NG10)"},
+   {n:"tb2",v:[6,1,1,2,2,1,1,0],end:"PASS"},
    {n:"tb3",v:[3,1],end:"FAIL(N11)"},
-   {n:"tb4",v:[5],end:"FAIL(O1–O5)"}];
+   {n:"tb4",v:[5],end:"FAIL(O1–O5)"},
+   {n:"tb5",v:[2],end:"FAIL(O1,O2)"}];
   var MAX=13, W=200, H=86, PADL=8, PADB=22, PADT=10;
   var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px">';
   LANES.forEach(function(L){
@@ -2324,8 +2325,8 @@ var AR=(function(){
    ["N1","Negative, sequential repetition only: adaptive r-copy repetition gives exactly (1 − 2⁻ⁿ)ʳ.","PROVED","C6","midpoint-r2"],
    ["C11","The Compress skeleton composes the three contracts in fig:compress order with the quoted fixed point D = Y Ψ (388 bytes) and c_Y = 3 pinned at every fuel; weaker row.","TESTED","C10, C9, C16, C18","tb4-r1"],
    ["C10","Front-end faithfulness on the two one-bit-answer fixtures: quote → trace → 3SAT → 5SAT → padded circuit → PCP, every stage replayed and identity-bound.","TESTED","C1, C9, C16, C19","tb3-r2"],
-   ["C12","Description-level CL closure for downsize, direct sum, product, detype, anchor and repeat.","CONJECTURE","C4a, C4b","design-v2-r2"],
-   ["C13","The TB5 Repeat fixture: levels and dimensions 1,1 → 3,9 → 3,729 at n = 9, λ = τ = c′ = 1.","CONJECTURE","C12","design-v2-r2"],
+   ["C12","Description-level CL closure: downsize, direct sum, product, detype, anchor and repeat definable from the four sampler queries alone; all 54 product maps describable.","TESTED","C4a, C4b","tb5-r1"],
+   ["C13","The TB5 Repeat fixture: levels and dimensions 1,1 → 3,9 → 3,729 at n = 9, λ = τ = c′ = 1; |S^rep| = 85 bytes independent of k; scoped weaker row.","TESTED","C12","tb5-r1"],
    ["C14","The TB6 Introspect fixtures with explicit toy child fuel.","CONJECTURE","C12, C4a","design-v2-r3"],
    ["C15","Executable Compress and fixed point: level chain 9 → 5 → 7 → 9, dimensions 206 → 840 → 848 → 1,696.","CONJECTURE","C12, C13, C14","design-v2-r2"],
    ["C16","Semantics of the language L: the CEK relation is a function; fuel is monotone; Eval_L(Quote(t),u;f+h) = eval_L(t,u;f).","SKETCH","—","—"],
