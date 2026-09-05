@@ -127,6 +127,23 @@ const MUTANTS = (
     Mutant("P bind_certificate_detached", "src/verifiers/pcp.jl",
            "proof -> locate(proof) === anchor ? node.replay(term) :",
            "proof -> true ? node.replay(term) :", "witness_iii"),
+    # verdicts/tb0-r4.md N13 (R4M3): the root def:pcp-proof replay drops the
+    # quotients c_1..c_m'; owned by testset 5c's over-degree c_16.
+    Mutant("R4M3 pcp_degree_replay_drops_quotients", "src/verifiers/pcp.jl",
+           "function _replay_pcp_degree(proof::PCPProof)\n    polynomials = (proof.gs..., proof.c0, proof.cs...)",
+           "function _replay_pcp_degree(proof::PCPProof)\n    polynomials = (proof.gs..., proof.c0)",
+           "certificate"),
+    # N14 (R4M5): all five :MultilinearExtension anchors collapse to g_1;
+    # owned by testset 5c's g_3-swap chimera.
+    Mutant("R4M5 multilinear_anchors_collapse_to_g1", "src/verifiers/pcp.jl",
+           "(proof -> proof.gs[i]), gs[i]",
+           "(proof -> proof.gs[1]), gs[1]", "certificate"),
+    # N15 (R4M2): the constructor's stored views bypass ev_z; owned by
+    # testset 5c's build_pcp refusal on the locality-violating g_1.
+    Mutant("R4M2 certified_views_bypass_ev_z", "src/verifiers/pcp.jl",
+           "map(point -> ev_z(proof, point), certified_points)",
+           "map(point -> _pcp_view(proof.gs, proof.c0, proof.cs, point), certified_points)",
+           "certificate"),
 )
 
 include("tb1_chi.jl")
@@ -177,6 +194,12 @@ include("tb2_opaque.jl")
 # verdicts/tb2-r3.md N6, N10 (brief 54).
 include("tb2_describe_byaxis_collapse.jl")
 include("tb2_guard_split.jl")
+# briefs/23-tb3.md: the five TB3 front-end mutants.
+include("tb3_acc.jl")
+include("tb3_size.jl")
+include("tb3_fuel.jl")
+include("tb3_decouple.jl")
+include("tb3_closure.jl")
 
 const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_DEG_MUTANT, TB1_LEVEL_MUTANT,
@@ -199,8 +222,12 @@ const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_ND2_MUTANT, TB2_ND4_MUTANT, TB2_TENSOR_MUTANT,
                      TB2_OPAQUE_MUTANT, TB2_DESCRIBE_BYAXIS_COLLAPSE_MUTANT,
                      TB2_GUARD_SPLIT_MUTANT)
+const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
+                     TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT)
 
 function _rung(mutant::Mutant)
+    startswith(mutant.target, "tb3_") && return (:tb3, "tb3_frontend.jl",
+        "TB3_TARGET", mutant.target)
     startswith(mutant.target, "tb2_") && return (:tb2, "tb2_answer_reduce.jl",
         "TB2_TARGET", replace(mutant.target, "tb2_" => ""))
     startswith(mutant.target, "tb1_") && return (:tb1, "tb1_ld_sampler.jl",
@@ -299,7 +326,7 @@ run(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) -e "using MIPStarLa
 println("package image ready after ", round(time() - started; digits=2), " s")
 queue = Tuple{String,Mutant}[]
 for (name, mutants) in (("TB0", MUTANTS), ("TB1", TB1_MUTANTS),
-                        ("TB2", TB2_MUTANTS)), mutant in mutants
+                        ("TB2", TB2_MUTANTS), ("TB3", TB3_MUTANTS)), mutant in mutants
     selected(mutant) && push!(queue, (name, mutant))
 end
 baseline_keys = unique(baseline_key(mutant) for (_, mutant) in queue)

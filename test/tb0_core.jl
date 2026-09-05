@@ -516,6 +516,36 @@ if runs("certificate") || runs("c0_terms")
                                 proof.c0, proof.cs, proof.decomposition,
                                 proof.d, proof.tf, ())
         @test_throws ArgumentError ev_z(bad_locality, tb0_base_point(GF8))
+        # verdicts/tb0-r4.md N15 (R4M2): the CONSTRUCTOR routes its stored
+        # views through ev_z, so build_pcp on the locality-violating g_1
+        # throws before any view is certified.
+        @test_throws ArgumentError build_pcp(
+            proof.tf, Base.setindex(proof.gs, out_of_block, 1), proof.c0,
+            Checked(proof.decomposition, nothing), proof.d,
+            tb0_certified_points(GF8), ())
+        # N13 (R4M3): the root def:pcp-proof replay covers the quotients
+        # c_1..c_16, not only the g_i and c_0: c_16 replaced by c_0 * z_11
+        # (individual degree 7 > d = 6), every other polynomial untouched.
+        over_c16 = proof.c0 * polyvar(GF8, proof.tf.layout, 11)
+        @test maximum(actual_degrees(over_c16)) == 7
+        over_proof = PCPProof(proof.gs, proof.c0,
+                              Base.setindex(proof.cs, over_c16, 16),
+                              proof.decomposition, proof.d, proof.tf,
+                              proof.certified_views)
+        @test passed(MIPStarLambda._replay_pcp_degree(proof))
+        @test !passed(MIPStarLambda._replay_pcp_degree(over_proof))
+        # N14 (R4M5): each of the five :MultilinearExtension anchors is its
+        # own g_i: the chimera that swaps only g_3 for a structurally
+        # identical zero polynomial (a different object) is refused at
+        # :MultilinearExtension with :certificate_binding.
+        swapped_g3 = g_a(GF8[0, 0], proof.tf.layout, (3,)).term
+        @test swapped_g3 !== proof.gs[3] && polynomial_equal(swapped_g3, proof.gs[3])
+        chimera = PCPProof(Base.setindex(proof.gs, swapped_g3, 3), proof.c0,
+                           proof.cs, proof.decomposition, proof.d, proof.tf,
+                           proof.certified_views)
+        chimera_result = verify_certificate(Checked(chimera, fixture.certificate))
+        @test !passed(chimera_result) && chimera_result.rule == :certificate_binding
+        @test chimera_result.location == :MultilinearExtension
 
         # All eleven CHECKED replays run on witness (i)'s own terms.
         @test passed(verify_certificate(Checked(proof, fixture.certificate)))

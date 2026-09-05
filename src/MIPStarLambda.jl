@@ -10,6 +10,7 @@ include("polynomials/sparse.jl")
 include("ir/circuits.jl")
 include("polynomials/zero_basis.jl")
 include("samplers/cl.jl")
+include("ir/programs.jl")
 include("samplers/typed.jl")
 include("samplers/ldt.jl")
 include("verifiers/pcp.jl")
@@ -18,7 +19,25 @@ include("samplers/oracularize.jl")
 include("verifiers/ldt.jl")
 include("verifiers/answer_reduce.jl")
 include("tb0.jl")
+include("frontend/bounded_trace.jl")
+include("frontend/cook_levin.jl")
+include("frontend/decouple5.jl")
 include("traceprint.jl")
+
+export Program, BoundExpr, Concrete, Opaque, Fuel, FuelLiteral, FuelBound,
+       BoundVar, Hole, Lambda, Apply, Fix, If, Prim, Quote, Eval, Specialize,
+       is_closed, is_scoped, holes, substitute, term_bytes, term_size,
+       decode_term, program_equal, Quoted, decode_program, program, quote_hash,
+       quote_program, specialize, Closure, Code, Value, OutOfFuel, SortError,
+       Aborted, encoded_size, eval_overhead, eval_program, eval_quoted,
+       program_label, value_label, PRIMITIVES
+
+export TraceRow, BoundedTrace, bounded_trace, Clause3, Tableau, Succinct3SAT,
+       CompilationRefused, dpll, compile_relation, relation_input, relation_tuples,
+       clause_present, present_clauses, satisfies, satisfiable, cook_levin,
+       Clause5, SuccinctDecoupled5SAT, PaddedSuccinctDecoupled5SAT,
+       clause_present5, literal_blocks, satisfiable5, satisfies5, decouple5,
+       pad5, frontend_witness_tables, frontend_c0_estimate, frontend_pcp
 
 export GF2k, GF8, GF2048, field_size, field_elements, field_bytes,
        field_from_bytes, modulus_polynomial, is_irreducible_modulus,
@@ -89,5 +108,6 @@ export Grade, CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR,
        CheckResult, passed, CertNode, Checked, verify_certificate, traceprint
 
 include("precompile.jl")
+include("frontend/precompile_frontend.jl")
 
 end

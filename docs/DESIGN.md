@@ -742,7 +742,10 @@ image-build time (witness (i) end to end in both fields, every certificate repla
 circuit); it caches method specializations and no values (no global is assigned, every printed TB0 fact is identical with the workload
 removed). The r3 critic measured the cold image build at 97 s with the workload and 31 s without, against a warm TB0 test body of 38 s and
 100 s respectively (the latter fails the 60 s gate); so the gate certifies TB0 compute after JIT on a warm image, never the cost from
-cold. The cold figure is printed by `tools/cold_precompile.sh`, which builds the image in a scratch depot.
+cold. The cold figure is printed by `tools/cold_precompile.sh`, which builds the image in a scratch depot. The r3 pair is the
+with/without-workload delta; for the r4 workload (which added the borrowed-certificate refusal, the `ev_z` refusal and the GF(2^11)
+encoding paths), `tools/cold_precompile.sh` measures 124.4 s (critic r4) / 128.5 s (proposer r4); with the TB3 front-end workload of
+`src/frontend/precompile_frontend.jl` added (brief 23) the same command measures 188.2 s.
 
 TB0 uses a real circuit on `(x_1,...,x_5,o_1,...,o_5)`, with exactly six gates, all fan-in at most two:
 

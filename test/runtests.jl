@@ -20,4 +20,5 @@ started = time()
     end
     include("tb1_ld_sampler.jl")
     include("tb2_answer_reduce.jl")
+    include("tb3_frontend.jl")
 end
