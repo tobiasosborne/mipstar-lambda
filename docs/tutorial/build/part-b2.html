@@ -1,0 +1,329 @@
+
+<!-- ==================================================== 4 -->
+<section class="chapter" id="ch4">
+  <div class="ch-head">
+    <div class="ch-no">§4</div>
+    <div>
+      <p class="eyebrow"><span>Descriptions, not closures</span><span class="chip gt">gt-04-cl.tex def:sampler</span><span class="chip tested">C4a TESTED</span></p>
+      <h2 class="thesis">Compress consumes code. A Julia closure with a hidden environment is not code, and the type system says so out loud.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>This is the requirement that shapes the whole prototype. <span class="mono">Compress</span> must measure a verifier's length, substitute static parameters into it, and emit new code — so a runtime function value will not do. Every sampler in the package is therefore asked four questions, and a sampler that cannot answer them from its own bytes is returned as <span class="mono">NotDescribable</span> rather than silently working.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the four-query sampler API</b><span>TB1 · real answers from test/tb1_ld_sampler.jl</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:16px">
+          <button class="btn" data-q="Dimension" type="button">Dimension</button>
+          <button class="btn" data-q="Marginal" type="button">Marginal</button>
+          <button class="btn" data-q="Factor" type="button">Factor</button>
+          <button class="btn" data-q="Linear" type="button">Linear</button>
+          <span style="flex:1"></span>
+          <label for="q-map">map</label>
+          <select id="q-map"><option>L_Point</option><option selected>L_ALine</option><option>L_DLine</option></select>
+        </div>
+        <div class="grid2">
+          <div>
+            <p class="eyebrow" style="margin-bottom:8px">the query</p>
+            <p id="q-sig" class="mono" style="font-size:14px;margin:0 0 4px"></p>
+            <p id="q-desc" class="note" style="margin:0"></p>
+          </div>
+          <div>
+            <p class="eyebrow" style="margin-bottom:8px">what the package answers</p>
+            <p id="q-ans" class="readout" style="font-size:15px;margin:0 0 6px;word-break:break-word"></p>
+            <p id="q-src" class="note mono" style="margin:0;font-size:11.5px"></p>
+          </div>
+        </div>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>description_size L_Point</dt><dd>75 <small>bytes</small></dd></div>
+        <div class="ev"><dt>L_ALine</dt><dd>132 <small>bytes</small></dd></div>
+        <div class="ev"><dt>L_DLine</dt><dd>156 <small>bytes</small></dd></div>
+        <div class="ev warn"><dt>closures, direct_sum, concatenate</dt><dd style="font-size:15px">NotDescribable</dd></div>
+      </dl>
+    </div>
+
+    <div class="grid2">
+      <div class="panel"><div class="panel-body">
+        <p class="eyebrow" style="margin-bottom:10px">the four sorts a description must keep apart</p>
+        <table>
+          <tbody>
+            <tr><td><b>a closure</b></td><td class="note">host environment; length unmeasurable</td></tr>
+            <tr><td><b>quoted syntax</b></td><td class="note">a finite tree with canonical bytes</td></tr>
+            <tr><td><b>a compiled circuit</b></td><td class="note">gates, refused past a budget</td></tr>
+            <tr><td><b>a universal evaluator</b></td><td class="note">reads bytes, charges h(d,u)</td></tr>
+          </tbody>
+        </table>
+      </div></div>
+      <div class="panel"><div class="panel-body">
+        <p class="eyebrow" style="margin-bottom:10px">what the round trip actually checks</p>
+        <p class="note"><code>decode_cl</code> inverts <code>canonical_bytes</code>; the suite asserts <code>canonical_bytes(describe_cl(decode_cl(b))) == b</code>, <code>apply(decode_cl(b), z) == apply(L, z)</code> on all 8⁵ seeds, and equal depth-3 factor spaces. An independently written parser and evaluator — not the package's decoder — reproduced <span class="num">648</span> comparisons with 0 disagreements at TB2.</p>
+        <p class="note" style="margin-top:10px"><b>Scope, verbatim:</b> the bytes are <em>not</em> yet checked to carry the stage-matrix index order — every matrix serialised at this rung is diagonal, so a transposed encoder changes no described map and no test notices.</p>
+      </div></div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">Why the paper cares</span>
+      <p>The compression machine's output sampler must depend only on <span class="mono">λ</span> and universal constants — never on the input verifier's bytes — or the recursion does not close. That is a statement about code dependencies, and it can only be tested on objects that <em>have</em> code.</p>
+      <span class="src">handoff.md “Representation requirements” · gt-12-compression.tex lem:compress-independent-samplers</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 5 -->
+<section class="chapter" id="ch5">
+  <div class="ch-head">
+    <div class="ch-no">§5</div>
+    <div>
+      <p class="eyebrow"><span>Conditionally linear samplers</span><span class="chip gt">gt-07-ldt.tex:203–237</span><span class="chip tested">C4a TESTED</span></p>
+      <h2 class="thesis">The question distribution is not arbitrary: a seed is read in stages, and each stage's linear map may depend only on what earlier stages produced.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>This is the structural constraint the whole construction is organised around. A conditionally linear map of level ℓ splits the ambient space into ℓ factor registers; it reads the first, applies a linear map to it, and only then chooses the linear map for the second. For <span class="mono">(q,m,d) = (8,2,1)</span> the ambient space is <span class="mono">V<sub>pt</sub> ⊕ V<sub>coord</sub> ⊕ V<sub>dir</sub></span>, of dimension 5, and the three maps of the low-degree test sit at levels 1, 2 and 3.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · seeds into questions</b><span>real apply(L, z) for all 32,768 seeds, extracted from the package</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:14px">
+          <label for="cl-seed">seed</label>
+          <input type="range" id="cl-seed" min="0" max="32767" value="31046" step="1" style="width:230px">
+          <button class="btn ghost" id="cl-rand" type="button">Random seed</button>
+          <button class="btn" id="cl-spin" type="button" aria-pressed="true">Orbit</button>
+          <span class="readout" id="cl-seedread"></span>
+        </div>
+        <div class="grid2">
+          <div>
+            <div id="cl-scene" style="position:relative;width:100%;aspect-ratio:4/3;background:var(--inset);border:1px solid var(--rule);border-radius:2px;overflow:hidden"></div>
+            <div class="legend">
+              <span><i style="background:var(--focus);border-color:var(--focus-ink)"></i>L_Point question</span>
+              <span><i style="background:var(--machine);border-color:var(--machine)"></i>L_ALine — axis line</span>
+              <span><i style="background:var(--term);border-color:var(--term)"></i>L_DLine — diagonal line</span>
+            </div>
+          </div>
+          <div>
+            <p class="eyebrow" style="margin-bottom:8px">the three questions this seed produces</p>
+            <div id="cl-questions" class="mono" style="font-size:13px;line-height:2"></div>
+            <p class="eyebrow" style="margin:18px 0 8px">stage structure (C4a, verbatim)</p>
+            <table>
+              <thead><tr><th>map</th><th>level</th><th>factor registers</th><th>chains</th></tr></thead>
+              <tbody>
+                <tr><td>L_Point</td><td class="n">1</td><td class="n">{1,2,3,4,5}</td><td class="n">1</td></tr>
+                <tr><td>L_ALine</td><td class="n">2</td><td class="n">{3,4,5}, {1,2}</td><td class="n">8</td></tr>
+                <tr><td>L_DLine</td><td class="n">3</td><td class="n">{3}, {4,5}, {1,2}</td><td class="n">288</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>seeds enumerated</dt><dd>32,768<small>all of 8⁵</small></dd></div>
+        <div class="ev"><dt>axis joint support</dt><dd>512<small>every mass exactly 64</small></dd></div>
+        <div class="ev"><dt>diagonal joint support</dt><dd>18,432<small>masses 1 or 8</small></dd></div>
+        <div class="ev"><dt>zero-direction points</dt><dd>512<small>carrying 2,304 seeds</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The two exact histograms</b><span>recomputed on this page from the extracted table</span></div>
+      <div class="panel-body">
+        <div id="cl-hist"></div>
+        <p class="note" style="margin-top:10px">Each bar is one distinct <span class="mono">(line question, point question)</span> pair, ordered by how many of the 32,768 seeds produce it. The axis distribution is flat — 512 pairs of mass 64. The diagonal distribution is not: 18,432 pairs split between mass 1 and mass 8, and the 512 zero-direction pairs are exactly the ones carrying 2,304 seeds between them.</p>
+      </div>
+    </div>
+
+    <figure class="clip">
+      <video controls muted playsinline preload="metadata" poster="__POSTER_cl-sampler__" src="__VIDEO_cl-sampler__"></video>
+      <figcaption><b>Support growth over the exhaustive sweep.</b> Both curves are computed from the same table this page uses; they land on 512 and 18,432, which is what the suite prints.</figcaption>
+    </figure>
+
+    <div class="paper-says">
+      <span class="lbl">Scope, verbatim from C4a</span>
+      <p>The comparison against the transcribed source is <b>not</b> χ-independent, and on the 512 zero-direction points the equality additionally rests on a DESIGN <span class="mono">SOURCE_REPAIR</span>: <span class="mono">L<sup>lnf</sup><sub>0</sub> = id</span>, which <span class="mono">def:cl-canonical</span> does not define. That repair is emitted as its own certificate node under the CHECKED histogram node, so it is visible rather than assumed. No claim is made here about any other <span class="mono">(q,m)</span>, nor about <span class="mono">concatenate</span>, <span class="mono">direct_sum</span>, <span class="mono">product</span> or <span class="mono">TypedSampler</span>.</p>
+      <span class="src">claims/CLAIMS.md C4a · verdicts/tb1-r1.md O1, O3 · verdicts/tb1-r4.md §1.1–§1.3</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 6 -->
+<section class="chapter" id="ch6">
+  <div class="ch-head">
+    <div class="ch-no">§6</div>
+    <div>
+      <p class="eyebrow"><span>The classical low-degree test</span><span class="chip gt">gt-07-ldt.tex fig:ld-decider</span><span class="chip held">C4c HELD — no claim row</span></p>
+      <h2 class="thesis">Ask for a point and a line through it. A cheating prover must either break the degree bound or contradict itself where they meet.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <div class="warnbar">This chapter's evidence exists and is on disk, but <b>there is no claim row for it</b>. <code>verdicts/tb1-r4.md</code> holds the proposed row <b>C4c</b> at HOLD: the headline negative fact <span class="mono">off_line_hits = 0</span> has no red witness — the counter can be replaced by a constant and the whole suite stays green. One assertion and one registered mutant would close it.</div>
+
+    <p>The decider <span class="mono">D<sup>ld</sup></span> sees two typed questions and two answers. If the types are equal it demands equal answers. If one is a point and the other a line through that point, it demands that the line polynomial has degree at most <span class="mono">d</span> (axis) or <span class="mono">md</span> (diagonal) and that evaluating it at the point reproduces the point answer. If nothing applies, it accepts.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the degree bound and the meeting point</b><span>honest polynomial g = 1 + x₁ + x₁x₂ over GF(8), modulus x³+x+1</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:16px">
+          <label for="ld-deg">claimed degree d</label>
+          <input type="range" id="ld-deg" min="1" max="4" value="1" step="1" style="width:120px">
+          <span class="readout" id="ld-degread">d = 1</span>
+          <button class="btn" id="ld-cheat" type="button" aria-pressed="false">Bend one entry</button>
+          <label for="ld-axis">line</label>
+          <select id="ld-axis"><option value="0">axis 1</option><option value="1" selected>axis 2</option></select>
+        </div>
+        <div class="grid2">
+          <div>
+            <div id="ld-grid"></div>
+            <p class="note" style="margin-top:10px">The amber cell is the point question <span class="mono">(3, 5)</span> — the separator the suite prints. The teal row or column is the line question.</p>
+          </div>
+          <div>
+            <p class="eyebrow" style="margin-bottom:8px">the line answer</p>
+            <div id="ld-answer" class="bytes" style="font-size:13px"></div>
+            <p class="eyebrow" style="margin:18px 0 8px">what D<sup>ld</sup> does</p>
+            <div id="ld-verdict"></div>
+          </div>
+        </div>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>support decisions swept</dt><dd>71,360<small>nine ordered type pairs, all 8⁵ seeds</small></dd></div>
+        <div class="ev"><dt>non-noop</dt><dd>40,768<small>2,880 tautologies + 37,888 line-vs-point</small></dd></div>
+        <div class="ev good"><dt>honest prover rejected</dt><dd>0 <small>times</small></dd></div>
+        <div class="ev warn"><dt>off-line branch reached</dt><dd>0 <small>— the fact with no red witness</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Where the 71,360 decisions sit</b><span>per ordered type pair · verdicts/tb1-r4.md §1.6</span></div>
+      <div class="panel-body scroller">
+        <table>
+          <thead><tr><th>left \ right</th><th>Point</th><th>ALine</th><th>DLine</th></tr></thead>
+          <tbody>
+            <tr><td><b>Point</b></td><td class="n">64</td><td class="n">512</td><td class="n">18,432</td></tr>
+            <tr><td><b>ALine</b></td><td class="n">512</td><td class="n">64</td><td class="n">15,296</td></tr>
+            <tr><td><b>DLine</b></td><td class="n">18,432</td><td class="n">15,296</td><td class="n">2,752</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:12px">The diagonal entries are identical-question tautologies. The 15,296 ALine×DLine decisions are the ones where the two line families meet and nothing applies — the decider accepts, and that acceptance is counted, not skipped.</p>
+      </div>
+    </div>
+
+    <figure class="clip">
+      <video controls muted playsinline preload="metadata" poster="__POSTER_ldt-line__" src="__VIDEO_ldt-line__"></video>
+      <figcaption><b>The degree separator.</b> Bending one entry of an otherwise honest line answer raises its interpolated degree to 2 against a claimed <span class="mono">d = 1</span>, and the format rule <span class="mono">ld_axis_degree</span> fires before the point rule ever runs. The clip's polynomial is illustrative; the separator point, the degrees and both rule names are the suite's own printout.</figcaption>
+    </figure>
+
+    <div class="paper-says">
+      <span class="lbl">One repair worth knowing about</span>
+      <p>The source accepts vacuously when no <span class="mono">t</span> with <span class="mono">line(t) = point</span> exists. The executable <em>rejects</em> instead — strictly stricter than the paper — and carries that decision as a <span class="mono">SOURCE_REPAIR :ld_off_line_rejects</span> node. The branch is reached zero times in the sweep, which is exactly why it needs a mutant of its own before anything may be claimed about it.</p>
+      <span class="src">gt-07-ldt.tex:377–384 · verdicts/tb1-r4.md N23</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 7 -->
+<section class="chapter" id="ch7">
+  <div class="ch-head">
+    <div class="ch-no">§7</div>
+    <div>
+      <p class="eyebrow"><span>Tseitin and arithmetization</span><span class="chip gt">gt-10-answer-reduction.tex prop:tseitin-arith-degree</span><span class="chip tested">C8 TESTED</span></p>
+      <h2 class="thesis">Individual degree is fan-out. On the real six-gate circuit one variable reaches degree 6, not 2.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>Tseitin turns a circuit into a formula by giving every gate a wire variable and asserting each gate's local relation; arithmetization turns that formula into a polynomial by sending ∧ to ×, ¬ to 1−·, and ∨ through De Morgan. The arithmetization of a formula tree is multilinear in its <em>leaf occurrences</em>, so a variable's individual degree is bounded by how many times it appears — which grows with the fan-out of the gate that produced it.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the real six-gate TB0 circuit</b><span>src/ir/circuits.jl tb0_circuit()</span></div>
+      <div class="panel-body">
+        <div class="grid2">
+          <div>
+            <div id="f1-circuit"></div>
+            <p class="note" style="margin-top:10px">Click a wire variable to see where its occurrences come from. <span class="mono">w₁ = ¬x₁</span> feeds both <span class="mono">w₂</span> and <span class="mono">w₃</span> — fan-out 2.</p>
+          </div>
+          <div>
+            <p class="eyebrow" style="margin-bottom:8px">occurrence vector, printed by the suite</p>
+            <div id="f1-occ" class="bytes" style="font-size:12px"></div>
+            <p id="f1-note" class="note" style="margin-top:14px;min-height:5em"></p>
+          </div>
+        </div>
+      </div>
+      <dl class="evidence">
+        <div class="ev warn"><dt>max individual degree of F_arith</dt><dd>6<small>the paper's proposition says 2</small></dd></div>
+        <div class="ev"><dt>at w₁, fan-out 2</dt><dd>2 + 2·2 = 6</dd></div>
+        <div class="ev"><dt>at the output wire w₆</dt><dd>3 + 2·0 = 3</dd></div>
+        <div class="ev"><dt>two-gate regression (x₁,x₂,x₃,w₁,w₂)</dt><dd style="font-size:15px">(2, 2, 2, 4, 3)</dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Finding F1 — stated softly, on purpose</b><span>docs/findings.md · C8 TESTED (scoped)</span></div>
+      <div class="panel-body">
+        <div class="grid2"><p><b>Our reading of the NW19 Tseitin gadget may be wrong.</b> With that caveat first: reading <span class="mono">z_i := (g_i ∧ w_i) ∨ (¬g_i ∧ ¬w_i)</span> and arithmetizing along the formula tree gives <span class="mono">occ(w_i) = 2 + 2·fanout(gate i)</span> and <span class="mono">occ(x_j) = 2·fanout(input j)</span>, so a fan-out-2 gate already reaches individual degree 6. The proposition in <span class="mono">gt-10</span> states 2.</p>
+        <p style="margin-top:14px"><b>The theorem survives.</b> The surviving weaker statement is <span class="mono">deg_v(F_arith) ≤ 2(1 + fanout_max)</span>; with copy gates enforcing fan-out ≤ 2 that is ≤ 6, so <span class="mono">c₀</span> has individual degree ≤ 7 and the Schwartz–Zippel bounds become <span class="mono">(6+5d)m′/q</span> and <span class="mono">(2+d)m′/q</span> — fine as long as <span class="mono">d ≥ 7</span>, and the paper's <span class="mono">d = k ≥ 11</span>. The individual-degree-3 statement for <span class="mono">c₀</span> in the completeness proof inherits the same correction.</p>
+        <p class="note" style="margin-top:14px">A second note, F2: NW19's <span class="mono">F := z₁ ∧ … ∧ z_s</span> constrains <span class="mono">w</span> to be the wire values but never asserts the output wire is 1, so it is satisfiable for every <span class="mono">x</span>. The MIP*=RE definition states the contract rather than the construction, so the implementation adds the conjunct <span class="mono">w_out</span> — one more occurrence, giving <span class="mono">3 + 2·fanout</span>.</p>
+      </div>
+        </div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">Exactly what C8 is allowed to say</span>
+      <p>TESTED, and scoped: the individual degrees of a <em>real</em> Tseitin arithmetization were computed, they equal the occurrence counts, and the mutants that would hide the discrepancy are killed. It is not a claim that the paper is wrong — it is a claim about what this arithmetization does on these circuits.</p>
+      <span class="src">claims/CLAIMS.md C8 · verdicts/tb0-r1.md (PROMOTE, scoped), r2, r3 re-affirmed</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 8 -->
+<section class="chapter" id="ch8">
+  <div class="ch-head">
+    <div class="ch-no">§8</div>
+    <div>
+      <p class="eyebrow"><span>The zero basis</span><span class="chip gt">gt-10-answer-reduction.tex prop:zero-basis</span><span class="chip tested">C2 TESTED</span></p>
+      <h2 class="thesis">"Vanishes on the Boolean cube" becomes a coefficient identity — an object the verifier can check with a handful of point queries.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>The PCP's central object is a polynomial <span class="mono">c₀</span> built so that it vanishes on <span class="mono">{0,1}<sup>n</sup></span> exactly when the underlying circuit is satisfied. Vanishing on the cube is equivalent to lying in the ideal generated by <span class="mono">z_i(1 − z_i)</span>, so the prototype divides <span class="mono">c₀</span> by that ideal and keeps the quotients as part of the proof. If the division leaves a remainder, no certificate is issued.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the three retained witnesses</b><span>TB0 · 16 Tseitin variables · 65,536 Boolean points</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:16px">
+          <button class="btn" data-w="i" type="button" aria-pressed="true">witness (i)</button>
+          <button class="btn" data-w="ii" type="button" aria-pressed="false">witness (ii)</button>
+          <button class="btn" data-w="iii" type="button" aria-pressed="false">witness (iii)</button>
+          <span class="readout" id="zb-w"></span>
+        </div>
+        <div class="grid2">
+          <div>
+            <canvas id="zb-cube" width="256" height="256" style="width:100%;max-width:320px;image-rendering:pixelated;border:1px solid var(--rule);background:var(--white);border-radius:2px"></canvas>
+            <p class="note" style="margin-top:10px">One pixel per Boolean point of <span class="mono">{0,1}<sup>16</sup></span>. Green where the suite checked <span class="mono">c₀</span> vanishes.</p>
+          </div>
+          <div>
+            <table>
+              <tbody id="zb-rows"></tbody>
+            </table>
+            <div id="zb-verdict" style="margin-top:16px"></div>
+          </div>
+        </div>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>Boolean points checked</dt><dd>65,536</dd></div>
+        <div class="ev"><dt>quotients c₁ … c₁₆</dt><dd>16<small>seven of them zero at witness (i)</small></dd></div>
+        <div class="ev"><dt>arbitrary-coefficient quartics</dt><dd>512 / 512<small>rewrite correct</small></dd></div>
+        <div class="ev"><dt>max inddeg(c_i)</dt><dd>6 ≤ d</dd></div>
+      </dl>
+    </div>
+
+    <figure class="clip">
+      <video controls muted playsinline preload="metadata" poster="__POSTER_zero-cube__" src="__VIDEO_zero-cube__"></video>
+      <figcaption><b>Cube vanishing against φ_C.</b> At the satisfying witness the identity closes with remainder 0; at the all-zero witness the remainder is two monomials and the coefficient-identity replay fails. Vanishing on the cube tracks φ_C exactly on all three retained witnesses.</figcaption>
+    </figure>
+
+    <div class="paper-says">
+      <span class="lbl">What stays CITED</span>
+      <p>The <em>general</em> circuit / Tseitin / <span class="mono">F_arith</span> correspondence is cited, not proved here. What is machine-checked is the exhaustive 2¹⁶ truth table on this circuit, the rewrite on arbitrary GF(8) coefficients, and the three witnesses. The 1,024-witness loop is a clause-relation count (512 satisfying) — a surrogate, explicitly <em>not</em> a remainder computation.</p>
+      <span class="src">claims/CLAIMS.md C2 · verdicts/tb0-r3.md (PROMOTE)</span>
+    </div>
+  </div>
+</section>

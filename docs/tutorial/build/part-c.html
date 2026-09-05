@@ -1,0 +1,1045 @@
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var css=function(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()};
+var fmt=function(n){return n.toLocaleString("en-US")};
+var reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------------------------------------------------------------- theme */
+var tb=$("#themebtn");
+tb.addEventListener("click",function(){
+  var cur=document.documentElement.getAttribute("data-theme");
+  var dark=window.matchMedia("(prefers-color-scheme: dark)").matches;
+  var next=cur?(cur==="dark"?"light":"dark"):(dark?"light":"dark");
+  document.documentElement.setAttribute("data-theme",next);
+  tb.textContent=next==="dark"?"Light":"Dark";
+  window.dispatchEvent(new Event("themechange"));
+});
+tb.textContent=window.matchMedia("(prefers-color-scheme: dark)").matches?"Light":"Dark";
+
+/* ---------------------------------------------------------------- rail */
+var links=$$("#rail a"), secs=links.map(function(a){return $(a.getAttribute("href"))});
+function spy(){
+  var best=0, y=window.scrollY+140;
+  secs.forEach(function(s,i){ if(s && s.offsetTop<=y) best=i; });
+  links.forEach(function(a,i){ a.setAttribute("aria-current", i===best?"true":"false"); });
+}
+window.addEventListener("scroll",spy,{passive:true}); spy();
+
+/* ---------------------------------------------------------------- GF(8) */
+var MUL=[0,0,0,0,0,0,0,0, 0,1,2,3,4,5,6,7, 0,2,4,6,3,1,7,5, 0,3,6,5,7,4,1,2,
+         0,4,3,7,6,2,5,1, 0,5,1,4,2,7,3,6, 0,6,7,1,5,3,2,4, 0,7,5,2,1,6,4,3];
+function gmul(a,b){return MUL[(a&7)*8+(b&7)]}
+function gadd(a,b){return (a^b)&7}
+
+/* ================================================================ §1 TM */
+var TM=[
+ {i:0,q:"q₀",A:["1","␣","␣"],ha:0,B:["1","␣","␣"],hb:0,W:["␣"],O:["␣"],rule:"equal-input row — (0,0,␣,␣) or (1,1,␣,␣) ⟶ (q₁; W:=1, O:=␣; R,R,S,S)"},
+ {i:1,q:"q₁",A:["1","␣","␣"],ha:1,B:["1","␣","␣"],hb:1,W:["1"],O:["␣"],rule:"copy row with r = 1 — (␣,␣,r,␣) ⟶ (q₀; W:=r, O:=r; S,S,S,S)"},
+ {i:2,q:"q₀",A:["1","␣","␣"],ha:1,B:["1","␣","␣"],hb:1,W:["1"],O:["1"],rule:"halt row with r = 1 — (␣,␣,r,r) ⟶ (q_h; W:=r, O:=r; S,S,S,S)"},
+ {i:3,q:"q_h",A:["1","␣","␣"],ha:1,B:["1","␣","␣"],hb:1,W:["1"],O:["1"],rule:"halted. Time = 3 transitions."}];
+function tmRows(a,b){
+  var eq=(a===b), bit=eq?"1":"0";
+  return TM.map(function(r,k){
+    var o=JSON.parse(JSON.stringify(r));
+    o.A[0]=a; o.B[0]=b;
+    if(k>=1) o.W=[bit];
+    if(k>=2) o.O=[bit];
+    if(k===0) o.rule = eq?TM[0].rule:"unequal-input row — (0,1,␣,␣) or (1,0,␣,␣) ⟶ (q₁; W:=0, O:=␣; R,R,S,S)";
+    if(k===1) o.rule="copy row with r = "+bit+" — (␣,␣,r,␣) ⟶ (q₀; W:=r, O:=r; S,S,S,S)";
+    if(k===2) o.rule="halt row with r = "+bit+" — (␣,␣,r,r) ⟶ (q_h; W:=r, O:=r; S,S,S,S)";
+    return o;
+  });
+}
+var tmI=0, tmTimer=null;
+function tape(name,cells,head,label){
+  var h='<div style="display:flex;align-items:flex-start;gap:10px;margin:8px 0">';
+  h+='<span style="font-family:var(--f-ui);font-size:13px;color:var(--machine);width:84px;text-align:right;padding-top:8px">'+label+'</span>';
+  h+='<div style="display:flex;gap:0">';
+  for(var j=0;j<cells.length;j++){
+    var on=(j===head);
+    h+='<div style="width:36px">';
+    h+='<div style="width:36px;height:36px;display:grid;place-items:center;font-family:var(--f-mono);font-size:15px;border:1px solid '+
+       (on?'var(--focus)':'var(--rule)')+';background:'+(on?'var(--focus-lt)':'var(--white)')+
+       ';color:'+(cells[j]==="\u2423"?'var(--inkmute)':'var(--ink)')+'">'+cells[j]+'</div>';
+    h+='<div style="height:10px;margin:3px auto 0;width:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:9px solid '+
+       (on?'var(--machine)':'transparent')+'"></div>';
+    h+='</div>';
+  }
+  return h+'</div></div>';
+}
+function tmDraw(){
+  var rows=tmRows($("#tm-a").value,$("#tm-b").value), r=rows[tmI];
+  $("#tm-tapes").innerHTML =
+    tape("A",r.A,r.ha,"A · input")+tape("B",r.B,r.hb,"B · input")+
+    tape("W",r.W,0,"W · work")+tape("O",r.O,0,"O · output");
+  $("#tm-read").textContent="i = "+r.i+" · "+r.q;
+  $("#tm-rule").innerHTML='<b>rule fired:</b> '+r.rule;
+  $("#tm-scrub").value=tmI;
+}
+$("#tm-step").addEventListener("click",function(){tmI=Math.min(3,tmI+1);tmDraw()});
+$("#tm-reset").addEventListener("click",function(){tmI=0;clearInterval(tmTimer);tmTimer=null;tmDraw()});
+$("#tm-scrub").addEventListener("input",function(){tmI=+this.value;tmDraw()});
+$("#tm-a").addEventListener("change",tmDraw); $("#tm-b").addEventListener("change",tmDraw);
+$("#tm-run").addEventListener("click",function(){
+  clearInterval(tmTimer); tmI=0; tmDraw();
+  if(reduced){tmI=3;tmDraw();return;}
+  tmTimer=setInterval(function(){ if(tmI>=3){clearInterval(tmTimer);tmTimer=null;return;} tmI++; tmDraw(); },850);
+});
+tmDraw();
+
+/* ================================================================ §2 de Bruijn */
+var DBT={
+ apply2:{name:"(λ.λ.(1 0)) A B",
+   steps:[["(λ.λ.(1 0)) A B","the outer redex: applying λ.λ.(1 0) to A pushes frame [A]"],
+          ["(λ.(1 0))[A] B","index 1 now crosses one frame; index 0 is the inner binder"],
+          ["(1 0)[B],[A]","frames [B],[A]: index 0 selects B, index 1 selects A"],
+          ["A B","normal form — exactly what the named term λx.λy.x y says"]]},
+ church:{name:"(λ.λ.(1 (1 0))) f x — Church 2",
+   steps:[["(λ.λ.(1 (1 0))) f x","the Church numeral 2 applied to f and x"],
+          ["(λ.(1 (1 0)))[f] x","frame [f]"],
+          ["(1 (1 0))[x],[f]","index 1 crosses to f, index 0 is x"],
+          ["f (f x)","behaviour is the representation: 2 = apply twice"]]},
+ ydelta:{name:"(λ.(0 0)) (λ.(0 0)) — Ω",
+   steps:[["(λ.(0 0)) (λ.(0 0))","self-application; index 0 is the binder's own argument"],
+          ["(0 0)[λ.(0 0)]","substituting gives back the same term"],
+          ["(λ.(0 0)) (λ.(0 0))","…and again. No normal form: this is why the evaluator meters fuel."],
+          ["(λ.(0 0)) (λ.(0 0))","under fuel f this returns OutOfFuel(f), never a host hang."]]}};
+var dbK=0;
+function dbDraw(){
+  var t=DBT[$("#db-pick").value], s=t.steps[dbK];
+  var h='<div style="display:grid;gap:10px">';
+  t.steps.forEach(function(st,i){
+    var live=(i===dbK), done=(i<dbK);
+    h+='<div style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:baseline;opacity:'+(i>dbK?0.35:1)+'">'+
+       '<span class="mono" style="font-size:11px;color:var(--inkmute)">'+i+'</span>'+
+       '<div><span class="mono" style="font-size:15px;padding:3px 7px;border-radius:2px;'+
+       (live?'background:var(--focus-lt);border:1px solid var(--focus)':'border:1px solid transparent')+'">'+
+       st[0]+'</span>'+(live?'<div class="note" style="margin-top:6px">'+st[1]+'</div>':'')+'</div></div>';
+  });
+  $("#db-stage").innerHTML=h+'</div>';
+  $("#db-read").textContent="step "+dbK+" / "+(t.steps.length-1);
+}
+$("#db-step").addEventListener("click",function(){var t=DBT[$("#db-pick").value];dbK=Math.min(t.steps.length-1,dbK+1);dbDraw()});
+$("#db-reset").addEventListener("click",function(){dbK=0;dbDraw()});
+$("#db-pick").addEventListener("change",function(){dbK=0;dbDraw()});
+dbDraw();
+
+/* ---- the real 33 bytes */
+var QB=[["c2",0,"PROGRAM_HEADER — 0xC2 marks a quoted program (0xC1 marks a CL description)"],
+ ["00","00","00","07"].map(function(x){return x}),0];
+var BYTES=[
+ {b:["c2"],f:0,t:"PROGRAM_HEADER 0xC2 — this is a quoted program (0xC1 would be a CL description)"},
+ {b:["00","00","00","07"],f:0,t:"length of the sort symbol: 7 bytes, big-endian UInt32"},
+ {b:["44","65","63","69","64","65","72"],f:0,t:"the sort symbol itself: “Decider”"},
+ {b:["22"],f:2,t:"tag 0x22 = Lambda"},
+ {b:["00","00","00","05"],f:3,t:"arity 5 — the decider takes (n, x, y, a, b)"},
+ {b:["00","00","00","01"],f:4,t:"child count 1 — the lambda body"},
+ {b:["26"],f:2,t:"tag 0x26 = Prim"},
+ {b:["43"],f:2,t:"tag 0x43 = NameBool"},
+ {b:["01"],f:3,t:"the literal true"},
+ {b:["30"],f:2,t:"tag 0x30 = Concrete — a concrete cost bound follows"},
+ {b:["00","00","00","01"],f:3,t:"bound 1: this primitive charges one fuel unit"},
+ {b:["00","00","00","00"],f:4,t:"child count 0 — the literal takes no arguments"}];
+(function(){
+  var host=$("#quote-bytes"), hint=$("#quote-hint"), n=0;
+  BYTES.forEach(function(g,gi){
+    g.b.forEach(function(bb){
+      var el=document.createElement("span");
+      el.className="byte f"+g.f; el.textContent=bb; el.tabIndex=0;
+      el.setAttribute("data-g",gi);
+      host.appendChild(el); n++;
+    });
+  });
+  function show(gi){
+    $$(".byte",host).forEach(function(e){e.classList.toggle("on", +e.getAttribute("data-g")===gi)});
+    hint.textContent=BYTES[gi].t;
+  }
+  host.addEventListener("mouseover",function(e){ if(e.target.classList.contains("byte")) show(+e.target.getAttribute("data-g")); });
+  host.addEventListener("focusin",function(e){ if(e.target.classList.contains("byte")) show(+e.target.getAttribute("data-g")); });
+  host.insertAdjacentHTML("beforeend",'<span class="note" style="width:100%;margin-top:8px">'+n+' bytes — the size the package reports.</span>');
+})();
+
+/* ================================================================ §3 fuel */
+var FUEL={
+ trivial:{need:3,val:"Value(true)",why:"three charged contractions: create the closure, apply it to the five arguments, evaluate the literal true.",max:6},
+ equality:{need:5,val:"Value(false)",why:"two extra BoundVar lookups at 1 each — a and b — before eq fires. On the input (n,x,y,a,b) = (1,[],[],[true],[false]) the answer is false.",max:8},
+ loop:{need:Infinity,val:"OutOfFuel(f)",why:"the Fix unfolds forever; the counter, not an exception, stops it. In the M-fuel mutant the inner budget of 4·10⁹ exceeds the host hard cap of 10⁶ steps and the machine returns Aborted instead of hanging.",max:8}};
+function fuelDraw(){
+  var k=$("#fuel-prog").value, f=+$("#fuel-f").value, m=FUEL[k];
+  $("#fuel-read").textContent="f = "+f;
+  var need=isFinite(m.need)?m.need:m.max+1;
+  var used=Math.min(f,need);
+  $("#fuel-fill").style.width=(100*used/m.max)+"%";
+  $("#fuel-fill").style.background = f>=need ? "var(--check-lt)" : "var(--term-lt)";
+  $("#fuel-fill").style.borderRightColor = f>=need ? "var(--check)" : "var(--term)";
+  if(f>=need){ $("#fuel-out").innerHTML='<span style="color:var(--check)">'+m.val+'</span> &nbsp; used = '+m.need; }
+  else { $("#fuel-out").innerHTML='<span style="color:var(--bad)">OutOfFuel('+f+')</span> &nbsp; used = '+f; }
+  $("#fuel-why").textContent=m.why;
+}
+$("#fuel-prog").addEventListener("change",function(){var m=FUEL[this.value];$("#fuel-f").max=m.max;fuelDraw()});
+$("#fuel-f").addEventListener("input",fuelDraw);
+$("#fuel-f").max=FUEL.trivial.max; fuelDraw();
+
+/* ================================================================ §4 queries */
+var QA={
+ Dimension:{sig:"Dimension(L, n)",
+   d:"How many field coordinates does a question occupy? Asked first, and answered without touching a seed.",
+   a:{L_Point:"5",L_ALine:"5",L_DLine:"5"},
+   s:"seed_dim = 5 for all three: V_pt ⊕ V_coord ⊕ V_dir at (q,m,d) = (8,2,1)"},
+ Marginal:{sig:"Marginal(L, z, j)",
+   d:"The first j stage outputs on seed z, together with their factor spaces and linear maps. Replaying lem:cl-kth means checking that these sum to apply(L, z).",
+   a:{L_Point:"1 stage · 32,768 replays",L_ALine:"2 stages · 32,768 replays",L_DLine:"3 stages · 32,768 replays"},
+   s:"98,304 marginal replays in total; the suite prints replays=98304"},
+ Factor:{sig:"Factor(L, j, u)",
+   d:"The indicator of stage j's factor register, given the prefix u already produced. It accepts exactly the reachable prefixes u ∈ L_{<j}(V).",
+   a:{L_Point:"Factor(L_Point,1,0) = [1,1,1,1,1]",
+      L_ALine:"Factor(L_ALine,1,0) = [0,0,1,1,1]\nFactor(L_ALine,2,(0,0,4,0,0)) = [1,1,0,0,0]",
+      L_DLine:"stage 1 = {3}, stage 2 = {4,5}, stage 3 = {1,2}"},
+   s:"the two L_ALine answers are printed verbatim by test/tb1_ld_sampler.jl"},
+ Linear:{sig:"Linear(L, j, u)",
+   d:"The same stage's linear map — but on the broader domain u ∈ V_{<j}, including prefixes no seed can reach. That difference is the point: a description must answer about unreachable inputs too.",
+   a:{L_Point:"answers on all of V_{<1}",L_ALine:"at the unreachable prefix (0,0,4,1,0): answered = true",L_DLine:"answers on all of V_{<j}, memo bounded by CL_MEMO_LIMIT = 4,096"},
+   s:"measured reachable/broader domains at j=2 for L_ALine: 8 and 512"}};
+function qDraw(q){
+  var m=$("#q-map").value, r=QA[q];
+  $$("[data-q]").forEach(function(b){b.setAttribute("aria-pressed", b.getAttribute("data-q")===q?"true":"false")});
+  $("#q-sig").textContent=r.sig;
+  $("#q-desc").textContent=r.d;
+  $("#q-ans").innerHTML=String(r.a[m]).replace(/\n/g,"<br>");
+  $("#q-src").textContent=r.s;
+}
+$$("[data-q]").forEach(function(b){b.addEventListener("click",function(){qDraw(b.getAttribute("data-q"))})});
+$("#q-map").addEventListener("change",function(){qDraw($$("[data-q][aria-pressed=true]")[0].getAttribute("data-q"))});
+qDraw("Factor");
+
+/* ================================================================ §5 CL data */
+var CL=(function(){
+  var b64="__CL_TABLE__", bin=atob(b64), n=bin.length/6|0;
+  var pt=new Uint16Array(n), al=new Uint16Array(n), dl=new Uint16Array(n);
+  for(var i=0;i<n;i++){var o=6*i;
+    pt[i]=(bin.charCodeAt(o)<<8)|bin.charCodeAt(o+1);
+    al[i]=(bin.charCodeAt(o+2)<<8)|bin.charCodeAt(o+3);
+    dl[i]=(bin.charCodeAt(o+4)<<8)|bin.charCodeAt(o+5);}
+  return {n:n,pt:pt,al:al,dl:dl};
+})();
+function unpack(q){return [(q>>12)&7,(q>>9)&7,(q>>6)&7,(q>>3)&7,q&7]}
+var CLH=(function(){
+  var a=new Map(), d=new Map();
+  for(var i=0;i<CL.n;i++){
+    var ka=CL.al[i]*65536+CL.pt[i], kd=CL.dl[i]*65536+CL.pt[i];
+    a.set(ka,(a.get(ka)||0)+1); d.set(kd,(d.get(kd)||0)+1);
+  }
+  function prof(m){var p=new Map(); m.forEach(function(v){p.set(v,(p.get(v)||0)+1)}); return p;}
+  return {axis:{support:a.size,prof:prof(a)}, diag:{support:d.size,prof:prof(d)}};
+})();
+(function(){
+  function bars(t,title,colour){
+    var keys=Array.from(t.prof.keys()).sort(function(x,y){return x-y});
+    var maxc=Math.max.apply(null,keys.map(function(k){return t.prof.get(k)}));
+    var h='<div><p class="eyebrow" style="margin-bottom:10px">'+title+' — support '+fmt(t.support)+'</p>';
+    keys.forEach(function(k){
+      var c=t.prof.get(k), w=Math.max(2,100*c/maxc);
+      h+='<div style="display:grid;grid-template-columns:96px 1fr auto;gap:10px;align-items:center;margin:6px 0">'+
+         '<span class="mono" style="font-size:12px;color:var(--inkmute);text-align:right">mass '+k+'</span>'+
+         '<div style="height:16px;background:var(--inset);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+w+'%;background:'+colour+';border-radius:0 2px 2px 0"></div></div>'+
+         '<span class="mono" style="font-size:12.5px;font-variant-numeric:tabular-nums">'+fmt(c)+' pairs</span></div>';
+    });
+    return h+'</div>';
+  }
+  $("#cl-hist").innerHTML='<div class="grid2">'+
+    bars(CLH.axis,"L_ALine × L_Point","var(--machine-mark)")+
+    bars(CLH.diag,"L_DLine × L_Point","var(--term-mark)")+'</div>';
+})();
+
+/* ---- three.js helper */
+function makeRenderer(host){
+  if(!window.THREE) return null;
+  var r;
+  try{ r=new THREE.WebGLRenderer({antialias:true,alpha:false}); }catch(e){ return null; }
+  if(!r||!r.getContext||!r.getContext()) return null;
+  r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  r.domElement.style.cssText="display:block;width:100%;height:100%;position:absolute;inset:0;z-index:1";
+  host.appendChild(r.domElement);
+  return r;
+}
+/* Some environments hand back a context that never paints. After the first
+   render, read one pixel: an all-zero centre means nothing was drawn, and the
+   2D layer underneath is left visible instead. */
+function drew(R){
+  try{
+    var gl=R.getContext(), w=gl.drawingBufferWidth, h=gl.drawingBufferHeight;
+    if(!w||!h) return false;
+    var px=new Uint8Array(4);
+    gl.readPixels((w/2)|0,(h/2)|0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
+    return (px[0]|px[1]|px[2]|px[3])!==0;
+  }catch(e){ return false; }
+}
+function flatLayer(host,w,h){
+  var c=document.createElement("canvas");
+  c.width=w; c.height=h;
+  c.style.cssText="display:block;width:100%;height:100%;position:absolute;inset:0;z-index:0";
+  host.appendChild(c); return c;
+}
+
+/* ---- §5 scene */
+(function(){
+  var host=$("#cl-scene"), seedEl=$("#cl-seed");
+  function questions(i){
+    var p=unpack(CL.pt[i]), a=unpack(CL.al[i]), d=unpack(CL.dl[i]);
+    return {p:p,a:a,d:d};
+  }
+  function axisOf(s){ return s<4?0:1; }        /* eq:chi-func with m=2, q=8: 1 + s div 4 */
+  function lines(i){
+    var Q=questions(i), out={point:[Q.p[0],Q.p[1]],axis:[],diag:[]}, ax=axisOf(Q.a[2]), t;
+    for(t=0;t<8;t++){ var q=[Q.a[0],Q.a[1]]; q[ax]=t; out.axis.push(q); }
+    var d0=Q.d[3], d1=Q.d[4];
+    for(t=0;t<8;t++) out.diag.push([gadd(Q.d[0],gmul(t,d0)), gadd(Q.d[1],gmul(t,d1))]);
+    out.Q=Q; out.ax=ax;
+    return out;
+  }
+  function text(i){
+    var L=lines(i), Q=L.Q;
+    $("#cl-questions").innerHTML=
+      '<div><span style="color:var(--focus-ink)">L_Point</span> → ('+Q.p.join(", ")+')</div>'+
+      '<div><span style="color:var(--machine)">L_ALine</span> → ('+Q.a.join(", ")+')&nbsp; <span style="color:var(--inkmute)">axis '+(L.ax+1)+' by χ(s='+Q.a[2]+')</span></div>'+
+      '<div><span style="color:var(--term)">L_DLine</span> → ('+Q.d.join(", ")+')&nbsp; <span style="color:var(--inkmute)">direction ('+Q.d[3]+', '+Q.d[4]+')</span></div>';
+    $("#cl-seedread").textContent="seed #"+fmt(i)+" of 32,768";
+    return L;
+  }
+  var flat=flatLayer(host,800,600);
+  var R=makeRenderer(host), scene, cam, group, spin=true, raf=null;
+  function paint2d(i){
+    if(!flat) return;
+    var g=flat.getContext("2d"), w=flat.width, h=flat.height, L=lines(i);
+    g.fillStyle=css("--inset")||"#f4f1e9"; g.fillRect(0,0,w,h);
+    var C=56, X0=(w-8*C)/2, Y0=76;
+    var key={};
+    L.axis.forEach(function(p){key[p[0]+","+p[1]]=(key[p[0]+","+p[1]]||0)|1});
+    L.diag.forEach(function(p){key[p[0]+","+p[1]]=(key[p[0]+","+p[1]]||0)|2});
+    var pk=L.point[0]+","+L.point[1];
+    for(var a=0;a<8;a++)for(var b=0;b<8;b++){
+      var k=a+","+b, f=key[k]||0;
+      g.fillStyle = (k===pk)?(css("--focus")||"#F2C14E")
+                  : (f&1)?(css("--machine-lt")||"#DCEEF0")
+                  : (css("--white")||"#ffffff");
+      g.fillRect(X0+a*C,Y0+b*C,C-3,C-3);
+      g.strokeStyle=(f&1)?(css("--machine")||"#1F6F78"):(css("--rule")||"#D9D3C7");
+      g.lineWidth=(f&1)?2:1; g.strokeRect(X0+a*C,Y0+b*C,C-3,C-3);
+      if(f&2){ g.strokeStyle=css("--term")||"#B5561D"; g.lineWidth=2.5;
+               g.strokeRect(X0+a*C+8,Y0+b*C+8,C-19,C-19); }
+    }
+    g.fillStyle=css("--inkmute")||"#666"; g.font="19px sans-serif";
+    g.fillText("F\u2088\u00B2 point plane \u00B7 WebGL unavailable, 2D view",X0,46);
+  }
+  paint2d(+seedEl.value);
+  seedEl.addEventListener("input",function(){paint2d(+this.value)});
+  window.addEventListener("themechange",function(){paint2d(+seedEl.value)});
+  if(R){
+    scene=new THREE.Scene();
+    cam=new THREE.PerspectiveCamera(38,4/3,0.1,100); cam.position.set(9,8,11); cam.lookAt(0,0.6,0);
+    group=new THREE.Group(); scene.add(group);
+    scene.add(new THREE.AmbientLight(0xffffff,0.55));
+    var l1=new THREE.DirectionalLight(0xffffff,0.75); l1.position.set(6,10,6); scene.add(l1);
+    var cells=[];
+    for(var a=0;a<8;a++)for(var b=0;b<8;b++){
+      var m=new THREE.Mesh(new THREE.BoxGeometry(0.86,0.14,0.86), new THREE.MeshLambertMaterial({color:0xffffff}));
+      m.position.set(a-3.5,0,b-3.5); m.userData={a:a,b:b}; group.add(m); cells.push(m);
+    }
+    var COL={};
+    function readColours(){
+      COL.base=new THREE.Color(css("--white")||"#fff");
+      COL.axis=new THREE.Color(css("--machine")||"#1F6F78");
+      COL.diag=new THREE.Color(css("--term")||"#B5561D");
+      COL.pt=new THREE.Color(css("--focus")||"#F2C14E");
+      scene.background=new THREE.Color(css("--inset")||"#f4f1e9");
+    }
+    readColours(); window.addEventListener("themechange",function(){readColours();paint(+seedEl.value)});
+    function paint(i){
+      var L=text(i), key={};
+      L.axis.forEach(function(p){key[p[0]+","+p[1]]=(key[p[0]+","+p[1]]||0)|1});
+      L.diag.forEach(function(p){key[p[0]+","+p[1]]=(key[p[0]+","+p[1]]||0)|2});
+      var pk=L.point[0]+","+L.point[1];
+      cells.forEach(function(m){
+        var k=m.userData.a+","+m.userData.b, f=key[k]||0, y=0, c=COL.base;
+        if(f&1){c=COL.axis;y=0.30}
+        if(f&2){c=COL.diag;y=0.60}
+        if(f===3){y=0.75}
+        if(k===pk){c=COL.pt;y=1.05}
+        m.material.color.copy(c); m.position.y=y; m.scale.y=1+y*3;
+      });
+    }
+    var t0=performance.now();
+    function loop(){
+      raf=requestAnimationFrame(loop);
+      var w=host.clientWidth,h=host.clientHeight;
+      if(R.domElement.width!==w*R.getPixelRatio()||R.domElement.height!==h*R.getPixelRatio()){
+        R.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix();
+      }
+      if(spin&&!reduced){ var t=(performance.now()-t0)/9000; group.rotation.y=t; }
+      R.render(scene,cam);
+    }
+    paint(+seedEl.value); R.render(scene,cam);
+    if(!drew(R)){ host.removeChild(R.domElement); R=null; }
+    else loop();
+    $("#cl-spin").addEventListener("click",function(){spin=!spin;this.setAttribute("aria-pressed",spin?"true":"false")});
+    seedEl.addEventListener("input",function(){paint(+this.value)});
+    $("#cl-rand").addEventListener("click",function(){seedEl.value=Math.floor(Math.random()*32768);paint(+seedEl.value)});
+  }
+  if(!R){
+    $("#cl-spin").disabled=true; $("#cl-spin").setAttribute("aria-pressed","false");
+    $("#cl-rand").addEventListener("click",function(){
+      seedEl.value=Math.floor(Math.random()*32768);
+      paint2d(+seedEl.value); text(+seedEl.value); });
+  }
+  text(+seedEl.value);
+  seedEl.addEventListener("input",function(){text(+this.value)});
+})();
+
+/* ================================================================ §6 LDT */
+(function(){
+  function g(x,y){ return gadd(gadd(1,x), gmul(x,y)); }   /* 1 + x1 + x1 x2 */
+  var PX=3, PY=5, cheat=false;
+  function draw(){
+    var d=+$("#ld-deg").value, ax=+$("#ld-axis").value;
+    $("#ld-degread").textContent="d = "+d;
+    var pts=[], vals=[], t;
+    for(t=0;t<8;t++){ var q=[PX,PY]; q[ax]=t; pts.push(q); vals.push(g(q[0],q[1])); }
+    var shown=vals.slice();
+    if(cheat) shown[6]=gadd(shown[6],4);
+    /* interpolated degree over GF(8) from 8 points: highest nonzero Lagrange coefficient */
+    var coef=lagrange(shown), deg=0;
+    for(t=7;t>=0;t--) if(coef[t]!==0){deg=t;break;}
+    var h='<svg viewBox="0 0 300 300" role="img" aria-label="The F_8 squared plane with the line question highlighted and the point question in amber" style="width:100%;max-width:330px">';
+    for(var a=0;a<8;a++)for(var b=0;b<8;b++){
+      var onLine=pts.some(function(p){return p[0]===a&&p[1]===b});
+      var isPt=(a===PX&&b===PY);
+      h+='<rect x="'+(6+a*36)+'" y="'+(6+b*36)+'" width="35" height="35" fill="'+
+         (isPt?"var(--focus)":onLine?"var(--machine-lt)":"var(--white)")+'" stroke="'+
+         (isPt?"var(--focus-ink)":onLine?"var(--machine)":"var(--rule)")+'" stroke-width="'+(isPt||onLine?1.3:0.7)+'"/>';
+      if(onLine||isPt) h+='<text x="'+(23.5+a*36)+'" y="'+(29+b*36)+'" text-anchor="middle" font-family="var(--f-mono)" font-size="13" fill="'+(isPt?"var(--ink)":"var(--machine)")+'">'+g(a,b)+'</text>';
+    }
+    $("#ld-grid").innerHTML=h+'</svg>';
+    var ah='';
+    for(t=0;t<8;t++){
+      var bad=cheat&&shown[t]!==vals[t];
+      ah+='<span class="byte'+(bad?"":"")+'" style="'+(bad?'background:var(--bad-lt);border-color:var(--bad);color:var(--bad)':'')+'">'+shown[t]+'</span>';
+    }
+    $("#ld-answer").innerHTML=ah+'<span class="note" style="width:100%;margin-top:8px">t = 0 … 7 along the line</span>';
+    var okDeg=(deg<=d), okPt=(shown[ax===0?PX:PY]===g(PX,PY));
+    var v='';
+    if(!okDeg){
+      v='<div style="border:1px solid var(--bad);background:var(--bad-lt);padding:12px;border-radius:2px">'+
+        '<b style="color:var(--bad)">REJECT</b> · rule <span class="mono">ld_axis_degree</span>'+
+        '<div class="note" style="margin-top:6px">interpolated degree '+deg+' &gt; claimed d = '+d+'. The format guard fires before the point guard is even reached.</div></div>';
+    } else if(!okPt){
+      v='<div style="border:1px solid var(--bad);background:var(--bad-lt);padding:12px;border-radius:2px">'+
+        '<b style="color:var(--bad)">REJECT</b> · rule <span class="mono">ld_axis_point</span>'+
+        '<div class="note" style="margin-top:6px">the line answer at the meeting parameter disagrees with the point answer.</div></div>';
+    } else {
+      v='<div style="border:1px solid var(--check);background:var(--check-lt);padding:12px;border-radius:2px">'+
+        '<b style="color:var(--check)">ACCEPT</b> · rule <span class="mono">ld_axis_point</span>'+
+        '<div class="note" style="margin-top:6px">degree '+deg+' ≤ d = '+d+', and the line agrees with the point where they meet.</div></div>';
+    }
+    $("#ld-verdict").innerHTML=v;
+  }
+  function lagrange(v){
+    /* interpolate through (t, v[t]) for t = 0..7 over GF(8); returns coefficients */
+    var c=new Array(8).fill(0);
+    for(var i=0;i<8;i++){
+      if(v[i]===0) continue;
+      var basis=[1].concat(new Array(7).fill(0)), denom=1;
+      for(var j=0;j<8;j++){
+        if(j===i) continue;
+        var nb=new Array(8).fill(0);
+        for(var k=0;k<7;k++){ nb[k+1]=gadd(nb[k+1],basis[k]); nb[k]=gadd(nb[k],gmul(basis[k],j)); }
+        basis=nb; denom=gmul(denom,gadd(i,j));
+      }
+      var inv=1; for(var e=1;e<8;e++) if(gmul(denom,e)===1){inv=e;break;}
+      var s=gmul(v[i],inv);
+      for(var m=0;m<8;m++) c[m]=gadd(c[m],gmul(basis[m],s));
+    }
+    return c;
+  }
+  $("#ld-deg").addEventListener("input",draw);
+  $("#ld-axis").addEventListener("change",draw);
+  $("#ld-cheat").addEventListener("click",function(){cheat=!cheat;this.setAttribute("aria-pressed",cheat?"true":"false");draw()});
+  draw();
+})();
+
+/* ================================================================ §7 circuit */
+(function(){
+  var GATES=[{n:"w₁",e:"¬x₁",in:["x₁"],fan:2},{n:"w₂",e:"¬w₁",in:["w₁"],fan:1},
+             {n:"w₃",e:"¬w₁",in:["w₁"],fan:1},{n:"w₄",e:"w₂ ∧ w₃",in:["w₂","w₃"],fan:1},
+             {n:"w₅",e:"w₄ ∧ o₁",in:["w₄","o₁"],fan:1},{n:"w₆",e:"w₅ ∧ x₅",in:["w₅","x₅"],fan:0}];
+  var VARS=["x₁","x₂","x₃","x₄","x₅","o₁","o₂","o₃","o₄","o₅","w₁","w₂","w₃","w₄","w₅","w₆"];
+  var OCC=[2,0,0,0,2,2,0,0,0,0,6,4,4,4,4,3];
+  var C0 =[3,0,0,0,2,3,1,1,1,1,6,4,4,4,4,3];
+  var NOTE={
+   "w₁":"w₁ = ¬x₁ has fan-out 2 — it feeds both w₂ and w₃. occ(w₁) = 2 + 2·2 = 6, the largest individual degree in F_arith and the number the paper's proposition puts at 2.",
+   "w₆":"w₆ is the output wire, so the Tseitin formula carries the extra conjunct w_out: occ = 3 + 2·fanout = 3 + 0 = 3. (That conjunct is finding F2 — NW19's formula omits it.)",
+   "x₁":"x₁ feeds one gate: occ(x₁) = 2·fanout = 2.",
+   "x₅":"x₅ feeds one gate: occ = 2.",
+   "o₁":"o₁ feeds one gate: occ = 2.",
+   "x₂":"x₂ appears in no gate — occurrence 0 in F_arith, though c₀ still reaches degree 0 there.",
+   "x₃":"x₃ appears in no gate.","x₄":"x₄ appears in no gate.",
+   "o₂":"o₂ appears in no gate of this circuit, but c₀ picks up degree 1 from the product ∏(g_i − o_i).",
+   "o₃":"as o₂.","o₄":"as o₂.","o₅":"as o₂.",
+   "w₂":"w₂ = ¬w₁ has fan-out 1: occ = 2 + 2·1 = 4.",
+   "w₃":"w₃ = ¬w₁ has fan-out 1: occ = 4.",
+   "w₄":"w₄ = w₂ ∧ w₃, fan-out 1: occ = 4.",
+   "w₅":"w₅ = w₄ ∧ o₁, fan-out 1: occ = 4."};
+  var h='<svg viewBox="0 0 340 250" role="img" aria-label="The six-gate TB0 circuit: not x1 feeding two negations, an and, and two further ands to the output" style="width:100%">';
+  h+='<defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>';
+  var pos={"w₁":[40,120],"w₂":[120,70],"w₃":[120,170],"w₄":[200,120],"w₅":[262,120],"w₆":[316,120]};
+  var edges=[["w₁","w₂"],["w₁","w₃"],["w₂","w₄"],["w₃","w₄"],["w₄","w₅"],["w₅","w₆"]];
+  h+='<g stroke="currentColor" fill="none" stroke-width="1.2" color="var(--inkmute)">';
+  edges.forEach(function(e){var p=pos[e[0]],q=pos[e[1]];h+='<line x1="'+(p[0]+16)+'" y1="'+p[1]+'" x2="'+(q[0]-18)+'" y2="'+q[1]+'" marker-end="url(#a2)"/>';});
+  h+='<line x1="10" y1="120" x2="22" y2="120" marker-end="url(#a2)"/>';
+  h+='<line x1="262" y1="196" x2="262" y2="140" marker-end="url(#a2)"/>';
+  h+='<line x1="200" y1="196" x2="200" y2="140" marker-end="url(#a2)"/>';
+  h+='</g>';
+  h+='<text x="4" y="112" font-family="var(--f-mono)" font-size="11" fill="var(--desc)">x₁</text>';
+  h+='<text x="192" y="212" font-family="var(--f-mono)" font-size="11" fill="var(--desc)">o₁</text>';
+  h+='<text x="254" y="212" font-family="var(--f-mono)" font-size="11" fill="var(--desc)">x₅</text>';
+  Object.keys(pos).forEach(function(k){
+    var p=pos[k], G=GATES[+k.charCodeAt(1)-8321>=0?0:0];
+    var gate=GATES.filter(function(x){return x.n===k})[0];
+    h+='<g class="gate" data-v="'+k+'" style="cursor:pointer">';
+    h+='<rect x="'+(p[0]-18)+'" y="'+(p[1]-16)+'" width="36" height="32" rx="2" fill="var(--machine-lt)" stroke="var(--machine)" stroke-width="1.2"/>';
+    h+='<text x="'+p[0]+'" y="'+(p[1]-2)+'" text-anchor="middle" font-family="var(--f-mono)" font-size="11" fill="var(--machine)">'+k+'</text>';
+    h+='<text x="'+p[0]+'" y="'+(p[1]+11)+'" text-anchor="middle" font-family="var(--f-ui)" font-size="9" fill="var(--inkmute)">'+gate.e+'</text></g>';
+  });
+  h+='<text x="316" y="152" text-anchor="middle" font-family="var(--f-ui)" font-size="10" fill="var(--check)">output</text>';
+  h+='</svg>';
+  $("#f1-circuit").innerHTML=h;
+  var occHost=$("#f1-occ");
+  VARS.forEach(function(v,i){
+    var e=document.createElement("span");
+    e.className="byte"; e.tabIndex=0; e.setAttribute("data-v",v);
+    e.innerHTML=v+'&nbsp;<b style="color:'+(OCC[i]>=5?"var(--bad)":"var(--ink)")+'">'+OCC[i]+'</b>';
+    occHost.appendChild(e);
+  });
+  function pick(v){
+    $$("[data-v]").forEach(function(e){e.classList.toggle("on", e.getAttribute("data-v")===v)});
+    var i=VARS.indexOf(v);
+    $("#f1-note").innerHTML=(NOTE[v]||"")+'<br><span class="mono" style="font-size:12px">occ(F_arith) = '+OCC[i]+' · deg(c₀) = '+C0[i]+'</span>';
+  }
+  document.addEventListener("click",function(e){
+    var t=e.target.closest?e.target.closest("[data-v]"):null; if(t) pick(t.getAttribute("data-v"));
+  });
+  occHost.addEventListener("focusin",function(e){ if(e.target.getAttribute("data-v")) pick(e.target.getAttribute("data-v")); });
+  pick("w₁");
+})();
+
+/* ================================================================ §8 zero basis */
+(function(){
+  var W={
+   i:{label:"witness (i) — ([0,1],[0,0],[0,0],[0,0],[0,0])",phi:true,mono:"33,432",rem:"0",id:true,
+      note:"The degenerate satisfying witness: g₂ … g₅ vanish, so their block-locality contracts are vacuous and are not evidence for C3. Seven of the sixteen quotients are zero, because the corresponding deg_j(c₀) ≤ 1."},
+   ii:{label:"witness (ii) — ([0,1],[0,1],[0,1],[0,1],[0,1])",phi:true,mono:"788,032 / 534,912",rem:"0",id:true,
+      note:"The non-degenerate satisfying witness: every g_i is non-constant and Dependencies(g_i) = {X_i} exactly. Only this witness supplies block-dependency evidence. Build 14.556 s, peak RSS 680.6 MiB. Support counts are the critic's ℤ and local characteristic-2 recomputations."},
+   iii:{label:"witness (iii) — the all-zero witness",phi:false,mono:"18,620",rem:"2 monomials",id:false,
+      note:"Unsatisfying. The division by the Boolean ideal leaves a two-monomial remainder and the coefficient-identity replay fails, so no certificate is issued. Cube vanishing tracks φ_C exactly on all three retained witnesses."}};
+  var cur="i";
+  var cv=$("#zb-cube"), ctx=cv.getContext("2d");
+  function draw(){
+    var w=W[cur];
+    $$("[data-w]").forEach(function(b){b.setAttribute("aria-pressed", b.getAttribute("data-w")===cur?"true":"false")});
+    $("#zb-w").textContent=w.label;
+    ctx.clearRect(0,0,256,256);
+    if(w.phi){ ctx.fillStyle=css("--check")||"#3D7A3A"; ctx.fillRect(0,0,256,256); }
+    else { ctx.fillStyle=css("--cited-lt")||"#ECE9E2"; ctx.fillRect(0,0,256,256);
+      ctx.fillStyle=css("--bad")||"#B03A2E"; ctx.font="600 26px serif"; ctx.textAlign="center";
+      ctx.fillText("φ_C = false",128,134); }
+    $("#zb-rows").innerHTML=
+      '<tr><td>φ_C holds</td><td class="n" style="color:'+(w.phi?"var(--check)":"var(--bad)")+'">'+(w.phi?"true":"false")+'</td></tr>'+
+      '<tr><td>monomials of c₀</td><td class="n">'+w.mono+'</td></tr>'+
+      '<tr><td>remainder r</td><td class="n" style="color:'+(w.id?"var(--check)":"var(--bad)")+'">'+w.rem+'</td></tr>'+
+      '<tr><td>coefficient identity</td><td class="n" style="color:'+(w.id?"var(--check)":"var(--bad)")+'">'+(w.id?"true":"false")+'</td></tr>'+
+      '<tr><td>c₀ vanishes on the cube</td><td class="n">'+(w.phi?"at all 65,536 points":"no")+'</td></tr>';
+    $("#zb-verdict").innerHTML='<div style="border-left:2px solid '+(w.id?"var(--check)":"var(--bad)")+
+      ';background:'+(w.id?"var(--check-lt)":"var(--bad-lt)")+';padding:12px 14px;border-radius:0 2px 2px 0">'+
+      '<b>'+(w.id?"c₀ = Σᵢ cᵢ · zero(zᵢ)":"c₀ ≠ Σᵢ cᵢ · zero(zᵢ)")+'</b><div class="note" style="margin-top:8px">'+w.note+'</div></div>';
+  }
+  $$("[data-w]").forEach(function(b){b.addEventListener("click",function(){cur=b.getAttribute("data-w");draw()})});
+  window.addEventListener("themechange",draw);
+  draw();
+})();
+
+/* ================================================================ §9 PCP walk */
+(function(){
+  var STEPS=[
+   {t:"1 · the proof string",b:"Π = (g₁,…,g₅, c₀, c₁,…,c₁₆) — 22 polynomials. The five gᵢ are low-degree extensions of the witness blocks; c₀ is F_arith(x,o,w)·∏ᵢ(gᵢ(xᵢ) − oᵢ); the cᵢ are its quotients by the Boolean ideal.",n:{"polynomials":"22","individual degree d":"6"}},
+   {t:"2 · pick a point and its lines",b:"A random point b_ρ, and the 16 named coordinate lines S_j through it. The verifier reads the proof restricted to those lines and checks each restriction's degree.",n:{"named lines":"16","points read":"128"}},
+   {t:"3 · the formula test",b:"At the point, the arithmetized clause predicate must reproduce the claimed value. The prototype computes the honest value β₀ from the fixture itself rather than from a literal, and asserts that the mutated view differs.",n:{"β₀ honest":"__B0__","β₀ with g₂−o₂ deleted":"__B0M__"}},
+   {t:"4 · the zero-on-subcube test",b:"c₀ must vanish on the Boolean cube, which the zero-basis identity turns into a coefficient equality the verifier can spot-check. For witness (i) it holds at all 65,536 Boolean points; for witness (ii), c₀(b_ρ) ≠ 0 off the cube, as it must be.",n:{"Boolean points":"65,536","c₀(b_ρ), witness (ii)":"__CB__"}},
+   {t:"5 · what this establishes",b:"Completeness on named points and lines, replayed node by node, with a borrowed certificate refused by object identity. It is not an exhaustive all-z statement and not a soundness claim — no uniform z in GF(2¹¹)¹⁶ are sampled.",n:{"certificate nodes replayed":"11","claim":"C1 TESTED"}}];
+  function draw(){
+    var k=+$("#pv-step").value, f=$("#pv-field").value, s=STEPS[k];
+    var b0=f==="8"?"2":"96", b0m=f==="8"?"1":"48", cb=f==="8"?"—":"48";
+    $("#pv-read").textContent="step "+(k+1)+" of 5 · "+(f==="8"?"GF(8)":"GF(2¹¹)");
+    var h='<div class="grid2"><div><p class="eyebrow" style="margin-bottom:8px">'+s.t+'</p><p style="margin:0">'+
+      s.b.replace("__B0__",b0)+'</p></div><div>';
+    Object.keys(s.n).forEach(function(kk){
+      var v=String(s.n[kk]).replace("__B0__",b0).replace("__B0M__",b0m).replace("__CB__",cb);
+      h+='<div style="display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--rule-soft);padding:8px 0">'+
+         '<span class="note" style="margin:0">'+kk+'</span><span class="readout">'+v+'</span></div>';
+    });
+    $("#pv-stage").innerHTML=h+'</div></div>';
+  }
+  $("#pv-step").addEventListener("input",draw); $("#pv-field").addEventListener("change",draw); draw();
+})();
+
+/* ================================================================ §10 guard map */
+var AR=(function(){
+  var types="__GUARD_TYPES__".split("|");
+  var sets="__GUARD_SETS__".split("|");
+  var idx="__GUARD_IDX__".split(",").map(Number);
+  return {types:types,sets:sets,idx:idx};
+})();
+(function(){
+  var N=AR.types.length, CELL=11, PAD=1;
+  var host=$("#ar-grid");
+  var cv=document.createElement("canvas");
+  cv.width=N*CELL; cv.height=N*CELL; cv.style.width=Math.min(600,N*CELL)+"px";
+  cv.style.height=Math.min(600,N*CELL)+"px"; cv.style.imageRendering="pixelated";
+  cv.style.border="1px solid var(--rule)"; cv.style.borderRadius="2px"; cv.style.display="block";
+  host.appendChild(cv);
+  var ctx=cv.getContext("2d"), filter="all";
+  function cat(s){
+    if(s==="") return "none";
+    if(s.indexOf("global_consistency")>=0) return "global_consistency";
+    if(s.indexOf("low_degree")>=0) return "ld";
+    if(s.indexOf("input_consistency")>=0||s.indexOf("proof_consistency")>=0) return "consistency";
+    return "game";
+  }
+  var COL={none:"--rule-soft",global_consistency:"--machine-mark",ld:"--term-mark",
+           consistency:"--desc-mark",game:"--check-mark"};
+  function paint(){
+    var c={}; Object.keys(COL).forEach(function(k){c[k]=css(COL[k])||"#888"});
+    var bg=css("--white")||"#fff";
+    ctx.fillStyle=bg; ctx.fillRect(0,0,cv.width,cv.height);
+    for(var i=0;i<N;i++)for(var j=0;j<N;j++){
+      var s=AR.sets[AR.idx[i*N+j]], k=cat(s);
+      var vis=(filter==="all")||(filter==="none"&&k==="none")||(filter===k)||
+              (filter==="game"&&s.indexOf("game")>=0)||
+              (filter==="global_consistency"&&s.indexOf("global_consistency")>=0)||
+              (filter==="ld"&&s.indexOf("low_degree")>=0);
+      ctx.fillStyle = vis ? c[k] : (css("--inset")||"#eee");
+      ctx.globalAlpha = (k==="none"&&vis)?0.55:1;
+      ctx.fillRect(j*CELL,i*CELL,CELL-PAD,CELL-PAD);
+      ctx.globalAlpha=1;
+    }
+  }
+  cv.addEventListener("mousemove",function(e){
+    var r=cv.getBoundingClientRect();
+    var j=Math.floor((e.clientX-r.left)/r.width*N), i=Math.floor((e.clientY-r.top)/r.height*N);
+    if(i<0||j<0||i>=N||j>=N) return;
+    var s=AR.sets[AR.idx[i*N+j]];
+    $("#ar-hover").innerHTML='<b>'+AR.types[i]+'</b> × <b>'+AR.types[j]+'</b><br>'+
+      (s===""?'<span style="color:var(--inkmute)">no guard applies — the decider accepts without reading a thing</span>'
+             :'guards: <span style="color:var(--check)">'+s.split("+").join(" · ")+'</span>');
+  });
+  cv.addEventListener("mouseleave",function(){$("#ar-hover").innerHTML='Hover a cell: rows are the left player’s type, columns the right player’s. 2,736 of the 2,916 are blank.'});
+  $("#ar-hover").innerHTML='Hover a cell: rows are the left player’s type, columns the right player’s. 2,736 of the 2,916 are blank.';
+  $$("[data-g]").forEach(function(b){b.addEventListener("click",function(){
+    filter=b.getAttribute("data-g");
+    $$("[data-g]").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});
+    paint();
+  })});
+  var counts={};
+  AR.idx.forEach(function(k){var c=cat(AR.sets[k]);counts[c]=(counts[c]||0)+1});
+  $("#ar-legend").innerHTML=Object.keys(COL).map(function(k){
+    var lbl={none:"no guard",global_consistency:"global consistency",ld:"low-degree",
+             consistency:"input / proof consistency",game:"the original game"}[k];
+    return '<span><i style="background:var('+COL[k]+');border-color:var('+COL[k]+')"></i>'+lbl+' — '+fmt(counts[k]||0)+'</span>';
+  }).join("");
+  window.addEventListener("themechange",paint);
+  paint();
+})();
+
+/* ================================================================ §11 front end */
+(function(){
+  var FE={
+   trivial:{
+     stages:[["Quote","|D| = 33 bytes · fnv1a64 f8561ef8c5761695 · sort Decider","check"],
+             ["BoundedTrace","T = 1 body transition · rows 2 · Value(true) · accepts","check"],
+             ["CookLevin","m = 1 · M = 2 · 1 clause · 16/64 present tuples · 1 gate","check"],
+             ["Decouple5","widths (0,0,1,1,1) · 1 clause · 0 copy, 0 equality gadgets · exhaustive (256)","check"],
+             ["Pad5","m = 1 · s = 6 (live 1, five NOT paddings) · m′ = 16 · exhaustive (1024)","check"],
+             ["build_pcp","|c₀| = 10,140 (witness i) / 162,240 (witness ii) · 0.35 s / 4.605 s","check"],
+             ["TB2 decider","7 / 7 guard cases accepted in 1.013 s","check"]],
+     ev:[["|D|","33 <small>bytes</small>","good"],["5SAT clauses","1","good"],
+         ["present tuples","256 / 1,024",""],["witnesses","512 / 1,024",""]]},
+   equality:{
+     stages:[["Quote","|D| = 64 bytes · sort Decider","check"],
+             ["BoundedTrace","T = 3 body transitions (T = 2 gives OutOfFuel) · rows 4","check"],
+             ["CookLevin","m = 3 · M = 8 · 15 clauses · 0 eliminated","check"],
+             ["Decouple5","widths (0,0,3,3,3) · 47 clauses = 15 formula + 4 copy + 28 equality","check"],
+             ["Pad5","m = 3 · live 423 · s = 492 · m′ = 512","check"],
+             ["arith_q","ExpansionRefused(279,936 > 160,000) at the seventh gadget","bad"],
+             ["build_pcp","never reached","cited"]],
+     ev:[["|D|","64 <small>bytes</small>",""],["5SAT clauses","47","" ],
+         ["live gates","423",""],["refusal","279,936 > 160,000","warn"]]}};
+  var cur="trivial";
+  function draw(){
+    var f=FE[cur];
+    $$("[data-d]").forEach(function(b){b.setAttribute("aria-pressed", b.getAttribute("data-d")===cur?"true":"false")});
+    var h='<div style="display:grid;gap:0">';
+    f.stages.forEach(function(s,i){
+      var col=s[2]==="check"?"var(--check)":s[2]==="bad"?"var(--bad)":"var(--cited)";
+      var bg =s[2]==="check"?"var(--check-lt)":s[2]==="bad"?"var(--bad-lt)":"var(--cited-lt)";
+      h+='<div style="display:grid;grid-template-columns:22px 168px 1fr;gap:14px;align-items:center;padding:11px 0;border-bottom:1px solid var(--rule-soft)">'+
+         '<span style="width:12px;height:12px;border-radius:2px;background:'+bg+';border:1px solid '+col+
+         (s[2]==="cited"?";border-style:dashed":"")+'"></span>'+
+         '<b class="mono" style="font-size:13px">'+s[0]+'</b>'+
+         '<span class="note" style="margin:0">'+s[1]+'</span></div>';
+    });
+    $("#fe-pipeline").innerHTML=h+'</div>';
+    $("#fe-evidence").innerHTML=f.ev.map(function(e){
+      return '<div class="ev '+e[2]+'"><dt>'+e[0]+'</dt><dd>'+e[1]+'</dd></div>';
+    }).join("");
+  }
+  $$("[data-d]").forEach(function(b){b.addEventListener("click",function(){cur=b.getAttribute("data-d");draw()})});
+  draw();
+})();
+
+/* ================================================================ §12 Pauli */
+(function(){
+  var h='<svg viewBox="0 0 340 240" role="img" aria-label="Two provers share EPR pairs; each is asked to measure in the X or the Z basis, and anticommuting observables cannot both be determined" style="width:100%">';
+  h+='<defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>';
+  h+='<circle cx="60" cy="120" r="34" fill="var(--machine-lt)" stroke="var(--machine)" stroke-width="1.4"/>';
+  h+='<circle cx="280" cy="120" r="34" fill="var(--machine-lt)" stroke="var(--machine)" stroke-width="1.4"/>';
+  h+='<text x="60" y="125" text-anchor="middle" font-family="var(--f-ui)" font-size="13" fill="var(--machine)">Alice</text>';
+  h+='<text x="280" y="125" text-anchor="middle" font-family="var(--f-ui)" font-size="13" fill="var(--machine)">Bob</text>';
+  for(var k=0;k<4;k++){
+    var y=68+k*35;
+    h+='<path d="M96 '+y+' C150 '+(y-16)+' 190 '+(y+16)+' 244 '+y+'" fill="none" stroke="var(--term)" stroke-width="1.3" stroke-dasharray="4 3"/>';
+  }
+  h+='<text x="170" y="42" text-anchor="middle" font-family="var(--f-ui)" font-size="11.5" fill="var(--term)">shared EPR pairs</text>';
+  h+='<rect x="18" y="186" width="84" height="30" rx="2" fill="var(--focus-lt)" stroke="var(--focus)" stroke-width="1.2"/>';
+  h+='<text x="60" y="205" text-anchor="middle" font-family="var(--f-mono)" font-size="12" fill="var(--ink)">measure X</text>';
+  h+='<rect x="238" y="186" width="84" height="30" rx="2" fill="var(--desc-lt)" stroke="var(--desc)" stroke-width="1.2"/>';
+  h+='<text x="280" y="205" text-anchor="middle" font-family="var(--f-mono)" font-size="12" fill="var(--desc)">measure Z</text>';
+  h+='<text x="170" y="212" text-anchor="middle" font-family="var(--f-ui)" font-size="11" fill="var(--inkmute)">XZ = −ZX</text>';
+  h+='<text x="170" y="232" text-anchor="middle" font-family="var(--f-ui)" font-size="10.5" fill="var(--cited)">rigidity: CITED from thm:pauli</text>';
+  h+='</svg>';
+  $("#pauli-scene").innerHTML=h;
+})();
+
+/* ================================================================ §13 repetition */
+(function(){
+  var corrupt=false;
+  function draw(){
+    var n=+$("#rep-n").value, lam=1, tau=1, cp=1;
+    var B=Math.pow(lam*n,tau), k=Math.pow(lam*n,(1+cp)*tau);
+    $("#rep-read").textContent="n = "+n+" · B = "+B+" · k(n) = "+fmt(k)+" · dim "+fmt(k*9);
+    var side=Math.ceil(Math.sqrt(k)), cell=Math.min(16,Math.max(5,Math.floor(300/side)));
+    var bad=corrupt?Math.floor(k/3):-1;
+    var h='<svg viewBox="0 0 '+(side*cell+2)+' '+(side*cell+2)+'" role="img" aria-label="k copies of the anchored game run in parallel; one corrupted component rejects the whole transcript" style="width:100%;max-width:340px">';
+    for(var i=0;i<k;i++){
+      var x=(i%side)*cell+1, y=Math.floor(i/side)*cell+1;
+      var isBad=(i===bad);
+      h+='<rect x="'+x+'" y="'+y+'" width="'+(cell-1.4)+'" height="'+(cell-1.4)+'" fill="'+
+         (isBad?"var(--bad)":"var(--check-lt)")+'" stroke="'+(isBad?"var(--bad)":"var(--check)")+'" stroke-width="0.6"/>';
+    }
+    $("#rep-grid").innerHTML=h+'</svg>';
+    $("#rep-verdict").innerHTML = corrupt
+      ? '<span style="color:var(--bad)">REJECT</span> — the repeated decider ANDs the '+fmt(k)+' component decisions; one corrupted component is enough (transcript T5-one-corrupt).'
+      : '<span style="color:var(--check)">ACCEPT</span> — all '+fmt(k)+' components carry ≤ B = '+B+' bits and every child decision holds.';
+  }
+  $("#rep-n").addEventListener("input",draw);
+  $("#rep-corrupt").addEventListener("click",function(){corrupt=!corrupt;this.setAttribute("aria-pressed",corrupt?"true":"false");draw()});
+  draw();
+})();
+
+/* ================================================================ §14 machine room */
+(function(){
+  var host=$("#room");
+  var LAD=[{n:"input V",dim:9,lvl:9},{n:"Introspect",dim:206,lvl:5},
+           {n:"AnswerReduce + detype",dim:840,lvl:7},{n:"Anchor",dim:848,lvl:9},
+           {n:"Repeat (k = 2)",dim:1696,lvl:9}];
+  var TREE=[{n:"PCPProof",g:0,d:0},{n:"Tseitin",g:0,d:1},{n:"ArithTseitin",g:0,d:1},
+            {n:"MultilinearExtension ×5",g:0,d:1},{n:"BuildC0",g:0,d:1},
+            {n:"ZeroBasis",g:0,d:1},{n:"PCPVerifier",g:0,d:1},
+            {n:"CookLevinGeneral",g:2,d:2},{n:"RawAnswerBlocks",g:3,d:2}];
+  var readout=$("#room-read");
+  var fc=flatLayer(host,1000,562);
+  var cols=["#1F6F78","#5B4B8A","#B5561D","#3D7A3A","#F2C14E"];
+  var st2d=0;
+  function flat2d(stage){
+    var g=fc.getContext("2d"), w=fc.width, h=fc.height;
+    g.fillStyle=css("--inset")||"#f4f1e9"; g.fillRect(0,0,w,h);
+    LAD.forEach(function(s,i){
+      var y=h-72-i*92, r=42+180*Math.log10(s.dim)/Math.log10(1696), on=(i===stage);
+      if(i>0){ g.strokeStyle=css("--rule")||"#D9D3C7"; g.lineWidth=3;
+               g.beginPath(); g.moveTo(300,y+34); g.lineTo(300,y+62); g.stroke(); }
+      g.fillStyle=cols[i]; g.globalAlpha=on?0.95:0.45;
+      g.beginPath(); g.ellipse(300,y,r,r*0.26,0,0,Math.PI*2); g.fill(); g.globalAlpha=1;
+      if(on){ g.strokeStyle=css("--focus")||"#F2C14E"; g.lineWidth=3;
+              g.beginPath(); g.ellipse(300,y,r+9,r*0.26+9,0,0,Math.PI*2); g.stroke(); }
+      g.fillStyle=css("--ink")||"#22201C"; g.font=(on?"600 20px":"18px")+" sans-serif"; g.textAlign="left";
+      g.fillText(s.n, 520, y-4);
+      g.fillStyle=css("--inkmute")||"#6B665E"; g.font="16px monospace";
+      g.fillText("dim "+fmt(s.dim)+"  \u00B7  level "+s.lvl, 520, y+18);
+    });
+    g.fillStyle=css("--inkmute")||"#6B665E"; g.font="15px sans-serif";
+    g.fillText("2D view of the compression ladder", 28, h-18);
+  }
+  function set2d(v){
+    st2d=Math.min(4,Math.floor(v/1000*5)); flat2d(st2d);
+    readout.textContent=LAD[st2d].n+" \u00B7 level "+LAD[st2d].lvl+" \u00B7 dim "+fmt(LAD[st2d].dim);
+  }
+  set2d(0);
+  $("#room-fly").addEventListener("input",function(){set2d(+this.value)});
+  window.addEventListener("themechange",function(){flat2d(st2d)});
+  var R=makeRenderer(host);
+  if(!R){
+    $("#room-auto").disabled=true; $("#room-auto").setAttribute("aria-pressed","false");
+    return;
+  }
+  var scene=new THREE.Scene(), cam=new THREE.PerspectiveCamera(42,16/9,0.1,200);
+  var root=new THREE.Group(); scene.add(root);
+  var amb=new THREE.AmbientLight(0xffffff,0.5); scene.add(amb);
+  var lights=[];
+  var HUES=[0x1F6F78,0x5B4B8A,0xB5561D,0x3D7A3A,0xF2C14E];
+  LAD.forEach(function(s,i){
+    var l=new THREE.PointLight(HUES[i],1.1,26); l.position.set(0,i*3+2.2,0); scene.add(l); lights.push(l);
+  });
+  var plats=[], labels=[];
+  var lab=document.createElement("div");
+  lab.style.cssText="position:absolute;inset:0;pointer-events:none";
+  host.appendChild(lab);
+  LAD.forEach(function(s,i){
+    var r=0.6+2.4*Math.log10(s.dim)/Math.log10(1696);
+    var m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.22,48),
+      new THREE.MeshLambertMaterial({color:HUES[i]}));
+    m.position.y=i*3; root.add(m); plats.push(m);
+    var ring=new THREE.Mesh(new THREE.TorusGeometry(r+0.14,0.03,8,64),
+      new THREE.MeshBasicMaterial({color:HUES[i]}));
+    ring.rotation.x=Math.PI/2; ring.position.y=i*3+0.14; root.add(ring);
+    if(i>0){
+      var col=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,3,8),
+        new THREE.MeshBasicMaterial({color:0x888888}));
+      col.position.y=i*3-1.5; root.add(col);
+    }
+    var d=document.createElement("div");
+    d.style.cssText="position:absolute;font-family:var(--f-ui);font-size:12px;white-space:nowrap;"+
+      "color:var(--ink);background:var(--panel);border:1px solid var(--rule);padding:3px 8px;border-radius:2px;"+
+      "transform:translate(0,-50%);box-shadow:var(--shadow)";
+    d.innerHTML=s.n+' &nbsp;<span class="mono" style="color:var(--inkmute)">dim '+fmt(s.dim)+' · level '+s.lvl+'</span>';
+    lab.appendChild(d); labels.push(d);
+  });
+  var treeG=new THREE.Group(); treeG.position.set(5.4,0,0); root.add(treeG);
+  var GC=[0x3D7A3A,0x1F6F78,0x8A857C,0xB03A2E];
+  TREE.forEach(function(nd,i){
+    var y=i*1.5+0.6, x=nd.d*1.1;
+    var s=new THREE.Mesh(new THREE.SphereGeometry(0.17,16,12),
+      new THREE.MeshLambertMaterial({color:GC[nd.g]}));
+    s.position.set(x,y,0); treeG.add(s);
+    var g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,y,0),new THREE.Vector3(x,y,0)]);
+    treeG.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:GC[nd.g]})));
+  });
+  var spineG=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0.4,0),new THREE.Vector3(0,TREE.length*1.5,0)]);
+  treeG.add(new THREE.Line(spineG,new THREE.LineBasicMaterial({color:0x666666})));
+  var showLadder=true, showTree=true, auto=!reduced, fly=0;
+  function bg(){ scene.background=new THREE.Color(css("--inset")||"#f4f1e9"); }
+  bg(); window.addEventListener("themechange",bg);
+  var v=new THREE.Vector3();
+  function frame(){
+    requestAnimationFrame(frame);
+    var w=host.clientWidth,h=host.clientHeight;
+    if(!w||!h) return;
+    R.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix();
+    if(auto) fly=(fly+0.55)%1000;
+    var t=fly/1000, y=t*13.2;
+    var ang=0.6+t*2.1;
+    cam.position.set(Math.cos(ang)*10.5, y+2.4, Math.sin(ang)*10.5);
+    cam.lookAt(2.2, y+1.2, 0);
+    var stage=Math.min(4,Math.floor(t*5));
+    plats.forEach(function(m,i){
+      m.visible=showLadder;
+      var em=(i===stage)?1:0;
+      m.material.emissive=new THREE.Color(em?0x332200:0x000000);
+      m.scale.setScalar(1+(i===stage?0.06:0));
+    });
+    treeG.visible=showTree;
+    lights.forEach(function(l,i){ l.intensity = (i===stage?1.7:0.7); });
+    labels.forEach(function(d,i){
+      d.style.display = showLadder?"block":"none";
+      v.set(0,i*3+0.5,0).project(cam);
+      var sx=(v.x*0.5+0.5)*w, sy=(-v.y*0.5+0.5)*h;
+      var vis = v.z<1 && sx>-40 && sx<w+40 && sy>-30 && sy<h+30;
+      d.style.opacity = vis? (i===stage?"1":"0.55") : "0";
+      d.style.left=Math.max(6,Math.min(w-220,sx+18))+"px"; d.style.top=sy+"px";
+    });
+    readout.textContent = LAD[stage].n+" · level "+LAD[stage].lvl+" · dim "+fmt(LAD[stage].dim);
+    $("#room-fly").value=Math.round(fly);
+    R.render(scene,cam);
+  }
+  $("#room-fly").addEventListener("input",function(){auto=false;$("#room-auto").setAttribute("aria-pressed","false");fly=+this.value});
+  $("#room-auto").addEventListener("click",function(){auto=!auto;this.setAttribute("aria-pressed",auto?"true":"false")});
+  $$("[data-room]").forEach(function(b){b.addEventListener("click",function(){
+    var on=b.getAttribute("aria-pressed")!=="true";
+    b.setAttribute("aria-pressed",on?"true":"false");
+    if(b.getAttribute("data-room")==="ladder") showLadder=on; else showTree=on;
+  })});
+  if(reduced) auto=false;
+  R.render(scene,cam);
+  if(!drew(R)){
+    host.removeChild(R.domElement);
+    labels.forEach(function(d){d.style.display="none"});
+    $("#room-auto").disabled=true; $("#room-auto").setAttribute("aria-pressed","false");
+    set2d(+$("#room-fly").value);
+  } else { frame(); }
+})();
+
+/* ================================================================ §15 trajectories + claims */
+(function(){
+  var LANES=[
+   {n:"design",v:[13,3,1,0],end:"PASS"},
+   {n:"design-v2",v:[10,2,0],end:"PASS"},
+   {n:"midpoint",v:[4,0],end:"PASS"},
+   {n:"tb0",v:[7,5,1,0],end:"PASS"},
+   {n:"analytic-doc",v:[11,6,0],end:"PASS"},
+   {n:"tb1",v:[4,3,2,1],end:"FAIL(N23)"},
+   {n:"tb2",v:[6,1,1,2],end:"FAIL(NF1,NF2)"},
+   {n:"tb3",v:[3],end:"FAIL(N1,N2,N3)"}];
+  var MAX=13, W=200, H=86, PADL=8, PADB=22, PADT=10;
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px">';
+  LANES.forEach(function(L){
+    var ok=(L.end==="PASS");
+    var col=ok?"var(--check)":"var(--bad)";
+    h+='<figure style="margin:0"><figcaption style="font-family:var(--f-ui);font-size:12.5px;display:flex;justify-content:space-between;gap:8px;margin-bottom:6px">'+
+       '<b>'+L.n+'</b><span class="mono" style="font-size:11px;color:'+col+'">'+L.end+'</span></figcaption>';
+    h+='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="MAJOR objections for the '+L.n+' lane: '+L.v.join(" then ")+', ending '+L.end+'" style="width:100%">';
+    h+='<line x1="'+PADL+'" y1="'+(H-PADB)+'" x2="'+(W-6)+'" y2="'+(H-PADB)+'" stroke="var(--rule)" stroke-width="1"/>';
+    var n=L.v.length, dx=(W-PADL-14)/Math.max(1,(n-1||1));
+    var pts=L.v.map(function(v,i){
+      var x=PADL+(n===1?0:i*dx), y=PADT+(H-PADB-PADT)*(1-v/MAX);
+      return [x,y];
+    });
+    if(n>1){ h+='<polyline points="'+pts.map(function(p){return p[0]+","+p[1]}).join(" ")+
+      '" fill="none" stroke="var(--machine-mark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'; }
+    pts.forEach(function(p,i){
+      var last=(i===n-1);
+      h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(last?5:3.4)+'" fill="'+(last?col:"var(--machine-mark)")+
+         '" stroke="var(--panel)" stroke-width="1.6"/>';
+      h+='<text x="'+p[0]+'" y="'+(p[1]-9)+'" text-anchor="middle" font-family="var(--f-mono)" font-size="10.5" fill="var(--ink)">'+L.v[i]+'</text>';
+      h+='<text x="'+p[0]+'" y="'+(H-8)+'" text-anchor="middle" font-family="var(--f-ui)" font-size="9.5" fill="var(--inkmute)">r'+(i+1)+'</text>';
+    });
+    h+='</svg></figure>';
+  });
+  $("#traj").innerHTML=h+'</div>';
+})();
+
+(function(){
+  var CLAIMS=[
+   ["C1","The two retained PCP proofs on the six-gate instance replay node by node; β₀ = 2 over GF(8), 96 over GF(2¹¹).","TESTED","C2, C3, D1","tb0-r4"],
+   ["C2","The zero-basis rewrite gives c₀ = Σ cᵢ·zero(zᵢ) with r = 0 for the satisfying witnesses and a two-monomial remainder for the unsatisfying one.","TESTED","D1","tb0-r3"],
+   ["C3","The degree and dependency report: occurrence vectors, quotient split, Dependencies(gᵢ) = {Xᵢ}.","TESTED","D1, C8","tb0-r1, tb0-r3"],
+   ["C4a","L_Point, L_ALine and L_DLine are CL of nesting depth 1, 2, 3 with exact histograms 512 and 18,432 over all 8⁵ seeds.","TESTED","D2","tb1-r1 … tb1-r4"],
+   ["C4b","The 18 PCP maps form one typed CL family at (q,k,m,d,s,m′) = (2048,11,1,11,6,16), describable at 3,009 / 2,893 / 10,228 / 2,754 / 10,479 bytes.","TESTED","D2, C4a","tb2-r2 … tb2-r4"],
+   ["C5","Soundness assuming low-degree proofs: the formula bound (deg_F + 5d)m′/q.","SKETCH","C2, C8","—"],
+   ["C6","The midpoint diagnostic: perfect completeness, optimal cheating value exactly 1 − 2⁻ⁿ.","PROVED","—","midpoint-r2"],
+   ["C7","The reusable object is an algebra 𝒬 of CL question distributions closed under Introspect, PCPCompose and ×.","CONJECTURE","C4a, C4b","—"],
+   ["C8","Refutation of prop:tseitin-arith-degree as we read NW19: deg_v(F_arith) ≤ occ_v, and occ grows with fan-out.","TESTED","—","tb0-r1 (scoped), r2, r3"],
+   ["C9","The typed answer-reduced decider on the TB0 fixture: 2,736 of 2,916 ordered pairs trigger no check; seven replay cases at three seeds.","TESTED","D1, D2, C3, C4a, C4b","tb2-r2 … tb2-r4"],
+   ["N1","Negative, sequential repetition only: adaptive r-copy repetition gives exactly (1 − 2⁻ⁿ)ʳ.","PROVED","C6","midpoint-r2"],
+   ["C12","Description-level CL closure for downsize, direct sum, product, detype, anchor and repeat.","CONJECTURE","C4a, C4b","design-v2-r2"],
+   ["C13","The TB5 Repeat fixture: levels and dimensions 1,1 → 3,9 → 3,729 at n = 9, λ = τ = c′ = 1.","CONJECTURE","C12","design-v2-r2"],
+   ["C14","The TB6 Introspect fixtures with explicit toy child fuel.","CONJECTURE","C12, C4a","design-v2-r3"],
+   ["C15","Executable Compress and fixed point: level chain 9 → 5 → 7 → 9, dimensions 206 → 840 → 848 → 1,696.","CONJECTURE","C12, C13, C14","design-v2-r2"],
+   ["C16","Semantics of the language L: the CEK relation is a function; fuel is monotone; Eval_L(Quote(t),u;f+h) = eval_L(t,u;f).","SKETCH","—","—"],
+   ["C17","The costed machine/term bridge with universal constants and a fixed exponent e = 8.","SKETCH","C16","—"],
+   ["C18","Description-level self-reference with size accounting; YCode closes one self_code hole at constant charge.","SKETCH","C16, C17","—"],
+   ["C19","Cook–Levin for L-descriptions: a Boolean window function on two consecutive rows of a bounded trace.","SKETCH","C16, C17","—"]];
+  var cls={PROVED:"proved",TESTED:"tested",SKETCH:"sketch",CONJECTURE:"conjecture"};
+  function draw(f){
+    $("#claims-body").innerHTML=CLAIMS.filter(function(c){return f==="all"||c[2]===f}).map(function(c){
+      return '<tr><td class="mono"><b>'+c[0]+'</b></td><td>'+c[1]+'</td>'+
+             '<td><span class="chip '+cls[c[2]]+'">'+c[2]+'</span></td>'+
+             '<td class="mono" style="font-size:12px">'+c[3]+'</td>'+
+             '<td class="mono" style="font-size:12px">'+c[4]+'</td></tr>';
+    }).join("");
+  }
+  $$("[data-cl]").forEach(function(b){b.addEventListener("click",function(){
+    $$("[data-cl]").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});
+    draw(b.getAttribute("data-cl"));
+  })});
+  draw("all");
+})();
+
+/* ================================================================ §16 certificate tree */
+(function(){
+  var TREES={
+   tb0:[
+    {d:0,g:"CHECKED",n:"PCPProof",v:"polynomials = 22; d = 6; sparse terms are authoritative",
+     w:"Replays the def:pcp-proof degree condition. This is the one node that reads the PCPProof without an identity anchor."},
+    {d:1,g:"CHECKED",n:"Tseitin",v:"variables = 16; output literal = true",
+     w:"The output literal is the F2 repair: NW19's F omits the output constraint, so the implementation adds w_out."},
+    {d:1,g:"CHECKED",n:"ArithTseitin",v:"degrees = occurrences; inddeg = 6",
+     w:"This node is finding F1 in machine-checked form: the individual degrees equal the occurrence counts, and the maximum is 6."},
+    {d:1,g:"CHECKED",n:"MultilinearExtension",v:"bound = 1; coordinates = (1,)",
+     w:"g₁'s low-degree extension. Admitted only after an object-identity check that the attached proof owns this sub-term."},
+    {d:1,g:"CHECKED",n:"MultilinearExtension ×4",v:"bound = 0; coordinates = (2,) (3,) (4,) (5,)",
+     w:"At the degenerate witness g₂ … g₅ vanish, so their block-locality contracts are vacuous — explicitly not C3 evidence."},
+    {d:1,g:"CHECKED",n:"BuildC0",v:"inddeg = 6; monomials = 33432",
+     w:"c₀ = F_arith·∏(gᵢ − oᵢ). The cumulative product cost 170,968 exceeds the 160,000 budget, so it is streamed rather than materialised."},
+    {d:1,g:"CHECKED",n:"ZeroBasis",v:"remainder = 0; coefficient identity = true",
+     w:"The formal coefficient identity c₀ = Σ cᵢ·zero(zᵢ). This is C2."},
+    {d:1,g:"CHECKED",n:"PCPVerifier",v:"formula + zero tests = accept on 1 stored certified views",
+     w:"Completeness on named points and lines. Not an exhaustive all-z statement, and not soundness."}],
+   tb3:[
+    {d:0,g:"CHECKED",n:"PCPProof",v:"polynomials = 22; d = 6",w:"The same PCP builder chapter 8 used — but on a circuit generated from quoted code."},
+    {d:1,g:"CHECKED",n:"Tseitin",v:"variables = 16; output literal = true",w:"The front end's certificate is grafted here as an extra child."},
+    {d:2,g:"CHECKED",n:"Pad5",v:"m = 1; s = 6 (live 1, padding 5 NOT gates); m′ = 5m+5+s = 16; exhaustive (1024)",
+     w:"The padded relation equals the decoupled one on all 1,024 tuples. fnv1a64 f8561ef8c5761695 threads the whole chain back to the quoted bytes."},
+    {d:3,g:"CHECKED",n:"Decouple5",v:"widths = (0,0,1,1,1); clauses = 1; exhaustive (256)",
+     w:"Five index blocks and five signs; satisfiable iff the decider accepts, checked exhaustively over 256 witnesses."},
+    {d:4,g:"CHECKED",n:"CookLevin",v:"m = 1; M = 2; clauses = 1; rows = 2; exhaustive (64)",
+     w:"The succinct 3SAT is satisfiable iff the trace accepts — exhaustively over 2^M for this fixture."},
+    {d:5,g:"CHECKED",n:"BoundedTrace",v:"T = 1 body transitions (eval fuel T + 2); rows = 2; result = Value(true)",
+     w:"One row per fuel unit spent. Row 0 is Prim(true) at fuel 1, running; row 1 is Value(true) at fuel 0, accept."},
+    {d:6,g:"CHECKED",n:"Quote",v:"|D| = 33 bytes; fnv1a64 = f8561ef8c5761695; sort = Decider",
+     w:"The 33 bytes of chapter 2. Everything above this line is derived from them."},
+    {d:4,g:"CITED",n:"CookLevinGeneral",v:"prop:standard-succinct-sat (gt-10:237–273)",
+     w:"Field alphabets are enumerated over all four answer inputs rather than decoded from an O(log T + log σ)-bit window, and the enc_Γ answer format is not enforced. The general theorem is cited, not reproduced."},
+    {d:2,g:"ASSUMED",n:"RawAnswerBlocks",v:"answer blocks read as raw bits of widths 1, 1",
+     w:"The enc_Γ format and the (10)^(L/2−T) padding clauses of gt-10:1036–1130 are not emitted. This is a gap the code does not fill, and it is labelled as one."},
+    {d:1,g:"CHECKED",n:"BuildC0",v:"inddeg = 5; monomials = 162240",w:"Witness (ii) on the generated circuit."}]};
+  var GRADE={CHECKED:"proved",CONSTRUCTED:"tested",CITED:"cited",ASSUMED:"held",SOURCE_REPAIR:"sketch"};
+  var cur="tb0";
+  function draw(){
+    $$("[data-tree]").forEach(function(b){b.setAttribute("aria-pressed", b.getAttribute("data-tree")===cur?"true":"false")});
+    $("#cert-tree").innerHTML=TREES[cur].map(function(nd,i){
+      var col=nd.g==="CHECKED"?"var(--check)":nd.g==="CITED"?"var(--cited)":nd.g==="ASSUMED"?"var(--bad)":"var(--term)";
+      return '<div class="cert-node" data-i="'+i+'" tabindex="0" style="cursor:pointer;padding:4px 6px;border-radius:2px;'+
+        'margin-left:'+(nd.d*16)+'px;border-left:2px solid '+col+';background:transparent">'+
+        '<span style="color:'+col+'">['+nd.g+']</span> '+nd.n+
+        '<div style="color:var(--inkmute);font-size:11.5px">'+nd.v+'</div></div>';
+    }).join("");
+    $$(".cert-node").forEach(function(e){
+      function sel(){
+        $$(".cert-node").forEach(function(x){x.style.background="transparent"});
+        e.style.background="var(--focus-lt)";
+        var nd=TREES[cur][+e.getAttribute("data-i")];
+        $("#cert-detail").innerHTML='<div class="panel-body tight"><span class="chip '+GRADE[nd.g]+'">'+nd.g+'</span>'+
+          '<p style="margin:12px 0 0"><b class="mono">'+nd.n+'</b></p>'+
+          '<p class="mono" style="font-size:12px;color:var(--inkmute);margin:6px 0 12px">'+nd.v+'</p>'+
+          '<p style="margin:0;font-size:.95rem">'+nd.w+'</p></div>';
+      }
+      e.addEventListener("click",sel); e.addEventListener("focus",sel);
+    });
+  }
+  $$("[data-tree]").forEach(function(b){b.addEventListener("click",function(){cur=b.getAttribute("data-tree");draw()})});
+  draw();
+})();
+
+})();
+</script>

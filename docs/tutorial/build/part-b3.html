@@ -1,0 +1,284 @@
+
+<!-- ==================================================== 9 -->
+<section class="chapter" id="ch9">
+  <div class="ch-head">
+    <div class="ch-no">§9</div>
+    <div>
+      <p class="eyebrow"><span>The PCP verifier</span><span class="chip gt">gt-10-answer-reduction.tex fig:pcpverifier</span><span class="chip tested">C1 TESTED</span></p>
+      <h2 class="thesis">Five low-degree extensions, one polynomial that must vanish on the cube, and a verifier that reads a handful of points and lines.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>The proof string is <span class="mono">Π = (g₁,…,g₅, c₀, c₁,…,c_{m′})</span>: five low-degree extensions of the witness blocks, the composite polynomial, and its quotients. The verifier picks a random point, restricts the proof to axis-parallel and diagonal lines through it, checks degrees, and then checks two algebraic identities — the formula test and the zero-on-subcube test. Everything below is measured on the six-gate instance.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · walking fig:pcpverifier</b><span>TB0 · witness (i) and (ii), GF(8) and GF(2¹¹)</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:16px">
+          <label for="pv-step">step</label>
+          <input type="range" id="pv-step" min="0" max="4" value="0" step="1" style="width:200px">
+          <label for="pv-field">field</label>
+          <select id="pv-field"><option value="8">GF(8)</option><option value="2048">GF(2¹¹)</option></select>
+          <span class="readout" id="pv-read"></span>
+        </div>
+        <div id="pv-stage"></div>
+      </div>
+      <dl class="evidence">
+        <div class="ev good"><dt>β₀ at the separator, GF(8)</dt><dd>2<small>honest; 1 with g₂−o₂ deleted</small></dd></div>
+        <div class="ev good"><dt>β₀ at the separator, GF(2¹¹)</dt><dd>96<small>honest; 48 with g₂−o₂ deleted</small></dd></div>
+        <div class="ev"><dt>points on the 16 named lines</dt><dd>128<small>all accepted for witness (i)</small></dd></div>
+        <div class="ev"><dt>polynomials in Π</dt><dd>22<small>5 + c₀ + 16 quotients</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="grid2">
+      <div class="panel"><div class="panel-body">
+        <p class="eyebrow" style="margin-bottom:10px">the budget, honestly</p>
+        <p class="note">Witness (i) has <span class="num">33,432</span> monomials in <span class="mono">c₀</span>; the five per-block products cost <span class="num">37,240 / 33,432 / 33,432 / 33,432 / 33,432</span>, so the cumulative <span class="num">170,968</span> exceeds the <span class="num">160,000</span>-monomial budget while the peak <span class="num">37,240</span> does not. The builder therefore streams rather than materialising — and when a real generated instance blows the budget it says <span class="mono">ExpansionRefused</span> instead of allocating (chapter 11).</p>
+      </div></div>
+      <div class="panel"><div class="panel-body">
+        <p class="eyebrow" style="margin-bottom:10px">the policy report, verbatim</p>
+        <p class="mono" style="font-size:12.5px;line-height:1.9">policy γ=1<br>small = (PASS, FAIL, FAIL, FAIL, FAIL, FAIL)<br>sampled = (PASS, NOT_EVALUABLE, PASS, PASS, PASS, PASS)<br>degree_formula = 6</p>
+        <p class="note" style="margin-top:10px">Failed hypotheses are printed as FAIL and unmeasured costs as NOT_EVALUABLE; neither is ever folded into a PASS. That discipline is what makes the toy-regime chapters below readable at all.</p>
+      </div></div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">What C1 is and is not</span>
+      <p>It is completeness evidence on <em>named</em> points and lines, replayed node by node from the constructor's own sub-terms, with an object-identity check so a certificate borrowed from another proof is refused with <span class="mono">:certificate_binding</span>. It is <b>not</b> an exhaustive all-<span class="mono">z</span> statement and <b>not</b> a soundness claim. No uniform <span class="mono">z</span> in <span class="mono">GF(2¹¹)¹⁶</span> are sampled — that gap is tracked as an open issue.</p>
+      <span class="src">claims/CLAIMS.md C1 · verdicts/tb0-r4.md (PROMOTE)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 10 -->
+<section class="chapter" id="ch10">
+  <div class="ch-head">
+    <div class="ch-no">§10</div>
+    <div>
+      <p class="eyebrow"><span>Answer reduction</span><span class="chip gt">gt-10-answer-reduction.tex fig:decider-pcp</span><span class="chip tested">C9, C4b TESTED</span></p>
+      <h2 class="thesis">Three roles times eighteen question types is 2,916 ordered pairs — and on 2,736 of them the decider is required to check nothing at all.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>Answer reduction replaces long answers with short ones by making the provers answer a PCP about their own long answers. The verifier's question type set becomes a product: each of the three oracularised roles (<span class="mono">alice</span>, <span class="mono">bob</span>, <span class="mono">oracle</span>) carries the eighteen PCP question types <span class="mono">{Point_i, ALine_i, DLine_i}<sub>i=1..6</sub></span>. The decider is a dispatch table over the resulting 54 types, and the striking fact is how sparse it is.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the 54 × 54 guard map</b><span>every cell computed by answer_reduce_guard_branches on the real reduction</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:14px">
+          <button class="btn" data-g="all" type="button" aria-pressed="true">All guards</button>
+          <button class="btn" data-g="none" type="button" aria-pressed="false">No-check pairs</button>
+          <button class="btn" data-g="game" type="button" aria-pressed="false">game</button>
+          <button class="btn" data-g="global_consistency" type="button" aria-pressed="false">global_consistency</button>
+          <button class="btn" data-g="ld" type="button" aria-pressed="false">low-degree</button>
+        </div>
+        <div class="scroller"><div id="ar-grid" style="position:relative"></div></div>
+        <p id="ar-hover" class="readout" style="margin-top:14px;min-height:3.4em;font-size:13.5px"></p>
+        <div class="legend" id="ar-legend"></div>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>ordered type pairs</dt><dd>2,916<small>54 types, both orders</small></dd></div>
+        <div class="ev"><dt>trigger no check at all</dt><dd>2,736<small>= 76/81 = 93.827 %</small></dd></div>
+        <div class="ev"><dt>trigger the original game</dt><dd>107<small>92 of them alone</small></dd></div>
+        <div class="ev"><dt>trigger global consistency</dt><dd>54<small>53 of them alone</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The seven replay cases</b><span>TB2 · three seeds · honest 21 / corrupted-rejected 21</span></div>
+      <div class="panel-body scroller">
+        <table>
+          <thead><tr><th>case</th><th>rule that fires</th><th>example type pair from the suite trace</th></tr></thead>
+          <tbody>
+            <tr><td>global_consistency</td><td class="mono">global_consistency</td><td class="mono">(alice,Point_1) × (alice,Point_1)</td></tr>
+            <tr><td>input_consistency</td><td class="mono">input_consistency</td><td class="mono">(oracle,Point_6) × (alice,Point_1)</td></tr>
+            <tr><td>input_axis</td><td class="mono">ld_axis_point</td><td class="mono">(alice,Point_1) × (alice,ALine_1)</td></tr>
+            <tr><td>input_diagonal</td><td class="mono">ld_diagonal_point</td><td class="mono">—</td></tr>
+            <tr><td>proof_consistency</td><td class="mono">proof_consistency</td><td class="mono">—</td></tr>
+            <tr><td>proof_simultaneous_axis</td><td class="mono">ld_axis_point</td><td class="mono">—</td></tr>
+            <tr><td>proof_simultaneous_diagonal</td><td class="mono">ld_diagonal_point</td><td class="mono">(oracle,DLine_6) × (oracle,Point_6)</td></tr>
+            <tr><td>game</td><td class="mono">pcpverifier</td><td class="mono">(oracle,Point_6) × (bob,Point_2)</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:12px">Each of the seven certificate cases is replayed at three seeds (the zero seed, <span class="mono">tb2_seed 5</span>, and RNG <span class="mono">0x9E</span>): 21 honest outcomes accepted, 21 corrupted outcomes rejected. Separately, the decider's trace was compared against an independent enumerator on all <span class="num">2,916</span> pairs at the zero seed — 2,736 silent, 180 guarded, no mismatches.</p>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel"><div class="panel-body">
+        <p class="eyebrow" style="margin-bottom:10px">what the 18 PCP maps cost to describe</p>
+        <table><tbody>
+          <tr><td class="mono">Point_1..6</td><td class="n">3,009 B each</td></tr>
+          <tr><td class="mono">ALine_1..5</td><td class="n">2,893 B each</td></tr>
+          <tr><td class="mono">ALine_6</td><td class="n">10,228 B</td></tr>
+          <tr><td class="mono">DLine_1..5</td><td class="n">2,754 B each</td></tr>
+          <tr><td class="mono">DLine_6</td><td class="n">10,479 B</td></tr>
+        </tbody></table>
+        <p class="note" style="margin-top:10px">The copy-6 maps are four times larger because they carry a 16-way <span class="mono">BranchByAxis</span> table. All 18 round-trip; the 18 byte strings are pairwise distinct.</p>
+      </div></div>
+      <div class="panel"><div class="panel-body">
+        <p class="eyebrow" style="margin-bottom:10px">the gap that is still open</p>
+        <p class="note">The 54 <em>product</em> maps are <span class="mono">NotDescribable</span>: <span class="mono">direct_sum</span> wraps host closures. Their four queries and the <span class="mono">lem:cl-kth</span> replay do work, but description-level <span class="mono">DL9-direct-sum</span> is not implemented. So the typed layer is describable and the product layer is not — and the compression recursion needs the product layer.</p>
+        <p class="note" style="margin-top:10px">The detyping "+2 levels" and every quantum soundness statement remain <b>CITED</b>.</p>
+      </div></div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">One load-bearing repair</span>
+      <p><span class="mono">eq:V-pcp</span> gives <span class="mono">dim V<sub>6,coord</sub> = 6</span> while <span class="mono">table:tpcp</span> supplies one scalar. The implementation reads <span class="mono">V<sub>aux,coord</sub></span> and zeroes the other five components — <span class="mono">SOURCE_REPAIR :PCPCopy6CoordinateScalar</span>. The convention is load-bearing: reading the copy-1 scalar instead makes step 4(c) reject.</p>
+      <span class="src">claims/CLAIMS.md C4b · verdicts/tb2-r3.md NE2</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 11 -->
+<section class="chapter" id="ch11">
+  <div class="ch-head">
+    <div class="ch-no">§11</div>
+    <div>
+      <p class="eyebrow"><span>The quoted front end</span><span class="chip gt">gt-10:237–273 prop:standard-succinct-sat</span><span class="chip held">no claim row · tb3-r1 FAIL(N1,N2,N3)</span></p>
+      <h2 class="thesis">From 33 bytes of quoted decider to a PCP instance, with nothing hand-written in between.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <div class="warnbar">TB3's merge proposal <b>C10</b> is a proposal only. <code>verdicts/tb3-r1.md</code> = <b>FAIL(N1, N2, N3)</b>, one critic round in. The numbers below are the suite's printout, not a promoted claim.</div>
+
+    <p>This is the rung that makes the pipeline real: the decider is quoted to canonical bytes, evaluated under fuel to produce a bounded trace, the trace is turned into succinct 3SAT by a Cook–Levin encoding, the shared 3SAT data is decoupled into five blocks, the result is padded and compiled to a circuit, and that <em>generated</em> circuit goes through the same PCP builder chapter 8 used — and then through chapter 10's decider.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the front end on two real deciders</b><span>TB3 · all values printed by test/tb3_frontend.jl</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:18px">
+          <button class="btn" data-d="trivial" type="button" aria-pressed="true">λ n x y a b . true</button>
+          <button class="btn" data-d="equality" type="button" aria-pressed="false">λ n x y a b . (a == b)</button>
+        </div>
+        <div id="fe-pipeline"></div>
+      </div>
+      <dl class="evidence" id="fe-evidence"></dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The honest failure</b><span>the equality decider never reaches build_pcp</span></div>
+      <div class="panel-body">
+        <p>Three fuel units instead of one, and the instance explodes: 15 3SAT clauses become 47 decoupled 5SAT clauses (15 formula + 4 copy + 28 equality), the padded instance has <span class="num">423</span> live gates against <span class="num">3</span> for the trivial one, and the arithmetization refuses at the seventh gadget:</p>
+        <p class="mono" style="margin:14px 0;font-size:15px;color:var(--bad)">ExpansionRefused(279,936 &gt; 160,000)</p>
+        <p class="note">The refusal is the point. A budget that is silently exceeded produces a number nobody can trust; a budget that refuses produces a fact. The <span class="mono">F_arith</span> candidate count at that stage is bounded by <span class="mono">6<sup>69</sup>·7<sup>423</sup> ≈ 6.8 × 10<sup>412</sup></span>, and <span class="mono">c₀</span> by about <span class="mono">2.2 × 10<sup>414</sup></span> — so nothing here was going to be materialised.</p>
+      </div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">The two leaves that are not CHECKED</span>
+      <p><span class="mono">[CITED] CookLevinGeneral</span> — field alphabets are enumerated over all four answer inputs rather than decoded from an <span class="mono">O(log T + log σ)</span>-bit window, and the <span class="mono">enc_Γ</span> answer format is not enforced. <span class="mono">[ASSUMED] RawAnswerBlocks</span> — answer blocks are read as raw bits of widths 1, 1; the <span class="mono">enc_Γ</span> format and the <span class="mono">(10)<sup>L/2−T</sup></span> padding clauses of <span class="mono">gt-10:1036–1130</span> are not emitted. Both sit in the certificate tree where a reader can find them.</p>
+      <span class="src">docs/tutorial/build/data/suite59q.log · briefs/23-tb3.last.md</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 12 -->
+<section class="chapter" id="ch12">
+  <div class="ch-head">
+    <div class="ch-no">§12</div>
+    <div>
+      <p class="eyebrow"><span>Introspection</span><span class="chip gt">gt-08-introspection.tex</span><span class="chip conjecture">C14 CONJECTURE</span></p>
+      <h2 class="thesis">The verifier stops sending questions and instead asks the provers to sample their own — which only works because entanglement lets it check that they sampled honestly.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p class="lede"><span class="stamp">designed, not yet executable</span></p>
+    <p>Everything in this chapter is transcribed into <code>docs/DESIGN.md</code> §11 with source line references, and nothing in it has run. It is here because it is the piece that makes compression exponential: a verifier of index <span class="mono">n</span> would need <span class="mono">2<sup>n</sup></span>-bit questions, so instead the provers are made to generate their own questions from shared randomness, and the verifier checks the generation with a Pauli test.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the Pauli basis and the 3Q boundary</b><span>DESIGN §11.1–§11.4 · design only</span></div>
+      <div class="panel-body">
+        <div class="grid2">
+          <div>
+            <div id="pauli-scene"></div>
+            <p class="note" style="margin-top:10px">Two provers share EPR pairs and are asked to measure in the X or the Z basis. Anticommuting observables cannot both be determined; the test uses exactly that to certify the measurement, not the outcome.</p>
+          </div>
+          <div>
+            <p class="eyebrow" style="margin-bottom:10px">the type graph, counted exactly</p>
+            <table><tbody>
+              <tr><td>|TypePauli|</td><td class="n">26</td></tr>
+              <tr><td>G<sup>pauli</sup> oriented pairs</td><td class="n">86 <span class="note" style="display:inline">= 30 non-loop + 26 loops</span></td></tr>
+              <tr><td>|TypeIntro| at level ℓ</td><td class="n">32 + 2ℓ</td></tr>
+              <tr><td>G<sup>intro</sup> oriented pairs</td><td class="n">6ℓ + 110</td></tr>
+              <tr><td>Ŝ<sup>intro</sup> typed</td><td class="n">field 2, level 3, dim (3m+3)·log₂q</td></tr>
+              <tr><td>S<sup>intro</sup> untyped</td><td class="n">field 2, <b>level 5</b>, + 4·(32+2ℓ)</td></tr>
+            </tbody></table>
+            <p class="note" style="margin-top:12px">These are literal finite reconstructions of <span class="mono">fig:type-graph-ms</span>, <span class="mono">fig:type-graph-pauli</span> and <span class="mono">fig:type-graph-intro</span>, checked against the explicit graphs — an audit of the transcription, not of the theorem.</p>
+          </div>
+        </div>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>child fuel budget</dt><dd>R = N<sup>λ</sup><small>one metered interpreter step per unit</small></dd></div>
+        <div class="ev warn"><dt>TB6b-E substitutes</dt><dd>65,536<small>toy_child_fuel = FAIL(owner=tb6-child-meter)</small></dd></div>
+        <div class="ev"><dt>capacity chain</dt><dd style="font-size:15px">s(N) ≤ R ≤ M ≤ Q<small>the predicate is M ≥ R, not Q ≥ R</small></dd></div>
+        <div class="ev"><dt>a, b (thm:pauli constants)</dt><dd style="font-size:15px">symbols<small>a numeric instance is NOT_EVALUABLE</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The fuel gate, and why it is not a formality</b><span>gt-08-introspection.tex:417–419</span></div>
+      <div class="panel-body">
+        <p>Every call the introspection decider makes into the input verifier — sampler or decider, including <span class="mono">Dimension(N)</span> — gets exactly <span class="mono">R = N<sup>λ</sup></span> units, and the counter rejects <em>before</em> executing step <span class="mono">R+1</span>; a return at step <span class="mono">R</span> is permitted. λ-boundedness is two separate conditions — a byte-size bound on <span class="mono">|V|</span> and a runtime bound — and neither discharges the other. The design records that every child-call record must carry fixture, quote hash, mode, role, stage, exact metered cost, the source <span class="mono">R</span>, the supplied budget, and the timeout/return; until a quoted-interpreter trace exists, costs stay <span class="mono">NOT_EVALUABLE(owner=tb6-child-meter)</span> and no dependent acceptance may pass.</p>
+      </div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">Status, precisely</span>
+      <p>C14 is a <b>CONJECTURE</b>, authorised as such by <code>verdicts/design-v2-r3.md</code>. The Pauli decider's predicates are ordinary field, polynomial-evaluation, parity and equality calls, so they <em>would</em> be executable; quantum rigidity — the actual content of <span class="mono">thm:pauli</span> — is not part of that predicate and remains CITED.</p>
+      <span class="src">claims/CLAIMS.md C14 · docs/DESIGN.md §11 · gt-07-ldt.tex:1426–1447</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 13 -->
+<section class="chapter" id="ch13">
+  <div class="ch-head">
+    <div class="ch-no">§13</div>
+    <div>
+      <p class="eyebrow"><span>Anchoring and repetition</span><span class="chip gt">gt-11-parallel-repetition.tex</span><span class="chip conjecture">C13 CONJECTURE</span></p>
+      <h2 class="thesis">Compression costs soundness; parallel repetition buys it back — and the toy diagnostic in this repo shows why naive repetition cannot.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p class="lede"><span class="stamp">designed, not yet executable</span></p>
+    <p>Each stage of <span class="mono">Compress</span> degrades the soundness gap, so the last stage restores it by running <span class="mono">k(n)</span> copies in parallel. Anchoring comes first: a second question type whose only legal answer is the canonical bit 0, which gives the repetition theorem the structure it needs.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the 81-fold direct sum</b><span>DESIGN §10.3 · TB5 fixture · design only</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:16px">
+          <label for="rep-n">index n</label>
+          <input type="range" id="rep-n" min="1" max="12" value="9" step="1" style="width:170px">
+          <span class="readout" id="rep-read"></span>
+          <button class="btn" id="rep-corrupt" type="button" aria-pressed="false">Corrupt one component</button>
+        </div>
+        <div id="rep-grid"></div>
+        <p id="rep-verdict" class="readout" style="margin-top:14px;font-size:15px"></p>
+        <p class="note" style="margin-top:6px">The repeated decider takes the logical AND of the copies, so one corrupted component rejects the whole transcript. It also computes the component bound <span class="mono">B(n) = (λn)<sup>τ</sup></span> <em>before</em> reading any payload, so a hostile length prefix cannot force an unbounded scan.</p>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>k(n)</dt><dd style="font-size:16px">(λn)<sup>(1+c′)τ</sup></dd></div>
+        <div class="ev"><dt>at n = 9, λ = τ = c′ = 1</dt><dd>k = 81<small>B = 9</small></dd></div>
+        <div class="ev"><dt>dimensions</dt><dd>1 → 9 → 729</dd></div>
+        <div class="ev"><dt>level</dt><dd>3 → 3<small>direct sums do not raise level</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The diagnostic that rules out the naive route</b><span>C6, N1 — both PROVED</span></div>
+      <div class="panel-body">
+        <p>The one thing on this page with a <em>proved</em> status is a negative result. A recursive midpoint protocol verifies <span class="mono">y = f<sup>2ⁿ</sup>(x)</span> in <span class="mono">O(n)</span> verifier time and has perfect completeness — but for a false claim the optimal acceptance probability is exactly <span class="mono">1 − 2<sup>−n</sup></span>, and adaptive <span class="mono">r</span>-copy sequential repetition gives exactly <span class="mono">(1 − 2<sup>−n</sup>)<sup>r</sup></span>. So amplification needs <span class="mono">Θ(2ⁿ)</span> repetitions and destroys the compression. That is the precise sense in which an <em>iteratable, gap-preserving</em> transformation is the hard requirement.</p>
+        <p class="note" style="margin-top:12px">C6 and N1 are PROVED via <code>verdicts/midpoint-r2.md</code>, with 1,380 exact values checked over ℤ/5 and friends. The verdict struck the stronger phrasing "cannot serve as a compression step" (objection O15) — the negative result is about <em>sequential</em> repetition.</p>
+      </div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">A source inconsistency the code refuses to smooth over</span>
+      <p><span class="mono">gt-12:70</span> prints <span class="mono">k(n) = (λn)<sup>τ</sup></span> inside <span class="mono">ComputeParrepVerifier</span>, conflicting with <span class="mono">gt-11:200</span> and <span class="mono">gt-12:355</span>, which both say <span class="mono">(λn)<sup>(1+c′)τ</sup></span>. The description retains the latter two and reports the inconsistent line without using it. The source also calls <span class="mono">k(n)</span> an integer while declaring only <span class="mono">c′ &gt; 0</span>; production keeps the symbolic term plus an ASSUMED integrality witness rather than silently rounding.</p>
+      <span class="src">docs/DESIGN.md §10.2 · gt-11-parallel-repetition.tex:200–215</span>
+    </div>
+  </div>
+</section>

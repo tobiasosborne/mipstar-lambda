@@ -1,0 +1,203 @@
+
+<!-- ==================================================== 14 -->
+<section class="chapter" id="ch14">
+  <div class="ch-head">
+    <div class="ch-no">§14</div>
+    <div>
+      <p class="eyebrow"><span>Compress, the fixed point, and MIP*=RE</span><span class="chip gt">gt-12-compression.tex fig:compress</span><span class="chip conjecture">C15 CONJECTURE</span></p>
+      <h2 class="thesis">A verifier that asks whether a machine halts, by compressing its own code and asking the smaller version.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p class="lede"><span class="stamp">designed, not yet executable</span></p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The machine room</b><span>one continuous scene · the ladder and the certificate tree</span></div>
+      <div class="panel-body tight">
+        <div id="room" style="position:relative;width:100%;aspect-ratio:16/9;min-height:340px;background:var(--inset);border:1px solid var(--rule);border-radius:2px;overflow:hidden"></div>
+        <div class="controls" style="margin-top:14px">
+          <label for="room-fly">fly through</label>
+          <input type="range" id="room-fly" min="0" max="1000" value="0" step="1" style="width:230px">
+          <button class="btn" id="room-auto" type="button" aria-pressed="true">Auto</button>
+          <button class="btn ghost" data-room="ladder" type="button" aria-pressed="true">Ladder</button>
+          <button class="btn ghost" data-room="tree" type="button" aria-pressed="true">Certificate tree</button>
+          <span class="readout" id="room-read"></span>
+        </div>
+        <p class="note" style="margin-top:12px">Five platforms, one per stage of <span class="mono">Compress</span>, with radius set by the toy-regime dimension and height by the level; the branching structure beside them is the TB0 certificate tree of chapter 16, lit by grade. Amber marks the stage the flythrough is at. If WebGL is unavailable a painted still of the same scene is shown instead.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The structural bookkeeping</b><span>DESIGN §12.2 · every row a LawCert</span></div>
+      <div class="panel-body scroller">
+        <table>
+          <thead><tr><th>stage</th><th>field</th><th>level</th><th>exact dimension law</th><th>toy value</th></tr></thead>
+          <tbody>
+            <tr><td>input V</td><td class="n">2</td><td class="n">9</td><td class="mono">s₀(n)</td><td class="n">9</td></tr>
+            <tr><td>V₁ = Intro(V, λ, 9)</td><td class="n">2</td><td class="n">5</td><td class="mono">(3m_I+3)·log q_I + 200</td><td class="n">206</td></tr>
+            <tr><td>typed AR</td><td class="n">2</td><td class="n">5</td><td class="mono">s₁ + (2m′_A+6)·log q_A</td><td class="n">—</td></tr>
+            <tr><td>V₂ = detype(typed AR)</td><td class="n">2</td><td class="n">7</td><td class="mono">s₁ + (2m′_A+6)·log q_A + 216</td><td class="n">840</td></tr>
+            <tr><td>anchored V₂</td><td class="n">2</td><td class="n">9</td><td class="mono">s₂ + 8</td><td class="n">848</td></tr>
+            <tr><td>V₃ = repeat</td><td class="n">2</td><td class="n">9</td><td class="mono">k(n)·(s₂+8)</td><td class="n">1,696</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:12px">The level chain <span class="mono">9 → 5 → 7 → 9</span> is CONSTRUCTED and checked against the parameter table: detyping adds 2, so answer reduction gives <span class="mono">max(5+2, 5) = 7</span>; anchoring adds 2 again; direct sums do not raise the level. <span class="mono">|TypeIntro| = 50</span> at ℓ = 9 and <span class="mono">|TypeAR| = 3·18 = 54</span>.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The predicate report — designed to fail visibly</b><span>DESIGN §12.5 · n = 2, λ = 32,768, s₀ = 9</span></div>
+      <div class="panel-body scroller">
+        <table>
+          <thead><tr><th>predicate</th><th>result</th></tr></thead>
+          <tbody>
+            <tr><td>input field/level/λ-bounded; n ≥ 2</td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>intro field admissible, m_I divides q_I, d_I = 1</td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>intro embedding Q_I ≥ s₀(N): <span class="mono">2 ≥ 9</span></td><td><span class="chip held">FAIL (owner Q_I&lt;s₀)</span></td></tr>
+            <tr><td>intro canonical tuple equality; source M_I ≥ R</td><td><span class="chip held">FAIL</span></td></tr>
+            <tr><td>non-Pauli answer schemas: Introspect, Sample, Read, every Hide stage</td><td><span class="chip cited">VACUOUS (owner Q_I&lt;s₀)</span></td></tr>
+            <tr><td>AR P_shape, P_formula_paper, P_tail, P_divisibility, P_degree</td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>AR P_growth, universal μ/γ/τ, n ≥ C₀</td><td><span class="chip cited">NOT_EVALUABLE</span></td></tr>
+            <tr><td>P_pcp_encodes_D1</td><td><span class="chip held">FAIL (owner pcpverifier-D1-trace)</span></td></tr>
+            <tr><td><span class="mono">enu:ar-game</span> against the actual D₁</td><td><span class="chip cited">NOT_EXECUTED</span></td></tr>
+            <tr><td>fixed-width σ₁ = length(canonical_bytes(D₁))</td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>repeat k_toy = (λn)<sup>(1+c′)τ</sup></td><td><span class="chip held">FAIL</span></td></tr>
+            <tr><td>repeat question and answer component guard</td><td><span class="chip proved">PASS</span></td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:12px">At this tuple <span class="mono">M_I = 2</span>, <span class="mono">Q_I = 2</span> and <span class="mono">3Q_I = 6 &lt; 9</span>: a nine-bit input space cannot embed in the two-bit register the source's answer format requires. Rather than shrink the fixture until everything passes, the design prints the failure and marks every dependent sub-test VACUOUS. A toy result can establish construction behaviour; it cannot satisfy a theorem contract when a required predicate fails.</p>
+      </div>
+    </div>
+
+    <figure class="clip">
+      <video controls muted playsinline preload="metadata" poster="__POSTER_compress-ladder__" src="__VIDEO_compress-ladder__"></video>
+      <figcaption><b>The toy-regime ladder.</b> Levels 9 → 5 → 7 → 9 and dimensions 206 → 840 → 848 → 1,696, with the largest declared line answer at 3,894 field symbols = 42,834 bits over F<sub>2¹¹</sub> and the Repeat component guard at (λn)<sup>τ</sup> = 65,536.</figcaption>
+    </figure>
+
+    <div class="panel">
+      <div class="panel-bar"><b>D = Y Ψ, and the last step</b><span>handoff.md · gt-12-compression.tex:426–492</span></div>
+      <div class="panel-body">
+        <p>Now the fixed point. Define, for a machine <span class="mono">M</span> and a bound <span class="mono">λ</span>,</p>
+        <p class="mono" style="font-size:14px;margin:14px 0;padding-left:18px;border-left:2px solid var(--term)">Ψ<sub>M,λ</sub>(d)(n, x, y, a, b) = 1 &nbsp;if M halts within n steps,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= D<sub>Compress((S<sub>λ</sub>, d), λ)</sub>(n, x, y, a, b) &nbsp;otherwise.</p>
+        <p>Then <span class="mono">D<sub>M,λ</sub> = Y Ψ<sub>M,λ</sub></span>. If <span class="mono">M</span> never halts, the verifier at index <span class="mono">n</span> defers to the compressed verifier at a larger index, forever, and the game has a perfect entangled strategy at every level; if <span class="mono">M</span> halts at step <span class="mono">T</span>, the deferral bottoms out and the value drops. Deciding the value of the game therefore decides the halting problem — which is <span class="mono">MIP* = RE</span>.</p>
+        <p style="margin-top:14px">Chapter 2's <span class="mono">Y</span> is exactly this combinator, and the implementation's <span class="mono">Fix</span> closes one <span class="mono">self_code</span> hole at constant charge rather than materialising the unfolding — which is what keeps <span class="mono">|D<sub>M,λ</sub>| = O(|M| + log λ + 1)</span> instead of unbounded. The TB7 run is specified to construct <span class="mono">Fix(Ψ<sub>M,λ</sub>)</span>, check that the embedded <span class="mono">self_code</span> hash equals the outer quote hash, simulate two steps of a non-halting <span class="mono">M_loop</span>, take the deferral branch, and execute the compressed decider without recursive host evaluation. It has not been run.</p>
+        <p class="note" style="margin-top:14px"><b>What this page does not claim.</b> One description-level self-reference is not the infinite fixed-point value argument. The general value and λ-bounded conclusions of <span class="mono">gt-12:502–519, 569–576</span> stay CITED, and so does every quantitative soundness and entanglement-dimension bound in the composition.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 15 -->
+<section class="chapter" id="ch15">
+  <div class="ch-head">
+    <div class="ch-no">§15</div>
+    <div>
+      <p class="eyebrow"><span>How these claims were earned</span><span class="chip gt">verdicts/ · test/mutations/</span></p>
+      <h2 class="thesis">A status only ever rises because an adversarial critic said so, and every green test has a mutant proving it can go red.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>Each rung of the ladder is written by a proposer and then attacked by a critic that recomputes the numbers independently. The critic files a verdict with numbered objections; the proposer repairs; the next critic adjudicates the repairs and files fresh objections. A claim's status moves up only inside such a verdict — never because the author says so.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Objection trajectories, by lane</b><span>25 verdict files · MAJOR objections, the count each verdict itself tracks</span></div>
+      <div class="panel-body">
+        <div id="traj"></div>
+        <p class="note" style="margin-top:12px">Five lanes converged to zero MAJOR objections and a PASS. Three are still open: TB1 at <span class="mono">FAIL(N23)</span>, TB2 at <span class="mono">FAIL(NF1, NF2)</span>, TB3 at <span class="mono">FAIL(N1, N2, N3)</span> after a single round. No verdict line ever reads PROMOTE — only PASS or FAIL(…); promotions live inside the per-claim decision sections.</p>
+      </div>
+      <dl class="evidence">
+        <div class="ev"><dt>verdict files</dt><dd>25<small>6 PASS · 19 FAIL(…)</small></dd></div>
+        <div class="ev good"><dt>mutants killed</dt><dd>84 / 84<small>43/43 baselines OK, 790.69 s</small></dd></div>
+        <div class="ev"><dt>suite assertions</dt><dd>906 / 907</dd></div>
+        <div class="ev warn"><dt>the one failure</dt><dd>85.199 s<small>TB0 body against a 60 s gate</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The mutation runner</b><span>baseline-first, each mutant in an isolated copy</span></div>
+      <div class="panel-body">
+        <p>Before any mutant runs, the runner establishes that the targeted test file passes unmutated — 43 baselines. Then each of the 84 registered mutants is applied in isolation and the target must exit non-zero. A mutant that survives is a test that proves nothing; a mutant that kills the wrong test is recorded as <span class="mono">UNATTRIBUTABLE</span> rather than counted. This run: no survivors, no load errors, nothing unattributable.</p>
+        <div class="scroller" style="margin-top:14px">
+          <table>
+            <thead><tr><th>a representative mutant</th><th>target</th><th>outcome</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">TB1 M-χ shift_bucket_boundary</td><td class="mono">tb1_chi_boundary</td><td><span class="chip proved">KILLED</span></td></tr>
+              <tr><td class="mono">TB2 NF2 step1_compares_first_entry_only</td><td class="mono">tb2_lockstep</td><td><span class="chip proved">KILLED</span></td></tr>
+              <tr><td class="mono">TB3 M-fuel eval_ignores_fuel</td><td class="mono">tb3_eval</td><td><span class="chip proved">KILLED</span></td></tr>
+              <tr><td class="mono">TB0 R4M2 certified_views_bypass_ev_z</td><td class="mono">certificate</td><td><span class="chip proved">KILLED</span></td></tr>
+              <tr><td class="mono">TB1 N4-off-line line_point_test_never_agrees</td><td class="mono">tb1_decider</td><td><span class="chip proved">KILLED</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-bar"><b>The claims ratchet, as it stands</b><span>claims/CLAIMS.md · statuses verbatim</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:14px">
+          <button class="btn" data-cl="all" type="button" aria-pressed="true">All</button>
+          <button class="btn" data-cl="PROVED" type="button" aria-pressed="false">PROVED</button>
+          <button class="btn" data-cl="TESTED" type="button" aria-pressed="false">TESTED</button>
+          <button class="btn" data-cl="SKETCH" type="button" aria-pressed="false">SKETCH</button>
+          <button class="btn" data-cl="CONJECTURE" type="button" aria-pressed="false">CONJECTURE</button>
+        </div>
+        <div class="scroller"><table><thead><tr><th>id</th><th>what it says, in one line</th><th>status</th><th>depends on</th><th>verdict</th></tr></thead><tbody id="claims-body"></tbody></table></div>
+        <p class="note" style="margin-top:12px">Legend, from the file: <b>PROVED</b> = adversarially verified derivation · <b>TESTED</b> = machine-checked on explicit instances, red-capable · <b>SKETCH</b> = derivation written, not yet verified · <b>CONJECTURE</b> · <b>REFUTED</b> (kept as a negative result). There is no row for the low-degree decider (C4c is HELD) and none for the front end (C10 is a proposal).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================== 16 -->
+<section class="chapter" id="ch16">
+  <div class="ch-head">
+    <div class="ch-no">§16</div>
+    <div>
+      <p class="eyebrow"><span>The certificate tree</span><span class="chip gt">src/certificates.jl</span></p>
+      <h2 class="thesis">Every bound in the prototype carries a derivation tree, and the leaves say honestly which of them were only cited.</h2>
+    </div>
+  </div>
+  <div class="ch-body">
+    <p>Nothing returns a bare number. A construction returns a <span class="mono">Checked{T,C}</span> — the term together with a certificate whose nodes are graded. <span class="mono">verify_certificate</span> replays every CHECKED node against the constructor's own sub-terms, and refuses a certificate borrowed from another proof with <span class="mono">:certificate_binding</span>. These are the two real trees the suite printed.</p>
+
+    <div class="panel">
+      <div class="panel-bar"><b>Instrument · the trees, as printed</b><span>data/suite59q.log · click a node</span></div>
+      <div class="panel-body">
+        <div class="controls" style="margin-bottom:16px">
+          <button class="btn" data-tree="tb0" type="button" aria-pressed="true">TB0 · the six-gate fixture</button>
+          <button class="btn" data-tree="tb3" type="button" aria-pressed="false">TB3 · the generated instance</button>
+        </div>
+        <div class="grid2">
+          <div><div id="cert-tree" class="mono" style="font-size:12.5px;line-height:1.85"></div></div>
+          <div>
+            <div id="cert-detail" class="panel" style="box-shadow:none;background:var(--inset)"><div class="panel-body tight">
+              <p class="note">Select a node to see its grade, what it asserts, and where its authority comes from.</p>
+            </div></div>
+          </div>
+        </div>
+        <div class="legend" style="margin-top:18px">
+          <span><span class="chip proved">CHECKED</span> replayed from the constructor's own sub-terms</span>
+          <span><span class="chip tested">CONSTRUCTED</span> true by the datatype's invariants</span>
+          <span><span class="chip cited">CITED</span> an analytic theorem, not reproduced here</span>
+          <span><span class="chip held">ASSUMED</span> a gap the code does not fill</span>
+          <span><span class="chip sketch">SOURCE_REPAIR</span> the source as written does not typecheck; this is the repair</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="paper-says">
+      <span class="lbl">The point of the grades</span>
+      <p>A tree in which every leaf is CHECKED would be a lie. The value of the discipline is that <span class="mono">CookLevinGeneral</span> is visibly CITED, <span class="mono">RawAnswerBlocks</span> is visibly ASSUMED, and the five <span class="mono">SOURCE_REPAIR</span> nodes are visibly repairs — so a reader can locate exactly where this prototype stops being evidence and starts being transcription.</p>
+      <span class="src">src/MIPStarLambda.jl:107 · grades CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR</span>
+    </div>
+  </div>
+</section>
+
+<footer style="margin-top:112px;padding-top:32px;border-top:1px solid var(--rule)">
+  <p class="note" style="max-width:70ch">Built from the repository at <code>~/Projects/discussions</code> on 2026-09-05. Sources for every number on this page: <code>claims/CLAIMS.md</code>, <code>verdicts/*.md</code>, <code>briefs/*.last.md</code>, <code>docs/DESIGN.md</code>, <code>docs/analytic/parts/*.tex</code>, <code>docs/findings.md</code>, the suite and mutation logs in <code>docs/tutorial/build/data/</code>, and three short read-only probes of the package (<code>docs/tutorial/build/{probe,extract,guards}.jl</code>). The sampler question table and the 54×54 guard map embedded in this page were extracted from the package itself and reproduce the suite's own printed histogram supports and guard split exactly.</p>
+  <p class="note" style="margin-top:14px">The construction is Ji, Natarajan, Vidick, Wright and Yuen, <i>MIP*=RE</i>, arXiv:2001.04383v3. Ground-truth slices live in <code>ground-truth/gt-*.tex</code> and are the only authority; where this prototype departs from them it says so with a <code>SOURCE_REPAIR</code> node.</p>
+</footer>
+
+</main>
+</div>

@@ -1,0 +1,163 @@
+MIPStarLambda load/precompile seconds = 0.912 (ungated; cold image build: tools/cold_precompile.sh)
+TB0 fields: GF(8) modulus=0x00b exhaustive triples=512; GF(2^11) modulus=0x805 seed=0x092048 triples=10000
+TB0 encoding: asymmetric m=2 [0,0,1,0], m=3 singleton@100; big-endian index order checked in g_a and ind; evaluate == a.ind on all GF(8)^m (8/64/512 points) and 512 seeded GF(2^11) points per m (seed=0x092048)
+TB0 zero basis: arbitrary-coefficient quartics correct=512/512; critic counterexample remainder=0
+TB0 Boolean circuit scope: clauses=128/896; assignments=65536
+TB0 witness scope: witnesses=1024; clause-relation count=512/512 (surrogate, not a remainder computation); seconds=1.114
+TB0 witness (iii) all-zero: phi_C=false; |c0|=18620; |r|=2; coefficient identity=false; cube vanishing==phi_C on (i),(ii),(iii); build seconds=0.596
+TB0 policy gamma=1: small=(PASS, FAIL, FAIL, FAIL, FAIL, FAIL); sampled=(PASS, NOT_EVALUABLE, PASS, PASS, PASS, PASS); degree_formula=6
+TB0 witness (i): support=33432; product counts=[37240, 33432, 33432, 33432, 33432]; cumulative=170968 > budget=160000 >= peak=37240
+[CHECKED] PCPProof | polynomials = 22; d = 6; sparse terms are authoritative
+  [CHECKED] Tseitin | variables = 16; output literal = true
+  [CHECKED] ArithTseitin | degrees = occurrences; inddeg = 6
+  [CHECKED] MultilinearExtension | bound = 1; coordinates = (1,)
+  [CHECKED] MultilinearExtension | bound = 0; coordinates = (2,)
+  [CHECKED] MultilinearExtension | bound = 0; coordinates = (3,)
+  [CHECKED] MultilinearExtension | bound = 0; coordinates = (4,)
+  [CHECKED] MultilinearExtension | bound = 0; coordinates = (5,)
+  [CHECKED] BuildC0 | inddeg = 6; monomials = 33432
+  [CHECKED] ZeroBasis | remainder = 0; coefficient identity = true
+  [CHECKED] PCPVerifier | formula + zero tests = accept on 1 stored certified views
+TB0 witness (ii): critic-Z/local-char2 support=788032/534912; build seconds=7.189; peak RSS MiB=666.6
+TB0 direct GF(2^11) change_field proof seconds=0.118; lazy lift deleted; c0(b_rho)=48 != 0; separator honest/mutated=96/48
+TB0 GF(2^11) change_field: re-certified (4 CHECKED nodes replayed); stored view beta0=96 at b_rho[O2<-rho]; d=5 refused; no-point change refused
+TB0 layout m=2: 18 variables, sign block 11:15, c0(z)=GF(2^3)(2) != 0; verifier accepts the layout view and rejects the 6:10 view
+TB0 F_arith/c0 degree vectors=(2, 0, 0, 0, 2, 2, 0, 0, 0, 0, 6, 4, 4, 4, 4, 3)/(3, 0, 0, 0, 2, 3, 1, 1, 1, 1, 6, 4, 4, 4, 4, 3)
+C8 degrees (x1,x2,x3,w1,w2)=(2, 2, 2, 4, 3); deg_w1=4
+TB0 test-body wall seconds = 39.892 (warning=45.0, hard_limit=60.0)
+TB1 lem:cl-kth replay: chain_set_id=tb1-exhaustive-8^5 distinct_chains=[1, 8, 288] completed_replays=[32768, 32768, 32768] map_sum_checks=[32768, 65536, 98304] negative_witness_space_sum_ok=false
+TB1 queries: Factor(L_ALine,1,0)=[0, 0, 1, 1, 1] Factor(L_ALine,2,(0,0,4,0,0))=[1, 1, 0, 0, 0] Linear at unreachable (0,0,4,1,0) answered=true
+MUTATION_EXPECTED_RULE describe_roundtrip ok=true separator_bytes_differ=true
+TB1 describe: description_size L_Point/L_ALine/L_DLine=[75, 132, 156] closure=NotDescribable direct_sum=NotDescribable decode round trip on 3x8^5 seeds + 2 padded maps; separator L_Point vs V_coord(+)V_dir projector (75 bytes both)
+TB1 memo: distinct Linear prefixes=10000 limit=4096 max_entries=1808 entries=1808 nodes=1809
+TB1 chi-free marginals: axis support=128 mass={256}; diagonal support=4096 mass={4,36}; M-χ undetectable here
+TB1 axis histogram: seeds=32768 support=512 total=32768
+TB1 diagonal histogram: seeds=32768 support=18432 total=32768 zero_direction_support=512
+TB1 marginal replay: seeds=32768 samplers=3 replays=98304
+TB1 restrictions: axis_lines=16 diagonal_representatives=568 degree_bounds=1/2
+TB1 D^ld: type_pairs=9 seeds=32768 support_decisions=71360 non_noop=40768 (equal-type tautologies=2880 line_vs_point=37888) off_line_hits=0 equal-type mismatch_rule=ld_consistency
+MUTATION_EXPECTED_RULE ld_diagonal_degree actual=ld_diagonal_degree passed=false
+TB1 rejection owners: axis/diagonal cheating both orders; projected DLine; off-line guard; arity guard; kappa=2 accept/second-entry cheat/short answer
+TB1 degree separator: point=(GF(2^3)(3), GF(2^3)(5)) claimed_d=1 actual_degree=2 format_rule=ld_axis_degree point_rule=ld_axis_point
+TB1 TRACE seed=(GF(2^3)(3), GF(2^3)(5), GF(2^3)(4), GF(2^3)(6), GF(2^3)(7))
+  Point × Point q=((GF(2^3)(3), GF(2^3)(5), GF(2^3)(0), GF(2^3)(0), GF(2^3)(0)), (GF(2^3)(3), GF(2^3)(5), GF(2^3)(0), GF(2^3)(0), GF(2^3)(0))) answer_degrees=() => ld_consistency PASS
+  ALine × Point q=((GF(2^3)(3), GF(2^3)(0), GF(2^3)(4), GF(2^3)(0), GF(2^3)(0)), (GF(2^3)(3), GF(2^3)(5), GF(2^3)(0), GF(2^3)(0), GF(2^3)(0))) answer_degrees=(1,) => ld_axis_point PASS
+  DLine × Point q=((GF(2^3)(3), GF(2^3)(0), GF(2^3)(4), GF(2^3)(0), GF(2^3)(7)), (GF(2^3)(3), GF(2^3)(5), GF(2^3)(0), GF(2^3)(0), GF(2^3)(0))) answer_degrees=(1,) => ld_diagonal_point PASS
+MUTATION_EXPECTED_RULE product_edges actual=2916
+TB2 sampler: PCP types=18 edges=324 dims V6=(16,6,16) SOURCE_REPAIR=true; product types=54 edges=2916 level=3
+TB2 lazy CLStep replay: maps=18 seeds/map=20; DLine_6 apply=2.11 us (warm memo, 20 seeds x 50); 5.7 us (1000 fresh seeds); peak RSS MiB=873.7
+MUTATION_EXPECTED_RULE product_projection agrees=true compared=1080
+MUTATION_EXPECTED_RULE certificate rule=certificate_replay passed=true
+TB2 certificate replay outcomes: Tuple{Symbol, Bool, Bool, Symbol}[(:global_consistency, 1, 0, :global_consistency), (:input_consistency, 1, 0, :input_consistency), (:input_axis, 1, 0, :ld_axis_point), (:input_diagonal, 1, 0, :ld_diagonal_point), (:proof_consistency, 1, 0, :proof_consistency), (:proof_simultaneous_axis, 1, 0, :ld_axis_point), (:game, 1, 0, :pcpverifier)]
+MUTATION_EXPECTED_RULE describable actual=18/18
+TB2 describe: description_size Point_1=3009 Point_2=3009 Point_3=3009 Point_4=3009 Point_5=3009 Point_6=3009 ALine_1=2893 ALine_2=2893 ALine_3=2893 ALine_4=2893 ALine_5=2893 ALine_6=10228 DLine_1=2754 DLine_2=2754 DLine_3=2754 DLine_4=2754 DLine_5=2754 DLine_6=10479
+MUTATION_EXPECTED_RULE describe_roundtrip ok=true
+TB2 lem:cl-kth replay: chain_set_id=tb2-chi16-directed+rng20(0x9C) distinct_chains Point_1=36 Point_2=36 Point_3=34 Point_4=36 Point_5=36 Point_6=36 ALine_1=36 ALine_2=36 ALine_3=36 ALine_4=36 ALine_5=35 ALine_6=36 DLine_1=36 DLine_2=36 DLine_3=36 DLine_4=36 DLine_5=36 DLine_6=36 completed_replays=36/map
+TB2 memo: distinct Linear prefixes=10000 limit=4096 max_entries=1844 entries=1916 nodes=53
+TB2 table:tpcp parsers: 18/18 question and answer formats round-trip
+TB2 TRACE step1 types=((alice,Point_1), (alice,Point_1)) questions=(AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 1}}((GF(2^11)(384), GF(2^11)(0)), PCPPointQuestion{GF2048, 1}((GF(2^11)(410),))), AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 1}}((GF(2^11)(384), GF(2^11)(0)), PCPPointQuestion{GF2048, 1}((GF(2^11)(410),)))) => [(:global_consistency, :global_consistency, nothing)] PASS
+TB2 TRACE step2 types=((oracle,Point_6), (alice,Point_1)) questions=(AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 16}}((GF(2^11)(421), GF(2^11)(434)), PCPPointQuestion{GF2048, 16}((GF(2^11)(447), GF(2^11)(486), GF(2^11)(525), GF(2^11)(564), GF(2^11)(603), GF(2^11)(642), GF(2^11)(655), GF(2^11)(668), GF(2^11)(681), GF(2^11)(694), GF(2^11)(707), GF(2^11)(720), GF(2^11)(733), GF(2^11)(746), GF(2^11)(759), GF(2^11)(772)))), AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 1}}((GF(2^11)(421), GF(2^11)(0)), PCPPointQuestion{GF2048, 1}((GF(2^11)(447),)))) => [(:input_consistency, :input_consistency, nothing)] PASS
+TB2 TRACE step3 types=((alice,Point_1), (alice,ALine_1)) questions=(AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 1}}((GF(2^11)(569), GF(2^11)(0)), PCPPointQuestion{GF2048, 1}((GF(2^11)(595),))), AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPALineQuestion{GF2048, 1}}((GF(2^11)(569), GF(2^11)(0)), PCPALineQuestion{GF2048, 1}((GF(2^11)(0),), GF(2^11)(608)))) => [(:input_axis, :ld_axis_point, (2048, 1, 11, 1))] PASS
+TB2 TRACE step4 types=((oracle,DLine_6), (oracle,Point_6)) questions=(AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPDLineQuestion{GF2048, 16}}((GF(2^11)(1642), GF(2^11)(1655)), PCPDLineQuestion{GF2048, 16}((GF(2^11)(1668), GF(2^11)(1707), GF(2^11)(1746), GF(2^11)(1785), GF(2^11)(1824), GF(2^11)(1863), GF(2^11)(1876), GF(2^11)(1889), GF(2^11)(1902), GF(2^11)(1915), GF(2^11)(1928), GF(2^11)(1941), GF(2^11)(1954), GF(2^11)(1967), GF(2^11)(1980), GF(2^11)(0)), GF(2^11)(2006), (GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(0), GF(2^11)(101)))), AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 16}}((GF(2^11)(1642), GF(2^11)(1655)), PCPPointQuestion{GF2048, 16}((GF(2^11)(1668), GF(2^11)(1707), GF(2^11)(1746), GF(2^11)(1785), GF(2^11)(1824), GF(2^11)(1863), GF(2^11)(1876), GF(2^11)(1889), GF(2^11)(1902), GF(2^11)(1915), GF(2^11)(1928), GF(2^11)(1941), GF(2^11)(1954), GF(2^11)(1967), GF(2^11)(1980), GF(2^11)(1993))))) => [(:proof_simultaneous_diagonal, :ld_diagonal_point, (2048, 16, 11, 22))] PASS
+TB2 TRACE step5 types=((oracle,Point_6), (bob,Point_2)) questions=(AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 16}}((GF(2^11)(1679), GF(2^11)(1692)), PCPPointQuestion{GF2048, 16}((GF(2^11)(1705), GF(2^11)(1744), GF(2^11)(1783), GF(2^11)(1822), GF(2^11)(1861), GF(2^11)(1900), GF(2^11)(1913), GF(2^11)(1926), GF(2^11)(1939), GF(2^11)(1952), GF(2^11)(1965), GF(2^11)(1978), GF(2^11)(1991), GF(2^11)(2004), GF(2^11)(2017), GF(2^11)(2030)))), AnswerReduceQuestion{Tuple{GF2048, GF2048}, PCPPointQuestion{GF2048, 1}}((GF(2^11)(0), GF(2^11)(1692)), PCPPointQuestion{GF2048, 1}((GF(2^11)(1744),)))) => [(:game, :pcpverifier, nothing)] PASS
+MUTATION_EXPECTED_RULE branches first_failure=none failures=0
+TB2 deterministic branches: covered=37 seeds=37 every guard orientation and both ldparams PASS
+TB2 seeded conditioned suite: RNG=0x182048 full-field seeds=256 accepted=256
+MUTATION_EXPECTED_RULE guard_split actual=(2736, 180, 107, 92, 54, 53)
+TB2 no-check ordered type pairs: 2736/2916 = 76/81 = 93.827% triggering=180 step5 any/only=107/92 step1 any/only=54/53
+TB2 replay at 3 seeds (zero, tb2_seed 5, rng 0x9E): cases=7 outcomes=21 honest=21 corrupted_rejected=21
+MUTATION_EXPECTED_RULE pcpverifier actual=answer_reduce_accept passed=true
+TB2 game call: oracle seed=(GF(2^11)(815), GF(2^11)(828)) -> original decider x=(GF(2^11)(815), GF(2^11)(0)) y=(GF(2^11)(0), GF(2^11)(828)); pcpverifier rule=pcpverifier PASS
+MUTATION_EXPECTED_RULE proof_consistency actual=answer_reduce_accept passed=true
+MUTATION_EXPECTED_RULE ld_axis_point actual=answer_reduce_accept passed=true
+MUTATION_EXPECTED_RULE ld_axis_degree actual=ld_axis_degree passed=false
+MUTATION_EXPECTED_RULE i345 actual=(3, 4, 5)
+TB2 structural guard table: individual copies=(3,4,5) exactly
+TB3 quote: |D| = 33 bytes; hash = f8561ef8c5761695; gallery sizes = [13, 28, 22, 42, 43, 46, 58, 37, 88, 66, 52]
+MUTATION_EXPECTED_RULE fuel_bound looped=OutOfFuel starved=OutOfFuel
+TB3 eval: trivial uses 3; overhead h(d,u) = 63; equality uses 5; looping Fix OutOfFuel in 0.0 s
+TB3 trace: T=1 rows=2 result=Value(true) accepts=true
+  row 0: Prim(true) fuel=1 outcome=running
+  row 1: Value(true) fuel=0 outcome=accept
+MUTATION_EXPECTED_RULE trace_formula_equivalence passed=false rule=trace_formula_equivalence
+TB3 cook_levin: m=1 M=2 clauses=1 present tuples=16/64 gates=1 eliminated=0
+MUTATION_EXPECTED_RULE decoupled_shape literal_blocks=[3]
+TB3 decouple5: widths=(0, 0, 1, 1, 1) clauses=1 padded m=1 s=6 (live 1) m'=16 present=256/1024 witnesses=512/1024
+TB3 pcp: |c0| (i)=10140 (ii)=162240 build (i)=0.21 s (ii)=2.139 s; decider cases accepted=7/7 in 0.491 s; peak_rss=1346195456
+[CHECKED] PCPProof | polynomials = 22; d = 6; sparse terms are authoritative
+  [CHECKED] Tseitin | variables = 16; output literal = true
+    [CHECKED] Pad5 | m = 1; s = 6 (live 1, padding 5 NOT gates); m' = 5m + 5 + s = 16; relation check = exhaustive (1024); fnv1a64 = f8561ef8c5761695
+      [CHECKED] Decouple5 | widths = (0, 0, 1, 1, 1); clauses = 1 (formula 1, copy 0, equality 0); circuit gates = 1; relation check = exhaustive (256); fnv1a64 = f8561ef8c5761695
+        [CHECKED] CookLevin | m = 1; M = 2; clauses = 1; rows = 2; raw = 2; aux = 0; eliminated = 0; circuit gates = 1; relation check = exhaustive (64); fnv1a64 = f8561ef8c5761695
+          [CHECKED] BoundedTrace | T = 1 body transitions (eval fuel T + 2); rows = 2; result = Value(true); accepts = true; fnv1a64 = f8561ef8c5761695
+            [CHECKED] Quote | |D| = 33 bytes; fnv1a64 = f8561ef8c5761695; sort = Decider
+          [CITED] CookLevinGeneral | prop:standard-succinct-sat (gt-10:237-273) / analytic thm:l-succinct-sat: field alphabets enumerated over all 4 answer inputs, not decoded from an O(log T + log sigma)-bit window; enc_Gamma answer format not enforced (raw answer bits)
+        [ASSUMED] RawAnswerBlocks | answer blocks read as raw bits of widths 1, 1; enc_Gamma format and (10)^(L/2-T) padding clauses of gt-10:1036-1130 not emitted
+  [CHECKED] ArithTseitin | degrees = occurrences; inddeg = 5
+  [CHECKED] MultilinearExtension | bound = 1; coordinates = (1,)
+  [CHECKED] MultilinearExtension | bound = 1; coordinates = (2,)
+  [CHECKED] MultilinearExtension | bound = 1; coordinates = (3,)
+  [CHECKED] MultilinearExtension | bound = 1; coordinates = (4,)
+  [CHECKED] MultilinearExtension | bound = 1; coordinates = (5,)
+  [CHECKED] BuildC0 | inddeg = 5; monomials = 162240
+  [CHECKED] ZeroBasis | remainder = 0; coefficient identity = true
+  [CHECKED] PCPVerifier | formula + zero tests = accept on 1 stored certified views
+TB3 equality snapshot: T=3 rows=4 3SAT m=3 M=8 clauses=15 eliminated=0 | 5SAT widths=(0, 0, 3, 3, 3) clauses=47 copy=4 eq=28 | padded m=3 live=423 s=492 m'=512 | F_arith candidates <= 67603846952933582433165864340199893815373925479111455788134524134792597949341333313032961898106316167680573819743787150216543945861228610162505809218552561501997477404128538672637820494397960168498248837658429952185957387074046764865190834114019666451389141897735218054731415376051534872996858382916315738312078945770700448363569253862664619858978873853114803572470950546011424201871063400924034494444683132928 c0 candidates <= 2163323102493874637861307658886396602091965615331566585220304772313363134378922666017054780739402117365778362231801188806929406267559315525200185894993681968063919276932113237524410255820734725391943962805069758469950636386369496475686106691648629326444452540727526977751405292033649115935899468253322103625986526264662414347634216123605267835487323963299673714319070417472365574459874028829569103822229860253696 | arith_q => ExpansionRefused(279936)
+Test Summary:                                                                  | Pass  Total     Time
+MIPStarLambda                                                                  |  807    807  2m19.3s
+  1. GF(2^k) field laws                                                        |    7      7     0.6s
+  2. multilinear low-degree encoding and bit order                             |    2      2     2.8s
+  3. zero-basis rewrite over arbitrary GF(8) coefficients                      |    9      9     1.3s
+  4a. exhaustive circuit and Tseitin arithmetization                           |    3      3     1.1s
+  4b. clause-relation count on all 1024 witnesses (surrogate)                  |    2      2     1.1s
+  4c. witness (iii) through the real pipeline: r != 0 iff !phi_C               |   13     13    11.2s
+  5a. mutation-B formula separator                                             |    9      9     3.6s
+  5a. PCP policy, exact support, and per-product budget                        |   18     18     3.2s
+  5b. degenerate GF(8) lines and Boolean cube                                  |    2      2     0.7s
+  5c. sparse terms and replayable derivation tree                              |   23     23     3.6s
+  6a. non-degenerate support and certificate                                   |    7      7     5.5s
+  6b. non-degenerate exact dependencies and non-vacuity                        |   17     17     0.3s
+  6c. non-degenerate completeness coverage                                     |    1      1     2.0s
+  6d. separators and direct field-change measurement                           |    5      5     0.2s
+  6e. GF(2^11) field change is re-certified                                    |    9      9     0.5s
+  7. layout-driven sign block for m=2                                          |   11     11     0.4s
+  8. TB0 occurrence, fan-out, degree, dependency                               |    4      4     0.1s
+  9. C8 two-gate fan-out regression                                            |    4      4     0.1s
+  TB0 60 s test-body hard limit (measured 39.892 s)                            |    1      1     0.0s
+  TB1 datatype levels                                                          |   37     37     4.6s
+  TB1 lem:cl-kth enu:cl-space-sum / enu:cl-map-sum replay                      |   22     22     2.6s
+  TB1 def:sampler queries Dimension/Marginal/Linear/Factor                     |   27     27     0.1s
+  TB1 DESIGN 9.3 describability (QuotedBranch)                                 |   33     33     2.8s
+  TB1 bounded continuation memo                                                |    3      3     0.3s
+  TB1 eq:chi-func buckets and joint histogram (M-χ owner)                      |    2      2     0.6s
+  TB1 pi-prefix sampler separator                                              |    1      1     0.0s
+  TB1 canonical-complement sampler separator                                   |    1      1     0.0s
+  TB1 genuinely chi-free lem:alnf/lem:dlnf marginals                           |    4      4     0.3s
+  TB1 exact axis histogram (M-χ owner)                                         |    3      3     0.1s
+  TB1 exact diagonal histogram (M-π, M-lnf owner)                              |    8      8     0.6s
+  TB1 exhaustive marginal replay                                               |    3      3     0.5s
+  TB1 all honest line restrictions                                             |    5      5     0.4s
+  TB1 D^ld honest deterministic sweep and consistency                          |   17     17     3.1s
+  TB1 D^ld rejections                                                          |   15     15     0.6s
+  TB1 axis degree rejection (M-deg owner)                                      |    5      5     0.1s
+  TB1 sampled question-pair trace                                              |    3      3     0.4s
+  TB2 typed PCP sampler and product                                            |   26     26     9.6s
+  TB2 DESIGN 9 describability, chain-set replay, memo bound                    |  126    126     4.5s
+  TB2 table:tpcp parser round trips                                            |    1      1     0.6s
+  TB2 deterministic honest branch coverage                                     |   46     46     9.5s
+  TB2 256 conditioned seeded honest questions                                  |    3      3    18.3s
+  TB2 unconditioned no-check fraction                                          |    3      3     1.2s
+  TB2 seven-case replay at three seeds (verdicts/tb2-r3.md N9)                 |   86     86    10.5s
+  TB2 step-5 original-game plumbing and formula mutation owner                 |    9      9     0.5s
+  TB2 g3 individual/bundle consistency mutation owner                          |    2      2     2.4s
+  TB2 line-polynomial truncation mutation owner                                |    2      2     2.0s
+  TB2 Point_i/ALine_i guard degree-format mutation owner                       |    2      2     2.3s
+  TB2 honest DLine answers project an unprojected direction                    |    2      2     1.1s
+  TB2 structural guard set i in {3,4,5} (M-i345 owner)                         |    1      1     0.1s
+  TB3 (a) program IR: canonical bytes, exact size, closedness, closure refusal |   32     32     1.1s
+  TB3 (b) fuel-bounded evaluation: total, monotone, Quote/Eval overhead        |   31     31     0.9s
+  TB3 (c) bounded trace of lambda n x y a b . true at T = 1                    |   23     23     1.1s
+  TB3 (d) Cook-Levin: succinct 3SAT satisfiable iff the trace accepts          |   17     17     0.6s
+  TB3 (e) decoupled 5SAT: five index blocks, five signs, iff D accepts         |   28     28     3.4s
+  TB3 (f),(h) generated circuit through TB0's PCP builder and TB2's decider    |   21     21     7.4s
+  TB3 (g) equality decider snapshot: trace, 3SAT, 5SAT, circuit, c0 growth     |   10     10     3.9s
