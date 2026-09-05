@@ -215,6 +215,11 @@ include("tb2_simultaneous_diagonal_never_rejects.jl")
 include("tb2_input_ld_only_alice.jl")
 include("tb2_individual_ld_only_alice.jl")
 include("tb2_simultaneous_ld_only_alice.jl")
+# verdicts/tb2-r7.md NG10 (brief 73): the copy-index coordinate of the trace key.
+include("tb2_step2_copy1_only.jl")
+include("tb2_step3_crossed_copies.jl")
+include("tb2_step4a_copy3_only.jl")
+include("tb2_step4b_copy3_only.jl")
 # briefs/23-tb3.md: the five TB3 front-end mutants.
 include("tb3_acc.jl")
 include("tb3_size.jl")
@@ -262,7 +267,9 @@ const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_SIMULTANEOUS_DIAGONAL_NEVER_REJECTS_MUTANT,
                      TB2_INPUT_LD_ONLY_ALICE_MUTANT,
                      TB2_INDIVIDUAL_LD_ONLY_ALICE_MUTANT,
-                     TB2_SIMULTANEOUS_LD_ONLY_ALICE_MUTANT)
+                     TB2_SIMULTANEOUS_LD_ONLY_ALICE_MUTANT,
+                     TB2_STEP2_COPY1_ONLY_MUTANT, TB2_STEP3_CROSSED_COPIES_MUTANT,
+                     TB2_STEP4A_COPY3_ONLY_MUTANT, TB2_STEP4B_COPY3_ONLY_MUTANT)
 const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
                      TB3_DECOUPLE_MUTANT, TB3_CLOSURE_MUTANT, TB3_R1_MUTANTS...,
                      TB3_N13_MUTANT)

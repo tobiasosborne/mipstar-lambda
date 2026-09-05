@@ -629,13 +629,19 @@ function specialize(p::Program, env::Tuple; sort::Symbol=:Decider)
     expected = term_size(p) -
                sum(term_size(hole) for hole in _hole_nodes(p); init=0) +
                sum(term_size(term) for (_, term) in env; init=0)
+    # verdicts/tb4-r1.md O14: the replay is bound to this Quoted (a borrowed
+    # Quoted is :certificate_binding) and recomputes the substitution, so a
+    # closed term of the same byte length does not pass on size alone.
+    bindings = Dict{Symbol,Program}(env...)
     node = CertNode(CHECKED, :Specialize;
         facts=(display="|P| = $(term_size(p)); holes = $(length(env)); |result| = $(term_size(result)); |D| = $(description_size(q)) bytes",),
-        replay=quoted -> begin
-            actual = term_size(decode_program(quoted.bytes))
-            CheckResult(actual == expected && is_closed(decode_program(quoted.bytes)),
-                        :specialize_size_law; expected=expected, actual=actual)
-        end)
+        replay=_bound_replay(q, :Specialize, quoted -> begin
+            decoded = decode_program(quoted.bytes)
+            actual = term_size(decoded)
+            CheckResult(actual == expected && is_closed(decoded) &&
+                        program_equal(decoded, substitute(p, bindings)),
+                        :specialize_size_law; location=:Specialize, expected=expected, actual=actual)
+        end))
     Checked(q, node)
 end
 

@@ -31,7 +31,8 @@ function _build_oracularized_sampler(original::CLDistribution{F}) where {F}
     graph = [(left, right) for left in ORACULAR_ROLES for right in ORACULAR_ROLES]
     sampler = TypedSampler(ORACULAR_ROLES, graph, maps, maps)
     cited = CertNode(CITED, :Oracularization;
-        facts=(display="roles={oracle,alice,bob}; oracle=Id; isolated maps=L^alice/L^bob; gt-09:36-86",))
+        facts=(display="gt-09-oracularization.tex:L34-L86 (sec:orac-def): roles={oracle,alice,bob}; oracle=Id; isolated maps=L^alice/L^bob",
+               source="gt-09-oracularization.tex", lines=34:86, label="sec:orac-def"))
     Checked(sampler, cited)
 end
 

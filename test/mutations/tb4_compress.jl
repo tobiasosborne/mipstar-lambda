@@ -44,8 +44,8 @@ const TB4_YCODE_MUTANT = Mutant(
 const TB4_HYPOTHESIS_MUTANT = Mutant(
     "TB4 M-hyp drop_lambda_bounded_description",
     "src/compress.jl",
-    "    (Hypothesis(:lambda_bounded_description, \"V is lambda-bounded: |V| = max(|S|, |D|) <= lambda\",\n                _DEF_LAMBDA, (v, p) -> _description_status(v, p.lambda)),\n     Hypothesis(:lambda_bounded_time, \"V is lambda-bounded: TIME_S(n), TIME_D(n) <= n^lambda for n >= 2\",",
-    "    (Hypothesis(:lambda_bounded_time, \"V is lambda-bounded: TIME_S(n), TIME_D(n) <= n^lambda for n >= 2\",",
+    "    (Hypothesis(:lambda_bounded_description, \"(completeness/soundness only) V is lambda-bounded: |V| = max(|S|, |D|) <= lambda\",\n                _DEF_LAMBDA, (v, p) -> _description_status(v, p.lambda)),\n     Hypothesis(:lambda_bounded_time, \"(completeness/soundness only) V is lambda-bounded: TIME_S(n), TIME_D(n) <= n^lambda for n >= 2\",",
+    "    (Hypothesis(:lambda_bounded_time, \"(completeness/soundness only) V is lambda-bounded: TIME_S(n), TIME_D(n) <= n^lambda for n >= 2\",",
     "tb4_hypotheses")
 
 # The audit's replay never refuses a FAIL.
@@ -113,8 +113,131 @@ const TB4_INDEPENDENCE_MUTANT = Mutant(
     "dependencies = Tuple(unique((_sampler_dependencies(input)..., :lambda, :mu, :gamma, :D1_size, :D)))",
     "tb4_compress")
 
+# ---------------------------------------------------------------------------
+# verdicts/tb4-r1.md (brief 72): the critic's two survivors and one owner per
+# new assertion.
+
+# O1, CRITIC-2 verbatim: the fig:compress ORDER conjunct of :LevelChain is
+# blind to the order (a set comparison); the hand-built Introspect ->
+# Repeat -> AnswerReduce chain in (f) has the same levels and must be refused.
+const TB4_ORDER_BLIND_MUTANT = Mutant(
+    "TB4 M-order-blind levelchain_order_blind",
+    "src/compress.jl",
+    "    origins == [:Introspect, :AnswerReduce, :Repeat, :Compress] || return false",
+    "    Set(origins) == Set([:Introspect, :AnswerReduce, :Repeat, :Compress]) || return false",
+    "tb4_levels")
+
+# O2, CRITIC-1 verbatim: Compress hands Introspect the input's own level
+# instead of fig:compress's literal 9; (f)'s 5-level input then prints
+# `ell = 5 => PASS` at ell_level.
+const TB4_ELL_FROM_INPUT_MUTANT = Mutant(
+    "TB4 M-ell-from-input compress_ell_from_input_not_9",
+    "src/compress.jl",
+    "    v1 = Introspect(stages.introspect, checked, lambda, COMPRESS_LEVELS; params=stage_params)",
+    "    v1 = Introspect(stages.introspect, checked, lambda, _levels(input); params=stage_params)",
+    "tb4_levels")
+
+# O3: the inlined compressor stub is no longer disclosed.
+const TB4_STUB_UNDISCLOSED_MUTANT = Mutant(
+    "TB4 M-stub-undisclosed compress_stub_not_in_tree",
+    "src/compress.jl",
+    "                  _relocate(decider.certificate, x -> x.decider), stub_node))",
+    "                  _relocate(decider.certificate, x -> x.decider)))",
+    "tb4_psi")
+
+# O4: the FuelBound construction change is no longer disclosed.
+const TB4_FUELBOUND_UNDISCLOSED_MUTANT = Mutant(
+    "TB4 M-fuelbound-undisclosed halt_decider_fuel_bound_not_in_tree",
+    "src/compress.jl",
+    "                                   children=(node.children..., repair), replay=node.replay))",
+    "                                   children=node.children, replay=node.replay))",
+    "tb4_psi")
+
+# O7: one Introspect hypothesis loses its completeness/soundness scope.
+const TB4_INTRO_UNSCOPED_MUTANT = Mutant(
+    "TB4 M-intro-unscoped ell_level_hypothesis_unscoped",
+    "src/compress.jl",
+    "     Hypothesis(:ell_level, \"(completeness/soundness only) V is an ell-level verifier\",",
+    "     Hypothesis(:ell_level, \"V is an ell-level verifier\",",
+    "tb4_hypotheses")
+
+# O8: the build-time reproduction child is dropped from :UpstreamEvidence.
+const TB4_REPRODUCTION_UNDISCLOSED_MUTANT = Mutant(
+    "TB4 M-reproduction-undisclosed upstream_reproduction_not_in_tree",
+    "src/verifiers/pcp.jl",
+    "        children=(_bind_certificate(checked.certificate, checked.term, tf, proof -> proof.tf),\n                  reproduction),",
+    "        children=(_bind_certificate(checked.certificate, checked.term, tf, proof -> proof.tf),),",
+    "tb4_compress")
+
+# O9: the :SamplerIndependence display leaks the input decider's hash, so
+# the two-verifier traces differ in a second line.
+const TB4_INDEPENDENCE_LEAK_MUTANT = Mutant(
+    "TB4 M-independence-leak trace_leaks_input_hash",
+    "src/compress.jl",
+    "        facts=(display=\"S^compr depends on \$(join(String.(output.sampler_dependencies), \", \")) and on nothing of V's content; allowed = \$(join(String.(_INDEPENDENCE_ALLOWED), \", \"))\",),",
+    "        facts=(display=\"S^compr depends on \$(join(String.(output.sampler_dependencies), \", \")) and on nothing of V's content; allowed = \$(join(String.(_INDEPENDENCE_ALLOWED), \", \")); V = \$(input isa Verifier ? quote_hash(input.decider) : :stage)\",),",
+    "tb4_two_verifiers")
+
+# O10: the surrogate goes back to being a childless sibling of the fixture
+# evidence.
+const TB4_SURROGATE_SIBLING_MUTANT = Mutant(
+    "TB4 M-surrogate-sibling surrogate_beside_fixture_evidence",
+    "src/compress.jl",
+    "        children=(_relocate(detyped.certificate, x -> x.payload.typed.term),\n                  _relocate(fixture.pcp.certificate, x -> x.payload.fixture.pcp.proof)))\n    node = CertNode(CONSTRUCTED, :AnswerReduce;\n        facts=(display=\"detype o answer_reduce_pcp; level max(ell + 2, 5) = max(\$(ell) + 2, 5) = \$(levels); TIME_S = TIME_D = \$(time.description); |D^ar| = \$(description.description); sampler depends on \$(join(String.(dependencies), \", \"))\",),\n        children=(hypotheses..., _relocate(audit, x -> x.input), _cited_leaf(ANSWER_REDUCE_CONTRACT),\n                  surrogate,\n",
+    "        )\n    node = CertNode(CONSTRUCTED, :AnswerReduce;\n        facts=(display=\"detype o answer_reduce_pcp; level max(ell + 2, 5) = max(\$(ell) + 2, 5) = \$(levels); TIME_S = TIME_D = \$(time.description); |D^ar| = \$(description.description); sampler depends on \$(join(String.(dependencies), \", \"))\",),\n        children=(hypotheses..., _relocate(audit, x -> x.input), _cited_leaf(ANSWER_REDUCE_CONTRACT),\n                  surrogate,\n                  _relocate(detyped.certificate, x -> x.payload.typed.term),\n                  _relocate(fixture.pcp.certificate, x -> x.payload.fixture.pcp.proof),\n",
+    "tb4_compress")
+
+# O11: the :Detype leaf loses its locatable citation.
+const TB4_DETYPE_UNLOCATED_MUTANT = Mutant(
+    "TB4 M-detype-unlocated detype_leaf_without_source",
+    "src/verifiers/answer_reduce.jl",
+    "               source=\"gt-06-types.tex\", lines=445:475, label=\"lem:detyping-verifiers\"),",
+    "               ),",
+    "tb4_compress")
+
+# O12: the enu:pr-completeness range excludes its own label again.
+const TB4_OFF_BY_ONE_MUTANT = Mutant(
+    "TB4 M-offbyone pr_completeness_range_excludes_label",
+    "src/compress.jl",
+    "                \"gt-11-parallel-repetition.tex:L239-L243 (enu:pr-completeness)\",",
+    "                \"gt-11-parallel-repetition.tex:L240-L243 (enu:pr-completeness)\",",
+    "tb4_hypotheses")
+
+# O13: the calibration kernel's measured time is replaced by a constant, so
+# the ratio gate cannot see the clock it is calibrated against.
+const TB4_GATE_UNCALIBRATED_MUTANT = Mutant(
+    "TB4 M-gate-uncalibrated ratio_gate_without_calibration",
+    "test/tb4_compress_ir.jl",
+    "const TB4_CALIBRATION = @elapsed tb4_calibration_kernel()",
+    "const TB4_CALIBRATION = 1e-9",
+    "tb4_gate")
+
+# O14 (a): specialize accepts an open replacement (capture-freedom's guard).
+const TB4_SPECIALIZE_OPEN_MUTANT = Mutant(
+    "TB4 M-specialize-open specialize_accepts_open_replacement",
+    "src/ir/programs.jl",
+    "    for (name, term) in env\n        is_closed(term) || throw(ArgumentError(\"replacement for \$name is not closed\"))\n    end\n    result = substitute(p, Dict{Symbol,Program}(env...))",
+    "    for (name, term) in env\n        true || throw(ArgumentError(\"replacement for \$name is not closed\"))\n    end\n    result = substitute(p, Dict{Symbol,Program}(env...))",
+    "tb4_specialize")
+
+# O14 (b): specialize's :Specialize replay is unbound again (a borrowed
+# byte-identical Quoted passes).
+const TB4_SPECIALIZE_UNBOUND_MUTANT = Mutant(
+    "TB4 M-specialize-unbound specialize_replay_unbound",
+    "src/ir/programs.jl",
+    "        replay=_bound_replay(q, :Specialize, quoted -> begin\n            decoded = decode_program(quoted.bytes)",
+    "        replay=(quoted -> begin\n            decoded = decode_program(quoted.bytes)",
+    "tb4_specialize")
+
 const TB4_MUTANTS = (TB4_ORDER_SWAP_MUTANT, TB4_ORDER_INTRO_LAST_MUTANT, TB4_RELABEL_MUTANT,
                      TB4_YCODE_MUTANT, TB4_HYPOTHESIS_MUTANT, TB4_AUDIT_MUTANT,
                      TB4_LEVEL_RULE_MUTANT, TB4_BIND_MUTANT, TB4_SIGMA_MUTANT,
                      TB4_LEVEL_SORT_MUTANT, TB4_CFIX_MUTANT, TB4_CITED_REPLAY_MUTANT,
-                     TB4_INDEPENDENCE_MUTANT)
+                     TB4_INDEPENDENCE_MUTANT,
+                     TB4_ORDER_BLIND_MUTANT, TB4_ELL_FROM_INPUT_MUTANT,
+                     TB4_STUB_UNDISCLOSED_MUTANT, TB4_FUELBOUND_UNDISCLOSED_MUTANT,
+                     TB4_INTRO_UNSCOPED_MUTANT, TB4_REPRODUCTION_UNDISCLOSED_MUTANT,
+                     TB4_INDEPENDENCE_LEAK_MUTANT, TB4_SURROGATE_SIBLING_MUTANT,
+                     TB4_DETYPE_UNLOCATED_MUTANT, TB4_OFF_BY_ONE_MUTANT,
+                     TB4_GATE_UNCALIBRATED_MUTANT, TB4_SPECIALIZE_OPEN_MUTANT,
+                     TB4_SPECIALIZE_UNBOUND_MUTANT)

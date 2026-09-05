@@ -186,10 +186,14 @@ end
 # `:UpstreamEvidence` node is the identity anchor -- it accepts only the
 # proof whose `tf` IS the formula reproduced at build time -- and its
 # subtree is reached only from that proof (`_bind_certificate`). The
-# reproduction itself is a build-time check: `tf` and `circuit` are
-# immutable and `tseitin` is deterministic, so re-running it at replay
-# could never fail once the anchor holds (verdicts/tb3-r2.md N14, second
-# option); the display says which is which.
+# reproduction itself is a build-time precondition, recorded as the
+# CONSTRUCTED child `:UpstreamReproduction` of the CHECKED anchor
+# (verdicts/tb3-r2.md N14, second option; verdicts/tb4-r1.md O8). It is
+# NOT replayed, and not because the data could never change: a
+# `TseitinFormula.program` vector is mutable in place, and a formula
+# tampered after construction is caught by `:PCPVerifier`'s replay, not
+# here. The CHECKED content of `:UpstreamEvidence` is exactly the identity
+# anchor `proof.tf === tf`; the display says which is which.
 "The circuit an upstream evidence term compiled to; front ends extend this."
 upstream_circuit(term) =
     throw(ArgumentError("PCP upstream evidence of type $(typeof(term)) names no circuit"))
@@ -204,9 +208,13 @@ function _bind_upstream(checked::Checked, tf::TseitinFormula)
     result = verify_certificate(checked)
     passed(result) ||
         throw(ArgumentError("PCP upstream evidence does not verify against its term: $(result.rule) at $(result.location)"))
+    reproduction = CertNode(CONSTRUCTED, :UpstreamReproduction;
+        facts=(display="build-time precondition, not replayed: tseitin(circuit) reproduced the proof's tf at construction ($(circuit.gate_count) gates); a formula tampered afterwards is refused by :PCPVerifier's replay, not by this anchor",
+               gates=circuit.gate_count))
     CertNode(CHECKED, :UpstreamEvidence;
-        facts=(display="front-end evidence of the attached proof: identity-anchored to its tf; tseitin(circuit) reproduced tf at build time ($(circuit.gate_count) gates)",),
-        children=(_bind_certificate(checked.certificate, checked.term, tf, proof -> proof.tf),),
+        facts=(display="front-end evidence of the attached proof: CHECKED content is the identity anchor proof.tf === tf; the build-time reproduction is the CONSTRUCTED child :UpstreamReproduction",),
+        children=(_bind_certificate(checked.certificate, checked.term, tf, proof -> proof.tf),
+                  reproduction),
         replay=proof -> CheckResult(proof.tf === tf,
                                     :certificate_binding; location=:UpstreamEvidence,
                                     expected=:generated_formula,

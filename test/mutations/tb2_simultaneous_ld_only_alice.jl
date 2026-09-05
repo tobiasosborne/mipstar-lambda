@@ -9,4 +9,4 @@ const TB2_SIMULTANEOUS_LD_ONLY_ALICE_MUTANT = Mutant(
     "                    _ar_entry(4, branch, player, 6, line_kind, result;\n                              ldparams=params), left_type, right_type)\n                rejected === nothing || return rejected",
     "                    _ar_entry(4, branch, player, 6, line_kind, result;\n                              ldparams=params), left_type, right_type)\n                rejected === nothing || player == :bob || return rejected",
     "tb2_replay_seeds",
-    "SWAP orientation (right,left) at the same 3 seeds: cases=9 outcomes=27 honest=27 corrupted_rejected=21")
+    "SWAP orientation (right,left) at the same 3 seeds: cases=19 outcomes=57 honest=57 corrupted_rejected=51")

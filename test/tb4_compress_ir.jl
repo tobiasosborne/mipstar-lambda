@@ -14,6 +14,27 @@ const TB4_CACHE = Dict{Symbol,Any}()
 const TB4_LAMBDA = 1024
 const TB4_ROOT = normpath(joinpath(@__DIR__, ".."))
 
+# Budget gate (verdicts/tb4-r1.md O13; tb1-r5 N33): the 5 s TB4 body budget
+# of briefs/24-tb4.md is enforced as a clock-calibrated RATIO, not a wall
+# clock. A fixed GF(8) kernel is timed in-process here, before any testset;
+# at the end of a whole-file run the body wall divided by that calibration
+# must stay below TB4_RATIO = 42, set once from quiet performance-governor
+# runs (brief 72): the kernel measures 0.14 s standalone and 0.18 s inside
+# the suite, the body 5.9 s in-suite (ratio 32), so 42 is the revised 6 s
+# budget of DESIGN 5.6 at the standalone kernel rate. An optional
+# TB4_BUDGET_SECONDS adds a plain wall bound and never loosens the gate.
+function tb4_calibration_kernel()
+    acc = zero(GF8)
+    for _ in 1:20_000, a in field_elements(GF8), b in field_elements(GF8), c in field_elements(GF8)
+        acc += a * b + c
+    end
+    acc
+end
+tb4_calibration_kernel()
+const TB4_CALIBRATION = @elapsed tb4_calibration_kernel()
+const TB4_RATIO = 42.0
+const TB4_BODY_STARTED = time()
+
 tb4_input(n::Int) = (n, Bool[], Bool[], Bool[true], Bool[false])
 
 # The fixture verifier V = (S_lambda, D_{M,lambda}) for the halting two-state
@@ -93,6 +114,17 @@ if tb4_runs("tb4_specialize")
             Dict{Symbol,Program}(:machine => TWO_STATE_HALTING, :lambda => nat(3)))),
             (:self_code => Quote(decode_program(d.term)),); sort=:Decider)
         @test_throws ArgumentError specialize(template, (:machine => TWO_STATE_HALTING,); sort=:Decider)
+        # verdicts/tb4-r1.md O14: the guard capture-freedom rests on -- an
+        # OPEN replacement is refused -- and specialize's CHECKED :Specialize
+        # node is bound to its own Quoted (a byte-identical Quoted built by a
+        # second call is refused as borrowed) and recomputes the term.
+        @test_throws ArgumentError specialize(outer, (:h => BoundVar(0, 0),); sort=:Program)
+        twin = specialize(outer, (:h => Lambda(1, BoundVar(0, 0)),); sort=:Program)
+        @test twin.term.bytes == filled.term.bytes && twin.term !== filled.term
+        @test passed(verify_certificate(filled)) && passed(verify_certificate(twin))
+        borrowed = verify_certificate(Checked(twin.term, filled.certificate))
+        @test !passed(borrowed) && borrowed.rule == :certificate_binding && borrowed.location == :Specialize
+        @test filled.certificate.replay(filled.term).rule == :specialize_size_law
         println("TB4 specialize: |Psi template| = ", term_size(template), " bytes; |D_{M,lambda}| = ",
                 description_size(d.term), " bytes; |unfolded| = ", description_size(unfolded.term),
                 " bytes; hash = ", quote_hash(d.term))
@@ -167,6 +199,23 @@ if tb4_runs("tb4_ycode")
                                                    compress=COMPRESS_IDENTITY).term, tb4_input(2), 5_000)
         @test halting_self.result isa Value && halting_self.result.value === true
         @test eval_program(y, tb4_input(1), 10_000).result isa OutOfFuel
+        # verdicts/tb4-r1.md O3: the "compressed branch" above is the
+        # evaluation of the inlined COMPRESS_STUB -- the constant
+        # (pair, lambda) -> Quote(lambda n x y a b . true), 46 of the 376
+        # term bytes -- not of any compressor; the verifier's certificate
+        # discloses it as [ASSUMED] CompressStubInTerm.
+        _, y_loop, _ = fixed_point(TWO_STATE_LOOPING)
+        @test program_equal(y_loop.body.body.else_branch.code.head, COMPRESS_STUB)
+        stub_pair = Prim(:quoted_pair, Concrete(1), (Quote(SAMPLER_STUB, :Sampler), Quote(y_loop, :Decider)))
+        stub_value = eval_program(Apply(COMPRESS_STUB, (stub_pair, nat(TB4_LAMBDA))), (), 50)
+        @test stub_value.result isa Value && stub_value.result.value == Code(TRIVIAL_DECIDER, :Decider)
+        @test term_size(COMPRESS_STUB) == 46 && term_size(y_loop) == 376
+        stub_nodes = tb4_find(tb4_verifier().certificate, :CompressStubInTerm)
+        @test length(stub_nodes) == 1 && stub_nodes[1].grade == ASSUMED
+        @test occursin("COMPRESS_STUB", stub_nodes[1].facts.display) &&
+              occursin("46 of 376", stub_nodes[1].facts.display) &&
+              occursin("constant", stub_nodes[1].facts.display) &&
+              occursin("COMPRESS_IDENTITY", stub_nodes[1].facts.display)
         println("TB4 ycode: halting branch used 12; compressed branch (looping machine) used ",
                 eval_program(fixed_point(TWO_STATE_LOOPING)[2], tb4_input(2), 10_000).used,
                 "; identity-compressor loop => OutOfFuel(", looping.used, ")")
@@ -232,7 +281,22 @@ if tb4_runs("tb4_psi")
         @test description_length(v.term) == max(description_size(v.term.sampler), description_size(v.term.decider))
         @test description_length(v.term) == description_size(q) && description_length(v.term) <= TB4_LAMBDA
         @test passed(verify_certificate(v))
-        @test tb4_rules(v.certificate) == [:Verifier, :Quote, :Specialize, :Quote]
+        @test tb4_rules(v.certificate) == [:Verifier, :Quote, :Specialize, :Quote, :HaltDeciderFuelBound,
+                                           :CompressStubInTerm]
+        # verdicts/tb4-r1.md O4: the outer Eval's FuelBound(n, lambda) is a
+        # construction change against fig:halt_f step 5 (no budget there;
+        # TIME <= n^lambda is lem:lambda's conclusion), disclosed as a
+        # SOURCE_REPAIR under :Specialize, and the verifier's runtime bound
+        # says the budget is enforced, not measured.
+        repair = tb4_find(v.certificate, :HaltDeciderFuelBound)
+        @test length(repair) == 1 && repair[1].grade == SOURCE_REPAIR
+        @test occursin("gt-12-compression.tex:L451-L453", repair[1].facts.display) &&
+              occursin("lem:lambda", repair[1].facts.display) &&
+              occursin("OutOfFuel", repair[1].facts.display)
+        @test v.certificate.children[2].rule == :Specialize &&
+              any(n -> n.rule == :HaltDeciderFuelBound, v.certificate.children[2].children)
+        @test occursin("enforced by construction, not measured", v.term.runtime.description)
+        @test occursin("HaltDeciderFuelBound", v.term.runtime.description)
         println("TB4 psi: |D_{M,lambda}| = ", description_size(q), " bytes; |S_lambda| = ",
                 description_size(v.term.sampler), " bytes; |V| = ", description_length(v.term),
                 "; hash = ", quote_hash(q))
@@ -265,6 +329,23 @@ if tb4_runs("tb4_compress")
         end
         @test any(n -> n.rule == :Detype && n.grade == CITED, tb4_nodes(root))
         @test any(n -> n.rule == :AnswerReduceSurrogate && n.grade == ASSUMED, tb4_nodes(root))
+        # verdicts/tb4-r1.md O10: the surrogate disclosure is the PARENT of
+        # the fixture evidence it qualifies -- every PCP/front-end/TB2 node
+        # under :AnswerReduce is a descendant of [ASSUMED] AnswerReduceSurrogate.
+        surrogate = only(tb4_find(root, :AnswerReduceSurrogate))
+        under = tb4_nodes(surrogate)
+        @test length(surrogate.children) == 2
+        for rule in (:PCPProof, :UpstreamEvidence, :Pad5, :Decouple5, :CookLevin, :BoundedTrace,
+                     :Tseitin, :PCPVerifier, :TypedAnswerReduce, :AnswerReduceSamplerProduct, :Detype)
+            @test count(n -> n.rule == rule, under) >= 1
+            @test count(n -> n.rule == rule, under) == count(n -> n.rule == rule, tb4_nodes(root))
+        end
+        # verdicts/tb4-r1.md O8: the front end's Tseitin reproduction is a
+        # build-time CONSTRUCTED child of the identity-anchored
+        # :UpstreamEvidence, not part of its CHECKED content.
+        upstream = only(tb4_find(root, :UpstreamEvidence))
+        @test any(c -> c.rule == :UpstreamReproduction && c.grade == CONSTRUCTED, upstream.children)
+        @test occursin("build-time", only(tb4_find(root, :UpstreamReproduction)).facts.display)
         # Exactly named CITED leaves with ground-truth line ranges that
         # exist: the test greps the label inside the cited range.
         leaves = Dict{Symbol,CertNode}()
@@ -285,6 +366,21 @@ if tb4_runs("tb4_compress")
         @test leaves[Symbol("thm:ar")].facts.source == "gt-10-answer-reduction.tex"
         @test leaves[Symbol("thm:repetition")].facts.source == "gt-11-parallel-repetition.tex"
         @test leaves[Symbol("thm:compression")].facts.source == "gt-12-compression.tex"
+        # verdicts/tb4-r1.md O11: every CITED node that carries a locatable
+        # citation (source, lines, label) is grepped the same way -- the TB2
+        # :Detype and :Oracularization leaves included.
+        located = [n for n in tb4_nodes(root) if n.grade == CITED && haskey(n.facts, :source) &&
+                   haskey(n.facts, :lines) && haskey(n.facts, :label)]
+        @test issubset(Set([:Detype, :Oracularization, keys(leaves)...]), Set(n.rule for n in located))
+        for leaf in located
+            lines = tb4_first_lines(leaf.facts.source)
+            range = leaf.facts.lines
+            @test first(range) >= 1 && last(range) <= length(lines)
+            @test any(occursin("\\label{$(leaf.facts.label)}", lines[i]) for i in range)
+            @test occursin("$(leaf.facts.source):L$(first(range))-L$(last(range))", leaf.facts.display)
+        end
+        @test only(tb4_find(root, :Detype)).facts.label == "lem:detyping-verifiers"
+        @test only(tb4_find(root, :Oracularization)).facts.source == "gt-09-oracularization.tex"
         # Every CITED node has no replay; every CHECKED node has one.
         @test all(n.replay === nothing for n in tb4_nodes(root) if n.grade == CITED)
         @test all(n.replay !== nothing for n in tb4_nodes(root) if n.grade == CHECKED)
@@ -335,6 +431,13 @@ if tb4_runs("tb4_hypotheses")
         @test statuses[:lambda_bounded_time] == NOT_EVALUABLE
         @test statuses[:ell_level] == PASS
         @test length(INTROSPECT_CONTRACT.hypotheses) == 3
+        # verdicts/tb4-r1.md O7: thm:introspection's 5-level result and its
+        # three complexity bounds are unconditional (gt-08:789-797); only
+        # completeness/soundness/entanglement need the lambda-bounded
+        # ell-level hypothesis (gt-08:801-803), so every Introspect
+        # hypothesis is scoped exactly as Compress's are.
+        @test all(startswith(h.statement, "(completeness/soundness only)") for h in INTROSPECT_CONTRACT.hypotheses)
+        @test all(startswith(h.statement, "(completeness/soundness only)") for h in COMPRESS_CONTRACT.hypotheses)
         # Wrong level: a 9-level V handed to Introspect(V, lambda, 5).
         wrong_level = Introspect(tb4_verifier(), TB4_LAMBDA, 5)
         @test !passed(verify_certificate(wrong_level))
@@ -342,6 +445,10 @@ if tb4_runs("tb4_hypotheses")
         # The fixture satisfies every checkable hypothesis.
         good = Introspect(tb4_verifier(), TB4_LAMBDA, 9)
         @test passed(verify_certificate(good))
+        # verdicts/tb4-r1.md O4: the fixture's time hypothesis quotes the
+        # enforced budget as such, never as a measured runtime.
+        @test occursin("enforced by construction, not measured",
+                       only(n for n in tb4_nodes(good.certificate) if n.rule == :lambda_bounded_time).facts.display)
         @test all(n.facts.status != FAIL for n in tb4_nodes(good.certificate)
                   if n.grade == ASSUMED && haskey(n.facts, :status))
         # A concrete runtime is checked against n^lambda from n = 2 (a
@@ -366,6 +473,25 @@ if tb4_runs("tb4_hypotheses")
         @test ANSWER_REDUCE_CONTRACT.theorem == Symbol("thm:ar")
         @test REPEAT_CONTRACT.theorem == Symbol("thm:repetition")
         @test COMPRESS_CONTRACT.theorem == Symbol("thm:compression")
+        # verdicts/tb4-r1.md O12: every hypothesis source of the form
+        # `gt-NN-*.tex:La-Lb (label[, label])` contains each named \label
+        # inside its own range (enu:pr-completeness is at gt-11:239).
+        cited_hypotheses = 0
+        for contract in (INTROSPECT_CONTRACT, ANSWER_REDUCE_CONTRACT, REPEAT_CONTRACT, COMPRESS_CONTRACT),
+            h in contract.hypotheses
+            m = match(r"^(gt-[^:]+\.tex):L(\d+)-L(\d+) \((.+)\)$", h.source)
+            @test m !== nothing
+            lines = tb4_first_lines(m[1])
+            range = parse(Int, m[2]):parse(Int, m[3])
+            @test first(range) >= 1 && last(range) <= length(lines)
+            for label in split(m[4], ", ")
+                occursin(':', label) || continue   # a prose locator, not a \label
+                cited_hypotheses += 1
+                @test any(occursin("\\label{$(label)}", lines[i]) for i in range)
+            end
+        end
+        @test cited_hypotheses >= 12
+        @test occursin("L239-L243 (enu:pr-completeness)", REPEAT_CONTRACT.hypotheses[2].source)
     end
 end
 
@@ -407,12 +533,73 @@ if tb4_runs("tb4_levels")
         @test passed(composition[1].replay(out))
         chain = tb4_find(tb4_compressed().certificate, :LevelChain)
         @test length(chain) == 1 && chain[1].grade == CHECKED && passed(chain[1].replay(out))
+        # verdicts/tb4-r1.md O1: the origin-order conjunct is the whole
+        # content of :LevelChain -- a hand-built Introspect -> Repeat ->
+        # AnswerReduce chain has the SAME levels 9 -> 5 -> 7 -> 9 (both rules
+        # map 5 to 7) and must be refused by the node's replay.
+        fixture = out.input.input.payload.fixture
+        stage = AnswerReduceOnFixture(fixture)
+        w1 = Introspect(tb4_verifier(), TB4_LAMBDA, 9)
+        w2 = Repeat(w1, TB4_LAMBDA, 1)
+        w3 = AnswerReduce(stage, w2, TB4_LAMBDA, 1, 1)
+        swapped = StubVerifier(out; input=w3.term)
+        @test level_chain(swapped) == [9, 5, 7, 9]
+        @test [s.origin for s in MIPStarLambda._chain(swapped)] == [:Introspect, :Repeat, :AnswerReduce, :Compress]
+        @test !MIPStarLambda._level_chain_ok(swapped)
+        refused = chain[1].replay(swapped)
+        @test !passed(refused) && refused.rule == :level_chain && refused.actual == [9, 5, 7, 9]
+        # verdicts/tb4-r1.md O2: fig:compress's literal ell = 9
+        # (ComputeIntroVerifier(V, lambda, 9), gt-12:79-80) is what Compress
+        # hands Introspect, not the input's own level: compressing a 5-level
+        # verifier records `levels = 5, ell = 9 => FAIL` at ell_level.
+        v9 = tb4_verifier().term
+        five = Verifier(v9.sampler, v9.decider, v9.question_length, v9.answer_length, v9.runtime, v9.gap, 5)
+        @test five.levels == 5
+        five_out = Compress(Checked(five, CertNode(CONSTRUCTED, :Verifier)), TB4_LAMBDA;
+                            stages=CompressStages(IntrospectStub(), stage, RepeatStub()))
+        ell_node = only(tb4_find(five_out.certificate, :ell_level))
+        @test ell_node.facts.status == FAIL
+        @test occursin("levels = 5, ell = 9 => FAIL", ell_node.facts.display)
+        @test level_chain(five_out.term) == [5, 5, 7, 9]
+        @test verify_certificate(five_out).location == :nine_level
         # An unbound universal constant is a composition failure.
         @test free_parameters(bind_parameter(Opaque("poly(x, mu)", (:x, :mu)), :mu => 1)) == (:x,)
         @test bind_parameter(Opaque("poly(x, mu)", (:x, :mu)), :mu => 1).description == "poly(x, mu) [mu = 1]"
         @test free_parameters(bind_parameter(Opaque("f(|D|)", (:D_size,)), :D_size => Opaque("poly(lambda)", (:lambda,)))) == (:lambda,)
         @test !runtime_composition_ok(StubVerifier(out; sampler_time=Opaque("poly(n, lambda, mu)", (:n, :lambda, :mu))))
         @test runtime_composition_ok(out)
+    end
+end
+
+if tb4_runs("tb4_two_verifiers")
+    @testset "TB4 (h) two byte-distinct inputs at one lambda: the traces differ only at the input decider's Quote (verdicts/tb4-r1.md O9)" begin
+        # DESIGN 12.3's byte/hash form of sampler independence needs sampler
+        # bytes, which TB4's StubVerifier output has none of (TB5's S^rep
+        # carries that check). The form TB4 supports: Compress of the
+        # halting and the looping machine at lambda = 1024 -- byte-distinct
+        # D_{M,lambda} of equal size -- yields certificates whose traceprints
+        # differ in exactly one line, the input decider's Quote hash, and
+        # identical dependency symbols.
+        halting = tb4_compressed()
+        fixture = halting.term.input.input.payload.fixture
+        stages = CompressStages(IntrospectStub(), AnswerReduceOnFixture(fixture), RepeatStub())
+        looping_v = halting_verifier(TWO_STATE_LOOPING, TB4_LAMBDA)
+        @test canonical_bytes(looping_v.term.decider) != canonical_bytes(tb4_verifier().term.decider)
+        @test description_length(looping_v.term) == description_length(tb4_verifier().term)
+        looping = Compress(looping_v, TB4_LAMBDA; stages)
+        a = split(sprint(traceprint, halting.certificate), '\n')
+        b = split(sprint(traceprint, looping.certificate), '\n')
+        @test length(a) == length(b) && length(a) > 60
+        differing = [i for i in eachindex(a) if a[i] != b[i]]
+        @test length(differing) == 1
+        @test occursin("[CHECKED] Quote", a[differing[1]]) &&
+              occursin(quote_hash(tb4_verifier().term.decider), a[differing[1]]) &&
+              occursin(quote_hash(looping_v.term.decider), b[differing[1]])
+        @test looping.term.sampler_dependencies == halting.term.sampler_dependencies
+        @test passed(verify_certificate(looping))
+        println("TB4 two verifiers: ", length(a), " trace lines each; differing lines = ", length(differing),
+                " (the input decider's Quote: ", quote_hash(tb4_verifier().term.decider), " vs ",
+                quote_hash(looping_v.term.decider), "); dependency symbols equal")
     end
 end
 
@@ -432,5 +619,27 @@ if tb4_runs("tb4_relabel")
         # still verifies (nothing is replayed there), which is why the
         # CHECKED count is asserted in (d).
         println("MUTATION_EXPECTED_RULE certificate_replay relabelled_cited_leaf_refused=true")
+    end
+end
+
+# The budget is the IN-SUITE body (briefs/24-tb4.md section 4; the critic's
+# 6.055 s was measured there): runtests.jl includes tb0_core.jl first, whose
+# TB0_TARGET marks the warm suite process. A standalone `all` run is a
+# cold-JIT run (7-13 s of compilation on this box) and prints ungated; the
+# registry's `tb4_gate` target (empty body) owns the gate's mechanics.
+const TB4_IN_SUITE = isdefined(Main, :TB0_TARGET)
+if TB4_TARGET in ("all", "tb4_gate")
+    tb4_elapsed = time() - TB4_BODY_STARTED
+    tb4_ratio = tb4_elapsed / TB4_CALIBRATION
+    tb4_wall_budget = haskey(ENV, "TB4_BUDGET_SECONDS") ? parse(Float64, ENV["TB4_BUDGET_SECONDS"]) : Inf
+    println("TB4 test-body wall seconds = ", round(tb4_elapsed; digits=3), "; calibration kernel = ",
+            round(TB4_CALIBRATION; digits=4), " s; ratio = ", round(tb4_ratio; digits=1),
+            " (gate ", TB4_RATIO, "; TB4_BUDGET_SECONDS = ", tb4_wall_budget,
+            TB4_IN_SUITE || TB4_TARGET == "tb4_gate" ? "; gated)" : "; ungated: standalone cold-JIT run)")
+    if TB4_IN_SUITE || TB4_TARGET == "tb4_gate"
+        @testset "TB4 budget gate: body / calibration kernel < $(TB4_RATIO) (tb1-r5 N33; verdicts/tb4-r1.md O13)" begin
+            @test tb4_ratio < TB4_RATIO
+            @test tb4_elapsed < tb4_wall_budget
+        end
     end
 end

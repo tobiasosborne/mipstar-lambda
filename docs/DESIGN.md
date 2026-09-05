@@ -83,7 +83,10 @@ against the decoded bytes, and the CHECKED `:Quote` node is `quote_program`'s. R
 changed to admit it. `Compress`'s second argument is `lambda : P{Nat}`, the resource bound of `def:lambda`; the declared sort `Level`
 (a positive `Nat` literal by shape) exists for `definitions.md` §F's level datum but is not what `Compress` receives. Adjudication of
 `briefs/47-analytic-doc-repair-r1.last.md` MP-2 (i): the outer `Eval` of the RETURNED decider under `FuelBound(n,lambda)` is in the
-display; no `ans` selector is needed because `Compressor` returns the decider description (`definitions.md` §F), and no fuel symbol `F_C`
+display; no `ans` selector is needed because `fig:halt_f` computes `S^halt = ComputeSampler(lambda)` at step 3 and uses only `D^compr`
+at step 5 (`gt-12-compression.tex:L440-L453`), and `lem:dhalt-values` (`L502-L519`) records that `V^halt_n` and `V^compr_n` use the same
+sampler, which by `lem:compress-independent-samplers` (`L108-L118`) is `S^compr` — so the decider-only `Compressor` of `definitions.md` §F
+is a named, deliberate narrowing of `thm:compression`'s pair-valued output licensed by ground truth, not by that row; and no fuel symbol `F_C`
 is introduced because `Compress` is a total polynomial-time program whose run is counted inside `TIME_D` in the ambient budget exactly
 as `lem:lambda` counts it (`gt-12-compression.tex:L578-L596`); the two nested `Eval`s of the analytic display remain that document's
 `SOURCE_REPAIR` against this one.
@@ -514,9 +517,11 @@ The word `Checked` means “paired with inspectable evidence,” not “proved.�
 
 The transformation contracts are conditional and their `CITED` nodes retain every hypothesis:
 
-- `Introspect(V,lambda,ell)`: **ASSUME** `V` is a `lambda`-bounded `ell`-level verifier. **PROVE** the 5-level result, sampler time
-  `poly(n,lambda,ell)`, decider time `poly(2^(lambda*n),ell)`, description `poly(lambda,ell)`, and the stated completeness, soundness, and
-  entanglement implications (`gt-08-introspection.tex:L784-L817`). It is a `StubVerifier` with a CITED `thm:introspection` node.
+- `Introspect(V,lambda,ell)`: unconditionally **PROVES, CITED**, for all `ell`, the 5-level result, sampler time
+  `poly(n,lambda,ell)`, decider time `poly(2^(lambda*n),ell)`, and description `poly(lambda,ell)` (`gt-08-introspection.tex:L789-L797`).
+  For completeness, soundness, and entanglement additionally **ASSUME** `V` is a `lambda`-bounded `ell`-level verifier; **PROVE** only the
+  theorem's stated implications (`L801-L817`). Every hypothesis of the contract is therefore prefixed "(completeness/soundness only)", as
+  in `Compress` below (`verdicts/tb4-r1.md` O7). It is a `StubVerifier` with a CITED `thm:introspection` node.
 - `answer_reduce_pcp(V,lambda,mu,gamma)`: **ASSUME** `V` is an `ell`-level normal-form verifier,
   `T(n)=(2^(lambda*n))^mu`, `Q_len(n)=Q_time(n)=(lambda*n)^mu`, `TIME_D(n)<=T(n)`, and `TIME_S(n)<=Q_time(n)`.
   **PROVE** the typed construction has level `max(ell,3)`; its finite PCP checks are executable, while oracularization soundness and quantum
@@ -1017,8 +1022,18 @@ canonical bytes, and that the trace has CHECKED program/specialization nodes, th
 introspection, quantum answer reduction, repetition, and compression.
 
 Print the quoted term, size, specialization substitutions, contract bounds, and certificate-grade summary. Mutate composition order, pass a
-5-level result directly to `Repeat`, and require the computed chain to differ from `5 -> 7 -> 9`; separately relabel a CITED leaf as CHECKED
-without a replay and require certificate verification to fail. The old closure/quote dispatch check is deleted because it tested only host
+5-level result directly to `Repeat`, and require the origin sequence to differ from (Introspect, AnswerReduce, Repeat); at ℓ = 5 both rules
+give 7, so levels alone cannot witness the swap; separately relabel a CITED leaf as CHECKED
+without a replay and require certificate verification to fail. Pin fig:compress's literal ℓ = 9 by compressing a non-9-level verifier
+and requiring the `ell_level` hypothesis node to print `ell = 9`. Disclose every stub in the term itself: the compressor inlined in
+`D_{M,lambda}` (`COMPRESS_STUB`) is an `[ASSUMED] CompressStubInTerm` node, and the enforced `FuelBound(n, lambda)` on the returned
+decider is `SOURCE_REPAIR(HaltDeciderFuelBound)` (`definitions.md` §F). TB4's body budget, 5 s in `briefs/24-tb4.md`, is REVISED to 6 s by brief 72 (the O1/O2/O9 witnesses add two `Compress`
+calls and the surrogate/citation walks; measured 5.9 s in-suite on a quiet performance-governor box) and is enforced as a clock-calibrated
+ratio gate, not a wall clock (tb1-r5 N33): the file times a fixed GF(8) kernel in-process before its first testset (0.14 s standalone,
+0.18 s in-suite on the reference box) and asserts `elapsed / calibration < TB4_RATIO = 42` (6 s at the standalone kernel rate; the in-suite
+ratio measured 32) when the whole file runs inside the suite (a standalone run of the file is cold-JIT and prints the numbers ungated;
+the registry's `tb4_gate` target owns the gate's mechanics); an optional `TB4_BUDGET_SECONDS` only adds a wall bound
+(`verdicts/tb4-r1.md` O13). The old closure/quote dispatch check is deleted because it tested only host
 dispatch, not semantics. No theorem stub is executed.
 
 **DD-14 — Optimize rungs for falsifiability.** Prefer exhaustive tiny fields, branch-directed questions, and exact rationals; rationale:
@@ -1207,6 +1222,8 @@ Description size is never an asymptotic guess:
 description_size(X) = length(canonical_bytes(X.code))
 ```
 
+`description_size` is the exact byte length of the composite's canonical term; it is not additive under `direct_sum` (registers shift: 130 + 292 → 426 bytes at TB5; `verdicts/tb5-r1.md`).
+
 The checker reserializes the term and recomputes that integer. A compact loop in a repetition description is not charged as `k` copies of its code, while a returned question is charged its full materialized length.  Dependency sets are computed by a syntax walk over quoted child identifiers and
 replayed against the bytes.
 
@@ -1233,7 +1250,7 @@ The checker grades the two `IntroGap` branches separately.  TB7 evaluates, by ex
 node's coordinate indicator. `Linear` walks the same prefix and multiplies the stage matrix by the projection of `y`.  None enumerates `image(A)`.
 
 An arbitrary Julia `Function` is not serializable.  The description adapter accepts only branches built from a named pure `QuotedBranch` constructor with canonical captured data.  Existing in-memory `CLStep` values remain usable inside TB1/TB2, but an opaque host branch returns `NotDescribable`;
-transformations never fall back to serializing a closure.      The `QuotedBranch` constructors landed in brief 46; `direct_sum`/`concatenate` still wrap host closures, so their outputs are `NotDescribable` until `DL9-direct-sum` answers them at the description level. `describe_cl(L)` serializes one lazy CL value to `CLDescription` (canonical term, `canonical_bytes`, `description_size`) or `NotDescribable`; the pair adapter `describe_cl(LA,LB,q)` and the `SamplerDescription` record are TB5 work (`verdicts/tb2-r3.md` G2). `Dimension`, `Marginal`, `Linear` and `Factor` exist on `AbstractCL` with the §9.1 domains (`Factor` enforces `u in L_{<j}(V)` by per-stage column-space membership); illegal calls throw `ArgumentError`, which the adapter maps to `QueryError`; stage matrix entries are serialized row-major `(1,1),(1,2),…,(w,w)`, pinned by an off-diagonal witness, and `decode_cl` re-imposes `factor ⊎ rest = {1..n}` on the top stage (brief 59); register index vectors are serialized in their declared order, so canonical bytes are canonical only up to that order (`verdicts/tb1-r5.md` N31/N32; sorting is DL9 work); `Marginal` rejects `j=0` like `Factor`/`Linear`, and `cl_kth_replay` supplies the §9.2 zero prefix itself (`verdicts/tb1-r3.md` N14). At TB2's `m'=16` the literal `chi`-indexed `BranchByAxis` table is charged one child term per axis (`ALine_6` 10228 vs `ALine_1` 2893 bytes); the compact-loop form is `DL9` work (ibid. N18).
+transformations never fall back to serializing a closure.      The `QuotedBranch` constructors landed in brief 46; `direct_sum`/`concatenate` still wrap host closures, so their outputs are `NotDescribable` until `DL9-direct-sum` answers them at the description level. `describe_cl(L)` serializes one lazy CL value to `CLDescription` (canonical term, `canonical_bytes`, `description_size`) or `NotDescribable`; the pair adapter `describe_cl(LA,LB,q)` and the `SamplerDescription` record are TB5 work (`verdicts/tb2-r3.md` G2). `Dimension`, `Marginal`, `Linear` and `Factor` exist on `AbstractCL` with the §9.1 domains (`Factor` enforces `u in L_{<j}(V)` by per-stage column-space membership); illegal calls throw `ArgumentError`, which the adapter maps to `QueryError`; stage matrix entries are serialized row-major `(1,1),(1,2),…,(w,w)`, pinned by an off-diagonal witness, and `decode_cl` re-imposes `factor ⊎ rest = {1..n}` on the top stage (brief 59); set-valued register index vectors are serialized sorted and positional registers must be increasing (else `NotDescribable`), so canonical bytes are canonical for the declared order (brief 39 deviation 7; `verdicts/tb1-r5.md` N31); the k-fold repetition is one `Repeat` term, never k children (`|S^rep| = 85` bytes at λ = 1, 2, 3); `Marginal` rejects `j=0` like `Factor`/`Linear`, and `cl_kth_replay` supplies the §9.2 zero prefix itself (`verdicts/tb1-r3.md` N14). At TB2's `m'=16` the literal `chi`-indexed `BranchByAxis` table is charged one child term per axis (`ALine_6` 10228 vs `ALine_1` 2893 bytes); the compact-loop form is `DL9` work (ibid. N18).
 
 The adapter certificate checks, on a finite fixture, every legal `j`, every seed, every reachable `Factor` prefix, every legal `Linear` prefix, and every factor basis vector against `marginal_k`, `apply`, and the stored matrix.  It also performs the §9.2 direct-sum and telescoping replay.
 Generally, level and both well-formedness invariants are CONSTRUCTED by nesting and the query compiler is proved by structural recursion in code.  The source marginal decomposition is `lem:cl-kth`; the machine interface exposing it is `def:sampler` (`gt-04-cl.tex:L151-L180`, `L572-L595`).
@@ -1277,6 +1294,8 @@ executable pipeline inserts `downsize(PCPSampler)` and records `SOURCE_REPAIR(AR
 
 Each operation in the table returns its field/level/dimension/call laws **and** a sampler-validity child replaying `enu:cl-space-sum` and `enu:cl-map-sum`.  `DL9-downsize`, `DL9-direct-sum`, and `DL9-product` prove preservation by their corresponding factor/marginal construction;
 `DL9-detype`, `DL9-anchor`, and `DL9-repeat` include the same replay after conditional concatenation, zero-map promotion, and block splitting.  A constructor without that child does not return `Checked{SamplerDescription,...}`.
+
+The table's `anchor(v)` / `anchored_repeat(v,lambda,tau)` rows are the PUBLIC composites; the `DL9-anchor` / `DL9-repeat` `LawCert`s check the INTERNAL typed-anchor and `repeat_sampler` rows (`verdicts/tb5-r1.md` O7d). The `O(...)` in the table's query-time cells is dropped in the emitted ASTs, which are never evaluated (ibid. O7c).
 
 ### 9.5 Executable detyping
 
@@ -1410,11 +1429,11 @@ bits.  Otherwise it runs `D^anch` on each aligned quadruple and returns their lo
 The checked metadata are
 
 ```text
-question_length(n), answer_length(n) <= k(n)*B(n)
+question_length(n), answer_length(n) <= k(n)*(B(n)+32)
 TIME_Drep(n) = O(k(n)*max(TIME_D(n),B(n))).
 ```
 
-The general runtime, PCC completeness under `TIME_D(n)<=B(n)`, and the strict soundness relation
+The `+32` is the 32-bit length field framing every component, checked against `B(n)` before its payload is read: the source parses `x,y,a,b` as `k(n)`-tuples without fixing a tuple encoding (`SOURCE_REPAIR(RepeatTupleFraming)`, `gt-11-parallel-repetition.tex:L216-L220`). Source finding (`verdicts/tb5-r1.md` O4): `gt-11:L219` and `L220` are mutually consistent only when `c'=1`; the executable retains L200's exponent and reports the inconsistency. The general runtime, PCC completeness under `TIME_D(n)<=B(n)`, and the strict soundness relation
 
 ```text
 p > (4/epsilon) * exp(-c*epsilon^17*k(n)/(lambda*n)^(tau*c_prime))

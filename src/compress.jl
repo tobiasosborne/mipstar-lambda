@@ -144,10 +144,28 @@ function fix_specialize(template::Program, env::Tuple; sort::Symbol=:Decider)
     Checked(quoted.term, node)
 end
 
-"D_{M,lambda} = Fix(Psi_{M,lambda}) as a checked Quoted{Decider}."
-halting_decider(machine::Program, lambda::Program; sampler::Program=SAMPLER_STUB,
-                compress::Program=COMPRESS_STUB) =
-    fix_specialize(psi_template(; sampler, compress), (:machine => machine, :lambda => lambda))
+"""
+    halting_decider(machine, lambda; sampler, compress) :: Checked{Quoted{:Decider}}
+
+D_{M,lambda} = Fix(Psi_{M,lambda}). The CHECKED :Specialize node of
+`fix_specialize` gains one SOURCE_REPAIR child (verdicts/tb4-r1.md O4):
+the outer `Eval` of the RETURNED decider runs under `FuelBound(n, lambda)`,
+an enforced budget of n^lambda units that fig:halt_f step 5
+(gt-12-compression.tex:L451-L453) does not impose -- there the decider
+"accepts if D^compr accepts (n, x, y, a, b)" and TIME_{D^halt}(n) <= n^lambda
+is lem:lambda's CONCLUSION (L570-L638), not a specification. Below the
+budget the fixed point returns OutOfFuel, which is not a decider answer.
+"""
+function halting_decider(machine::Program, lambda::Program; sampler::Program=SAMPLER_STUB,
+                         compress::Program=COMPRESS_STUB)
+    checked = fix_specialize(psi_template(; sampler, compress), (:machine => machine, :lambda => lambda))
+    node = checked.certificate
+    repair = CertNode(SOURCE_REPAIR, :HaltDeciderFuelBound;
+        facts=(display="the returned decider runs under Eval(..., FuelBound(n, lambda)) = n^lambda units, a construction change: fig:halt_f step 5 (gt-12-compression.tex:L451-L453) accepts iff D^compr accepts (n, x, y, a, b) with no budget, and TIME_{D^halt}(n) <= n^lambda is lem:lambda's conclusion (gt-12-compression.tex:L570-L638), not a specification; below the budget the fixed point returns OutOfFuel, not a decider answer (definitions.md F: SOURCE_REPAIR(HaltDeciderFuelBound))",
+               source="gt-12-compression.tex", lines=451:453))
+    Checked(checked.term, CertNode(node.grade, node.rule; facts=node.facts,
+                                   children=(node.children..., repair), replay=node.replay))
+end
 
 "The materialised unfolding Specialize(P, {self_code -> Quote(Fix P)}) of thm:ycode, a closed Quoted with the SubstCert."
 function fix_unfolding(machine::Program, lambda::Program; sampler::Program=SAMPLER_STUB,
@@ -167,15 +185,27 @@ node and the decider's Specialize/Quote nodes, each bound to its object.
 """
 function halting_verifier(machine::Program, lambda::Integer; sampler::Program=SAMPLER_STUB,
                           compress::Program=COMPRESS_STUB, levels::Int=9,
-                          runtime::BoundExpr=Opaque("fuel-bounded: n^lambda by FuelBound(n, lambda) plus the halts_within charge 1 + n", (:n, :lambda)))
+                          runtime::BoundExpr=Opaque("TIME_D: budget n^lambda enforced by construction, not measured (FuelBound(n, lambda) on the returned decider, SOURCE_REPAIR HaltDeciderFuelBound), plus the halts_within charge 1 + n", (:n, :lambda)))
     quoted_sampler = quote_program(sampler; sort=:Sampler)
     decider = halting_decider(machine, nat(lambda); sampler, compress)
     gap = (Opaque("value 1 accepted", ()), Opaque("value <= 1/2 rejected", ()))
     verifier = Verifier(quoted_sampler.term, decider.term, Concrete(0), Concrete(1), runtime, gap, levels)
+    # verdicts/tb4-r1.md O3: the third stub. The Compress program inlined in
+    # D_{M,lambda} is disclosed by name, size and value; COMPRESS_IDENTITY
+    # (snd_code of the pair) is the only non-constant compressor exercised.
+    fixed = decode_program(decider.term)
+    compressor = compress === COMPRESS_STUB ? "COMPRESS_STUB, the constant (pair, lambda) -> Quote(lambda n x y a b . true)" :
+                 compress === COMPRESS_IDENTITY ? "COMPRESS_IDENTITY, (pair, lambda) -> snd_code(pair), the input decider's own code" :
+                 "a caller-supplied Compressor program"
+    stub_node = CertNode(ASSUMED, :CompressStubInTerm;
+        facts=(display="the Compress program inlined in D_{M,lambda} is $(compressor): $(term_size(compress)) of $(term_size(fixed)) term bytes; so the compressed branch of this decider evaluates that program, not Compress = Repeat o AnswerReduce o Introspect; COMPRESS_STUB is a constant (TRIVIAL_DECIDER's code) and COMPRESS_IDENTITY is the only non-constant compressor exercised",
+               compressor=compress === COMPRESS_STUB ? :COMPRESS_STUB :
+                          compress === COMPRESS_IDENTITY ? :COMPRESS_IDENTITY : :custom,
+               stub_bytes=term_size(compress), term_bytes=term_size(fixed)))
     node = CertNode(CONSTRUCTED, :Verifier;
         facts=(display="V = (S_lambda, D_{M,lambda}); levels = $(levels) (stub sampler datum); |V| = max(|S|, |D|) = max($(description_size(quoted_sampler.term)), $(description_size(decider.term))) = $(description_length(verifier)); lambda = $(lambda)",),
         children=(_relocate(quoted_sampler.certificate, x -> x.sampler),
-                  _relocate(decider.certificate, x -> x.decider)))
+                  _relocate(decider.certificate, x -> x.decider), stub_node))
     Checked(verifier, node)
 end
 
@@ -336,15 +366,18 @@ const _DEF_NORMAL_FORM = "gt-05-games-normalform.tex:L625-L635 (normal form veri
 
 const INTROSPECT_CONTRACT = Contract(:Introspect, Symbol("thm:introspection"),
     "gt-08-introspection.tex", 784:817,
-    (Hypothesis(:lambda_bounded_description, "V is lambda-bounded: |V| = max(|S|, |D|) <= lambda",
+    # verdicts/tb4-r1.md O7: gt-08:789-797 states the 5-level result and the
+    # three complexity bounds "for all ell" unconditionally; only
+    # completeness/soundness/entanglement (L801-L803) need the hypotheses.
+    (Hypothesis(:lambda_bounded_description, "(completeness/soundness only) V is lambda-bounded: |V| = max(|S|, |D|) <= lambda",
                 _DEF_LAMBDA, (v, p) -> _description_status(v, p.lambda)),
-     Hypothesis(:lambda_bounded_time, "V is lambda-bounded: TIME_S(n), TIME_D(n) <= n^lambda for n >= 2",
+     Hypothesis(:lambda_bounded_time, "(completeness/soundness only) V is lambda-bounded: TIME_S(n), TIME_D(n) <= n^lambda for n >= 2",
                 _DEF_LAMBDA, (v, p) -> _times_status(v, big(2)^p.lambda, "2^lambda (n = 2)")),
-     Hypothesis(:ell_level, "V is an ell-level verifier",
-                "gt-08-introspection.tex:L784-L800 (thm:introspection)",
+     Hypothesis(:ell_level, "(completeness/soundness only) V is an ell-level verifier",
+                "gt-08-introspection.tex:L784-L803 (thm:introspection)",
                 (v, p) -> (_levels(v) == p.ell ? PASS : FAIL, "levels = $(_levels(v)), ell = $(p.ell)"))),
-    ("V^intro is a 5-level normal-form verifier for every ell",
-     "TIME_S = poly(n, lambda, ell)", "TIME_D = poly(2^(lambda*n), ell)", "|D^intro| = poly(lambda, ell)",
+    ("V^intro is a 5-level normal-form verifier for every ell (unconditionally)",
+     "TIME_S = poly(n, lambda, ell) (unconditionally)", "TIME_D = poly(2^(lambda*n), ell) (unconditionally)", "|D^intro| = poly(lambda, ell) (unconditionally)",
      "completeness, soundness with delta(eps, n) = a((lambda n)^a eps^b + (lambda n)^-b), entanglement max{Ent(V_{2^n}, 1 - delta), (1 - delta) 2^(2^(lambda n))} under the hypotheses"))
 
 const ANSWER_REDUCE_CONTRACT = Contract(:AnswerReduce, Symbol("thm:ar"),
@@ -364,7 +397,7 @@ const REPEAT_CONTRACT = Contract(:Repeat, Symbol("thm:repetition"),
     "gt-11-parallel-repetition.tex", 229:258,
     (Hypothesis(:normal_form, "V is an ell-level normal form verifier", _DEF_NORMAL_FORM, _normal_form_status),
      Hypothesis(:completeness_decider_time, "(completeness only) TIME_D(n) <= (lambda*n)^tau",
-                "gt-11-parallel-repetition.tex:L240-L243 (enu:pr-completeness)",
+                "gt-11-parallel-repetition.tex:L239-L243 (enu:pr-completeness)",
                 (v, p) -> _time_status(_decider_time(v), big(2 * p.lambda)^p.tau, "TIME_D", "(2 lambda)^tau (n = 2)"))),
     ("V^rep is (ell + 2)-level with k(n) = (lambda n)^((1 + c') tau)",
      "TIME_S = O(k(n) TIME_S(n)); TIME_D = O(k(n) max(TIME_D(n), (lambda n)^tau))",
@@ -377,7 +410,7 @@ const COMPRESS_CONTRACT = Contract(:Compress, Symbol("thm:compression"),
      Hypothesis(:lambda_bounded_time, "(completeness/soundness only) TIME_S(n), TIME_D(n) <= n^lambda for n >= 2",
                 _DEF_LAMBDA, (v, p) -> _times_status(v, big(2)^p.lambda, "2^lambda (n = 2)")),
      Hypothesis(:nine_level, "(completeness/soundness only) V is 9-level",
-                "gt-12-compression.tex:L38-L41 (thm:compression)",
+                "gt-12-compression.tex:L27-L41 (thm:compression)",
                 (v, p) -> (_levels(v) == 9 ? PASS : FAIL, "levels = $(_levels(v))")),
      Hypothesis(:normal_form, "(completeness/soundness only) V is a normal form verifier", _DEF_NORMAL_FORM, _normal_form_status),
      Hypothesis(:n_at_least_C0, "(completeness/soundness only) n >= C_0, N = 2^n",
@@ -557,14 +590,18 @@ function AnswerReduce(stage::AnswerReduceOnFixture, checked::Union{Checked,_VERI
                           dependencies, input, AnswerReduceEvidence(fixture, typed, detyped, sigma))
     hypotheses, audit = _audit(ANSWER_REDUCE_CONTRACT, input, (; lambda, mu, gamma))
     p = fixture.params
+    # verdicts/tb4-r1.md O10: the surrogate disclosure is the PARENT of the
+    # fixture evidence it qualifies (TB2's detyped verifier and the PCP
+    # subtree), so no consumer can attribute those CHECKED nodes to the
+    # stage's own input.
     surrogate = CertNode(ASSUMED, :AnswerReduceSurrogate;
-        facts=(display="executable part built on the front-end fixture decider (|D| = $(sigma) bytes, fnv1a64 = $(quote_hash(fixture.quoted.term)), T = $(fixture.T)), not on the CITED introspective decider; sigma = $(sigma) passed explicitly (verdicts/tb3-r2.md N12); PCP row (q,k,m,d,s,m') = ($(p.q),$(p.k),$(p.m),$(p.d),$(p.s),$(p.m_prime)); level here = max($(ell) + 2, 5) with the fixture's typed level $(level(typed.term.sampler))",))
+        facts=(display="executable part built on the front-end fixture decider (|D| = $(sigma) bytes, fnv1a64 = $(quote_hash(fixture.quoted.term)), T = $(fixture.T)), not on the CITED introspective decider; sigma = $(sigma) passed explicitly (verdicts/tb3-r2.md N12); PCP row (q,k,m,d,s,m') = ($(p.q),$(p.k),$(p.m),$(p.d),$(p.s),$(p.m_prime)); level here = max($(ell) + 2, 5) with the fixture's typed level $(level(typed.term.sampler)); every CHECKED node below is about the fixture",),
+        children=(_relocate(detyped.certificate, x -> x.payload.typed.term),
+                  _relocate(fixture.pcp.certificate, x -> x.payload.fixture.pcp.proof)))
     node = CertNode(CONSTRUCTED, :AnswerReduce;
         facts=(display="detype o answer_reduce_pcp; level max(ell + 2, 5) = max($(ell) + 2, 5) = $(levels); TIME_S = TIME_D = $(time.description); |D^ar| = $(description.description); sampler depends on $(join(String.(dependencies), ", "))",),
         children=(hypotheses..., _relocate(audit, x -> x.input), _cited_leaf(ANSWER_REDUCE_CONTRACT),
                   surrogate,
-                  _relocate(detyped.certificate, x -> x.payload.typed.term),
-                  _relocate(fixture.pcp.certificate, x -> x.payload.fixture.pcp.proof),
                   _relocate(input_cert, x -> x.input)))
     Checked(output, node)
 end

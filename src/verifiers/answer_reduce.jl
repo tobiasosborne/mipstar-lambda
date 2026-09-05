@@ -110,7 +110,8 @@ function detype(checked::Checked{<:TypedAnswerReducedVerifier})
     term = CitedDetypedVerifier(checked.term, level(checked.term.sampler) + 2,
                                 big(16)^length(checked.term.sampler.types))
     certificate = CertNode(CITED, :Detype;
-        facts=(display="lem:detyping-verifiers; +2 levels; factor=16^54",),
+        facts=(display="gt-06-types.tex:L445-L475 (lem:detyping-verifiers); +2 levels; factor=16^54",
+               source="gt-06-types.tex", lines=445:475, label="lem:detyping-verifiers"),
         children=(checked.certificate,))
     Checked(term, certificate)
 end
