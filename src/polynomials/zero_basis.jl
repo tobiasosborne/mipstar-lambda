@@ -94,9 +94,20 @@ function zero_basis_decompose(input::Poly{F,N}, order) where {F,N}
     decomposition = ZeroDecomposition(input.layout, Tuple(quotients),
                                       remainder, steps)
     certificate = CertNode(CHECKED, :ZeroBasis;
-        facts=(display="remainder = $(isempty(remainder.terms) ? 0 : monomial_count(remainder)); coefficient identity = true",),
+        facts=(display=zero_basis_display(input, decomposition),),
         replay=term -> verify_zero_decomposition(input, term))
     Checked(decomposition, certificate)
+end
+
+# The displayed fact is computed by the same checker the node replays; it is
+# never a literal, so a nonzero remainder or a broken identity is displayed
+# as such (witness (iii) of TB0 shows `remainder = 2; coefficient identity = false`).
+function zero_basis_display(input::Poly{F,N},
+                            decomposition::ZeroDecomposition{F,N}) where {F,N}
+    remainder = decomposition.remainder
+    remainder_count = isempty(remainder.terms) ? 0 : monomial_count(remainder)
+    identity = passed(verify_zero_decomposition(input, decomposition))
+    "remainder = $(remainder_count); coefficient identity = $(identity)"
 end
 
 function _rewrite_step_valid(step::RewriteStep)

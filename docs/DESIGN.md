@@ -735,8 +735,9 @@ rationale: each has a different evidence grade; rejected: one `sound=true` field
 ## 5. Tracer-bullet ladder
 
 Every rung is a separately runnable test target, is scoped to one focused implementation session, prints its complete transformation trace,
-and has a semantic or textual mutation expected to exit nonzero. The 60-second limit is checked by the test harness, with a 45-second
-warning.
+and has a semantic or textual mutation expected to exit nonzero. The 60-second limit is per rung test body, not per suite: `test/runtests.jl`
+clocks `include("tb0_core.jl")` alone (a 45-second warning, then a hard `@test elapsed < 60`); package load/precompile is reported ungated,
+and TB1/TB2 are included after the TB0 clock and carry no gate of their own.
 
 TB0 uses a real circuit on `(x_1,...,x_5,o_1,...,o_5)`, with exactly six gates, all fan-in at most two:
 
@@ -799,7 +800,7 @@ report its own normalized support, elapsed time, and peak memory. Neither pre-no
 | rung | `q` | `k` | `m` | `d` | `s` | `m'` | `seed_dim` | field-point scope | `c_0` / target time |
 |---|---:|---:|---:|---:|---:|---:|---:|---|---|
 | TB0-small | 8 | 3 | 1 | 6 | 6 | 16 | n/a | 16 named coordinate lines and Boolean subcube | (i) estimate 148,176 / peak 54,978 / measured TBD; (ii) estimate 2,370,816 / peak 788,032 / measured TBD; report time/peak memory |
-| TB0-sampled | `2^11` | 11 | 1 | 11 | 6 | 16 | n/a | >=10,000 seeded uniform `z` | both witness supports measured TBD; report time/peak memory |
+| TB0-sampled | `2^11` | 11 | 1 | 11 | 6 | 16 | n/a | explicit separator `b_rho[O2<-rho]` only, as the stored certified view of the re-certified `change_field` proof; no seeded uniform sampling (retracted with C1; tracked as `mipstar-lambda-yqw`) | both witness supports measured TBD; report time/peak memory |
 | TB0.5 midpoint | n/a | n/a | n/a | n/a | n/a | n/a | n/a | exact DP | no polynomial / <1 s |
 | TB1 low degree | 8 | 3 | 2 | 1 | n/a | n/a | 5 | all `8^5=32,768` seeds | no `c_0` / <10 s |
 | TB2 typed AR | `2^11` | 11 | 1 | 11 | 6 | 16 | computed | branch-directed plus seeded | witness (ii) measured support TBD / report time/peak memory |
@@ -836,9 +837,13 @@ Concrete instances:
 5.  Fix the declared primitive element `rho` and
     `b_rho=(X=(0,0,0,0,0),O=(1,1,1,1,1),W=(rho,0,0,0,0,rho))`; direct substitution gives
     `F_arith(b_rho)=rho^4*(1+rho) != 0`. Build the fast witness-(i) proof `Pi_deg=(g_1,...,g_5,c_0,...,c_16)` with
-    `MonomialBudget=160,000`. Over `GF(8)`, exhaust the 16 named coordinate lines
-    `S_j={z:z_j in GF(8), z_l=(b_rho)_l for l!=j}` and the Boolean subcube. Over `GF(2^11)`, run `pcpverifier` at at least 10,000 seeded
-    uniform `z` plus explicit separators on analogous lines. Assert acceptance, `r=0`, the formal quotient relation
+    the exact per-product peak `MonomialBudget=37,240` (the budget 37,239 must be refused; the proof is identical under the design
+    budget 160,000, which the unsatisfying witness (iii) `([0,0],...,[0,0])` of `test/tb0_core.jl` testset 4c is built under, with
+    `|c_0|=18,620`, `|r|=2`, and `c_0` not vanishing on the cube). Over `GF(8)`, exhaust the 16 named coordinate lines
+    `S_j={z:z_j in GF(8), z_l=(b_rho)_l for l!=j}` and the Boolean subcube. Over `GF(2^11)`, change the field of `Pi_deg`
+    (`change_field`, re-certified: the root degree replay at `d=11`, the `BuildC0`/`ZeroBasis` replays on the changed terms, and the
+    explicit separator `b_rho[O2<-rho]` as the stored certified view, `beta_0=96`); no seeded uniform `z` are sampled -- the earlier
+    `>=10,000 seeded uniform z` obligation is retracted together with C1's and tracked as `mipstar-lambda-yqw`. Assert acceptance, `r=0`, the formal quotient relation
     `c_0=sum_j c_j*zero(z_j)`, the witness-(i) degree vector, structural equality on every coordinate,
     `max_j inddeg(c_j)=6<=d` (with equality on TB0-small), and exactly the seven named zero/nine named nonzero quotients. Do not credit its empty dependencies for
     `g_2,...,g_5` as block-locality evidence.

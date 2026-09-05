@@ -74,7 +74,9 @@ export TrivialOriginalVerifier, TypedAnswerReducedDecider,
        answer_reduce_guard_branches, answer_reduce_requires_nondegenerate,
        proof_individual_guard_copies
 
-export tb0_build_fixture, tb0_build_nondegenerate_fixture, tb0_base_point
+export build_pcp_fixture, tb0_build_fixture, tb0_build_nondegenerate_fixture,
+       layout_m2_circuit, LAYOUT_M2_TABLES, layout_m2_point,
+       tb0_base_point, tb0_certified_points
 
 export Grade, CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR,
        CheckResult, passed, CertNode, Checked, verify_certificate, traceprint

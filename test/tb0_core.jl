@@ -135,15 +135,19 @@ function present_clauses(circuit)
      if evaluate_circuit(circuit, bits(encoded, 10))]
 end
 
-# On a Boolean point F_arith is nonzero only at a present clause with its
-# unique gate trace. Thus r=0 iff no present clause makes every g_i-o_i nonzero.
-function remainder_zero_fast(circuit, witness)
+# Clause-relation count, NOT a remainder computation: this re-derives phi_C
+# from the present clauses by De Morgan, so testset 4b only counts the
+# satisfying witnesses. The link between phi_C and the zero-basis remainder
+# of c_0 is machine-checked through the real pipeline in testset 4c.
+function clause_relation_holds(circuit, witness)
     for input in present_clauses(circuit)
         all(witness[i][Int(input[i]) + 1] != input[5 + i] for i in 1:5) &&
             return false
     end
     true
 end
+
+witness_blocks(tables) = ntuple(i -> Bool[tables[i]...], 5)
 
 if runs("circuit")
     @testset "4a. exhaustive circuit and Tseitin arithmetization" begin
@@ -172,30 +176,35 @@ if runs("circuit")
 end
 
 if runs("circuit") || runs("witness_iff")
-    @testset "4b. r=0 iff phi_C on all witnesses" begin
+    @testset "4b. clause-relation count on all 1024 witnesses (surrogate)" begin
         circuit = tb0_circuit()
         satisfying = 0
-        zero_remainders = 0
-        iff_ok = true
-        iff_seconds = @elapsed for encoded in 0:2^10-1
+        clause_holds = 0
+        agree = true
+        count_seconds = @elapsed for encoded in 0:2^10-1
             witness_bits = bits(encoded, 10)
             witness = ntuple(i -> Bool[witness_bits[2i-1], witness_bits[2i]], 5)
             satisfies = phi_C(circuit, witness)
-            remainder_zero = remainder_zero_fast(circuit, witness)
-            iff_ok &= remainder_zero == satisfies
+            holds = clause_relation_holds(circuit, witness)
+            agree &= holds == satisfies
             satisfying += satisfies
-            zero_remainders += remainder_zero
+            clause_holds += holds
         end
-        @test iff_ok
-        @test satisfying == zero_remainders == 512
-        println("TB0 witness scope: witnesses=1024; ",
-                "r=0 iff phi_C counts=512/512; fast clause checks seconds=",
-                round(iff_seconds; digits=3))
+        @test agree
+        @test satisfying == clause_holds == 512
+        println("TB0 witness scope: witnesses=1024; clause-relation count=512/512 ",
+                "(surrogate, not a remainder computation); seconds=",
+                round(count_seconds; digits=3))
     end
 end
 
 const DEGENERATE_TABLES = ((0, 1), (0, 0), (0, 0), (0, 0), (0, 0))
 const NONDEGENERATE_TABLES = ((0, 1), (0, 1), (0, 1), (0, 1), (0, 1))
+# Witness (iii) fails phi_C: phi_C needs some a_i(x_i) == o_i on every
+# present clause, and the all-zero tables agree with no sign of the present
+# clauses whose o_i are all 1. So its c_0 must NOT vanish on the Boolean cube
+# and its zero-basis remainder must be nonzero.
+const UNSATISFYING_TABLES = ((0, 0), (0, 0), (0, 0), (0, 0), (0, 0))
 const NONDEGENERATE_INTEGER_STATS = Ref{Any}(nothing)
 const POLY_CACHE = Dict{Tuple{DataType,Int,Symbol},Any}()
 const BUILD_STATS = Dict{Tuple{DataType,Int,Symbol},NamedTuple}()
@@ -230,8 +239,10 @@ end
 function proof11_fixture(witness::Symbol)
     get!(PROOF11_CACHE, witness) do
         fixture = polynomial_fixture(GF8, 6; witness)
-        measured = @timed change_field(fixture.proof, GF2048, 11)
-        (; proof=measured.value, seconds=measured.time, bytes=measured.bytes)
+        measured = @timed change_field(fixture.proof, GF2048, 11,
+                                       tb0_certified_points(GF2048))
+        (; checked=measured.value, proof=measured.value.term,
+           seconds=measured.time, bytes=measured.bytes)
     end
 end
 
@@ -311,24 +322,65 @@ function boolean_cube_zero_report(poly::Poly{F,N}) where {F,N}
     (; zero=all(iszero, values), count=length(values))
 end
 
+if runs("circuit") || runs("witness_iii")
+    @testset "4c. witness (iii) through the real pipeline: r != 0 iff !phi_C" begin
+        circuit = tb0_circuit()
+        witness_iii = witness_blocks(UNSATISFYING_TABLES)
+        @test !phi_C(circuit, witness_iii)
+        # The design budget 160,000 is the one named in DESIGN.md section 5.1.
+        seconds = @elapsed fixture_iii = tb0_build_fixture(
+            GF8, 6, UNSATISFYING_TABLES, MonomialBudget(160_000))
+        @test !(fixture_iii isa ExpansionRefused)
+        @test monomial_count(fixture_iii.c0) == 18_620
+        remainder = fixture_iii.decomposition.remainder
+        @test !isempty(remainder.terms)
+        @test monomial_count(remainder) == 2
+        @test !passed(verify_zero_decomposition(fixture_iii.c0,
+                                                fixture_iii.decomposition))
+        failed = verify_certificate(Checked(fixture_iii.proof, fixture_iii.certificate))
+        @test !passed(failed) && failed.rule == :coefficient_identity
+        zero_basis_node = fixture_iii.certificate.children[end - 1]
+        @test zero_basis_node.facts.display ==
+              "remainder = 2; coefficient identity = false"
+        # The sentence that links phi_C to c_0: on all three retained
+        # witnesses, c_0 vanishes on the 2^16 cube exactly when phi_C holds.
+        cube_iii = boolean_cube_zero_report(fixture_iii.c0)
+        @test cube_iii == (zero=false, count=65_536)
+        for (tables, fixture) in ((DEGENERATE_TABLES, polynomial_fixture(GF8, 6)),
+                                  (NONDEGENERATE_TABLES,
+                                   polynomial_fixture(GF8, 6; witness=:nondegenerate)),
+                                  (UNSATISFYING_TABLES, fixture_iii))
+            @test boolean_cube_zero_report(fixture.c0).zero ==
+                  phi_C(circuit, witness_blocks(tables))
+        end
+        println("TB0 witness (iii) all-zero: phi_C=false; |c0|=18620; |r|=2; ",
+                "coefficient identity=false; cube vanishing==phi_C on (i),(ii),(iii); ",
+                "build seconds=", round(seconds; digits=3))
+    end
+end
+
+# The separator view is evaluated by `ev_z` at b_rho[O2 <- rho], so this
+# works on any proof over F, stored views or not.
 function mutation_b_separator(tf, proof, ::Type{F}) where {F}
     rho = primitive_element(F)
-    view = first(proof.certified_views)
+    view = ev_z(proof, only(tb0_certified_points(F)))
     result = pcpverifier(tf, view)
     (; view, honest=rho^5 * (one(F) + rho),
        mutated=rho^4 * (one(F) + rho), result)
 end
 
-if TB0_TARGET == "pcp_separator"
+if runs("pcp_separator")
     @testset "5a. mutation-B formula separator" begin
         source = polynomial_fixture(GF8, 6; witness=:nondegenerate)
-        proof11 = change_field(source.proof, GF2048, 11)
+        proof11 = change_field(source.proof, GF2048, 11,
+                               tb0_certified_points(GF2048)).term
         separator8 = mutation_b_separator(source.tf, source.proof, GF8)
         separator11 = mutation_b_separator(source.tf, proof11, GF2048)
         @test separator8.view.beta0 == separator8.honest == GF8(2)
         @test separator8.mutated == GF8(1) && passed(separator8.result)
         @test separator11.view.beta0 == separator11.honest == GF2048(96)
         @test separator11.mutated == GF2048(48) && passed(separator11.result)
+        @test only(proof11.certified_views).beta0 == separator11.view.beta0
     end
 end
 
@@ -355,6 +407,16 @@ if runs("pcp")
         @test monomial_count(fixture.c0) == 33_432
         @test multiplication_peak(fixture.c0) == 37_240
         @test expected_support(fixture.c0) == 148_176
+
+        # Witness (i)'s own zero-basis certificate: r = 0, the coefficient
+        # identity, the seven-zero/nine-nonzero quotient split, max inddeg 6.
+        quotients = collect(fixture.decomposition.quotients)
+        @test isempty(fixture.decomposition.remainder.terms)
+        @test passed(verify_zero_decomposition(fixture.c0, fixture.decomposition))
+        @test findall(q -> isempty(q.terms), quotients) == [2, 3, 4, 7, 8, 9, 10]
+        @test count(q -> !isempty(q.terms), quotients) == 9
+        @test maximum(maximum(actual_degrees(q); init=-1) for q in quotients) == 6
+        @test all(q -> maximum(actual_degrees(q); init=-1) <= fixture.proof.d, quotients)
         println("TB0 policy gamma=1: small=", policy_vector(small),
                 "; sampled=", policy_vector(sampled),
                 "; degree_formula=", degree_formula)
@@ -386,8 +448,9 @@ if runs("certificate") || runs("c0_terms")
         @test map(node -> node.rule, nodes) == expected_rules
         @test all(node -> node.grade == CHECKED, nodes)
 
-        view = first(proof.certified_views)
-        @test view.beta0 == evaluate(fixture.c0, view.z)
+        view = only(proof.certified_views)
+        @test view.z == only(tb0_certified_points(GF8))
+        @test view.beta0 == evaluate(fixture.c0, view.z) == GF8(2)
         empty_terms = Dict{NTuple{16,UInt8},GF8}()
         empty_c0 = MIPStarLambda._from_terms(
             GF8, fixture.c0.layout, empty_terms, fixture.c0.structural)
@@ -403,6 +466,29 @@ if runs("certificate") || runs("c0_terms")
         verifier_node = last(fixture.certificate.children)
         @test passed(verifier_node.replay(proof))
         @test !passed(verifier_node.replay(bad_proof))
+        # X3: a proof with NO stored certified view carries no verifier
+        # evidence and must not replay as accepted.
+        no_view_proof = PCPProof(proof.gs, proof.c0, proof.cs, proof.decomposition,
+                                 proof.d, proof.tf, ())
+        @test !passed(verifier_node.replay(no_view_proof))
+
+        # All eleven CHECKED replays run on witness (i)'s own terms.
+        @test passed(verify_certificate(Checked(proof, fixture.certificate)))
+        # The displayed zero-basis fact is computed, never a literal.
+        zero_basis_node = fixture.certificate.children[end - 1]
+        @test zero_basis_node.rule == :ZeroBasis
+        @test zero_basis_node.facts.display ==
+              "remainder = 0; coefficient identity = true"
+
+        # X4: the :Tseitin replay compares the stored occurrence vector with
+        # the independent fan-out account, so a wrong stored vector is rejected.
+        tseitin_checked = tseitin(fixture.circuit)
+        @test passed(verify_certificate(tseitin_checked))
+        tf = tseitin_checked.term
+        capped = ntuple(i -> min(tf.occurrence_vector[i], 1), 16)
+        bad_tf = TseitinFormula(tf.formula, tf.input_blocks, tf.layout, tf.gadgets,
+                                tf.output_variable, capped, tf.program)
+        @test !passed(tseitin_checked.certificate.replay(bad_tf))
         traceprint(stdout, fixture.certificate)
     end
 end
@@ -425,6 +511,8 @@ if runs("nondegenerate")
                        maximum(actual_degrees(p); init=-1) <= fixture.proof.d,
                   (fixture.gs..., fixture.c0, fixture.decomposition.quotients...))
         @test passed(verify_zero_decomposition(fixture.c0, fixture.decomposition))
+        # All eleven CHECKED replays run on witness (ii)'s own terms.
+        @test passed(verify_certificate(Checked(fixture.proof, fixture.certificate)))
     end
 
     @testset "6b. non-degenerate exact dependencies and non-vacuity" begin
@@ -473,23 +561,64 @@ if runs("nondegenerate")
     end
 end
 
-if TB0_TARGET == "layout_m2"
+if runs("nondegenerate") || runs("field_change")
+    @testset "6e. GF(2^11) field change is re-certified" begin
+        fixture = polynomial_fixture(GF8, 6)
+        checked = proof11_fixture(:degenerate).checked
+        nodes = (checked.certificate, checked.certificate.children...)
+        @test map(node -> node.rule, nodes) ==
+              (:PCPProof, :BuildC0, :ZeroBasis, :PCPVerifier)
+        @test all(node -> node.grade == CHECKED, nodes)
+        @test passed(verify_certificate(checked))
+        @test checked.term.d == 11
+        view11 = only(checked.term.certified_views)
+        @test view11.z == only(tb0_certified_points(GF2048))
+        @test view11.beta0 == evaluate(checked.term.c0, view11.z) == GF2048(96)
+        @test passed(pcpverifier(fixture.tf, view11))
+        # The relabelled d is re-derived by the root replay, not copied:
+        # d = 5 < inddeg(c_0) = 6 is refused with the degree rule.
+        too_small = verify_certificate(change_field(fixture.proof, GF2048, 5))
+        @test !passed(too_small) && too_small.rule == :pcp_degree
+        # Without certified points the change carries no verifier evidence.
+        no_points = verify_certificate(change_field(fixture.proof, GF2048, 11))
+        @test !passed(no_points) && no_points.rule == :pcpverifier_replay
+        println("TB0 GF(2^11) change_field: re-certified (4 CHECKED nodes replayed); ",
+                "stored view beta0=96 at b_rho[O2<-rho]; d=5 refused; no-point change refused")
+    end
+end
+
+if runs("layout_m2")
     @testset "7. layout-driven sign block for m=2" begin
-        names = (:X1a, :X1b, :X2a, :X2b, :X3a, :X3b, :X4a, :X4b,
-                 :X5a, :X5b, :O1, :O2, :O3, :O4, :O5)
-        blocks = (VarBlock(:X1, 1:2), VarBlock(:X2, 3:4),
-                  VarBlock(:X3, 5:6), VarBlock(:X4, 7:8),
-                  VarBlock(:X5, 9:10), VarBlock(:O, 11:15))
-        layout = VarLayout(names, blocks)
-        farith = zero(layout, 1, GF8)
-        gs = ntuple(_ -> zero_poly(GF8, layout), 5)
-        c0 = build_c0(farith, gs, MonomialBudget(100)).term
-        point = ones(GF8, 15)
-        point[1] = primitive_element(GF8)
-        point[6] = zero(GF8)
-        beta0 = evaluate(c0, point)
+        # `layout_m2_circuit`: five 2-coordinate X blocks, sign block 11:15,
+        # three gates; the TB0 constant 6:10 reads X3b..X5b here. The point
+        # is off the cube with every g_i - o_i and F_arith nonzero.
+        circuit = layout_m2_circuit()
+        point = layout_m2_point(GF8)
+        fixture = build_pcp_fixture(circuit, GF8, 6, LAYOUT_M2_TABLES,
+                                    MonomialBudget(10_000), (point,))
+        @test !(fixture isa ExpansionRefused)
+        layout = fixture.tf.layout
         @test block_coordinates(layout, :O) == 11:15
-        @test !iszero(beta0)
+        @test block_coordinates(layout, :X3) == 5:6
+        @test all(iszero, point[6:10])
+        signs = block_coordinates(layout, :O)
+        view = ev_z(fixture.proof, point)
+        expected = evaluate_arith_formula(fixture.tf, point) *
+                   prod(view.alpha[i] - point[signs[i]] for i in 1:5)
+        @test !iszero(expected)
+        @test view.beta0 == evaluate(fixture.c0, point) == expected
+        @test passed(pcpverifier(fixture.tf, view))
+        @test isempty(fixture.decomposition.remainder.terms)
+        @test passed(verify_certificate(Checked(fixture.proof, fixture.certificate)))
+        # A view whose sign product was taken over the TB0 constant block 6:10
+        # is rejected by the layout-driven verifier.
+        wrong_beta0 = evaluate_arith_formula(fixture.tf, point) *
+                      prod(view.alpha[i] - point[5 + i] for i in 1:5)
+        @test iszero(wrong_beta0)
+        wrong = PCPView(copy(point), view.alpha, wrong_beta0, view.beta)
+        @test !passed(pcpverifier(fixture.tf, wrong))
+        println("TB0 layout m=2: 18 variables, sign block 11:15, c0(z)=", expected,
+                " != 0; verifier accepts the layout view and rejects the 6:10 view")
     end
 end
 

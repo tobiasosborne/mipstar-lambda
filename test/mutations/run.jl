@@ -7,10 +7,17 @@ using Test
 # rung's test file with its target selected. A mutant of a test file runs the
 # mutated copy of that file instead. The working tree is never modified.
 #
-# Scoring: KILLED needs a nonzero exit AFTER the "MUTANT_TEST_STARTED" marker
-# (so a load/mutation failure is LOAD-ERROR, never a kill), plus the mutant's
-# expected evidence line when one is registered (the named rejection rule).
-# A nonzero exit without a failed `@test` is KILLED-BY-CRASH.
+# Unmutated first: before any kill is credited, the mutant's target testset is
+# run UNMUTATED in the same isolated way (once per distinct target) and must
+# exit 0. A mutant whose target is broken on clean code is reported
+# UNATTRIBUTABLE, never KILLED, and fails the registry — "no mutation is
+# credited merely because an unrelated test fails" (DESIGN.md section 5.1).
+#
+# Scoring: KILLED needs a passing baseline, a nonzero exit AFTER the
+# "MUTANT_TEST_STARTED" marker (so a load/mutation failure is LOAD-ERROR,
+# never a kill), plus the mutant's expected evidence line when one is
+# registered (the named rejection rule). A nonzero exit without a failed
+# `@test` is KILLED-BY-CRASH.
 
 const ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const MUTATION_FILTER = get(ENV, "MUTATION_FILTER", "")
@@ -77,6 +84,34 @@ const MUTANTS = (
     Mutant("M drop_nonprime_multiply_guard", "src/polynomials/sparse.jl",
            "prime_support || return _multiply_terms_generic(a, b)",
            "true || return _multiply_terms_generic(a, b)", "nonprime"),
+    # verdicts/tb0-r2.md section 4: the critic's surviving mutations, now
+    # permanent (X1/X1b -> N3, X2 -> N5, X3 -> N5, X4 -> N4).
+    Mutant("X1 pcpverifier_hardcodes_sign_block", "src/verifiers/pcp.jl",
+           "sign_coordinates = block_coordinates(tf.layout, :O)",
+           "sign_coordinates = 6:10", "layout_m2"),
+    Mutant("X1b build_c0_hardcodes_sign_block", "src/verifiers/pcp.jl",
+           "sign_coordinates = block_coordinates(farith.layout, :O)",
+           "sign_coordinates = 6:10", "layout_m2"),
+    Mutant("X2 change_field_mislabels_d", "src/verifiers/pcp.jl",
+           "decomposition, d, proof.tf,\n                       _certified_views",
+           "decomposition, 1, proof.tf,\n                       _certified_views", "field_change"),
+    Mutant("X3 empty_view_replay_accepts", "src/verifiers/pcp.jl",
+           "isempty(proof.certified_views) &&\n        return CheckResult(false, :pcpverifier_replay;",
+           "isempty(proof.certified_views) &&\n        return CheckResult(true, :pcpverifier_replay;", "certificate"),
+    Mutant("X4 tseitin_replay_wrong_vector", "src/ir/circuits.jl",
+           "counts[node.variable] += 1",
+           "counts[node.variable] = 1", "certificate"),
+    # verdicts/tb0-r2.md N1: witness (iii) owners.
+    Mutant("N checker_accepts_nonzero_remainder", "src/polynomials/zero_basis.jl",
+           "CheckResult(identity && zero_remainder, :coefficient_identity;",
+           "CheckResult(identity, :coefficient_identity;", "witness_iii"),
+    Mutant("O phi_C_ignores_unsatisfied_clause", "src/ir/circuits.jl",
+           "satisfied || return false",
+           "satisfied || continue", "witness_iii"),
+    # verdicts/tb0-r2.md N4: owner of witness (i)'s restored quotient split.
+    Mutant("Q skip_degree_two_rewrite", "src/polynomials/zero_basis.jl",
+           "if exponent < 2\n                _accumulate!(next_remainder, key, coefficient)",
+           "if exponent < 3\n                _accumulate!(next_remainder, key, coefficient)", "pcp"),
 )
 
 include("tb1_chi.jl")
@@ -122,6 +157,47 @@ function _rung(mutant::Mutant)
     (:tb0, "tb0_core.jl", "TB0_TARGET", mutant.target)
 end
 
+# The unmutated baseline is keyed by (test file, target variable, target
+# name): every mutant sharing a target shares one baseline run.
+baseline_key(mutant::Mutant) = _rung(mutant)[2:4]
+
+# One isolated Julia process: load the package image, apply `patch` (a
+# `Base.include` of the mutated source file, or nothing), print the marker,
+# include the test file with the target selected.
+function run_isolated(sandbox::String, test_path::String, patch::String,
+                      target_variable::String, target_name::String)
+    mkpath(sandbox)
+    script = joinpath(sandbox, "run.jl")
+    write(script, "using Test, MIPStarLambda\n" * patch *
+                  "println(\"MUTANT_TEST_STARTED\")\n" *
+                  "include($(repr(test_path)))\n")
+    command = addenv(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) $script`,
+                     target_variable => target_name,
+                     "JULIA_PKG_PRECOMPILE_AUTO" => "0")
+    log_path = joinpath(sandbox, "output.log")
+    started = time()
+    process = open(log_path, "w") do log
+        run(pipeline(ignorestatus(command), stdout=log, stderr=log))
+    end
+    output = read(log_path, String)
+    (; exitcode=process.exitcode, output,
+       seconds=round(time() - started; digits=2),
+       test_started=occursin("MUTANT_TEST_STARTED", output))
+end
+
+function unmutated_baseline(key, index::Int, temporary::String)
+    test_name, target_variable, target_name = key
+    result = run_isolated(joinpath(temporary, "baseline-$(index)"),
+                          joinpath(ROOT, "test", test_name), "",
+                          target_variable, target_name)
+    ok = result.exitcode == 0 && result.test_started
+    println("BASELINE ", test_name, " ", target_variable, "=", target_name,
+            " => ", ok ? "OK" : "BROKEN", " (exit=", result.exitcode, ", ",
+            result.seconds, " s)")
+    ok || print(result.output)
+    (; ok, result.exitcode, result.seconds)
+end
+
 function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
     _, test_name, target_variable, target_name = _rung(mutant)
     sandbox = joinpath(temporary, "mutant-$(index)")
@@ -142,34 +218,28 @@ function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
     else
         error("mutation $(mutant.label) targets a file outside its rung: $(mutant.source)")
     end
-    script = joinpath(sandbox, "run.jl")
-    write(script, "using Test, MIPStarLambda\n" * patch *
-                  "println(\"MUTANT_TEST_STARTED\")\n" *
-                  "include($(repr(test_path)))\n")
+    result = run_isolated(sandbox, test_path, patch, target_variable, target_name)
+    println("MUTANT-RUN ", mutant.label, " target=", mutant.target,
+            " (exit=", result.exitcode, ", ", result.seconds, " s)")
+    result
+end
 
-    command = addenv(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) $script`,
-                     target_variable => target_name,
-                     "JULIA_PKG_PRECOMPILE_AUTO" => "0")
-    log_path = joinpath(sandbox, "output.log")
-    started = time()
-    process = open(log_path, "w") do log
-        run(pipeline(ignorestatus(command), stdout=log, stderr=log))
-    end
-    output = read(log_path, String)
-
-    test_started = occursin("MUTANT_TEST_STARTED", output)
+# Disposition needs the baseline: a kill is credited only when the same
+# target exits 0 unmutated.
+function disposition(mutant::Mutant, result, baseline)
     evidence_ok = mutant.expected_evidence === nothing ||
-                  occursin(mutant.expected_evidence, output)
-    killed = process.exitcode != 0 && test_started && evidence_ok
-    assertion_failure = occursin("Test Failed", output) ||
-                        occursin("Some tests did not pass", output)
-    disposition = killed ? (assertion_failure ? "KILLED" : "KILLED-BY-CRASH") :
-                  test_started ? "SURVIVED" : "LOAD-ERROR"
-    println("MUTANT ", mutant.label, " target=", mutant.target, " => ",
-            disposition, " (exit=", process.exitcode, ", ",
-            round(time() - started; digits=2), " s)")
-    killed || print(output)
-    killed
+                  occursin(mutant.expected_evidence, result.output)
+    failed_after_start = result.exitcode != 0 && result.test_started
+    assertion_failure = occursin("Test Failed", result.output) ||
+                        occursin("Some tests did not pass", result.output)
+    if !baseline.ok
+        return (; killed=false,
+                  label="UNATTRIBUTABLE (target exits $(baseline.exitcode) unmutated)")
+    end
+    killed = failed_after_start && evidence_ok
+    label = killed ? (assertion_failure ? "KILLED" : "KILLED-BY-CRASH") :
+            result.test_started ? "SURVIVED" : "LOAD-ERROR"
+    (; killed, label)
 end
 
 started = time()
@@ -181,14 +251,30 @@ for (name, mutants) in (("TB0", MUTANTS), ("TB1", TB1_MUTANTS),
                         ("TB2", TB2_MUTANTS)), mutant in mutants
     selected(mutant) && push!(queue, (name, mutant))
 end
-results = mktempdir() do temporary
-    asyncmap(enumerate(queue); ntasks=MUTATION_JOBS) do (index, entry)
-        name, mutant = entry
-        "$name $(mutant.label)" => isolated_mutant(mutant, index, temporary)
+baseline_keys = unique(baseline_key(mutant) for (_, mutant) in queue)
+jobs = vcat([(:baseline, key) for key in baseline_keys],
+            [(:mutant, entry) for entry in queue])
+outcomes = mktempdir() do temporary
+    asyncmap(enumerate(jobs); ntasks=MUTATION_JOBS) do (index, job)
+        kind, payload = job
+        kind == :baseline ? unmutated_baseline(payload, index, temporary) :
+                            isolated_mutant(last(payload), index, temporary)
     end
 end
+baselines = Dict(key => outcomes[i] for (i, key) in enumerate(baseline_keys))
+results = map(enumerate(queue)) do (i, entry)
+    name, mutant = entry
+    result = outcomes[length(baseline_keys) + i]
+    verdict = disposition(mutant, result, baselines[baseline_key(mutant)])
+    println("MUTANT ", mutant.label, " target=", mutant.target, " => ",
+            verdict.label, " (exit=", result.exitcode, ", ", result.seconds, " s)")
+    verdict.killed || print(result.output)
+    "$name $(mutant.label)" => verdict.killed
+end
 @testset "isolated targeted mutations" begin
+    @test all(baseline.ok for baseline in values(baselines))
     @test all(last, results)
 end
 println("MUTATION REGISTRY: killed=", count(last, results), "/", length(results),
+        " baselines ok=", count(b -> b.ok, values(baselines)), "/", length(baselines),
         " wall=", round(time() - started; digits=2), " s")

@@ -227,7 +227,9 @@ function occurrences(formula::Formula, variable_count::Int)
     Tuple(counts)
 end
 
-function tseitin_occurrence_account(circuit::Circuit)
+# Finding F1: the literal-occurrence account of the NW19 Tseitin formula,
+# computed from the circuit's fan-out counts alone (never from the formula).
+function tseitin_occurrence_account(circuit::Circuit; include_output=true)
     input_count = length(circuit.input_layout.names)
     output = zeros(Int, input_count + circuit.gate_count)
     circuit_fanout = fanout(circuit)
@@ -237,7 +239,7 @@ function tseitin_occurrence_account(circuit::Circuit)
     for i in 1:circuit.gate_count
         output[input_count + i] = 2 + 2 * circuit_fanout[input_count + i]
     end
-    output[input_count + circuit.output.id] += 1
+    include_output && (output[input_count + circuit.output.id] += 1)
     Tuple(output)
 end
 
@@ -257,13 +259,18 @@ function tseitin(circuit::Circuit; include_output=true)
     term = TseitinFormula(formula, circuit.input_layout.blocks, layout,
                           Tuple(parts), input_count + circuit.output.id, count,
                           _compile_formula(formula))
+    # The replay compares the stored vector against the INDEPENDENT fan-out
+    # account of the circuit (finding F1), not only against `occurrences` of
+    # the stored formula, which is the function that produced it.
+    account = tseitin_occurrence_account(circuit; include_output)
     certificate = CertNode(CHECKED, :Tseitin;
         facts=(display="variables = $(length(names)); output literal = $(include_output)",),
-        replay=tf -> CheckResult(tf.occurrence_vector ==
-                                 occurrences(tf.formula, length(tf.layout.names)),
-                                 :formula_occurrences;
-                                 expected=tf.occurrence_vector,
-                                 actual=occurrences(tf.formula, length(tf.layout.names))))
+        replay=tf -> begin
+            recounted = occurrences(tf.formula, length(tf.layout.names))
+            CheckResult(tf.occurrence_vector == account == recounted,
+                        :formula_occurrences;
+                        expected=account, actual=(tf.occurrence_vector, recounted))
+        end)
     Checked(term, certificate)
 end
 

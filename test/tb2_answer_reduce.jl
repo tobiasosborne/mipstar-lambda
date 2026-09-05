@@ -30,7 +30,7 @@ end
 function tb2_proof(witness::Symbol)
     fixture = tb2_source_fixture(witness)
     fixture isa ExpansionRefused && error("TB2 fixture expansion refused")
-    change_field(fixture.proof, GF2048, 11)
+    change_field(fixture.proof, GF2048, 11).term
 end
 
 tb2_tf() = tb2_source_fixture(:degenerate).tf
