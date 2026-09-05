@@ -42,12 +42,27 @@ if runs("field")
     end
 end
 
-function encoding_checks(::Type{F}) where {F<:GF2k}
+# The field points swept per m (DESIGN.md section 5.1 item 2): with no rng,
+# ALL of F^m (8, 64, 512 points over GF(8)); with an rng, `count` seeded
+# points of F^m (GF(2^11)).
+function encoding_points(::Type{F}, m::Int, rng, count::Int) where {F<:GF2k}
+    rng === nothing &&
+        return [F[p...] for p in Iterators.product(ntuple(_ -> field_elements(F), m)...)]
+    [F[F(rand(rng, 0:field_size(F) - 1)) for _ in 1:m] for _ in 1:count]
+end
+
+# Every Boolean value of each table, `dec` round trips, and `evaluate`
+# against `a . ind_m(x)` on the swept points for m = 1, 2, 3.
+function encoding_checks(::Type{F}; rng=nothing, count=512) where {F<:GF2k}
+    cube(m) = [F[bits...] for bits in Iterators.product(ntuple(_ -> 0:1, m)...)]
+    points = ntuple(m -> encoding_points(F, m, rng, count), 3)
     layout1 = VarLayout((:x1,), (VarBlock(:X, 1:1),))
     m1_ok = true
     for table in (F[0, 1], F[1, 0])
         extension = g_a(table, layout1, (1,)).term
         m1_ok &= [evaluate(extension, F[b]) for b in 0:1] == table
+        m1_ok &= all(p -> evaluate(extension, p) ==
+                          sum(table .* ind(p); init=zero(F)), points[1])
         m1_ok &= dec(extension, (1,), F[0, 1]) == table
     end
 
@@ -58,7 +73,7 @@ function encoding_checks(::Type{F}) where {F<:GF2k}
         extension = g_a(table, layout2, (1, 2)).term
         m2_ok &= [evaluate(extension, p) for p in cube2] == table
         m2_ok &= all(p -> evaluate(extension, p) ==
-                          sum(table .* ind(p); init=zero(F)), cube2)
+                          sum(table .* ind(p); init=zero(F)), points[2])
         m2_ok &= dec(extension, (1, 2), F[0, 1]) == table
     end
 
@@ -68,18 +83,23 @@ function encoding_checks(::Type{F}) where {F<:GF2k}
     cube3 = [F[b1, b2, b3] for b1 in 0:1 for b2 in 0:1 for b3 in 0:1]
     m3_ok = [evaluate(extension3, p) for p in cube3] == table3
     m3_ok &= all(p -> evaluate(extension3, p) ==
-                      sum(table3 .* ind(p); init=zero(F)), cube3)
-    (; m1_ok, m2_ok, m3_ok, m1_points=4, m2_points=8,
-       m3_points=length(cube3))
+                      sum(table3 .* ind(p); init=zero(F)), points[3])
+    (; m1_ok, m2_ok, m3_ok, m1_points=length(points[1]),
+       m2_points=length(points[2]), m3_points=length(points[3]))
 end
 
 if runs("encoding")
     @testset "2. multilinear low-degree encoding and bit order" begin
         report8 = encoding_checks(GF8)
         @test report8 == (m1_ok=true, m2_ok=true, m3_ok=true,
-                          m1_points=4, m2_points=8, m3_points=8)
+                          m1_points=8, m2_points=64, m3_points=512)
+        report11 = encoding_checks(GF2048; rng=MersenneTwister(0x09_20_48))
+        @test report11 == (m1_ok=true, m2_ok=true, m3_ok=true,
+                           m1_points=512, m2_points=512, m3_points=512)
         println("TB0 encoding: asymmetric m=2 [0,0,1,0], m=3 singleton@100; ",
-                "big-endian index order checked in g_a and ind")
+                "big-endian index order checked in g_a and ind; ",
+                "evaluate == a.ind on all GF(8)^m (8/64/512 points) and ",
+                "512 seeded GF(2^11) points per m (seed=0x092048)")
     end
 end
 
@@ -342,6 +362,12 @@ if runs("circuit") || runs("witness_iii")
         zero_basis_node = fixture_iii.certificate.children[end - 1]
         @test zero_basis_node.facts.display ==
               "remainder = 2; coefficient identity = false"
+        # Constructor evidence is bound by identity to the proof it came
+        # from: witness (iii)'s proof with witness (i)'s certificate is
+        # refused at the first bound node, never replayed on (i)'s terms.
+        borrowed = verify_certificate(
+            Checked(fixture_iii.proof, polynomial_fixture(GF8, 6).certificate))
+        @test !passed(borrowed) && borrowed.rule == :certificate_binding
         # The sentence that links phi_C to c_0: on all three retained
         # witnesses, c_0 vanishes on the 2^16 cube exactly when phi_C holds.
         cube_iii = boolean_cube_zero_report(fixture_iii.c0)
@@ -363,10 +389,17 @@ end
 # works on any proof over F, stored views or not.
 function mutation_b_separator(tf, proof, ::Type{F}) where {F}
     rho = primitive_element(F)
-    view = ev_z(proof, only(tb0_certified_points(F)))
+    z = only(tb0_certified_points(F))
+    view = ev_z(proof, z)
     result = pcpverifier(tf, view)
+    # Mutant B's value computed from the fixture, not a literal: the verifier
+    # RHS with the g_2 - o_2 factor deleted. It differs from the honest
+    # beta_0 only because the certified separator carries rho at O2.
+    signs = block_coordinates(tf.layout, :O)
+    mutated_beta0 = evaluate_arith_formula(tf, z) *
+                    prod(view.alpha[i] - z[signs[i]] for i in (1, 3, 4, 5))
     (; view, honest=rho^5 * (one(F) + rho),
-       mutated=rho^4 * (one(F) + rho), result)
+       mutated=rho^4 * (one(F) + rho), mutated_beta0, result)
 end
 
 if runs("pcp_separator")
@@ -381,6 +414,10 @@ if runs("pcp_separator")
         @test separator11.view.beta0 == separator11.honest == GF2048(96)
         @test separator11.mutated == GF2048(48) && passed(separator11.result)
         @test only(proof11.certified_views).beta0 == separator11.view.beta0
+        @test separator8.mutated_beta0 == separator8.mutated
+        @test separator8.mutated_beta0 != separator8.view.beta0
+        @test separator11.mutated_beta0 == separator11.mutated
+        @test separator11.mutated_beta0 != separator11.view.beta0
     end
 end
 
@@ -471,6 +508,14 @@ if runs("certificate") || runs("c0_terms")
         no_view_proof = PCPProof(proof.gs, proof.c0, proof.cs, proof.decomposition,
                                  proof.d, proof.tf, ())
         @test !passed(verifier_node.replay(no_view_proof))
+        # ev_z's block-locality guard must fire: a g_1 that also depends on
+        # W2 (coordinate 12) is refused before any view is built.
+        out_of_block = proof.gs[1] * polyvar(GF8, proof.tf.layout, 12)
+        @test dependency_coordinates(out_of_block) == Set((1, 12))
+        bad_locality = PCPProof(Base.setindex(proof.gs, out_of_block, 1),
+                                proof.c0, proof.cs, proof.decomposition,
+                                proof.d, proof.tf, ())
+        @test_throws ArgumentError ev_z(bad_locality, tb0_base_point(GF8))
 
         # All eleven CHECKED replays run on witness (i)'s own terms.
         @test passed(verify_certificate(Checked(proof, fixture.certificate)))

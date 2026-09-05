@@ -2,8 +2,10 @@ load_started = time()
 using Test
 using MIPStarLambda
 load_elapsed = time() - load_started
+# Warm load only. The COLD image build, which executes src/precompile.jl's
+# TB0 workload, is timed by `tools/cold_precompile.sh` (scratch depot).
 println("MIPStarLambda load/precompile seconds = ", round(load_elapsed; digits=3),
-        " (ungated; cold/warm cache reported separately)")
+        " (ungated; cold image build: tools/cold_precompile.sh)")
 
 started = time()
 @testset verbose=true "MIPStarLambda" begin

@@ -112,6 +112,21 @@ const MUTANTS = (
     Mutant("Q skip_degree_two_rewrite", "src/polynomials/zero_basis.jl",
            "if exponent < 2\n                _accumulate!(next_remainder, key, coefficient)",
            "if exponent < 3\n                _accumulate!(next_remainder, key, coefficient)", "pcp"),
+    # verdicts/tb0-r3.md N8 (NM4): the certified separator moves O2 -> O3,
+    # where deleting g_2 - o_2 no longer changes beta_0 and mutant B would
+    # be silently disarmed; owned by testset 5a's fixture-computed value.
+    Mutant("S separator_moved_O2_to_O3", "src/tb0.jl",
+           "separator[7] = primitive_element(F)",
+           "separator[8] = primitive_element(F)", "pcp_separator"),
+    # verdicts/tb0-r3.md N9 (NM3): ev_z's block-locality guard removed.
+    Mutant("NM3 ev_z_drops_block_locality_guard", "src/verifiers/pcp.jl",
+           "dependency_coordinates(proof.gs[i]) <= coordinates ||",
+           "true ||", "certificate"),
+    # verdicts/tb0-r3.md N10: constructor evidence detached from the proof
+    # again, so a borrowed certificate replays the other proof's sub-terms.
+    Mutant("P bind_certificate_detached", "src/verifiers/pcp.jl",
+           "proof -> locate(proof) === anchor ? node.replay(term) :",
+           "proof -> true ? node.replay(term) :", "witness_iii"),
 )
 
 include("tb1_chi.jl")

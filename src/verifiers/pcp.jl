@@ -136,14 +136,46 @@ function _pcp_view(gs::NTuple{5,Poly{F,N}}, c0::Poly{F,N},
     PCPView(Vector(point), alpha, beta0, beta)
 end
 
-function _bind_certificate(node::CertNode, term)
-    children = map(child -> _bind_certificate(child, term), node.children)
-    replay = node.grade == CHECKED ? (_ -> node.replay(term)) : node.replay
+# Constructor evidence replays its captured sub-term, but only for a proof
+# that owns that sub-term: `locate(proof) === anchor` is checked first, so a
+# certificate borrowed from another proof is refused with
+# `:certificate_binding` instead of replaying the other proof's components
+# (DESIGN section 3: evidence is recomputed against the attached term).
+function _bind_certificate(node::CertNode, term, anchor, locate)
+    children = map(child -> _bind_certificate(child, term, anchor, locate),
+                   node.children)
+    replay = if node.grade == CHECKED
+        proof -> locate(proof) === anchor ? node.replay(term) :
+                 CheckResult(false, :certificate_binding; location=node.rule,
+                             expected=:attached_component, actual=:borrowed)
+    else
+        node.replay
+    end
     CertNode(node.grade, node.rule; facts=node.facts, children, replay)
 end
 
-_bind_certificate(checked::Checked) =
-    _bind_certificate(checked.certificate, checked.term)
+# Each evidence term is bound by identity to the `PCPProof` component it is
+# (`tf`, `g_i`, `c_0`, the decomposition). `F_arith` is not a component of
+# the proof, so its `:ArithTseitin` node is anchored to the `tf` it was
+# arithmetized from; any other foreign term is refused outright.
+function _bind_evidence(checked::Checked, tf, gs::NTuple{5,Poly}, c0::Poly,
+                        decomposition::ZeroDecomposition)
+    term = checked.term
+    locate, anchor = if term === tf
+        (proof -> proof.tf), tf
+    elseif term === c0
+        (proof -> proof.c0), c0
+    elseif term === decomposition
+        (proof -> proof.decomposition), decomposition
+    elseif (i = findfirst(g -> g === term, gs)) !== nothing
+        (proof -> proof.gs[i]), gs[i]
+    elseif checked.certificate.rule == :ArithTseitin
+        (proof -> proof.tf), tf
+    else
+        throw(ArgumentError("PCP evidence term is not a component of the proof"))
+    end
+    _bind_certificate(checked.certificate, term, anchor, locate)
+end
 
 function _replay_pcp_verifier(proof::PCPProof)
     isempty(proof.certified_views) &&
@@ -197,7 +229,8 @@ function build_pcp(tf::TseitinFormula{N}, gs::NTuple{5,Poly{F,N}},
     proof = PCPProof(gs, c0, typed_cs, decomposition, d, tf,
                      _certified_views(bare, certified_points))
     upstream = isempty(evidence) ? _pcp_upstream_nodes(c0, decomposition) :
-               map(_bind_certificate, evidence)
+               map(checked -> _bind_evidence(checked, tf, gs, c0, decomposition),
+                   evidence)
     _certify_pcp(proof, upstream,
                  "polynomials = $(N + 6); d = $(d); sparse terms are authoritative")
 end
