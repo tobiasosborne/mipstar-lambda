@@ -1,6 +1,6 @@
 # Brief 57 — CRITIC verdict r4 on rung TB1 after repair r3 (brief 54) — closing round
 
-You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb1-r4.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; instantiate there; cold precompile 100–200 s). Never read src/test from the live tree (another worker edits it); `claims/CLAIMS.md` may be read live (orchestrator-owned).
+You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb1-r4.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `1919aff` (`git archive 1919aff | tar -x -C <scratch>/tree`; instantiate there; cold precompile 100–200 s). Never read src/test from the live tree (another worker edits it); `claims/CLAIMS.md` may be read live (orchestrator-owned).
 
 Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/critic-tb1-r4/`
 
