@@ -1,6 +1,6 @@
 # Brief 79 — CRITIC verdict r1 on rung TB6 (Pauli test, introspection sampler/decider, step-metered child calls, exact stabilizer simulation; fixtures TB6b-E and TB6b-M) — also the readiness gate for TB7, and adjudication of brief 77 (TB5 repair r1)
 
-You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb6-r1.md` ONLY (include a short §"TB5 r2" adjudicating brief 77 so the TB5 lane can close without a separate round); Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; instantiate there; cold precompile ~2–4 min). Never read src/test from the live tree (a worker edits it); `claims/CLAIMS.md` may be read live.
+You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb6-r1.md` ONLY (include a short §"TB5 r2" adjudicating brief 77 so the TB5 lane can close without a separate round); Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `0ec462e` (`git archive 0ec462e | tar -x -C <scratch>/tree`; instantiate there; cold precompile ~2–4 min). Never read src/test from the live tree (a worker edits it); `claims/CLAIMS.md` may be read live.
 
 Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/critic-tb6-r1/`
 
