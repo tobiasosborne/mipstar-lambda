@@ -218,7 +218,13 @@ free_parameters(::Concrete) = ()
 # (DD-9) is a theorem-backed placeholder with the bookkeeping the theorems
 # state; nobody can mistake it for an executable verifier.
 
-struct StubVerifier
+# TB5 (verdicts/tb4-r1.md section 7 A): every stage output is an
+# AbstractStageVerifier; StubVerifier stays the CITED-only carrier and
+# `StageVerifier` (src/repeat/repeat.jl) carries an executable stage's
+# real objects in `payload`.
+abstract type AbstractStageVerifier end
+
+struct StubVerifier <: AbstractStageVerifier
     origin::Symbol
     levels::Int
     sampler_time::BoundExpr
@@ -237,33 +243,39 @@ StubVerifier(v::StubVerifier; kwargs...) =
     StubVerifier((haskey(kwargs, name) ? kwargs[name] : getfield(v, name)
                   for name in fieldnames(StubVerifier))...)
 
-const _VERIFIER_INPUT = Union{Verifier,StubVerifier}
+const _VERIFIER_INPUT = Union{Verifier,AbstractStageVerifier,VerifierDescription}
 
 _levels(v::Verifier) = v.levels
-_levels(v::StubVerifier) = v.levels
+_levels(v::AbstractStageVerifier) = v.levels
+_levels(v::VerifierDescription) = v.sampler.level
 _sampler_time(v::Verifier) = v.runtime
-_sampler_time(v::StubVerifier) = v.sampler_time
+_sampler_time(v::AbstractStageVerifier) = v.sampler_time
+_sampler_time(v::VerifierDescription) = Opaque("TIME_S(n): $(v.sampler.query_time), metered child calls only; NOT_EVALUABLE(owner=tb5-decider-meter)", (:n,))
 _decider_time(v::Verifier) = v.runtime
-_decider_time(v::StubVerifier) = v.decider_time
+_decider_time(v::AbstractStageVerifier) = v.decider_time
+_decider_time(v::VerifierDescription) = Opaque("TIME_D(n): $(v.decider.time_bound), not metered in the source's unit; NOT_EVALUABLE(owner=tb5-decider-meter) (DD-31)", (:n,))
 _description_bound(v::Verifier) = Concrete(description_length(v))
-_description_bound(v::StubVerifier) = v.description
+_description_bound(v::AbstractStageVerifier) = v.description
+_description_bound(v::VerifierDescription) = Concrete(description_length(v))
 _sampler_dependencies(v::Verifier) = (:S,)
-_sampler_dependencies(v::StubVerifier) = v.sampler_dependencies
+_sampler_dependencies(v::AbstractStageVerifier) = v.sampler_dependencies
+_sampler_dependencies(v::VerifierDescription) = (:S,)
 _gap(v::Verifier) = v.gap
-_gap(v::StubVerifier) = v.gap
+_gap(v::AbstractStageVerifier) = v.gap
+_gap(v::VerifierDescription) = (Opaque("value 1 accepted", ()), Opaque("value <= 1/2 rejected", ()))
 
 _split(checked::Checked) = (checked.term, checked.certificate)
 _split(v::_VERIFIER_INPUT) = (v, CertNode(CONSTRUCTED, :Verifier; facts=(display="unattested input",)))
 
 "The original input of a Compress chain: walk `input` down to the Verifier."
-function _chain(v::StubVerifier)
-    stages = StubVerifier[v]
-    while stages[end].input isa StubVerifier
+function _chain(v::AbstractStageVerifier)
+    stages = AbstractStageVerifier[v]
+    while stages[end].input isa AbstractStageVerifier
         push!(stages, stages[end].input)
     end
     reverse!(stages)
 end
-_original(v::StubVerifier) = _chain(v)[1].input
+_original(v::AbstractStageVerifier) = _chain(v)[1].input
 
 # ---------------------------------------------------------------------------
 # ASSUME/PROVE contracts. A Hypothesis has a check `(input, params) ->
@@ -313,8 +325,11 @@ end
 
 _normal_form_status(v::Verifier, params) =
     (NOT_EVALUABLE, "sampler is a stub description; field size 2 and the decider format are not decided here")
-_normal_form_status(v::StubVerifier, params) =
+_normal_form_status(v::AbstractStageVerifier, params) =
     (NOT_EVALUABLE, "normal form of a $(v.origin) output is that stage's CITED conclusion")
+_normal_form_status(v::VerifierDescription, params) =
+    (v.sampler.field_size == 2 && v.sampler.typing isa Untyped ? PASS : FAIL,
+     "sampler over F_$(v.sampler.field_size), $(v.sampler.typing isa Untyped ? "untyped" : "typed"), level $(v.sampler.level), decider a total $(v.decider.typing isa Untyped ? "five" : "seven")-input predicate (structural check of gt-05:625-635; the value/PCC content is not decided here)")
 
 const _DEF_LAMBDA = "gt-05-games-normalform.tex:L641-L653 (def:lambda)"
 const _DEF_NORMAL_FORM = "gt-05-games-normalform.tex:L625-L635 (normal form verifier)"
@@ -494,7 +509,8 @@ const _C_PRIME = "universal constant c' > 0 of thm:repetition (value unexposed)"
 
 # --- Introspect ------------------------------------------------------------
 
-function Introspect(::IntrospectStub, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, ell::Integer)
+function Introspect(::IntrospectStub, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, ell::Integer;
+                    params::NamedTuple=(;))
     input, input_cert = _split(checked)
     lambda >= 1 || throw(ArgumentError("lambda must be positive"))
     levels = introspect_levels(ell)
@@ -519,7 +535,7 @@ Introspect(checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, ell::Intege
 # --- AnswerReduce ------------------------------------------------------------
 
 function AnswerReduce(stage::AnswerReduceOnFixture, checked::Union{Checked,_VERIFIER_INPUT},
-                      lambda::Integer, mu::Integer, gamma::Integer)
+                      lambda::Integer, mu::Integer, gamma::Integer; params::NamedTuple=(;))
     input, input_cert = _split(checked)
     fixture = stage.fixture
     sigma = fixture.sigma
@@ -559,7 +575,8 @@ AnswerReduce(checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, mu::Integ
 
 # --- Repeat ------------------------------------------------------------------
 
-function Repeat(::RepeatStub, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, tau::Integer)
+function Repeat(::RepeatStub, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, tau::Integer;
+                params::NamedTuple=(;))
     input, input_cert = _split(checked)
     ell = _levels(input)
     levels = repeat_levels(ell)
@@ -591,7 +608,7 @@ Repeat(checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, tau::Integer) =
 # --- Compress ----------------------------------------------------------------
 
 "The levels of V, V^(1), V^(2), V^(3) along a Compress output's input chain."
-function level_chain(v::StubVerifier)
+function level_chain(v::AbstractStageVerifier)
     stages = _chain(v)
     Int[_levels(stages[1].input); (s.levels for s in stages if s.origin != :Compress)...]
 end
@@ -600,7 +617,7 @@ const _COMPRESS_FREE = (:n, :lambda)
 const _INDEPENDENCE_ALLOWED = (:lambda, :ell, :mu, :gamma, :tau, :D1_size)
 
 "Every runtime bound along the chain closes to free parameters within {n, lambda}, and Compress reports poly(n, lambda)."
-function runtime_composition_ok(v::StubVerifier)
+function runtime_composition_ok(v::AbstractStageVerifier)
     v.origin == :Compress || return false
     stages = _chain(v)
     length(stages) == 4 || return false
@@ -612,7 +629,7 @@ function runtime_composition_ok(v::StubVerifier)
             for i in 1:3)
 end
 
-function _level_chain_ok(v::StubVerifier)
+function _level_chain_ok(v::AbstractStageVerifier)
     stages = _chain(v)
     length(stages) == 4 || return false
     origins = [s.origin for s in stages]
@@ -632,12 +649,13 @@ tau); return V^(3) as the 9-level compressed verifier. mu, gamma, tau are
 universal constants (eq:mu-gamma, eq:c_rep); here toy literals (DESIGN 12.4).
 """
 function Compress(checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer;
-                  stages::CompressStages=tb4_stages(), mu::Integer=1, gamma::Integer=1, tau::Integer=1)
+                  stages::CompressStages=tb4_stages(), mu::Integer=1, gamma::Integer=1, tau::Integer=1,
+                  stage_params::NamedTuple=(;))
     input, _ = _split(checked)
     lambda >= 1 || throw(ArgumentError("lambda must be positive"))
-    v1 = Introspect(stages.introspect, checked, lambda, COMPRESS_LEVELS)
-    v2 = AnswerReduce(stages.answer_reduce, v1, lambda, mu, gamma)
-    v3 = Repeat(stages.repeat, v2, lambda, tau)
+    v1 = Introspect(stages.introspect, checked, lambda, COMPRESS_LEVELS; params=stage_params)
+    v2 = AnswerReduce(stages.answer_reduce, v1, lambda, mu, gamma; params=stage_params)
+    v3 = Repeat(stages.repeat, v2, lambda, tau; params=stage_params)
     time = Opaque("poly(n, lambda)", _COMPRESS_FREE)
     gap = (Opaque("completeness: value-1 PCC strategy of V_N => value-1 PCC strategy of V^compr_n, N = 2^n, n >= C_0", ()),
            Opaque("soundness: Ent(V^compr_n, 1/2) >= max{Ent(V_N, 1/2), 2^(N^lambda - 1)}", ()))

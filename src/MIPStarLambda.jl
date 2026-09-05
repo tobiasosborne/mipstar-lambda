@@ -23,7 +23,15 @@ include("frontend/bounded_trace.jl")
 include("frontend/cook_levin.jl")
 include("frontend/decouple5.jl")
 include("traceprint.jl")
+include("descriptions/sorts.jl")
+include("descriptions/laws.jl")
+include("descriptions/machines.jl")
+include("descriptions/transformations.jl")
+include("descriptions/adapter.jl")
+include("descriptions/deciders.jl")
 include("compress.jl")
+include("repeat/anchor.jl")
+include("repeat/repeat.jl")
 
 export Program, BoundExpr, Concrete, Opaque, Fuel, FuelLiteral, FuelBound,
        BoundVar, Hole, Lambda, Apply, Fix, YCode, If, Prim, Quote, Eval, Specialize,
@@ -121,6 +129,22 @@ export build_pcp_fixture, tb0_build_fixture, tb0_build_nondegenerate_fixture,
 
 export Grade, CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR,
        CheckResult, passed, CertNode, Checked, verify_certificate, traceprint
+
+# TB5: the description layer (DESIGN 9) and executable Repeat (DESIGN 10).
+export GF2, QueryError, Untyped, Typed, TypeCount, SamplerQuery, DimensionQuery,
+       MarginalQuery, LinearQuery, FactorQuery, SamplerDescription,
+       DeciderDescription, VerifierDescription, dependency_set, dependency_walk,
+       decode_sampler, decode_sampler_term, sampler_term_bytes, query,
+       metered_query, Meter, sample_questions, described_cl, DescribedCL,
+       field_bit_vector, RecordingMachine, SamplerMachine, compile_sampler,
+       machine, evaluate_law, expected_laws, law_environment, K_REP_LAW,
+       B_REP_LAW, k_rep, B_rep, tracer_chain_set, sampler_validity,
+       describe_typed_cl, downsize, detype_sampler, typed_anchor_sampler,
+       decode_decider, decider_dependency_walk, copy_decider, trivial_decider,
+       frame_components, parse_framed, FRAME_BITS, ChildCall, decide,
+       decide_traced, typed_anchor_decider, detype_decider, anchor,
+       anchored_honest_answer, repeat_sampler, repeat_decider, anchored_repeat,
+       ExecutableRepeat, StageVerifier, AbstractStageVerifier
 
 include("precompile.jl")
 include("frontend/precompile_frontend.jl")

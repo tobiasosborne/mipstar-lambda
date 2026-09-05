@@ -24,4 +24,7 @@ started = time()
     tb4_started = time()
     include("tb4_compress_ir.jl")
     println("TB4 test-body wall seconds = ", round(time() - tb4_started; digits=3), " (budget 5.0)")
+    tb5_started = time()
+    include("tb5_repeat.jl")
+    println("TB5 test-body wall seconds = ", round(time() - tb5_started; digits=3), " (Repeat(V_copy) targets: construction < 2, transcripts < 5)")
 end

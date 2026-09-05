@@ -10,16 +10,16 @@
 const TB4_ORDER_SWAP_MUTANT = Mutant(
     "TB4 M-order repeat_before_answer_reduce",
     "src/compress.jl",
-    "    v2 = AnswerReduce(stages.answer_reduce, v1, lambda, mu, gamma)\n    v3 = Repeat(stages.repeat, v2, lambda, tau)",
-    "    v2 = Repeat(stages.repeat, v1, lambda, tau)\n    v3 = AnswerReduce(stages.answer_reduce, v2, lambda, mu, gamma)",
+    "    v2 = AnswerReduce(stages.answer_reduce, v1, lambda, mu, gamma; params=stage_params)\n    v3 = Repeat(stages.repeat, v2, lambda, tau; params=stage_params)",
+    "    v2 = Repeat(stages.repeat, v1, lambda, tau; params=stage_params)\n    v3 = AnswerReduce(stages.answer_reduce, v2, lambda, mu, gamma; params=stage_params)",
     "tb4_compress")
 
 # Composition order: Introspect last; the chain becomes 9 -> 11 -> 13 -> 5.
 const TB4_ORDER_INTRO_LAST_MUTANT = Mutant(
     "TB4 M-order introspect_last",
     "src/compress.jl",
-    "    v1 = Introspect(stages.introspect, checked, lambda, COMPRESS_LEVELS)\n    v2 = AnswerReduce(stages.answer_reduce, v1, lambda, mu, gamma)\n    v3 = Repeat(stages.repeat, v2, lambda, tau)",
-    "    v1 = AnswerReduce(stages.answer_reduce, checked, lambda, mu, gamma)\n    v2 = Repeat(stages.repeat, v1, lambda, tau)\n    v3 = Introspect(stages.introspect, v2, lambda, COMPRESS_LEVELS)",
+    "    v1 = Introspect(stages.introspect, checked, lambda, COMPRESS_LEVELS; params=stage_params)\n    v2 = AnswerReduce(stages.answer_reduce, v1, lambda, mu, gamma; params=stage_params)\n    v3 = Repeat(stages.repeat, v2, lambda, tau; params=stage_params)",
+    "    v1 = AnswerReduce(stages.answer_reduce, checked, lambda, mu, gamma; params=stage_params)\n    v2 = Repeat(stages.repeat, v1, lambda, tau; params=stage_params)\n    v3 = Introspect(stages.introspect, v2, lambda, COMPRESS_LEVELS; params=stage_params)",
     "tb4_levels")
 
 # verify_certificate accepts a CHECKED node without a replay: the relabelled
