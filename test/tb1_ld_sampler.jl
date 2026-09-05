@@ -95,12 +95,198 @@ if tb1_runs("levels")
         apply(lazy, (TB1_F(3), TB1_F(5)))
         @test calls[] == 1 # the reached image value is memoised
 
+        # verdicts/tb1-r2.md N2: the lazy continuation validation is the only
+        # enforcement of DD-7's "level cannot be forged"; each guard is
+        # reached through `apply`, never at construction.
+        one1 = reshape([one(TB1_F)], 1, 1)
+        # A genuine level-1 map on register {2} (promoted zero map): only the
+        # continuation-level guard can reject it.
+        wrong_level = CLStep(TB1_F, 2, (1,), (2,), one1, CLZero(TB1_F, 2, (2,))) do _
+            pad_level(CLZero(TB1_F, 2, (2,)), 1)
+        end
+        @test level(pad_level(CLZero(TB1_F, 2, (2,)), 1)) == 1
+        @test_throws ArgumentError apply(wrong_level, (TB1_F(1), TB1_F(2)))
+        wrong_register = CLStep(TB1_F, 2, (1,), (2,), one1, CLZero(TB1_F, 2, (2,))) do _
+            CLZero(TB1_F, 2, (1,))
+        end
+        @test_throws ArgumentError apply(wrong_register, (TB1_F(1), TB1_F(2)))
+        wrong_dimension = CLStep(TB1_F, 2, (1,), (2,), one1, CLZero(TB1_F, 2, (2,))) do _
+            CLZero(TB1_F, 3, (2,))
+        end
+        @test_throws ArgumentError apply(wrong_dimension, (TB1_F(1), TB1_F(2)))
+        wrong_field = CLStep(TB1_F, 2, (1,), (2,), one1, CLZero(TB1_F, 2, (2,))) do _
+            CLZero(GF2048, 2, (2,))
+        end
+        @test_throws ArgumentError apply(wrong_field, (TB1_F(1), TB1_F(2)))
+        @test_throws ArgumentError CLStep(TB1_F, 5, (1, 2), (3,), identity2,
+                                          CLZero(TB1_F, 5, (3,))) do _
+            CLZero(TB1_F, 5, (3,))
+        end
+
         @test level(concatenate(point, L_Point(TB1_F, TB1_M))) == 2
         @test level(direct_sum(point, axis)) == 2
         typed = TypedSampler((:point, :axis), ((:point, :axis),),
             Dict(:point => point, :axis => axis),
             Dict(:point => point, :axis => axis))
         @test typed.common_level == 2
+
+        # verdicts/tb1-r2.md N5 / tb2-r2.md N3 (DESIGN 9.4): padding APPENDS
+        # empty stages, so every marginal of the child survives; a zero map
+        # on a register is promoted with that whole register as stage 1
+        # (rk:higher-level, SOURCE_REPAIR zero-map-factor-partition).
+        seed = (TB1_F(3), TB1_F(5), TB1_F(4), TB1_F(6), TB1_F(7))
+        padded_axis = pad_level(axis, 3)
+        @test marginal_k(padded_axis, seed, 1).value == marginal_k(axis, seed, 1).value
+        @test marginal_k(padded_axis, seed, 2).value == apply(axis, seed)
+        @test marginal_k(padded_axis, seed, 3).factor_spaces ==
+              [[3, 4, 5], [1, 2], Int[]]
+        @test marginal_k(pad_level(point, 5), seed, 5).factor_spaces ==
+              [collect(1:5), Int[], Int[], Int[], Int[]]
+        padded_zero = pad_level(CLZero(TB1_F, 5), 3)
+        @test level(padded_zero) == 3
+        @test apply(padded_zero, seed) == ntuple(_ -> zero(TB1_F), 5)
+        @test marginal_k(padded_zero, seed, 3).factor_spaces ==
+              [collect(1:5), Int[], Int[]]
+        @test Factor(padded_zero, 1, ntuple(_ -> zero(TB1_F), 5)) == ones(Int, 5)
+        @test ZERO_MAP_FACTOR_PARTITION.grade == SOURCE_REPAIR
+        @test ZERO_MAP_FACTOR_PARTITION.rule == :zero_map_factor_partition
+    end
+end
+
+if tb1_runs("space_sum")
+    @testset "TB1 lem:cl-kth enu:cl-space-sum / enu:cl-map-sum replay" begin
+        # verdicts/tb1-r2.md N3: the replay TB2 runs, now on all three maps,
+        # through DESIGN 9.1's four queries only (DESIGN 9.2).
+        samplers = (L_Point(TB1_F, TB1_M), L_ALine(TB1_F, TB1_M),
+                    L_DLine(TB1_F, TB1_M))
+        seed = (TB1_F(3), TB1_F(5), TB1_F(4), TB1_F(6), TB1_F(7))
+        for sampler in samplers
+            factors = marginal_k(sampler, seed, level(sampler)).factor_spaces
+            @test Set(Iterators.flatten(factors)) == Set(1:5)
+            @test sum(length, factors) == 5
+        end
+        @test marginal_k(samplers[1], seed, 1).factor_spaces == [collect(1:5)]
+        reports = [cl_kth_replay(sampler, tb1_seeds(); chain_set_id="tb1-exhaustive-8^5")
+                   for sampler in samplers]
+        for (sampler, report) in zip(samplers, reports)
+            @test report.space_sum_ok
+            @test report.map_sum_ok
+            @test report.completed_replays == 8^5
+            @test report.map_sum_checks == level(sampler) * 8^5
+        end
+        @test [report.distinct_chains for report in reports] == [1, 8, 288]
+        # Negative witness: the r2 sub-ambient L_Point (factor {1,2}, level-0
+        # tail on {3,4,5}) violates enu:cl-space-sum and the replay says so.
+        identity2 = [one(TB1_F) zero(TB1_F); zero(TB1_F) one(TB1_F)]
+        sub_ambient = CLStep(TB1_F, 5, (1, 2), (3, 4, 5), identity2,
+                             CLZero(TB1_F, 5, (3, 4, 5)))
+        negative = cl_kth_replay(sub_ambient, (seed,); chain_set_id="tb1-negative")
+        @test !negative.space_sum_ok
+        @test negative.map_sum_ok
+        println("TB1 lem:cl-kth replay: chain_set_id=", reports[1].chain_set_id,
+                " distinct_chains=", [r.distinct_chains for r in reports],
+                " completed_replays=", [r.completed_replays for r in reports],
+                " map_sum_checks=", [r.map_sum_checks for r in reports],
+                " negative_witness_space_sum_ok=", negative.space_sum_ok)
+    end
+end
+
+if tb1_runs("queries")
+    @testset "TB1 def:sampler queries Dimension/Marginal/Linear/Factor" begin
+        point = L_Point(TB1_F, TB1_M)
+        axis = L_ALine(TB1_F, TB1_M)
+        diagonal = L_DLine(TB1_F, TB1_M)
+        z = (TB1_F(3), TB1_F(5), TB1_F(4), TB1_F(6), TB1_F(7))
+        zero5 = ntuple(_ -> zero(TB1_F), 5)
+        @test Dimension(point) == Dimension(axis) == Dimension(diagonal) == 5
+        for L in (point, axis, diagonal), j in 0:level(L)
+            @test Marginal(L, j, z) == marginal_k(L, z, j).value
+        end
+        @test Marginal(diagonal, 3, z) == apply(diagonal, z)
+        # Factor returns a length-Dimension 0/1 indicator (DESIGN 9.1).
+        @test Factor(axis, 1, zero5) == [0, 0, 1, 1, 1]
+        @test Factor(point, 1, zero5) == [1, 1, 1, 1, 1]
+        reachable = (zero(TB1_F), zero(TB1_F), TB1_F(4), zero(TB1_F), zero(TB1_F))
+        @test Factor(axis, 2, reachable) == [1, 1, 0, 0, 0]
+        @test Factor(diagonal, 2, reachable) == [0, 0, 0, 1, 1]
+        @test Factor(diagonal, 3, Marginal(diagonal, 2, z)) == [1, 1, 0, 0, 0]
+        # Factor's domain is L_{<j}(V): a direction component is never emitted
+        # by L_ALine's stage 1, so this prefix is unreachable and rejected.
+        unreachable = (zero(TB1_F), zero(TB1_F), TB1_F(4), one(TB1_F), zero(TB1_F))
+        @test_throws ArgumentError Factor(axis, 2, unreachable)
+        @test_throws ArgumentError Factor(axis, 1, reachable)
+        # Linear's domain is the broader V_{<j}: the same unreachable prefix
+        # is answered (never narrowed, gt-04-cl.tex:588-594), by the stage-2
+        # map L_lnf(e_chi(4)) = L_lnf(e_2) on the V_pt projection of y.
+        y = (TB1_F(3), TB1_F(5), TB1_F(1), TB1_F(2), TB1_F(3))
+        e2 = (zero(TB1_F), one(TB1_F))
+        expected = L_lnf(e2, (TB1_F(3), TB1_F(5)))
+        @test Linear(axis, 2, unreachable, y) == (expected..., zero5[3:5]...)
+        @test Linear(axis, 2, reachable, y) == (expected..., zero5[3:5]...)
+        @test Linear(axis, 1, zero5, y) == (zero(TB1_F), zero(TB1_F), TB1_F(1),
+                                           zero(TB1_F), zero(TB1_F))
+        # Support outside V_{<j} is malformed for both prefix queries.
+        @test_throws ArgumentError Linear(axis, 2, (one(TB1_F), zero5[2:5]...), y)
+        @test_throws ArgumentError Linear(axis, 4, zero5, y)
+        println("TB1 queries: Factor(L_ALine,1,0)=", Factor(axis, 1, zero5),
+                " Factor(L_ALine,2,(0,0,4,0,0))=", Factor(axis, 2, reachable),
+                " Linear at unreachable (0,0,4,1,0) answered=", true)
+    end
+end
+
+if tb1_runs("describe")
+    @testset "TB1 DESIGN 9.3 describability (QuotedBranch)" begin
+        point = L_Point(TB1_F, TB1_M)
+        axis = L_ALine(TB1_F, TB1_M)
+        diagonal = L_DLine(TB1_F, TB1_M)
+        sizes = Int[]
+        for (name, L) in (("L_Point", point), ("L_ALine", axis), ("L_DLine", diagonal))
+            description = describe_cl(L)
+            @test description isa CLDescription
+            @test description_size(description) == length(canonical_bytes(description))
+            @test canonical_bytes(describe_cl(L)) == canonical_bytes(description)
+            @test (description.field_size, description.seed_dim, description.level) ==
+                  (8, 5, level(L))
+            push!(sizes, description_size(description))
+        end
+        @test sizes == [75, 132, 156]
+        @test describe_cl(point).term[1] == :Step
+        @test describe_cl(axis).term[6][1] == :ByAxis
+        @test describe_cl(diagonal).term[6][4][1][6][1] == :Lnf
+        @test describe_cl(pad_level(axis, 3)) isa CLDescription
+        @test describe_cl(pad_level(axis, 3)).term[6][1] == :Padded
+        @test describe_cl(pad_level(CLZero(TB1_F, 5), 2)) isa CLDescription
+        # An opaque host closure stays usable in memory and is NotDescribable.
+        closure = CLStep(TB1_F, 2, (1,), (2,), reshape([one(TB1_F)], 1, 1),
+                         CLZero(TB1_F, 2, (2,))) do _
+            CLZero(TB1_F, 2, (2,))
+        end
+        @test apply(closure, (TB1_F(3), TB1_F(4))) == (TB1_F(3), zero(TB1_F))
+        @test describe_cl(closure) isa NotDescribable
+        # The combinators still wrap host closures (TB5 residue, DESIGN 9.4).
+        @test describe_cl(direct_sum(point, axis)) isa NotDescribable
+        println("TB1 describe: description_size L_Point/L_ALine/L_DLine=", sizes,
+                " closure=NotDescribable direct_sum=NotDescribable")
+    end
+end
+
+if tb1_runs("memo")
+    @testset "TB1 bounded continuation memo" begin
+        padded = pad_level(L_Point(TB1_F, TB1_M), 2)
+        y = (TB1_F(3), TB1_F(5), TB1_F(4), TB1_F(6), TB1_F(7))
+        distinct = 0
+        for prefix in tb1_seeds()
+            Linear(padded, 2, prefix, y)
+            distinct += 1
+            distinct >= 10_000 && break
+        end
+        report = memo_report(padded)
+        @test distinct == 10_000 > CL_MEMO_LIMIT
+        @test report.max_entries <= CL_MEMO_LIMIT
+        @test report.entries <= CL_MEMO_LIMIT * report.nodes
+        println("TB1 memo: distinct Linear prefixes=", distinct, " limit=",
+                CL_MEMO_LIMIT, " max_entries=", report.max_entries,
+                " entries=", report.entries, " nodes=", report.nodes)
     end
 end
 
@@ -314,6 +500,9 @@ function tb1_decider_sweep()
     end
     checked = 0
     non_noop = 0
+    equal_type = 0
+    line_vs_point = 0
+    off_line_hits = 0
     accepted = true
     for left_kind in kinds, right_kind in kinds
         for (left_q, right_q) in supports[(left_kind, right_kind)]
@@ -327,6 +516,11 @@ function tb1_decider_sweep()
                                 right_q, left_a, right_a)
             accepted &= passed(result)
             non_noop += result.rule != :ld_noop
+            equal_type += result.rule == :ld_consistency
+            if result.rule in (:ld_axis_point, :ld_diagonal_point)
+                line_vs_point += 1
+                off_line_hits += result.location == :question
+            end
             checked += 1
         end
     end
@@ -334,7 +528,7 @@ function tb1_decider_sweep()
                                    TB1_F(0), TB1_F(0)))
     mismatch = ld_decider(params, :Point, raw, :Point, raw,
                           (TB1_F(1),), (TB1_F(0),))
-    (; accepted, checked, non_noop,
+    (; accepted, checked, non_noop, equal_type, line_vs_point, off_line_hits,
        support_count=sum(length, values(supports)),
        nonempty=all(support -> !isempty(support), values(supports)), mismatch)
 end
@@ -345,11 +539,27 @@ if tb1_runs("decider")
         @test report.accepted
         @test report.checked == report.support_count
         @test report.non_noop == 40_768
+        # verdicts/tb1-r2.md N11: the equal-type decisions are tautologies
+        # (identical questions), the rest are line-versus-point.
+        @test (report.equal_type, report.line_vs_point) == (2_880, 37_888)
+        @test report.equal_type + report.line_vs_point == report.non_noop
         @test report.nonempty
         @test !passed(report.mismatch)
         @test report.mismatch.rule == :ld_consistency
+        # verdicts/tb1-r2.md N4: the off-line rejection is a SOURCE_REPAIR of
+        # fig:ld-decider items 2/3 (gt-07-ldt.tex:377-384), never reached by
+        # honest play.
+        @test report.off_line_hits == 0
+        repair = ld_off_line_repair(honest_support_hits=report.off_line_hits,
+                                    of=report.checked)
+        @test repair.grade == SOURCE_REPAIR
+        @test repair.rule == :ld_off_line_rejects
+        @test repair.facts.honest_support_hits == 0 && repair.facts.of == 71_360
         println("TB1 D^ld: type_pairs=9 seeds=32768 support_decisions=",
                 report.checked, " non_noop=", report.non_noop,
+                " (equal-type tautologies=", report.equal_type,
+                " line_vs_point=", report.line_vs_point,
+                ") off_line_hits=", report.off_line_hits,
                 " equal-type mismatch_rule=", report.mismatch.rule)
     end
 end
@@ -397,6 +607,19 @@ if tb1_runs("decider_rejections")
         @test passed(ld_decider(params, :DLine, raw_unprojected, :Point,
             projected_raw_point, (restrict(g, projected_line),),
             (evaluate(g, collect(projected_point)),)))
+
+        # verdicts/tb1-r2.md N1: fig:ld-decider's diagonal answer bound md
+        # (gt-07-ldt.tex:359-360). x1^2*x2 restricted to a line with both
+        # direction entries nonzero has degree 3 > md = 2.
+        over_md = restrict(polyvar(GF8, lay, 1)^2 * polyvar(GF8, lay, 2), dl)
+        @test univariate_degree(over_md) == 3
+        diagonal_degree = ld_decider(params, :DLine, raw_d, :Point, raw_dp,
+                                     (over_md,), pd)
+        @test diagonal_degree.rule == :ld_diagonal_degree
+        @test diagonal_degree.location == (:left, 1)
+        @test !passed(diagonal_degree)
+        println("MUTATION_EXPECTED_RULE ld_diagonal_degree actual=",
+                diagonal_degree.rule, " passed=", passed(diagonal_degree))
 
         off_line_point = (GF8(3), GF8(6), GF8(0), GF8(0), GF8(0))
         honest_axis = restrict(g, axis_line(raw_axis, 2))

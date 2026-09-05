@@ -65,9 +65,26 @@ function tb2_zero_answer(kind::PCPType)
     end
 end
 
+function tb2_hand_split(verifier, side::Symbol, kind, seed)
+    # The r1/r2 explicit seed split, kept only as the reference the product
+    # projection must agree with (verdicts/tb2-r2.md N1).
+    original_dimension = seed_dim(verifier.original_sampler.left)
+    original_seed = ntuple(i -> seed[i], original_dimension)
+    pcp_seed = ntuple(i -> seed[original_dimension + i],
+                      seed_dim(verifier.pcp_sampler))
+    ora_maps = side == :left ? verifier.oracularized_sampler.left :
+                               verifier.oracularized_sampler.right
+    pcp_maps = side == :left ? verifier.pcp_sampler.left : verifier.pcp_sampler.right
+    AnswerReduceQuestion(apply(ora_maps[kind.role], original_seed),
+        pcp_question_from_ambient(verifier.pcp_sampler, kind.pcp,
+                                  apply(pcp_maps[kind.pcp], pcp_seed)))
+end
+
 if tb2_runs("sampler")
     @testset "TB2 typed PCP sampler and product" begin
-        @test tb2_sampler_invariant_report() ==
+        report = tb2_sampler_invariant_report()
+        println("MUTATION_EXPECTED_RULE product_edges actual=", report.product_edges)
+        @test report ==
             (pcp_types=18, pcp_edges=324, pcp_complete=true,
              pcp_level=3, padded=true, intrinsic_ok=true,
              individual_dimensions=true, copy6=(16, 6, 16),
@@ -113,11 +130,65 @@ if tb2_runs("sampler")
         end
         apply_microseconds = elapsed * 1.0e6 / (50 * length(seeds))
         @test apply_microseconds < 1_000
+        # verdicts/tb1-r2.md N7: the figure above is a warm-memo figure; time
+        # fresh seeds too (each reaches an unseen direction-stage key).
+        fresh = [ntuple(_ -> rand(rng, field_elements(GF2048)), seed_dim(pcp))
+                 for _ in 1:1000]
+        fresh_elapsed = @elapsed for seed in fresh
+            apply(dline6, seed)
+        end
+        fresh_microseconds = fresh_elapsed * 1.0e6 / length(fresh)
+        @test fresh_microseconds < 1_000
         println("TB2 lazy CLStep replay: maps=18 seeds/map=20; DLine_6 apply=",
-                round(apply_microseconds; digits=2), " us; peak RSS MiB=",
+                round(apply_microseconds; digits=2), " us (warm memo, 20 seeds x 50); ",
+                round(fresh_microseconds; digits=2), " us (1000 fresh seeds); peak RSS MiB=",
                 round(Sys.maxrss() / 2^20; digits=1))
 
-        @test passed(verify_certificate(checked))
+        # verdicts/tb2-r2.md N1: the questions judged ARE the product
+        # sampler's questions; the hand split is now only a reference.
+        verifier = checked.term
+        product_rng = MersenneTwister(0x54)
+        product_seeds = [ntuple(_ -> rand(product_rng, field_elements(GF2048)),
+                                seed_dim(verifier.sampler)) for _ in 1:20]
+        agrees = true
+        compared = 0
+        for kind in verifier.sampler.types, seed in product_seeds
+            left_q, right_q = sample_answer_reduce_questions(verifier, kind, kind, seed)
+            agrees &= left_q == tb2_hand_split(verifier, :left, kind, seed)
+            agrees &= right_q == tb2_hand_split(verifier, :right, kind, seed)
+            drawn = sample(verifier.sampler, (kind, kind), seed)
+            agrees &= drawn.left_question == apply(verifier.sampler.left[kind], seed)
+            compared += 1
+        end
+        println("MUTATION_EXPECTED_RULE product_projection agrees=", agrees,
+                " compared=", compared)
+        @test agrees
+        @test compared == 54 * 20
+        # verdicts/tb2-r2.md N5: E^ar = E^ora x E^pcp (tensor rule), which
+        # equals the complete 54^2 graph here because both factors are complete.
+        complete = Set((a, b) for a in verifier.sampler.types
+                              for b in verifier.sampler.types)
+        @test Set(verifier.sampler.type_graph) == complete
+        @test length(verifier.sampler.type_graph) == 2916
+        @test (tb2_atype(:oracle, :Point, 1), tb2_atype(:alice, :DLine, 6)) in
+              Set(verifier.sampler.type_graph)
+        @test_throws ArgumentError edge_index(verifier.oracularized_sampler,
+                                              (:oracle, :nobody))
+
+        certificate = verify_certificate(checked)
+        println("MUTATION_EXPECTED_RULE certificate rule=", certificate.rule,
+                " passed=", passed(certificate))
+        @test passed(certificate)
+        # verdicts/tb2-r2.md N2: the CHECKED replay now asserts an honest
+        # accept and a corrupted reject with the expected rule per guard.
+        replay = MIPStarLambda._answer_reduce_replay(verifier)
+        @test passed(replay)
+        @test length(replay.actual.outcomes) == 7
+        @test [o[4] for o in replay.actual.outcomes] ==
+              [:global_consistency, :input_consistency, :ld_axis_point,
+               :ld_diagonal_point, :proof_consistency, :ld_axis_point, :pcpverifier]
+        @test all(o[2] && !o[3] for o in replay.actual.outcomes)
+        println("TB2 certificate replay outcomes: ", replay.actual.outcomes)
         @test tb2_has_node(checked.certificate, ASSUMED, :AnswerReduceHypotheses)
         @test tb2_has_node(checked.certificate, SOURCE_REPAIR,
                            :PCPVerifierFixedFormula)
@@ -129,6 +200,89 @@ if tb2_runs("sampler")
         @test detyped.term.level == 5
         @test detyped.term.soundness_factor == big(16)^54
         @test detyped.certificate.grade == CITED
+    end
+end
+
+if tb2_runs("describe")
+    @testset "TB2 DESIGN 9 describability, chain-set replay, memo bound" begin
+        pcp = pcp_sampler(GF2048, TB2_PARAMS).term
+        kinds = [PCPType(kind, i) for kind in (:Point, :ALine, :DLine) for i in 1:6]
+        sizes = Dict{PCPType,Int}()
+        describable = 0
+        for kind in kinds
+            description = describe_cl(pcp.left[kind])
+            description isa CLDescription || continue
+            describable += 1
+            sizes[kind] = description_size(description)
+            @test description.level == 3
+            @test canonical_bytes(describe_cl(pcp.left[kind])) ==
+                  canonical_bytes(description)
+        end
+        println("MUTATION_EXPECTED_RULE describable actual=", describable, "/18")
+        @test describable == 18
+        @test all(sizes[PCPType(:Point, i)] == sizes[PCPType(:Point, 1)] for i in 1:6)
+        @test all(sizes[PCPType(:ALine, i)] == sizes[PCPType(:ALine, 1)] for i in 1:5)
+        @test all(sizes[PCPType(:DLine, i)] == sizes[PCPType(:DLine, 1)] for i in 1:5)
+        println("TB2 describe: description_size ",
+                join(("$(kind)=$(sizes[kind])" for kind in kinds), " "))
+
+        # Declared branch-directed chain set (DESIGN 9.2): one seed per
+        # chi(s_aux, 16) bucket plus 20 RNG seeds.
+        layout = pcp.metadata.pcp_layout
+        rng = MersenneTwister(0x9C)
+        chain_seeds = Any[]
+        for axis in 1:16
+            seed = collect(ntuple(_ -> rand(rng, field_elements(GF2048)), seed_dim(pcp)))
+            seed[layout.auxiliary_coordinate] = GF2048((axis - 1) * 128 + 7)
+            push!(chain_seeds, Tuple(seed))
+        end
+        for _ in 1:20
+            push!(chain_seeds, ntuple(_ -> rand(rng, field_elements(GF2048)),
+                                      seed_dim(pcp)))
+        end
+        chain_set_id = "tb2-chi16-directed+rng20(0x9C)"
+        replays = Dict{PCPType,Any}()
+        for kind in kinds
+            replays[kind] = cl_kth_replay(pcp.left[kind], chain_seeds; chain_set_id)
+            @test replays[kind].space_sum_ok
+            @test replays[kind].map_sum_ok
+            @test replays[kind].completed_replays == 36
+            @test replays[kind].map_sum_checks == 3 * 36
+        end
+        # A chain is the sequence of stage VALUES consumed by the walk, so
+        # ALine_6 has one chain per distinct s_aux and DLine_6 one per
+        # distinct (s_aux, pi(v)) pair; the directed half covers all 16 buckets.
+        distinct_aux = length(Set(seed[layout.auxiliary_coordinate] for seed in chain_seeds))
+        @test length(Set(chi(seed[layout.auxiliary_coordinate], 16)
+                         for seed in chain_seeds)) == 16
+        @test replays[PCPType(:ALine, 6)].distinct_chains == distinct_aux
+        @test replays[PCPType(:DLine, 6)].distinct_chains == 36
+        println("TB2 lem:cl-kth replay: chain_set_id=", chain_set_id,
+                " distinct_chains ",
+                join(("$(kind)=$(replays[kind].distinct_chains)" for kind in kinds), " "),
+                " completed_replays=36/map")
+
+        # Bounded memo across 10^4 distinct Linear prefixes at q=2048.
+        dline6 = pcp.left[PCPType(:DLine, 6)]
+        coordinate_register = layout.registers[(6, :coord)]
+        y = ntuple(i -> GF2048(3i + 1), seed_dim(pcp))
+        prefixes = Set{Any}()
+        while length(prefixes) < 10_000
+            u = fill(zero(GF2048), seed_dim(pcp))
+            for c in coordinate_register
+                u[c] = rand(rng, field_elements(GF2048))
+            end
+            push!(prefixes, Tuple(u))
+        end
+        for u in prefixes
+            Linear(dline6, 2, u, y)
+        end
+        memo = memo_report(dline6)
+        @test memo.max_entries <= CL_MEMO_LIMIT
+        @test memo.entries <= CL_MEMO_LIMIT * memo.nodes
+        println("TB2 memo: distinct Linear prefixes=", length(prefixes),
+                " limit=", CL_MEMO_LIMIT, " max_entries=", memo.max_entries,
+                " entries=", memo.entries, " nodes=", memo.nodes)
     end
 end
 
@@ -171,11 +325,13 @@ if tb2_runs("branches")
         nd = tb2_proof(:nondegenerate)
         covered = Set{Tuple{Int,Symbol,Symbol,Int,Symbol}}()
         traces = Dict{Int,Any}()
+        failures = Symbol[]
         case_index = 10
 
         global_type = tb2_atype(:alice, :Point, 1)
         run = tb2_answer_pair(reduced, deg, global_type, global_type, case_index)
         @test passed(run.decision)
+        passed(run.decision) || push!(failures, run.decision.result.rule)
         union!(covered, tb2_trace_keys(run.decision))
         traces[1] = run
         case_index += 1
@@ -186,6 +342,7 @@ if tb2_runs("branches")
                 tb2_atype(:oracle, :Point, 6), tb2_atype(role, :Point, copy))
             run = tb2_answer_pair(reduced, deg, types..., case_index)
             @test passed(run.decision)
+            passed(run.decision) || push!(failures, run.decision.result.rule)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 2, run)
             case_index += 1
@@ -198,6 +355,7 @@ if tb2_runs("branches")
                 tb2_atype(role, :Point, copy), tb2_atype(role, line_kind, copy))
             run = tb2_answer_pair(reduced, deg, types..., case_index)
             @test passed(run.decision)
+            passed(run.decision) || push!(failures, run.decision.result.rule)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 3, run)
             case_index += 1
@@ -208,6 +366,7 @@ if tb2_runs("branches")
                 tb2_atype(:oracle, :Point, i), tb2_atype(:oracle, :Point, 6))
             run = tb2_answer_pair(reduced, nd, types..., case_index)
             @test passed(run.decision)
+            passed(run.decision) || push!(failures, run.decision.result.rule)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 4, run)
             case_index += 1
@@ -217,6 +376,7 @@ if tb2_runs("branches")
                 tb2_atype(:oracle, :Point, i), tb2_atype(:oracle, line_kind, i))
             run = tb2_answer_pair(reduced, nd, types..., case_index)
             @test passed(run.decision)
+            passed(run.decision) || push!(failures, run.decision.result.rule)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 4, run)
             case_index += 1
@@ -226,6 +386,7 @@ if tb2_runs("branches")
                 tb2_atype(:oracle, :Point, 6), tb2_atype(:oracle, line_kind, 6))
             run = tb2_answer_pair(reduced, deg, types..., case_index)
             @test passed(run.decision)
+            passed(run.decision) || push!(failures, run.decision.result.rule)
             union!(covered, tb2_trace_keys(run.decision))
             traces[4] = run
             case_index += 1
@@ -236,6 +397,7 @@ if tb2_runs("branches")
                 tb2_atype(:oracle, :Point, 6), tb2_atype(:bob, :Point, 2))
             run = tb2_answer_pair(reduced, deg, types..., case_index)
             @test passed(run.decision)
+            passed(run.decision) || push!(failures, run.decision.result.rule)
             union!(covered, tb2_trace_keys(run.decision))
             get!(traces, 5, run)
             case_index += 1
@@ -275,6 +437,9 @@ if tb2_runs("branches")
                     " => ", [(entry.branch, entry.result.rule,
                                entry.ldparams) for entry in entries], " PASS")
         end
+        println("MUTATION_EXPECTED_RULE branches first_failure=",
+                isempty(failures) ? :none : first(failures),
+                " failures=", length(failures))
         println("TB2 deterministic branches: covered=", length(covered),
                 " seeds=", case_index - 10,
                 " every guard orientation and both ldparams PASS")
@@ -446,6 +611,8 @@ end
 if tb2_runs("i345")
     @testset "TB2 structural guard set i in {3,4,5} (M-i345 owner)" begin
         reduced = tb2_checked_reduction().term
+        println("MUTATION_EXPECTED_RULE i345 actual=",
+                proof_individual_guard_copies(reduced.decider))
         @test proof_individual_guard_copies(reduced.decider) == (3, 4, 5)
         println("TB2 structural guard table: individual copies=(3,4,5) exactly")
     end

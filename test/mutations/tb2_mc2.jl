@@ -3,4 +3,5 @@ const TB2_MC2_MUTANT = Mutant(
     "src/verifiers/answer_reduce.jl",
     "result = CheckResult(other_answer[1] == current_answer[input_copy],",
     "result = CheckResult(other_answer[1] == current_answer[3 - input_copy],",
-    "tb2_branches")
+    "tb2_branches",
+    "MUTATION_EXPECTED_RULE branches first_failure=input_consistency")

@@ -53,15 +53,24 @@ function pi_prefix(v::NTuple{N,F}, count::Integer) where {N,F}
     ntuple(i -> i <= prefix ? zero(F) : v[i], N)
 end
 
+function _projector_matrix(::Type{F}, n::Int, selected) where {F}
+    matrix = zeros(F, n, n)
+    for i in selected
+        matrix[i, i] = one(F)
+    end
+    matrix
+end
+
 function _build_L_Point(::Type{F}, m::Integer) where {F<:GF2k}
-    # eq:cl-ptf (gt-07-ldt.tex:203-207).
+    # eq:cl-ptf (gt-07-ldt.tex:203-207): the 1-level CL function that
+    # projects onto V_pt. Its single factor space is the whole ambient V
+    # (lem:cl-kth enu:cl-space-sum, gt-04-cl.tex:151-160; verdicts/tb1-r2.md N3).
     dimension = Int(m)
     dimension > 0 || throw(ArgumentError("m must be positive"))
     n = 2dimension + 1
-    point = Tuple(1:dimension)
-    rest = Tuple(dimension+1:n)
-    tail = CLZero(F, n, rest)
-    CLStep(F, n, point, rest, _identity_matrix(F, dimension), tail)
+    ambient = collect(1:n)
+    CLStep(F, n, ambient, Int[], _projector_matrix(F, n, 1:dimension),
+           CLZero(F, n, Int[]))
 end
 
 function _build_L_ALine(::Type{F}, m::Integer) where {F<:GF2k}
@@ -70,23 +79,21 @@ function _build_L_ALine(::Type{F}, m::Integer) where {F<:GF2k}
     q = field_size(F)
     q % dimension == 0 || throw(ArgumentError("m must divide q"))
     n = 2dimension + 1
-    point = Tuple(1:dimension)
-    coordinate_direction = Tuple(dimension+1:n)
+    point = collect(1:dimension)
+    coordinate_direction = collect(dimension+1:n)
     first_matrix = zeros(F, dimension + 1, dimension + 1)
     first_matrix[1, 1] = one(F)
-    tail = CLZero(F, n, ())
-    point_shape = _clstep(F, n, point, (), _identity_matrix(F, dimension),
-                          tail, _ -> tail; require_ambient=false)
-    axis_cache = Dict{Int,AbstractCL{F}}()
-    CLStep(F, n, coordinate_direction, point, first_matrix, point_shape) do output
-        s = output[1]
-        axis = chi(s, dimension)
-        get!(axis_cache, axis) do
-            e_i = F[F(j == axis) for j in 1:dimension]
-            _clstep(F, n, point, (), L_lnf(e_i), tail, _ -> tail;
-                    require_ambient=false)
-        end
-    end
+    tail = CLZero(F, n, Int[])
+    point_shape = _clstep(F, n, point, Int[], _identity_matrix(F, dimension),
+                          tail, BranchConst(tail); require_ambient=false)
+    # Stage 2 at axis i applies L_lnf(e_i) on V_pt; the coordinate s sits at
+    # position 1 of the stage-1 value (coordinate_direction[1] == m+1).
+    table = AbstractCL{F}[
+        _clstep(F, n, point, Int[], L_lnf(F[F(j == axis) for j in 1:dimension]),
+                tail, BranchConst(tail); require_ambient=false)
+        for axis in 1:dimension]
+    CLStep(F, n, coordinate_direction, point, first_matrix, point_shape,
+           BranchByAxis(dimension, 1, table))
 end
 
 function _build_L_DLine(::Type{F}, m::Integer) where {F<:GF2k}
@@ -95,31 +102,28 @@ function _build_L_DLine(::Type{F}, m::Integer) where {F<:GF2k}
     q = field_size(F)
     q % dimension == 0 || throw(ArgumentError("m must divide q"))
     n = 2dimension + 1
-    point = Tuple(1:dimension)
-    coordinate = (dimension + 1,)
-    direction = Tuple(dimension+2:n)
-    tail = CLZero(F, n, ())
-    point_shape = _clstep(F, n, point, (), _identity_matrix(F, dimension),
-                          tail, _ -> tail; require_ambient=false)
+    point = collect(1:dimension)
+    coordinate = [dimension + 1]
+    direction = collect(dimension+2:n)
+    tail = CLZero(F, n, Int[])
+    point_shape = _clstep(F, n, point, Int[], _identity_matrix(F, dimension),
+                          tail, BranchConst(tail); require_ambient=false)
     direction_shape = _clstep(F, n, direction, point,
                               _identity_matrix(F, dimension), point_shape,
-                              _ -> point_shape; require_ambient=false)
-    direction_cache = Dict{Int,AbstractCL{F}}()
-    CLStep(F, n, coordinate, (direction..., point...),
-           reshape([one(F)], 1, 1), direction_shape) do coordinate_output
-        s = coordinate_output[1]
-        axis = chi(s, dimension)
-        get!(direction_cache, axis) do
-            projection = zeros(F, dimension, dimension)
-            for j in axis:dimension
-                projection[j, j] = one(F)
-            end
-            _clstep(F, n, direction, point, projection, point_shape,
-                    v_prime -> _clstep(F, n, point, (), L_lnf(v_prime), tail,
-                                       _ -> tail; require_ambient=false);
-                    require_ambient=false)
+                              BranchConst(point_shape); require_ambient=false)
+    # Stage 2 at axis i projects the direction by pi_{i-1}; stage 3 applies
+    # L_lnf(v') on V_pt for the projected direction v' (BranchLnf).
+    table = AbstractCL{F}[]
+    for axis in 1:dimension
+        projection = zeros(F, dimension, dimension)
+        for j in axis:dimension
+            projection[j, j] = one(F)
         end
+        push!(table, _clstep(F, n, direction, point, projection, point_shape,
+                             BranchLnf(n, point, tail); require_ambient=false))
     end
+    CLStep(F, n, coordinate, vcat(direction, point), reshape([one(F)], 1, 1),
+           direction_shape, BranchByAxis(dimension, 1, table))
 end
 
 L_Point(::Type{F}, m::Integer) where {F<:GF2k} = _build_L_Point(F, m)

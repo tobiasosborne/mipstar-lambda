@@ -3,4 +3,5 @@ const TB2_I345_MUTANT = Mutant(
     "src/verifiers/answer_reduce.jl",
     "const _PROOF_INDIVIDUAL_COPIES = (3, 4, 5)",
     "const _PROOF_INDIVIDUAL_COPIES = (1, 2, 3, 4, 5)",
-    "tb2_i345")
+    "tb2_i345",
+    "MUTATION_EXPECTED_RULE i345 actual=(1, 2, 3, 4, 5)")

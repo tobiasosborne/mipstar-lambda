@@ -47,13 +47,24 @@ function _answer_reduce_replay(verifier::TypedAnswerReducedVerifier)
         length(verifier.sampler.type_graph) == 54^2 &&
         level(verifier.sampler) == max(level(verifier.oracularized_sampler),
                                        level(verifier.pcp_sampler))
-    steps = _answer_reduce_replay_steps(verifier)
-    CheckResult(shape_ok && steps == Set(1:5),
+    outcomes = _answer_reduce_replay_steps(verifier)
+    steps = Set{Int}()
+    for outcome in outcomes
+        union!(steps, outcome.honest_steps)
+    end
+    outcomes_ok = all(outcome.honest_passed && !outcome.corrupted_passed &&
+                      outcome.corrupted_rule == outcome.expected_rule
+                      for outcome in outcomes)
+    CheckResult(shape_ok && steps == Set(1:5) && outcomes_ok,
                 :typed_answer_reduce_shape;
-                expected=(types=54, edges=2916, level=3, steps=Set(1:5)),
+                expected=(types=54, edges=2916, level=3, steps=Set(1:5),
+                          outcomes=[(o.case, true, false, o.expected_rule)
+                                    for o in outcomes]),
                 actual=(types=length(verifier.sampler.types),
                         edges=length(verifier.sampler.type_graph),
-                        level=level(verifier.sampler), steps=steps))
+                        level=level(verifier.sampler), steps=steps,
+                        outcomes=[(o.case, o.honest_passed, o.corrupted_passed,
+                                   o.corrupted_rule) for o in outcomes]))
 end
 
 "Executable typed construction; quantum lifting and detyping remain certificate leaves."
@@ -112,23 +123,29 @@ struct AnswerReduceQuestion{O,P<:AbstractPCPQuestion}
     pcp::P
 end
 
+# The questions judged are the product sampler's own output: one oriented
+# edge, one shared seed, both CL maps applied (gt-10:1956-1962; DESIGN 1.5),
+# then projected onto the original and PCP registers. No second seed split.
+function _answer_reduce_project(verifier::TypedAnswerReducedVerifier,
+                                kind::AnswerReduceType, ambient)
+    original_dimension = seed_dim(verifier.original_sampler.left)
+    pcp_dimension = seed_dim(verifier.pcp_sampler)
+    length(ambient) == original_dimension + pcp_dimension ||
+        throw(ArgumentError("answer-reduced question has wrong dimension"))
+    original = ntuple(i -> ambient[i], original_dimension)
+    pcp_ambient = ntuple(i -> ambient[original_dimension + i], pcp_dimension)
+    AnswerReduceQuestion(original,
+        pcp_question_from_ambient(verifier.pcp_sampler, kind.pcp, pcp_ambient))
+end
+
 function sample_answer_reduce_questions(verifier::TypedAnswerReducedVerifier,
                                         left_type::AnswerReduceType,
                                         right_type::AnswerReduceType, seed)
     length(seed) == seed_dim(verifier.sampler) ||
         throw(ArgumentError("answer-reduced seed has wrong dimension"))
-    original_dimension = seed_dim(verifier.original_sampler.left)
-    original_seed = ntuple(i -> seed[i], original_dimension)
-    pcp_seed = ntuple(i -> seed[original_dimension + i],
-                      seed_dim(verifier.pcp_sampler))
-    left_original = apply(
-        verifier.oracularized_sampler.left[left_type.role], original_seed)
-    right_original = apply(
-        verifier.oracularized_sampler.right[right_type.role], original_seed)
-    left_pcp = sample_pcp_question(verifier.pcp_sampler, left_type.pcp, pcp_seed)
-    right_pcp = sample_pcp_question(verifier.pcp_sampler, right_type.pcp, pcp_seed)
-    (AnswerReduceQuestion(left_original, left_pcp),
-     AnswerReduceQuestion(right_original, right_pcp))
+    drawn = sample(verifier.sampler, (left_type, right_type), Tuple(seed))
+    (_answer_reduce_project(verifier, left_type, drawn.left_question),
+     _answer_reduce_project(verifier, right_type, drawn.right_question))
 end
 
 struct HonestPCPStrategy{P}
@@ -576,34 +593,83 @@ function _answer_reduce_replay_answer(::Type{F}, kind::PCPType,
     ntuple(_ -> polynomial, count)
 end
 
-function _answer_reduce_replay_steps(verifier::TypedAnswerReducedVerifier{F}) where {F}
-    cases = (
-        (AnswerReduceType(:alice, PCPType(:Point, 1)),
-         AnswerReduceType(:alice, PCPType(:Point, 1))),
-        (AnswerReduceType(:oracle, PCPType(:Point, 6)),
-         AnswerReduceType(:alice, PCPType(:Point, 1))),
-        (AnswerReduceType(:alice, PCPType(:Point, 1)),
-         AnswerReduceType(:alice, PCPType(:ALine, 1))),
-        (AnswerReduceType(:oracle, PCPType(:Point, 3)),
-         AnswerReduceType(:oracle, PCPType(:Point, 6))),
-        (AnswerReduceType(:oracle, PCPType(:Point, 6)),
-         AnswerReduceType(:bob, PCPType(:Point, 2))),
+_corrupt_replay_entry(value::Poly{F,1}) where {F} =
+    value + constant_poly(F, VarLayout((:t,), (VarBlock(:LineParameter, 1:1),)), one(F))
+_corrupt_replay_entry(value) = value + one(value)
+
+function _corrupt_replay_answer(answer, entry::Int)
+    entries = collect(Any, answer)
+    entries[entry] = _corrupt_replay_entry(entries[entry])
+    Tuple(entries)
+end
+
+# One fig:decider-pcp guard per case. At the all-zero seed the all-zero
+# answers are honest for every check (the zero polynomial agrees with the
+# zero point value, and the PCP view is z = 0 so both pcpverifier sides
+# vanish); corrupting the named answer entry must be rejected by the named
+# rule (verdicts/tb2-r2.md N2).
+function _answer_reduce_replay_cases()
+    (
+        (case=:global_consistency, step=1,
+         left=AnswerReduceType(:alice, PCPType(:Point, 1)),
+         right=AnswerReduceType(:alice, PCPType(:Point, 1)),
+         corrupt=(:right, 1), expected_rule=:global_consistency),
+        (case=:input_consistency, step=2,
+         left=AnswerReduceType(:oracle, PCPType(:Point, 6)),
+         right=AnswerReduceType(:alice, PCPType(:Point, 1)),
+         corrupt=(:right, 1), expected_rule=:input_consistency),
+        (case=:input_axis, step=3,
+         left=AnswerReduceType(:alice, PCPType(:Point, 1)),
+         right=AnswerReduceType(:alice, PCPType(:ALine, 1)),
+         corrupt=(:right, 1), expected_rule=:ld_axis_point),
+        (case=:input_diagonal, step=3,
+         left=AnswerReduceType(:bob, PCPType(:Point, 2)),
+         right=AnswerReduceType(:bob, PCPType(:DLine, 2)),
+         corrupt=(:right, 1), expected_rule=:ld_diagonal_point),
+        (case=:proof_consistency, step=4,
+         left=AnswerReduceType(:oracle, PCPType(:Point, 3)),
+         right=AnswerReduceType(:oracle, PCPType(:Point, 6)),
+         corrupt=(:left, 1), expected_rule=:proof_consistency),
+        (case=:proof_simultaneous_axis, step=4,
+         left=AnswerReduceType(:oracle, PCPType(:Point, 6)),
+         right=AnswerReduceType(:oracle, PCPType(:ALine, 6)),
+         corrupt=(:right, 7), expected_rule=:ld_axis_point),
+        (case=:game, step=5,
+         left=AnswerReduceType(:oracle, PCPType(:Point, 6)),
+         right=AnswerReduceType(:bob, PCPType(:Point, 2)),
+         corrupt=(:left, 6), expected_rule=:pcpverifier),
     )
+end
+
+function _answer_reduce_replay_steps(verifier::TypedAnswerReducedVerifier{F}) where {F}
     seed = ntuple(_ -> zero(F), seed_dim(verifier.sampler))
-    steps = Set{Int}()
-    for (left_type, right_type) in cases
+    outcomes = NamedTuple[]
+    for case in _answer_reduce_replay_cases()
         left_question, right_question = sample_answer_reduce_questions(
-            verifier, left_type, right_type, seed)
-        left_answer = _answer_reduce_replay_answer(F, left_type.pcp,
+            verifier, case.left, case.right, seed)
+        left_answer = _answer_reduce_replay_answer(F, case.left.pcp,
                                                    verifier.decider.params)
-        right_answer = _answer_reduce_replay_answer(F, right_type.pcp,
+        right_answer = _answer_reduce_replay_answer(F, case.right.pcp,
                                                     verifier.decider.params)
-        decision = typed_answer_reduced_decider(
-            verifier.decider, left_type, left_question, right_type,
+        honest = typed_answer_reduced_decider(
+            verifier.decider, case.left, left_question, case.right,
             right_question, left_answer, right_answer)
-        union!(steps, (entry.step for entry in decision.trace))
+        side, entry = case.corrupt
+        corrupted_left = side == :left ? _corrupt_replay_answer(left_answer, entry) :
+                                         left_answer
+        corrupted_right = side == :right ? _corrupt_replay_answer(right_answer, entry) :
+                                           right_answer
+        corrupted = typed_answer_reduced_decider(
+            verifier.decider, case.left, left_question, case.right,
+            right_question, corrupted_left, corrupted_right)
+        push!(outcomes, (; case.case, case.step,
+                           honest_passed=passed(honest),
+                           honest_steps=Set(entry.step for entry in honest.trace),
+                           corrupted_passed=passed(corrupted),
+                           corrupted_rule=corrupted.result.rule,
+                           case.expected_rule))
     end
-    steps
+    outcomes
 end
 
 const _TB2_PROOF_TYPE = PCPProof{GF2048,16}

@@ -129,6 +129,19 @@ include("tb1_repair.jl")
 include("tb1_ambient.jl")
 include("tb1_dsum.jl")
 include("tb1_kappa.jl")
+# verdicts/tb1-r2.md N1-N6 and the DESIGN 9 preparation (brief 46).
+include("tb1_dline_degree.jl")
+include("tb1_child_validation.jl")
+include("tb1_ambient_doblock.jl")
+include("tb1_space_sum.jl")
+include("tb1_pad_order.jl")
+include("tb1_chifree.jl")
+include("tb1_describe_closure.jl")
+include("tb1_factor_indicator.jl")
+include("tb1_linear_narrowed.jl")
+include("tb1_replay_skips_k.jl")
+include("tb1_replay_skips_union.jl")
+include("tb1_memo_unbounded.jl")
 include("tb2_formula.jl")
 include("tb2_g3.jl")
 include("tb2_line.jl")
@@ -137,6 +150,11 @@ include("tb2_i345.jl")
 include("tb2_mc1.jl")
 include("tb2_mc2.jl")
 include("tb2_mc3.jl")
+# verdicts/tb2-r2.md N1, N2, N5 and the DESIGN 9 preparation (brief 46).
+include("tb2_nd2.jl")
+include("tb2_nd4.jl")
+include("tb2_tensor.jl")
+include("tb2_opaque.jl")
 
 const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_DEG_MUTANT, TB1_LEVEL_MUTANT,
@@ -144,10 +162,18 @@ const TB1_MUTANTS = (TB1_CHI_MUTANT, TB1_PI_MUTANT, TB1_LNF_MUTANT,
                      TB1_VERIFIER_PI_MUTANT, TB1_ONLINE_MUTANT,
                      TB1_QUESTION_ARITY_MUTANT, TB1_CONCAT_MUTANT,
                      TB1_REPAIR_MUTANT, TB1_AMBIENT_MUTANT, TB1_DSUM_MUTANT,
-                     TB1_KAPPA_MUTANT)
+                     TB1_KAPPA_MUTANT,
+                     TB1_DLINE_DEGREE_MUTANT, TB1_CHILD_VALIDATION_MUTANT,
+                     TB1_AMBIENT_DOBLOCK_MUTANT, TB1_SPACE_SUM_MUTANT,
+                     TB1_PAD_ORDER_MUTANT, TB1_CHIFREE_MUTANT,
+                     TB1_DESCRIBE_CLOSURE_MUTANT, TB1_FACTOR_INDICATOR_MUTANT,
+                     TB1_LINEAR_NARROWED_MUTANT, TB1_REPLAY_SKIPS_K_MUTANT,
+                     TB1_REPLAY_SKIPS_UNION_MUTANT, TB1_MEMO_UNBOUNDED_MUTANT)
 const TB2_MUTANTS = (TB2_FORMULA_MUTANT, TB2_G3_MUTANT, TB2_LINE_MUTANT,
                      TB2_GUARD_MUTANT, TB2_I345_MUTANT,
-                     TB2_MC1_MUTANT, TB2_MC2_MUTANT, TB2_MC3_MUTANT)
+                     TB2_MC1_MUTANT, TB2_MC2_MUTANT, TB2_MC3_MUTANT,
+                     TB2_ND2_MUTANT, TB2_ND4_MUTANT, TB2_TENSOR_MUTANT,
+                     TB2_OPAQUE_MUTANT)
 
 function _rung(mutant::Mutant)
     startswith(mutant.target, "tb2_") && return (:tb2, "tb2_answer_reduce.jl",

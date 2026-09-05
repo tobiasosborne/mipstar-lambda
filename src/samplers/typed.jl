@@ -1,15 +1,45 @@
 _cl_field(::AbstractCL{F}) where {F} = F
 
+# rk:higher-level (gt-04-cl.tex:122-130) promotes a zero map by V_1 = V and
+# L_1 = 0. DESIGN 9.4 fixes the padding order: a genuine r>=1-level child
+# keeps its first r factors and APPENDS empty stages; a zero map on a
+# nonempty register is promoted with stage 1 = that whole register under the
+# zero map, followed by empty stages. The source machines would print an
+# all-zero factor indicator there, so the promotion is a SOURCE_REPAIR.
+const ZERO_MAP_FACTOR_PARTITION = CertNode(SOURCE_REPAIR, :zero_map_factor_partition;
+    facts=(display="pad_level(CLZero on register R, ell): stage 1 reports the all-ones indicator of R with the zero linear map; stages 2..ell report empty factors (rk:higher-level, gt-04-cl.tex:122-130; DESIGN 9.4)",))
+
+function _pad_tail(L::CLZero{F}, extra::Int) where {F}
+    extra == 0 && return L
+    n = seed_dim(L)
+    empty_tail = CLZero(F, n, Int[])
+    if isempty(L.indices)
+        result = L
+        for _ in 1:extra
+            # def:cl-func permits the empty register subspace.
+            result = _clstep(F, n, Int[], Int[], zeros(F, 0, 0), result,
+                             BranchConst(result); require_ambient=false)
+        end
+        return result
+    end
+    # SOURCE_REPAIR(zero-map-factor-partition): see ZERO_MAP_FACTOR_PARTITION.
+    tail = _pad_tail(empty_tail, extra - 1)
+    width = length(L.indices)
+    _clstep(F, n, L.indices, Int[], zeros(F, width, width), tail,
+            BranchConst(tail); require_ambient=false)
+end
+
+function _pad_tail(L::CLStep{F}, extra::Int) where {F}
+    extra == 0 && return L
+    shape = _pad_tail(L.child_shape, extra)
+    _clstep(F, L.seed_dim, L.factor, L.rest, L.matrix, shape,
+            BranchPadded(L, extra); require_ambient=false)
+end
+
 function pad_level(L::AbstractCL{F}, target::Integer) where {F}
     target_level = Int(target)
     target_level >= level(L) || throw(ArgumentError("cannot pad to a lower CL level"))
-    result = L
-    for _ in 1:(target_level - level(L))
-        # def:cl-func permits the empty register subspace; this zero-output
-        # stage makes the lower-level function an inhabitant of the next level.
-        result = CLStep(F, seed_dim(result), (), register_indices(result),
-                        zeros(F, 0, 0), result)
-    end
+    result = _pad_tail(L, target_level - level(L))
     level(result) == target_level ||
         throw(ArgumentError("CL nesting did not reach the requested level"))
     result
@@ -76,6 +106,17 @@ function sample(sampler::TypedSampler, edge_index::Integer, seed)
        right_question=apply(sampler.right[edge[2]], seed),
        seed=Tuple(seed))
 end
+
+function edge_index(sampler::TypedSampler, edge)
+    oriented = (edge[1], edge[2])
+    index = findfirst(==(oriented), sampler.type_graph)
+    index === nothing &&
+        throw(ArgumentError("oriented type pair is not an edge of the type graph"))
+    index
+end
+
+sample(sampler::TypedSampler, edge::Tuple, seed) =
+    sample(sampler, edge_index(sampler, edge), seed)
 
 function sample(rng::AbstractRNG, sampler::TypedSampler{F}) where {F}
     edge_index = rand(rng, eachindex(sampler.type_graph))

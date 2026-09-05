@@ -3,4 +3,5 @@ const TB2_MC1_MUTANT = Mutant(
     "src/samplers/pcp_sampler.jl",
     "for i in axis:length(direction)\n            projection[i, i] = one(F)",
     "for i in 1:length(direction)\n            projection[i, i] = one(F)",
-    "tb2_branches")
+    "tb2_branches",
+    "MUTATION_EXPECTED_RULE branches first_failure=ld_diagonal_point")

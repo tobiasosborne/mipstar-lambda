@@ -64,13 +64,17 @@ end
 
 function _pcp_cl_map(::Type{F}, kind::PCPType,
                      layout::PCPRegisterLayout) where {F<:GF2k}
+    # Every map is built on QuotedBranch continuations (DESIGN 9.3), so it is
+    # describable: BranchConst for the point stage, BranchByAxis on
+    # eq:chi-func for the axis choice, BranchLnf for the direction-dependent
+    # canonical projection.
     n = layout.ambient_dimension
     point = layout.registers[(kind.copy, :pt)]
     direction = layout.registers[(kind.copy, :dir)]
     coordinate = kind.copy == 6 ? layout.auxiliary_coordinate :
                                   only(layout.registers[(kind.copy, :coord)])
     complement(excluded) = [i for i in 1:n if !(i in Set(excluded))]
-    tail = CLZero(F, n, ())
+    tail = CLZero(F, n, Int[])
     if kind.kind == :Point
         ambient = collect(1:n)
         return CLStep(F, n, ambient, Int[],
@@ -78,37 +82,37 @@ function _pcp_cl_map(::Type{F}, kind::PCPType,
     end
 
     point_shape = _clstep(F, n, point, Int[], _identity_matrix(F, length(point)),
-                          tail, _ -> tail; require_ambient=false)
+                          tail, BranchConst(tail); require_ambient=false)
     if kind.kind == :ALine
         first_factor = complement(point)
         first_matrix = _pcp_stage_matrix(F, first_factor, (coordinate,))
-        return CLStep(F, n, first_factor, point, first_matrix, point_shape) do output
-            s = output[findfirst(==(coordinate), first_factor)]
-            axis = chi(s, length(point))
-            axis_direction = F[F(i == axis) for i in eachindex(point)]
-            _clstep(F, n, point, Int[], L_lnf(axis_direction), tail, _ -> tail;
-                    require_ambient=false)
-        end
+        position = findfirst(==(coordinate), first_factor)
+        table = AbstractCL{F}[
+            _clstep(F, n, point, Int[],
+                    L_lnf(F[F(i == axis) for i in eachindex(point)]), tail,
+                    BranchConst(tail); require_ambient=false)
+            for axis in eachindex(point)]
+        return CLStep(F, n, first_factor, point, first_matrix, point_shape,
+                      BranchByAxis(length(point), position, table))
     end
 
     direction_shape = _clstep(
         F, n, direction, point, _identity_matrix(F, length(direction)),
-        point_shape, _ -> point_shape; require_ambient=false)
+        point_shape, BranchConst(point_shape); require_ambient=false)
     first_factor = complement(vcat(point, direction))
     first_matrix = _pcp_stage_matrix(F, first_factor, (coordinate,))
-    CLStep(F, n, first_factor, vcat(direction, point), first_matrix,
-           direction_shape) do output
-        s = output[findfirst(==(coordinate), first_factor)]
-        axis = chi(s, length(point))
+    position = findfirst(==(coordinate), first_factor)
+    table = AbstractCL{F}[]
+    for axis in eachindex(point)
         projection = zeros(F, length(direction), length(direction))
         for i in axis:length(direction)
             projection[i, i] = one(F)
         end
-        _clstep(F, n, direction, point, projection, point_shape,
-                v_prime -> _clstep(F, n, point, Int[], L_lnf(v_prime), tail,
-                                   _ -> tail; require_ambient=false);
-                require_ambient=false)
+        push!(table, _clstep(F, n, direction, point, projection, point_shape,
+                             BranchLnf(n, point, tail); require_ambient=false))
     end
+    CLStep(F, n, first_factor, vcat(direction, point), first_matrix,
+           direction_shape, BranchByAxis(length(point), position, table))
 end
 
 function _pcp_replay_sampler(subject)
@@ -212,11 +216,12 @@ function parse_pcp_question(kind::PCPType, raw, params::PCPParams)
     PCPDLineQuestion(point, coordinate, direction)
 end
 
-function sample_pcp_question(sampler::TypedSampler, kind::PCPType, seed)
-    ambient = apply(sampler.left[kind], seed)
+"Read the table:tpcp question of `kind` off an ambient V^pcp output vector."
+function pcp_question_from_ambient(sampler::TypedSampler, kind::PCPType, ambient)
     layout = sampler.metadata.pcp_layout
+    length(ambient) == layout.ambient_dimension ||
+        throw(ArgumentError("PCP ambient vector has wrong dimension"))
     point_indices = layout.registers[(kind.copy, :pt)]
-    dimension = length(point_indices)
     point = Tuple(ambient[i] for i in point_indices)
     kind.kind == :Point && return PCPPointQuestion(point)
     coordinate_index = kind.copy == 6 ? layout.auxiliary_coordinate :
@@ -226,6 +231,10 @@ function sample_pcp_question(sampler::TypedSampler, kind::PCPType, seed)
     direction_indices = layout.registers[(kind.copy, :dir)]
     direction = Tuple(ambient[i] for i in direction_indices)
     PCPDLineQuestion(point, coordinate, direction)
+end
+
+function sample_pcp_question(sampler::TypedSampler, kind::PCPType, seed)
+    pcp_question_from_ambient(sampler, kind, apply(sampler.left[kind], seed))
 end
 
 function _pcp_answer_count(kind::PCPType, params::PCPParams)

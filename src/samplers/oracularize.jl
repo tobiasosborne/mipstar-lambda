@@ -74,10 +74,16 @@ function _build_typed_sampler_product(oracularized::Checked, pcp::Checked)
         right[kind] = direct_sum(ora_sampler.right[kind.role],
                                  pcp_sampler_term.right[kind.pcp])
     end
-    graph = [(left_type, right_type) for left_type in types for right_type in types]
+    # E^ar is the tensor product of the two factor graphs
+    # (gt-10-answer-reduction.tex:1949-1955; DESIGN 9.4 DL9-product), not the
+    # complete graph; the two coincide on this fixture only because both
+    # factor graphs are complete (verdicts/tb2-r2.md N5).
+    graph = [(AnswerReduceType(l, r), AnswerReduceType(l2, r2))
+             for (l, l2) in ora_sampler.type_graph
+             for (r, r2) in pcp_sampler_term.type_graph]
     sampler = TypedSampler(types, graph, left, right)
     root = CertNode(CHECKED, :AnswerReduceSamplerProduct;
-        facts=(display="3x18=54 types; complete 54^2 graph; level=max(ell,3)",),
+        facts=(display="3x18=54 types; tensor graph E^ora x E^pcp (54^2 edges here); level=max(ell,3)",),
         children=(oracularized.certificate, pcp.certificate),
         replay=_product_replay)
     Checked(sampler, root)

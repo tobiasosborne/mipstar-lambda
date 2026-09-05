@@ -63,7 +63,7 @@ function _answer_format(params::LDParams{F}, kind::Symbol, answer, side::Symbol)
                            actual=try length(answer) catch; nothing end)
     if kind == :Point
         valid = all(value -> value isa F, entries)
-        return CheckResult(valid, valid ? :ld_point_format : :ld_point_format;
+        return CheckResult(valid, :ld_point_format;
                            location=side, expected=F, actual=map(typeof, entries))
     end
     bound = if kind == :ALine
@@ -116,6 +116,12 @@ function _line_point_test(params::LDParams{F}, kind::Symbol, line_raw, point_raw
     point = point_value(point_raw, params.m)
     on_line, t = _line_parameter(line, point)
     rule = kind == :ALine ? :ld_axis_point : :ld_diagonal_point
+    # SOURCE_REPAIR :ld_off_line_rejects (gt-07-ldt.tex:377-384): items 2/3
+    # quantify over "t such that x = u_0 + t e_i" (resp. "+ t v'"); when the
+    # point is off the line no such t exists and the literal reading accepts
+    # vacuously ("in all cases where no action is indicated, accept"). The
+    # executable rejects instead: strictly stricter, never reached by honest
+    # play at (8,2,1) (see `ld_off_line_repair`).
     on_line || return CheckResult(false, rule; location=:question,
                                   expected=:point_on_line, actual=point)
     for j in 1:params.kappa
@@ -163,7 +169,21 @@ function ld_decider(params::LDParams{F}, left_type::Symbol, left_question,
     CheckResult(true, :ld_noop; location=(left_type, right_type))
 end
 
-const D_ld = ld_decider
+"""
+    ld_off_line_repair(; honest_support_hits, of)
+
+The SOURCE_REPAIR node recording that `ld_decider` rejects a line-versus-point
+pair whose point is off the line (fig:ld-decider items 2/3,
+gt-07-ldt.tex:377-384, read literally, accept vacuously). The facts carry how
+many honest support decisions reached that branch in a sweep of `of`.
+"""
+function ld_off_line_repair(; honest_support_hits::Integer, of::Integer)
+    CertNode(SOURCE_REPAIR, :ld_off_line_rejects;
+        facts=(honest_support_hits=Int(honest_support_hits), of=Int(of),
+               source="gt-07-ldt.tex:377-384",
+               literal="accept when no t satisfies x = u_0 + t v (vacuous)",
+               executable="reject with :ld_axis_point/:ld_diagonal_point at location :question"))
+end
 
 
 const _TB1_POLY2 = Poly{GF8,2}

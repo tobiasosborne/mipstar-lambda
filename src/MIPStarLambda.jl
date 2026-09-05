@@ -43,16 +43,22 @@ export RewriteStep, ZeroDecomposition, zero_basis_decompose,
 export AbstractCL, CLZero, CLStep, CLMarginal, apply, level, seed_dim,
        register_indices, marginal_k, sum_stage_outputs, concatenate, direct_sum,
        CLDistribution, distribution, enumerate_seeds, histogram, product, pad_level,
-       TypedSampler, sample
+       TypedSampler, sample, edge_index,
+       AbstractBranch, QuotedBranch, OpaqueBranch, BranchConst, BranchByAxis,
+       BranchLnf, BranchPadded, CL_MEMO_LIMIT, memo_report,
+       Dimension, Marginal, Linear, Factor, cl_kth_replay,
+       CLDescription, NotDescribable, describe_cl, canonical_bytes,
+       description_size, ZERO_MAP_FACTOR_PARTITION
 
 export AffineLine, L_lnf, chi, pi_prefix, L_Point, L_ALine, L_DLine,
        point_value, axis_line, diagonal_line, line_point,
        diagonal_histogram_evidence,
-       LDParams, restrict, univariate_degree, ld_decider, D_ld
+       LDParams, restrict, univariate_degree, ld_decider, ld_off_line_repair
 
 export PCPType, PCPRegisterLayout, PCPPointQuestion, PCPALineQuestion,
        PCPDLineQuestion, pcp_sampler, pcp_register_dimensions,
-       intrinsic_pcp_levels, sample_pcp_question, parse_pcp_question,
+       intrinsic_pcp_levels, sample_pcp_question, pcp_question_from_ambient,
+       parse_pcp_question,
        encode_pcp_question, parse_pcp_answer, encode_pcp_answer,
        pcp_ld_question, tb2_parser_roundtrip_report
 

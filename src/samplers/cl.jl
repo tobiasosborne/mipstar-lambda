@@ -1,5 +1,44 @@
 abstract type AbstractCL{F} end
 
+# A continuation selector for one CLStep (DESIGN 1.5 / 9.3). The lazily
+# evaluated branch is a function of the previous stage's value only. A
+# QuotedBranch is a named pure constructor with canonical captured data and is
+# serializable by `describe_cl`; an OpaqueBranch wraps an arbitrary host
+# closure, remains usable in memory, and is never describable.
+abstract type AbstractBranch end
+abstract type QuotedBranch <: AbstractBranch end
+
+"Opaque host closure: allowed in memory, `describe_cl` returns NotDescribable."
+struct OpaqueBranch <: AbstractBranch
+    f::Function
+end
+
+"The continuation is the same CL value for every stage value."
+struct BranchConst{F} <: QuotedBranch
+    child::AbstractCL{F}
+end
+
+"Select `table[chi(value[position], m)]` (eq:chi-func, gt-07-ldt.tex:216-223)."
+struct BranchByAxis{F} <: QuotedBranch
+    m::Int
+    position::Int
+    table::Vector{AbstractCL{F}}
+    function BranchByAxis(m::Integer, position::Integer,
+                          table::AbstractVector{<:AbstractCL{F}}) where {F}
+        length(table) == Int(m) ||
+            throw(ArgumentError("BranchByAxis needs one continuation per axis"))
+        1 <= Int(position) || throw(ArgumentError("BranchByAxis position out of range"))
+        new{F}(Int(m), Int(position), AbstractCL{F}[table...])
+    end
+end
+
+"Map a direction value v' to the one-stage point map L_lnf(v') on `point`."
+struct BranchLnf{F} <: QuotedBranch
+    seed_dim::Int
+    point::Vector{Int}
+    tail::AbstractCL{F}
+end
+
 "The unique zero-level CL function on the listed coordinate-index register."
 struct CLZero{F} <: AbstractCL{F}
     seed_dim::Int
@@ -14,16 +53,27 @@ struct CLStep{F} <: AbstractCL{F}
     matrix::Matrix{F}
     # `child_shape` is an actual nested witness, so the level is constructed
     # by datatype depth. `branch` is evaluated only for values reached by
-    # apply/marginal_k; encountered children are memoised after validation
-    # (`_child` checks field, seed dimension, rest register and child level).
+    # apply/marginal_k/walks; encountered children are memoised after
+    # validation (`_child` checks field, seed dimension, rest register and
+    # child level) in a memo bounded by CL_MEMO_LIMIT entries per node.
     # Registers are `Vector{Int}` and stage values `Vector{F}` on purpose:
     # one `CLStep{F}` type and one specialization per operation, instead of
     # one per closure type and per register width (TB2 has widths 1..40),
     # which cost ~60 s of runtime compilation per test process.
     child_shape::AbstractCL{F}
-    branch::Function
+    branch::AbstractBranch
     children::Dict{Vector{F},AbstractCL{F}}
 end
+
+"Append `extra` empty stages below every continuation of `inner` (DESIGN 9.4)."
+struct BranchPadded <: QuotedBranch
+    inner::CLStep
+    extra::Int
+end
+
+# The memo of a stage is bounded because DESIGN 9.1's `Linear` prefix domain is
+# all of V_{<j}, not the reachable image; once full, the memo is cleared.
+const CL_MEMO_LIMIT = 4096
 
 function _coordinate_indices(seed_dimension::Int, indices, name)
     result = Int[Int(i) for i in indices]
@@ -62,6 +112,11 @@ function _matvec(matrix::AbstractMatrix{F}, input::AbstractVector) where {F}
     output
 end
 
+_as_branch(branch::AbstractBranch) = branch
+_as_branch(branch::Function) = OpaqueBranch(branch)
+_as_branch(branch) =
+    throw(ArgumentError("CL continuation must be a QuotedBranch or a function of the stage value"))
+
 function _clstep(::Type{F}, seed_dimension::Integer, factor, rest,
                  matrix::AbstractMatrix, child_shape::AbstractCL{F},
                  branch; require_ambient::Bool) where {F}
@@ -81,38 +136,81 @@ function _clstep(::Type{F}, seed_dimension::Integer, factor, rest,
         throw(ArgumentError("CL child shape seed dimension changed"))
     _register(child_shape) == sort(rest_indices) ||
         throw(ArgumentError("CL child shape must occupy exactly the rest register"))
-    branch isa Function ||
-        throw(ArgumentError("CL continuation must be a function of the stage value"))
-    CLStep{F}(n, factor_indices, rest_indices, A, child_shape, branch,
+    CLStep{F}(n, factor_indices, rest_indices, A, child_shape, _as_branch(branch),
               Dict{Vector{F},AbstractCL{F}}())
 end
 
 function CLStep(branch::Function, ::Type{F}, seed_dimension::Integer,
                 factor, rest, matrix::AbstractMatrix,
                 child_shape::AbstractCL{F}) where {F}
-    _clstep(F, seed_dimension, factor, rest, matrix, child_shape, branch;
+    _clstep(F, seed_dimension, factor, rest, matrix, child_shape, OpaqueBranch(branch);
             require_ambient=true)
 end
 
 function CLStep(::Type{F}, seed_dimension::Integer, factor, rest,
                 matrix::AbstractMatrix, child::AbstractCL{F}) where {F}
-    _clstep(F, seed_dimension, factor, rest, matrix, child, _ -> child;
+    _clstep(F, seed_dimension, factor, rest, matrix, child, BranchConst(child);
             require_ambient=true)
 end
 
+function CLStep(::Type{F}, seed_dimension::Integer, factor, rest,
+                matrix::AbstractMatrix, child_shape::AbstractCL{F},
+                branch::QuotedBranch) where {F}
+    _clstep(F, seed_dimension, factor, rest, matrix, child_shape, branch;
+            require_ambient=true)
+end
+
+_select(branch::OpaqueBranch, key) = branch.f(key)
+_select(branch::BranchConst, key) = branch.child
+function _select(branch::BranchByAxis{F}, key::Vector{F}) where {F}
+    branch.position <= length(key) ||
+        throw(ArgumentError("BranchByAxis position exceeds the stage value"))
+    branch.table[chi(key[branch.position], branch.m)]
+end
+function _select(branch::BranchLnf{F}, key::Vector{F}) where {F}
+    length(key) == length(branch.point) ||
+        throw(ArgumentError("BranchLnf direction and point registers differ in width"))
+    _clstep(F, branch.seed_dim, branch.point, Int[], L_lnf(key), branch.tail,
+            BranchConst(branch.tail); require_ambient=false)
+end
+_select(branch::BranchPadded, key) = _pad_tail(_child(branch.inner, key), branch.extra)
+
 function _child(L::CLStep{F}, key::Vector{F}) where {F}
-    get!(L.children, key) do
-        child = L.branch(key)
-        child isa AbstractCL{F} ||
-            throw(ArgumentError("every CL continuation must have the same field"))
-        seed_dim(child) == L.seed_dim ||
-            throw(ArgumentError("CL continuation seed dimension changed"))
-        _register(child) == sort(L.rest) ||
-            throw(ArgumentError("CL continuation must occupy exactly the rest register"))
-        level(child) == level(L.child_shape) ||
-            throw(ArgumentError("all CL continuations must have the constructed child level"))
-        child
+    cached = get(L.children, key, nothing)
+    cached === nothing || return cached
+    child = _select(L.branch, key)
+    child isa AbstractCL{F} ||
+        throw(ArgumentError("every CL continuation must have the same field"))
+    seed_dim(child) == L.seed_dim ||
+        throw(ArgumentError("CL continuation seed dimension changed"))
+    _register(child) == sort(L.rest) ||
+        throw(ArgumentError("CL continuation must occupy exactly the rest register"))
+    level(child) == level(L.child_shape) ||
+        throw(ArgumentError("all CL continuations must have the constructed child level"))
+    length(L.children) >= CL_MEMO_LIMIT && empty!(L.children)
+    L.children[key] = child
+    child
+end
+
+"Count the memoised continuations reachable from `L` (bounded by CL_MEMO_LIMIT per node)."
+function memo_report(L::AbstractCL)
+    seen = IdDict{Any,Nothing}()
+    nodes = 0
+    entries = 0
+    max_entries = 0
+    stack = AbstractCL[L]
+    while !isempty(stack)
+        node = pop!(stack)
+        haskey(seen, node) && continue
+        seen[node] = nothing
+        node isa CLStep || continue
+        nodes += 1
+        count = length(node.children)
+        entries += count
+        max_entries = max(max_entries, count)
+        append!(stack, values(node.children))
     end
+    (; nodes, entries, max_entries, limit=CL_MEMO_LIMIT)
 end
 
 function _stage_output(L::CLStep{F}, seed) where {F}
@@ -190,6 +288,266 @@ function marginal_k(L::AbstractCL{F}, seed, k::Integer) where {F}
     end
     CLMarginal{F}(seed_dim(L), outputs, factors, maps, _as_tuple(total, seed))
 end
+
+# ---------------------------------------------------------------------------
+# def:sampler's four query variants (gt-04-cl.tex:572-601; DESIGN 9.1) on the
+# in-memory datatype. `Dimension` is `seed_dim`; `Marginal` walks the first j
+# stages of one seed; `Factor` and `Linear` are PREFIX-addressed: they descend
+# stage by stage, keying each stage by the prefix restricted to that stage's
+# factor register. `Factor(L,j,u)` requires u in L_{<j}(V) (each stage key
+# must lie in the image of that stage's matrix); `Linear(L,j,u,y)` accepts the
+# broader u in V_{<j} (supported on the walked factor registers, reachable or
+# not) and is never narrowed to reachable marginal values. Illegal calls throw
+# ArgumentError; a description adapter maps that to QueryError.
+
+Dimension(L::AbstractCL) = seed_dim(L)
+
+function Marginal(L::AbstractCL{F}, j::Integer, z) where {F}
+    marginal_k(L, z, j).value
+end
+
+function _in_column_space(A::Matrix{F}, b::Vector{F}) where {F}
+    rows, columns = size(A)
+    M = hcat(A, b)
+    pivot_row = 1
+    for column in 1:columns
+        pivot_row > rows && break
+        found = findfirst(r -> !iszero(M[r, column]), pivot_row:rows)
+        found === nothing && continue
+        p = found + pivot_row - 1
+        if p != pivot_row
+            M[p, :], M[pivot_row, :] = M[pivot_row, :], M[p, :]
+        end
+        scale = inv(M[pivot_row, column])
+        for c in 1:columns+1
+            M[pivot_row, c] *= scale
+        end
+        for r in 1:rows
+            (r == pivot_row || iszero(M[r, column])) && continue
+            f = M[r, column]
+            for c in 1:columns+1
+                M[r, c] -= f * M[pivot_row, c]
+            end
+        end
+        pivot_row += 1
+    end
+    all(r -> !(all(iszero, M[r, 1:columns]) && !iszero(M[r, columns+1])), 1:rows)
+end
+
+function _walk_prefix(L::AbstractCL{F}, j::Int, u::Vector{F};
+                      reachable::Bool) where {F}
+    1 <= j <= level(L) || throw(ArgumentError("stage index out of range"))
+    length(u) == seed_dim(L) || throw(ArgumentError("prefix has wrong dimension"))
+    walked = falses(seed_dim(L))
+    current = L
+    for _ in 1:j-1
+        step = current::CLStep{F}
+        key = F[u[c] for c in step.factor]
+        if reachable
+            _in_column_space(step.matrix, key) ||
+                throw(ArgumentError("Factor prefix is not a reachable marginal L_{<j}(V)"))
+        end
+        walked[step.factor] .= true
+        current = _child(step, key)
+    end
+    for c in 1:seed_dim(L)
+        walked[c] || iszero(u[c]) ||
+            throw(ArgumentError("prefix has support outside V_{<j}"))
+    end
+    current::CLStep{F}
+end
+
+_prefix_vector(::Type{F}, u) where {F} = F[convert(F, x) for x in u]
+
+"Factor(L,j,u): the 0/1 indicator (length Dimension) of the stage-j factor register at prefix u in L_{<j}(V)."
+function Factor(L::AbstractCL{F}, j::Integer, u) where {F}
+    node = _walk_prefix(L, Int(j), _prefix_vector(F, u); reachable=true)
+    indicator = zeros(Int, seed_dim(L))
+    for c in node.factor
+        indicator[c] = 1
+    end
+    indicator
+end
+
+"Linear(L,j,u,y): the stage-j linear map at prefix u in V_{<j}, applied to the V_j projection of y."
+function Linear(L::AbstractCL{F}, j::Integer, u, y) where {F}
+    node = _walk_prefix(L, Int(j), _prefix_vector(F, u); reachable=false)
+    length(y) == seed_dim(L) || throw(ArgumentError("Linear input has wrong dimension"))
+    stage, _ = _stage_output(node, y)
+    _as_tuple(stage, y)
+end
+
+"""
+    cl_kth_replay(L, seeds; chain_set_id)
+
+DESIGN 9.2's replay of lem:cl-kth conditions enu:cl-space-sum and
+enu:cl-map-sum (gt-04-cl.tex:151-180) through the four queries only:
+prefix_i = Marginal(i-1, x); the Factor indicators at those prefixes must be
+disjoint and cover the ambient basis; and for every k, Marginal(k, x) must
+equal the sum over i <= k of Linear(i, prefix_i, project(V_i, x)). A chain is
+the sequence of stage keys the walk consumed; the report counts distinct
+chains, completed replays and the number of k-checks performed.
+"""
+function cl_kth_replay(L::AbstractCL{F}, seeds; chain_set_id::AbstractString) where {F}
+    n = seed_dim(L)
+    ell = level(L)
+    chains = Set{Vector{Vector{F}}}()
+    completed = 0
+    map_sum_checks = 0
+    space_sum_ok = true
+    map_sum_ok = true
+    for seed in seeds
+        z = _prefix_vector(F, seed)
+        prefixes = [collect(Marginal(L, i - 1, z)) for i in 1:ell]
+        indicators = [Factor(L, i, prefixes[i]) for i in 1:ell]
+        coverage = zeros(Int, n)
+        for indicator in indicators
+            length(indicator) == n || (space_sum_ok = false)
+            coverage .+= indicator
+        end
+        space_sum_ok &= all(==(1), coverage)
+        running = fill(zero(F), n)
+        for k in 1:ell
+            projected = F[indicators[k][c] == 1 ? z[c] : zero(F) for c in 1:n]
+            stage = Linear(L, k, prefixes[k], projected)
+            for c in 1:n
+                running[c] += stage[c]
+            end
+            map_sum_ok &= collect(Marginal(L, k, z)) == running
+            map_sum_checks += 1
+        end
+        chain = Vector{F}[F[(prefixes[i+1][c] - prefixes[i][c]) for c in 1:n if indicators[i][c] == 1]
+                          for i in 1:ell-1]
+        push!(chains, chain)
+        completed += 1
+    end
+    (; chain_set_id=String(chain_set_id), level=ell, dimension=n,
+       distinct_chains=length(chains), completed_replays=completed,
+       map_sum_checks, space_sum_ok, map_sum_ok)
+end
+
+# ---------------------------------------------------------------------------
+# DESIGN 9.3: description of a CL value built only from QuotedBranch
+# continuations. The canonical term is a nested tuple AST; canonical_bytes is
+# its deterministic serialization and description_size its byte length.
+
+struct CLDescription
+    field_size::Int
+    seed_dim::Int
+    level::Int
+    term::Any
+    bytes::Vector{UInt8}
+end
+
+"Result of `describe_cl` on a value whose continuation is an opaque host closure."
+struct NotDescribable
+    reason::String
+    branch::String
+end
+
+Base.show(io::IO, result::NotDescribable) =
+    print(io, "NotDescribable(", repr(result.reason), ", ", result.branch, ")")
+
+struct _OpaqueBranchError <: Exception
+    branch::Any
+end
+
+canonical_bytes(description::CLDescription) = description.bytes
+description_size(description::CLDescription) = length(description.bytes)
+
+_field_ints(matrix::Matrix{F}) where {F} =
+    Int[Int(matrix[r, c].bits) for r in 1:size(matrix, 1) for c in 1:size(matrix, 2)]
+
+_describe_term(L::CLZero) = (:Zero, L.seed_dim, copy(L.indices))
+_describe_term(L::CLStep) = (:Step, L.seed_dim, copy(L.factor), copy(L.rest),
+                             _field_ints(L.matrix), _describe_branch(L.branch))
+
+_describe_branch(branch::OpaqueBranch) = throw(_OpaqueBranchError(branch))
+_describe_branch(branch::BranchConst) = (:Const, _describe_term(branch.child))
+_describe_branch(branch::BranchByAxis) =
+    (:ByAxis, branch.m, branch.position, Any[_describe_term(child) for child in branch.table])
+_describe_branch(branch::BranchLnf) =
+    (:Lnf, branch.seed_dim, copy(branch.point), _describe_term(branch.tail))
+_describe_branch(branch::BranchPadded) =
+    (:Padded, branch.extra, _describe_branch(branch.inner.branch))
+
+const _DESCRIPTION_TAGS = Dict(:Zero => 0x00, :Step => 0x01, :Const => 0x10,
+                               :ByAxis => 0x11, :Lnf => 0x12, :Padded => 0x13)
+
+function _encode_int!(buffer::IOBuffer, value::Integer)
+    0 <= value <= typemax(UInt32) || throw(ArgumentError("description integer out of range"))
+    write(buffer, hton(UInt32(value)))
+end
+
+function _encode_indices!(buffer::IOBuffer, indices::Vector{Int})
+    _encode_int!(buffer, length(indices))
+    for index in indices
+        0 <= index <= typemax(UInt16) || throw(ArgumentError("description index out of range"))
+        write(buffer, hton(UInt16(index)))
+    end
+end
+
+function _encode_term!(buffer::IOBuffer, term, field_width::Int)
+    tag = term[1]
+    write(buffer, _DESCRIPTION_TAGS[tag])
+    if tag == :Zero
+        _encode_int!(buffer, term[2])
+        _encode_indices!(buffer, term[3])
+    elseif tag == :Step
+        _encode_int!(buffer, term[2])
+        _encode_indices!(buffer, term[3])
+        _encode_indices!(buffer, term[4])
+        _encode_int!(buffer, length(term[5]))
+        for entry in term[5]
+            for byte in field_width:-1:1
+                write(buffer, UInt8((entry >> (8 * (byte - 1))) & 0xff))
+            end
+        end
+        _encode_term!(buffer, term[6], field_width)
+    elseif tag == :Const
+        _encode_term!(buffer, term[2], field_width)
+    elseif tag == :ByAxis
+        _encode_int!(buffer, term[2])
+        _encode_int!(buffer, term[3])
+        _encode_int!(buffer, length(term[4]))
+        for child in term[4]
+            _encode_term!(buffer, child, field_width)
+        end
+    elseif tag == :Lnf
+        _encode_int!(buffer, term[2])
+        _encode_indices!(buffer, term[3])
+        _encode_term!(buffer, term[4], field_width)
+    elseif tag == :Padded
+        _encode_int!(buffer, term[2])
+        _encode_term!(buffer, term[3], field_width)
+    else
+        throw(ArgumentError("unknown description term"))
+    end
+    buffer
+end
+
+"Serialize a CL value built on QuotedBranch continuations; opaque closures give NotDescribable."
+function describe_cl(L::AbstractCL{F}) where {F}
+    term = try
+        _describe_term(L)
+    catch error
+        error isa _OpaqueBranchError ||
+            rethrow()
+        return NotDescribable("continuation is an opaque host closure",
+                              string(typeof(error.branch.f)))
+    end
+    q = field_size(F)
+    width = cld(round(Int, log2(q)), 8)
+    buffer = IOBuffer()
+    write(buffer, 0xC1)
+    _encode_int!(buffer, q)
+    _encode_int!(buffer, seed_dim(L))
+    _encode_int!(buffer, level(L))
+    _encode_term!(buffer, term, width)
+    CLDescription(q, seed_dim(L), level(L), term, take!(buffer))
+end
+
+# ---------------------------------------------------------------------------
 
 function _shift_cl(L::CLZero{F}, offset::Int, total::Int) where {F}
     CLZero(F, total, L.indices .+ offset)
