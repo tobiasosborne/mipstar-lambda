@@ -31,10 +31,11 @@ Session 3 was running four agents when the user restarted the machine. Everythin
 | Design v1 (§1–8) | converged, design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | — |
 | TB0 | **CONVERGED** r4 PASS (`verdicts/tb0-r4.md`); C1, C2, C3, C8 TESTED; N13–N16 MINOR folded into brief 23 | — |
-| TB1 / TB2 | **TB1 CONVERGED** (r6 PASS; C4a, C4c TESTED). TB2 r6 FAIL(NG3): bob-orientation corrupted-reject witnesses; C4b, C9 TESTED (re-affirmed r6) | **brief 69 RUNNING (Fable, small)** → commit, TB2 critic r7 (closing; expect PASS) |
+| TB1 / TB2 | TB1 CONVERGED (r6 PASS). TB2 repair r6 landed 8a1b6e2 (54-outcome replay); C4b, C9 TESTED | **TB2 critic r7 RUNNING (brief 71, closing)** → paste C9; lane converged on PASS |
 | TB3 | repair r1 landed; critic r2 FAIL(N11) (orchestrator's clause narrowing — corrected 443092d); **C10 TESTED**; N12–N17 MINOR folded into brief 24 addendum 3 | — (TB3 minors close inside TB4's round; a TB3 r3 critic is optional) |
 | TB4 | **landed 278b1ac** (1253/1253, 115/115): CompressStage interface, contracts, YCode/Fix, Ψ_{M,λ} evaluable, D = Y Ψ (388 bytes), fixed-point equation c_Y=3; C11 proposed TESTED | **critic r1 + TB5 readiness gate RUNNING (brief 70)** → paste C11 if authorized; worker → brief 39 (TB5) after brief 69 |
-| TB5 → TB7 | briefs 39 (+addenda 1–3), 43, 44 written | sequential on the one Fable worker; critics in parallel |
+| TB5 | **RUNNING (brief 39 + addenda 1–3, Fable)** — §9 description layer (all composites describable) + §10 anchoring/81-fold Repeat as a real CompressStage | forward the TB4 critic's TB5-readiness notes to the worker via SendMessage when brief 70 lands; when TB5 lands: verify, commit, Opus critic r1, worker → brief 43 (TB6) |
+| TB6, TB7 | briefs 43, 44 written | sequential on the one Fable worker; critics in parallel |
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
 | **Analytic doc (sidequest)** | **CONVERGED** r3 PASS (`verdicts/analytic-doc-r3.md`); 92 pp, 110 figures; PDF v6 sent | pedagogy round (bd d48: n6–n10) and lockstep updates as TB3–TB7 land — low priority |
 | Figure atlas canvas | published: https://claude.ai/code/artifact/d3c355d4-541f-4983-a57f-4d6d7ca097f1 (user approved the direction) | optional: re-seed with rendered figure PNGs as a review gallery (working files in the session scratchpad `atlas/` — regenerate from `docs/analytic` if lost) |
