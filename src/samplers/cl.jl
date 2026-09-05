@@ -303,6 +303,9 @@ end
 Dimension(L::AbstractCL) = seed_dim(L)
 
 function Marginal(L::AbstractCL{F}, j::Integer, z) where {F}
+    # def:sampler admits 1 <= j <= ell only (DESIGN 9.1); the zero marginal
+    # of DESIGN 9.2 is notation, computed by the caller (verdicts/tb1-r3.md N14).
+    1 <= Int(j) <= level(L) || throw(ArgumentError("stage index out of range"))
     marginal_k(L, z, j).value
 end
 
@@ -382,11 +385,13 @@ end
 
 DESIGN 9.2's replay of lem:cl-kth conditions enu:cl-space-sum and
 enu:cl-map-sum (gt-04-cl.tex:151-180) through the four queries only:
-prefix_i = Marginal(i-1, x); the Factor indicators at those prefixes must be
-disjoint and cover the ambient basis; and for every k, Marginal(k, x) must
-equal the sum over i <= k of Linear(i, prefix_i, project(V_i, x)). A chain is
-the sequence of stage keys the walk consumed; the report counts distinct
-chains, completed replays and the number of k-checks performed.
+prefix_1 is the explicit zero vector (mathematical shorthand, not a stage-0
+query) and prefix_i = Marginal(i-1, x) for i >= 2; the Factor indicators at
+those prefixes must be disjoint and cover the ambient basis; and for every k,
+Marginal(k, x) must equal the sum over i <= k of
+Linear(i, prefix_i, project(V_i, x)). A chain is the sequence of stage keys
+the walk consumed; the report counts distinct chains, completed replays and
+the number of k-checks performed.
 """
 function cl_kth_replay(L::AbstractCL{F}, seeds; chain_set_id::AbstractString) where {F}
     n = seed_dim(L)
@@ -398,7 +403,8 @@ function cl_kth_replay(L::AbstractCL{F}, seeds; chain_set_id::AbstractString) wh
     map_sum_ok = true
     for seed in seeds
         z = _prefix_vector(F, seed)
-        prefixes = [collect(Marginal(L, i - 1, z)) for i in 1:ell]
+        prefixes = [i == 1 ? fill(zero(F), n) : collect(Marginal(L, i - 1, z))
+                    for i in 1:ell]
         indicators = [Factor(L, i, prefixes[i]) for i in 1:ell]
         coverage = zeros(Int, n)
         for indicator in indicators
@@ -546,6 +552,138 @@ function describe_cl(L::AbstractCL{F}) where {F}
     _encode_term!(buffer, term, width)
     CLDescription(q, seed_dim(L), level(L), term, take!(buffer))
 end
+
+# ---------------------------------------------------------------------------
+# The inverse of `describe_cl`: canonical bytes -> term -> CL value
+# (verdicts/tb1-r3.md N12, verdicts/tb2-r3.md N6). The suite asserts the
+# round trip apply(decode_cl(canonical_bytes(describe_cl(L))), z) == apply(L, z)
+# on the declared chain sets, so the bytes are tied to the map they describe.
+
+const _DESCRIPTION_FIELDS = Dict{Int,Type}(field_size(GF8) => GF8,
+                                           field_size(GF2048) => GF2048)
+const _DESCRIPTION_TAG_NAMES = Dict(byte => tag for (tag, byte) in _DESCRIPTION_TAGS)
+
+function _decode_int!(buffer::IOBuffer)
+    bytesavailable(buffer) >= 4 || throw(ArgumentError("truncated description"))
+    Int(ntoh(read(buffer, UInt32)))
+end
+
+function _decode_indices!(buffer::IOBuffer)
+    count = _decode_int!(buffer)
+    bytesavailable(buffer) >= 2count || throw(ArgumentError("truncated description"))
+    Int[Int(ntoh(read(buffer, UInt16))) for _ in 1:count]
+end
+
+function _decode_term!(buffer::IOBuffer, field_width::Int)
+    bytesavailable(buffer) >= 1 || throw(ArgumentError("truncated description"))
+    tag = get(_DESCRIPTION_TAG_NAMES, read(buffer, UInt8), nothing)
+    tag === nothing && throw(ArgumentError("unknown description tag"))
+    if tag == :Zero
+        n = _decode_int!(buffer)
+        return (:Zero, n, _decode_indices!(buffer))
+    elseif tag == :Step
+        n = _decode_int!(buffer)
+        factor = _decode_indices!(buffer)
+        rest = _decode_indices!(buffer)
+        count = _decode_int!(buffer)
+        bytesavailable(buffer) >= count * field_width ||
+            throw(ArgumentError("truncated description"))
+        entries = Int[]
+        for _ in 1:count
+            value = 0
+            for _ in 1:field_width
+                value = (value << 8) | Int(read(buffer, UInt8))
+            end
+            push!(entries, value)
+        end
+        return (:Step, n, factor, rest, entries, _decode_term!(buffer, field_width))
+    elseif tag == :Const
+        return (:Const, _decode_term!(buffer, field_width))
+    elseif tag == :ByAxis
+        m = _decode_int!(buffer)
+        position = _decode_int!(buffer)
+        count = _decode_int!(buffer)
+        return (:ByAxis, m, position,
+                Any[_decode_term!(buffer, field_width) for _ in 1:count])
+    elseif tag == :Lnf
+        n = _decode_int!(buffer)
+        point = _decode_indices!(buffer)
+        return (:Lnf, n, point, _decode_term!(buffer, field_width))
+    else # :Padded
+        extra = _decode_int!(buffer)
+        return (:Padded, extra, _decode_term!(buffer, field_width))
+    end
+end
+
+function _term_to_cl(::Type{F}, term) where {F}
+    tag = term[1]
+    tag == :Zero && return CLZero(F, term[2], term[3])
+    tag == :Step || throw(ArgumentError("description term is not a CL value"))
+    n, factor, rest, entries = term[2], term[3], term[4], term[5]
+    width = length(factor)
+    length(entries) == width * width ||
+        throw(ArgumentError("stage matrix entries do not fill the factor register"))
+    matrix = Matrix{F}(undef, width, width)
+    for r in 1:width, c in 1:width
+        matrix[r, c] = F(entries[(r - 1) * width + c])
+    end
+    _branch_to_cl(F, n, factor, rest, matrix, term[6])
+end
+
+# Rebuild the CLStep whose stage data is (factor, rest, matrix) and whose
+# continuation is the described branch; the child shape is the branch's
+# canonical witness (the constant child, the first table entry, or the
+# identity point stage that `BranchLnf` selects at every direction).
+function _branch_to_cl(::Type{F}, n::Int, factor::Vector{Int}, rest::Vector{Int},
+                       matrix::Matrix{F}, branch) where {F}
+    tag = branch[1]
+    if tag == :Const
+        child = _term_to_cl(F, branch[2])
+        return _clstep(F, n, factor, rest, matrix, child, BranchConst(child);
+                       require_ambient=false)
+    elseif tag == :ByAxis
+        table = AbstractCL{F}[_term_to_cl(F, child) for child in branch[4]]
+        isempty(table) && throw(ArgumentError("BranchByAxis table is empty"))
+        return _clstep(F, n, factor, rest, matrix, table[1],
+                       BranchByAxis(branch[2], branch[3], table); require_ambient=false)
+    elseif tag == :Lnf
+        point = Int[branch[3]...]
+        tail = _term_to_cl(F, branch[4])
+        identity = zeros(F, length(point), length(point))
+        for i in eachindex(point)
+            identity[i, i] = one(F)
+        end
+        shape = _clstep(F, branch[2], point, Int[], identity, tail, BranchConst(tail);
+                        require_ambient=false)
+        return _clstep(F, n, factor, rest, matrix, shape, BranchLnf(branch[2], point, tail);
+                       require_ambient=false)
+    elseif tag == :Padded
+        inner = _branch_to_cl(F, n, factor, rest, matrix, branch[3])
+        return _pad_tail(inner, branch[2])
+    end
+    throw(ArgumentError("unknown description branch"))
+end
+
+"Decode `canonical_bytes` back to a CL value; `describe_cl` of the result reproduces the bytes."
+function decode_cl(bytes::AbstractVector{UInt8})
+    buffer = IOBuffer(Vector{UInt8}(bytes))
+    (bytesavailable(buffer) >= 1 && read(buffer, UInt8) == 0xC1) ||
+        throw(ArgumentError("not a canonical CL description"))
+    q = _decode_int!(buffer)
+    n = _decode_int!(buffer)
+    ell = _decode_int!(buffer)
+    F = get(_DESCRIPTION_FIELDS, q, nothing)
+    F === nothing && throw(ArgumentError("no field of size $q is registered"))
+    width = cld(round(Int, log2(q)), 8)
+    term = _decode_term!(buffer, width)
+    bytesavailable(buffer) == 0 || throw(ArgumentError("trailing description bytes"))
+    L = _term_to_cl(F, term)
+    (seed_dim(L), level(L)) == (n, ell) ||
+        throw(ArgumentError("description header disagrees with its term"))
+    L
+end
+
+decode_cl(description::CLDescription) = decode_cl(description.bytes)
 
 # ---------------------------------------------------------------------------
 

@@ -54,6 +54,20 @@ function tb2_has_node(node, grade, rule)
         any(child -> tb2_has_node(child, grade, rule), node.children)
 end
 
+# Count described :Step terms whose factor register is empty (a promoted zero
+# map would show one; BranchPadded's appended stages are implicit).
+function tb2_empty_factor_steps(term)
+    term isa Tuple || return 0
+    tag = term[1]
+    tag == :Zero && return 0
+    tag == :Step && return (isempty(term[3]) ? 1 : 0) + tb2_empty_factor_steps(term[6])
+    tag == :Const && return tb2_empty_factor_steps(term[2])
+    tag == :ByAxis && return sum(tb2_empty_factor_steps, term[4]; init=0)
+    tag == :Lnf && return tb2_empty_factor_steps(term[4])
+    tag == :Padded && return tb2_empty_factor_steps(term[3])
+    error("unknown description term")
+end
+
 function tb2_zero_answer(kind::PCPType)
     count = kind.copy == 6 ? TB2_PARAMS.m_prime + 6 : 1
     if kind.kind == :Point
@@ -196,6 +210,18 @@ if tb2_runs("sampler")
                            :PCPGameOtherwiseFallthrough)
         @test tb2_has_node(checked.certificate, CITED,
                            :AnswerReduceQuantumContract)
+        # verdicts/tb2-r3.md N7: TB2 never promotes a zero map. Every zero map
+        # in its source maps is a chain terminal on the empty register, the
+        # 18 PCP maps are padded by BranchPadded, the three oracularized maps
+        # are level-1 CLSteps, and all 54 products are level 3 before
+        # TypedSampler pads; so no certificate carries the promotion node.
+        @test all(level(map) == 3 for map in values(verifier.pcp_sampler.left))
+        @test all(level(map) == 1 for map in values(verifier.oracularized_sampler.left))
+        @test all(level(direct_sum(verifier.oracularized_sampler.left[kind.role],
+                                   verifier.pcp_sampler.left[kind.pcp])) == 3
+                  for kind in verifier.sampler.types)
+        @test !tb2_has_node(checked.certificate, SOURCE_REPAIR,
+                            :zero_map_factor_partition)
         detyped = detype(checked)
         @test detyped.term.level == 5
         @test detyped.term.soundness_factor == big(16)^54
@@ -220,9 +246,26 @@ if tb2_runs("describe")
         end
         println("MUTATION_EXPECTED_RULE describable actual=", describable, "/18")
         @test describable == 18
-        @test all(sizes[PCPType(:Point, i)] == sizes[PCPType(:Point, 1)] for i in 1:6)
-        @test all(sizes[PCPType(:ALine, i)] == sizes[PCPType(:ALine, 1)] for i in 1:5)
-        @test all(sizes[PCPType(:DLine, i)] == sizes[PCPType(:DLine, 1)] for i in 1:5)
+        # verdicts/tb2-r3.md N6 (a): the five exact sizes, reproduced by the
+        # critic's independent reserialization (verdicts/tb2-r3.md 2.5).
+        @test all(sizes[PCPType(:Point, i)] == 3009 for i in 1:6)
+        @test all(sizes[PCPType(:ALine, i)] == 2893 for i in 1:5)
+        @test sizes[PCPType(:ALine, 6)] == 10228
+        @test all(sizes[PCPType(:DLine, i)] == 2754 for i in 1:5)
+        @test sizes[PCPType(:DLine, 6)] == 10479
+        # (b) the 18 canonical byte strings are pairwise distinct.
+        @test length(Set(canonical_bytes(describe_cl(pcp.left[kind])) for kind in kinds)) == 18
+        # The copy-6 BranchByAxis tables hold m'=16 pairwise-distinct child
+        # terms, and no described stage has an empty factor register: all
+        # padding is the implicit :Padded branch, none is a promoted zero map.
+        aline6_branch = describe_cl(pcp.left[PCPType(:ALine, 6)]).term[6]
+        dline6_branch = describe_cl(pcp.left[PCPType(:DLine, 6)]).term[6]
+        @test aline6_branch[1] == :Padded && aline6_branch[3][1] == :ByAxis
+        @test dline6_branch[1] == :ByAxis
+        @test length(Set(aline6_branch[3][4])) == 16
+        @test length(Set(dline6_branch[4])) == 16
+        @test all(tb2_empty_factor_steps(describe_cl(pcp.left[kind]).term) == 0
+                  for kind in kinds)
         println("TB2 describe: description_size ",
                 join(("$(kind)=$(sizes[kind])" for kind in kinds), " "))
 
@@ -249,6 +292,23 @@ if tb2_runs("describe")
             @test replays[kind].completed_replays == 36
             @test replays[kind].map_sum_checks == 3 * 36
         end
+        # verdicts/tb2-r3.md N6 (c): decode round trip on the declared chain
+        # set for all 18 maps — the bytes determine the map.
+        roundtrip_ok = true
+        for kind in kinds
+            L = pcp.left[kind]
+            bytes = canonical_bytes(describe_cl(L))
+            decoded = decode_cl(bytes)
+            roundtrip_ok &= canonical_bytes(describe_cl(decoded)) == bytes
+            roundtrip_ok &= (level(decoded), seed_dim(decoded)) == (3, seed_dim(L))
+            for seed in chain_seeds
+                roundtrip_ok &= apply(decoded, seed) == apply(L, seed)
+                roundtrip_ok &= marginal_k(decoded, seed, 3).factor_spaces ==
+                                marginal_k(L, seed, 3).factor_spaces
+            end
+        end
+        println("MUTATION_EXPECTED_RULE describe_roundtrip ok=", roundtrip_ok)
+        @test roundtrip_ok
         # A chain is the sequence of stage VALUES consumed by the walk, so
         # ALine_6 has one chain per distinct s_aux and DLine_6 one per
         # distinct (s_aux, pi(v)) pair; the directed half covers all 16 buckets.
@@ -481,13 +541,69 @@ if tb2_runs("no_check")
     @testset "TB2 unconditioned no-check fraction" begin
         reduced = tb2_checked_reduction().term
         total = length(reduced.sampler.types)^2
-        no_check = count(isempty(answer_reduce_guard_branches(
-            reduced.decider, left, right)) for left in reduced.sampler.types
-                                            for right in reduced.sampler.types)
+        branches = [answer_reduce_guard_branches(reduced.decider, left, right)
+                    for left in reduced.sampler.types for right in reduced.sampler.types]
+        no_check = count(isempty, branches)
         @test (no_check, total) == (2736, 2916)
         @test no_check // total == 76 // 81
+        # verdicts/tb2-r3.md N10: of the 180 triggering pairs, 107 trigger
+        # step 5 (92 of them alone) and 54 trigger step 1 (53 alone); the
+        # 15 = 4 + 6 + 4 + 1 step-5 pairs that also fire another guard and the
+        # diagonal ((oracle,Point_6),(oracle,Point_6)) account for the gaps.
+        split = (no_check, count(!isempty, branches),
+                 count(b -> :game in b, branches), count(==((:game,)), branches),
+                 count(b -> :global_consistency in b, branches),
+                 count(==((:global_consistency,)), branches))
+        println("MUTATION_EXPECTED_RULE guard_split actual=", split)
+        @test split == (2736, 180, 107, 92, 54, 53)
         println("TB2 no-check ordered type pairs: ", no_check, "/", total,
-                " = 76/81 = ", round(100no_check / total; digits=3), "%")
+                " = 76/81 = ", round(100no_check / total; digits=3), "%",
+                " triggering=180 step5 any/only=107/92 step1 any/only=54/53")
+    end
+end
+
+if tb2_runs("replay_seeds")
+    @testset "TB2 seven-case replay at three seeds (verdicts/tb2-r3.md N9)" begin
+        # The certificate replay (`_answer_reduce_replay_steps`) runs the
+        # seven fig:decider-pcp cases at the all-zero seed with all-zero
+        # answers. Here the same seven cases, honest answers from the TB0
+        # proof, run at the zero seed and two nonzero full-field seeds, and
+        # the same four facts are asserted for every (case, seed).
+        reduced = tb2_checked_reduction().term
+        strategies = Dict(:degenerate => honest_pcp_strategy(tb2_proof(:degenerate), TB2_PARAMS),
+                          :nondegenerate => honest_pcp_strategy(tb2_proof(:nondegenerate), TB2_PARAMS))
+        rng = MersenneTwister(0x9E)
+        seeds = (ntuple(_ -> zero(GF2048), seed_dim(reduced.sampler)),
+                 tb2_seed(reduced.sampler, 5),
+                 ntuple(_ -> rand(rng, field_elements(GF2048)), seed_dim(reduced.sampler)))
+        @test count(seed -> all(iszero, seed), seeds) == 1
+        outcomes = Tuple{Symbol,Int,Bool,Bool,Symbol,Bool}[]
+        for case in MIPStarLambda._answer_reduce_replay_cases(), (index, seed) in enumerate(seeds)
+            witness = answer_reduce_requires_nondegenerate(reduced.decider, case.left, case.right) ?
+                      :nondegenerate : :degenerate
+            strategy = strategies[witness]
+            left_q, right_q = sample_answer_reduce_questions(reduced, case.left, case.right, seed)
+            left_a = honest_pcp_answer(strategy, case.left.pcp, left_q.pcp)
+            right_a = honest_pcp_answer(strategy, case.right.pcp, right_q.pcp)
+            honest = typed_answer_reduced_decider(reduced.decider, case.left, left_q,
+                                                  case.right, right_q, left_a, right_a)
+            side, entry = case.corrupt
+            corrupted = typed_answer_reduced_decider(reduced.decider, case.left, left_q,
+                case.right, right_q,
+                side == :left ? MIPStarLambda._corrupt_replay_answer(left_a, entry) : left_a,
+                side == :right ? MIPStarLambda._corrupt_replay_answer(right_a, entry) : right_a)
+            push!(outcomes, (case.case, index, passed(honest), passed(corrupted),
+                             corrupted.result.rule,
+                             case.step in Set(e.step for e in honest.trace)))
+            @test passed(honest)
+            @test !passed(corrupted)
+            @test corrupted.result.rule == case.expected_rule
+            @test case.step in Set(e.step for e in honest.trace)
+        end
+        @test length(outcomes) == 21
+        println("TB2 replay at 3 seeds (zero, tb2_seed 5, rng 0x9E): cases=7 outcomes=",
+                length(outcomes), " honest=", count(o -> o[3], outcomes),
+                " corrupted_rejected=", count(o -> !o[4], outcomes))
     end
 end
 

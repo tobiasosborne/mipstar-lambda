@@ -48,12 +48,13 @@ export AbstractCL, CLZero, CLStep, CLMarginal, apply, level, seed_dim,
        BranchLnf, BranchPadded, CL_MEMO_LIMIT, memo_report,
        Dimension, Marginal, Linear, Factor, cl_kth_replay,
        CLDescription, NotDescribable, describe_cl, canonical_bytes,
-       description_size, ZERO_MAP_FACTOR_PARTITION
+       description_size, decode_cl, ZERO_MAP_FACTOR_PARTITION, pad_level_evidence
 
 export AffineLine, L_lnf, chi, pi_prefix, L_Point, L_ALine, L_DLine,
        point_value, axis_line, diagonal_line, line_point,
        diagonal_histogram_evidence,
-       LDParams, restrict, univariate_degree, ld_decider, ld_off_line_repair
+       LDParams, restrict, univariate_degree, ld_decider, ld_off_line_repair,
+       ld_honest_answer, ld_honest_sweep, ld_sweep_evidence
 
 export PCPType, PCPRegisterLayout, PCPPointQuestion, PCPALineQuestion,
        PCPDLineQuestion, pcp_sampler, pcp_register_dimensions,

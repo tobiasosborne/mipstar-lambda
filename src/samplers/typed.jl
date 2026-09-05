@@ -1,10 +1,12 @@
 _cl_field(::AbstractCL{F}) where {F} = F
 
 # rk:higher-level (gt-04-cl.tex:122-130) promotes a zero map by V_1 = V and
-# L_1 = 0. DESIGN 9.4 fixes the padding order: a genuine r>=1-level child
-# keeps its first r factors and APPENDS empty stages; a zero map on a
-# nonempty register is promoted with stage 1 = that whole register under the
-# zero map, followed by empty stages. The source machines would print an
+# L_1 = 0, where V is the space the value acts on: its register R (for a
+# continuation, the enclosing stage's rest register; the empty register is
+# the zero-dimensional terminal every chain ends in). DESIGN 9.4 fixes the
+# padding order: a genuine r>=1-level child keeps its first r factors and
+# APPENDS empty stages; a zero map on R is promoted with stage 1 = R under
+# the zero map, followed by empty stages. The source machines would print an
 # all-zero factor indicator there, so the promotion is a SOURCE_REPAIR.
 const ZERO_MAP_FACTOR_PARTITION = CertNode(SOURCE_REPAIR, :zero_map_factor_partition;
     facts=(display="pad_level(CLZero on register R, ell): stage 1 reports the all-ones indicator of R with the zero linear map; stages 2..ell report empty factors (rk:higher-level, gt-04-cl.tex:122-130; DESIGN 9.4)",))
@@ -12,22 +14,23 @@ const ZERO_MAP_FACTOR_PARTITION = CertNode(SOURCE_REPAIR, :zero_map_factor_parti
 function _pad_tail(L::CLZero{F}, extra::Int) where {F}
     extra == 0 && return L
     n = seed_dim(L)
-    empty_tail = CLZero(F, n, Int[])
-    if isempty(L.indices)
-        result = L
-        for _ in 1:extra
-            # def:cl-func permits the empty register subspace.
-            result = _clstep(F, n, Int[], Int[], zeros(F, 0, 0), result,
-                             BranchConst(result); require_ambient=false)
-        end
-        return result
-    end
     # SOURCE_REPAIR(zero-map-factor-partition): see ZERO_MAP_FACTOR_PARTITION.
-    tail = _pad_tail(empty_tail, extra - 1)
+    # One rule for every register, the empty one included (def:cl-func
+    # permits the empty register subspace; verdicts/tb1-r3.md N16).
+    tail = _pad_tail(CLZero(F, n, Int[]), extra - 1)
     width = length(L.indices)
     _clstep(F, n, L.indices, Int[], zeros(F, width, width), tail,
             BranchConst(tail); require_ambient=false)
 end
+
+# A top-level value is padded on its ambient space F^n. A top-level zero map
+# declared on the empty register is the zero map on F^n (the empty register
+# only marks chain terminals), so its promotion takes V_1 = {1..n}
+# (DESIGN 9.4; verdicts/tb1-r3.md N16). Continuations never pass through
+# here: `_pad_tail` promotes them on their rest register.
+_pad_top(L::AbstractCL, extra::Int) = _pad_tail(L, extra)
+_pad_top(L::CLZero{F}, extra::Int) where {F} =
+    _pad_tail(isempty(L.indices) && extra > 0 ? CLZero(F, seed_dim(L)) : L, extra)
 
 function _pad_tail(L::CLStep{F}, extra::Int) where {F}
     extra == 0 && return L
@@ -39,10 +42,51 @@ end
 function pad_level(L::AbstractCL{F}, target::Integer) where {F}
     target_level = Int(target)
     target_level >= level(L) || throw(ArgumentError("cannot pad to a lower CL level"))
-    result = _pad_tail(L, target_level - level(L))
+    result = _pad_top(L, target_level - level(L))
     level(result) == target_level ||
         throw(ArgumentError("CL nesting did not reach the requested level"))
     result
+end
+
+function _replay_pad_level(term)
+    padded = term.padded
+    child = term.child
+    ok = level(padded) == term.target && seed_dim(padded) == seed_dim(child)
+    for seed in term.seeds
+        ok &= apply(padded, seed) == apply(child, seed)
+        for k in 1:level(child)
+            ok &= marginal_k(padded, seed, k).value == marginal_k(child, seed, k).value
+        end
+    end
+    replay = cl_kth_replay(padded, term.seeds; chain_set_id=term.chain_set_id)
+    ok &= replay.space_sum_ok && replay.map_sum_ok
+    CheckResult(ok, :pad_level;
+                expected=(level=term.target, marginals=:child, space_sum_ok=true,
+                          map_sum_ok=true),
+                actual=(level=level(padded), replay.space_sum_ok, replay.map_sum_ok,
+                        replay.completed_replays))
+end
+
+"""
+    pad_level_evidence(L, target, seeds; chain_set_id)
+
+`pad_level(L, target)` as a CHECKED node whose replay re-runs the DESIGN 9.4
+contract on `seeds` (the child's marginals survive, `enu:cl-space-sum` and
+`enu:cl-map-sum` hold on the padded value). When the padding promoted a
+zero map, `ZERO_MAP_FACTOR_PARTITION` is carried as a child
+(verdicts/tb2-r3.md N7).
+"""
+function pad_level_evidence(L::AbstractCL{F}, target::Integer, seeds;
+                            chain_set_id::AbstractString) where {F}
+    padded = pad_level(L, target)
+    promoted = L isa CLZero && level(padded) > 0
+    root = CertNode(CHECKED, :pad_level;
+        facts=(child_level=level(L), target=Int(target), promoted,
+               register=register_indices(L), seeds=length(seeds)),
+        children=promoted ? (ZERO_MAP_FACTOR_PARTITION,) : (),
+        replay=_replay_pad_level)
+    Checked((; child=L, padded, target=Int(target), seeds=collect(seeds),
+               chain_set_id=String(chain_set_id)), root)
 end
 
 struct TypedSampler{F}

@@ -185,6 +185,95 @@ function ld_off_line_repair(; honest_support_hits::Integer, of::Integer)
                executable="reject with :ld_axis_point/:ld_diagonal_point at location :question"))
 end
 
+"The honest low-degree prover for `g`: value at a point, restriction to a line."
+function ld_honest_answer(g::Poly, kind::Symbol, raw, m::Integer)
+    dimension = Int(m)
+    kind == :Point && return (evaluate(g, collect(point_value(raw, dimension))),)
+    kind == :ALine && return (restrict(g, axis_line(raw, dimension)),)
+    kind == :DLine && return (restrict(g, diagonal_line(raw, dimension)),)
+    throw(ArgumentError("unknown low-degree question type"))
+end
+
+const _LD_KINDS = (:Point, :ALine, :DLine)
+
+"""
+    ld_honest_sweep(params, g, samplers, seeds)
+
+Run `ld_decider` on every distinct (left, right) question pair the three
+samplers produce over `seeds` for all nine ordered type pairs, answered
+honestly for `g`. Counts the non-noop decisions, the equal-type tautologies,
+the line-versus-point checks and how often the off-line branch
+(`ld_off_line_repair`) was reached.
+"""
+function ld_honest_sweep(params::LDParams{F}, g::Poly, samplers, seeds) where {F}
+    supports = Dict((left, right) => Set{Any}()
+                    for left in _LD_KINDS for right in _LD_KINDS)
+    for seed in seeds
+        questions = (apply(samplers[:Point], seed), apply(samplers[:ALine], seed),
+                     apply(samplers[:DLine], seed))
+        for (l, left) in enumerate(_LD_KINDS), (r, right) in enumerate(_LD_KINDS)
+            push!(supports[(left, right)], (questions[l], questions[r]))
+        end
+    end
+    cache = Dict{Tuple{Symbol,Any},Any}()
+    checked = 0
+    non_noop = 0
+    equal_type = 0
+    line_vs_point = 0
+    off_line_hits = 0
+    accepted = true
+    for left in _LD_KINDS, right in _LD_KINDS
+        for (left_q, right_q) in supports[(left, right)]
+            left_a = get!(() -> ld_honest_answer(g, left, left_q, params.m),
+                          cache, (left, left_q))
+            right_a = get!(() -> ld_honest_answer(g, right, right_q, params.m),
+                           cache, (right, right_q))
+            result = ld_decider(params, left, left_q, right, right_q, left_a, right_a)
+            accepted &= passed(result)
+            non_noop += result.rule != :ld_noop
+            equal_type += result.rule == :ld_consistency
+            if result.rule in (:ld_axis_point, :ld_diagonal_point)
+                line_vs_point += 1
+                off_line_hits += result.location == :question
+            end
+            checked += 1
+        end
+    end
+    (; accepted, checked, non_noop, equal_type, line_vs_point, off_line_hits,
+       support_count=sum(length, values(supports)),
+       nonempty=all(support -> !isempty(support), values(supports)))
+end
+
+function _replay_ld_sweep(term)
+    recount = ld_honest_sweep(term.params, term.g, term.samplers, term.seeds)
+    ok = recount == term.report && recount.accepted && recount.nonempty &&
+         recount.off_line_hits == 0 && recount.checked == recount.support_count &&
+         recount.equal_type + recount.line_vs_point == recount.non_noop
+    CheckResult(ok, :ld_honest_sweep; expected=term.report, actual=recount)
+end
+
+"""
+    ld_sweep_evidence(params, g, samplers, seeds)
+
+TB1's `D^ld` evidence as a CHECKED node (verdicts/tb1-r3.md N15): the replay
+re-runs `ld_honest_sweep` from its inputs and requires the recount to equal
+the recorded report, every honest decision accepted and the off-line branch
+never reached; the `:ld_off_line_rejects` SOURCE_REPAIR hangs under it. The
+facts carry the answer bounds `d`, `md` and `kappa`.
+"""
+function ld_sweep_evidence(params::LDParams{F}, g::Poly, samplers, seeds) where {F}
+    report = ld_honest_sweep(params, g, samplers, seeds)
+    repair = ld_off_line_repair(honest_support_hits=report.off_line_hits,
+                                of=report.checked)
+    root = CertNode(CHECKED, :ld_honest_sweep;
+        facts=(q=field_size(F), m=params.m, d=params.d, md=params.m * params.d,
+               kappa=params.kappa, support_decisions=report.checked,
+               non_noop=report.non_noop, equal_type=report.equal_type,
+               line_vs_point=report.line_vs_point),
+        children=(repair,), replay=_replay_ld_sweep)
+    Checked((; params, g, samplers, seeds, report), root)
+end
+
 
 const _TB1_POLY2 = Poly{GF8,2}
 const _TB1_POLY1 = Poly{GF8,1}

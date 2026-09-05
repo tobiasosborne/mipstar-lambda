@@ -118,6 +118,14 @@ if tb1_runs("levels")
             CLZero(GF2048, 2, (2,))
         end
         @test_throws ArgumentError apply(wrong_field, (TB1_F(1), TB1_F(2)))
+        # verdicts/tb1-r3.md N21: the field guard itself rejects (its message
+        # names the field), not the typed memo behind it.
+        field_error = try
+            apply(wrong_field, (TB1_F(1), TB1_F(2)))
+        catch error
+            error
+        end
+        @test field_error isa ArgumentError && occursin("same field", field_error.msg)
         @test_throws ArgumentError CLStep(TB1_F, 5, (1, 2), (3,), identity2,
                                           CLZero(TB1_F, 5, (3,))) do _
             CLZero(TB1_F, 5, (3,))
@@ -150,6 +158,34 @@ if tb1_runs("levels")
         @test Factor(padded_zero, 1, ntuple(_ -> zero(TB1_F), 5)) == ones(Int, 5)
         @test ZERO_MAP_FACTOR_PARTITION.grade == SOURCE_REPAIR
         @test ZERO_MAP_FACTOR_PARTITION.rule == :zero_map_factor_partition
+        # verdicts/tb2-r3.md N7: the promotion is carried by a certificate the
+        # suite verifies; a padded genuine child carries no repair node.
+        zero5 = ntuple(_ -> zero(TB1_F), 5)
+        pad_seeds = (seed, zero5, (TB1_F(1), TB1_F(0), TB1_F(7), TB1_F(2), TB1_F(0)))
+        zero_evidence = pad_level_evidence(CLZero(TB1_F, 5), 3, pad_seeds;
+                                           chain_set_id="tb1-pad-zero")
+        @test zero_evidence.certificate.grade == CHECKED
+        @test any(child -> child === ZERO_MAP_FACTOR_PARTITION,
+                  zero_evidence.certificate.children)
+        @test passed(verify_certificate(zero_evidence))
+        axis_evidence = pad_level_evidence(axis, 3, pad_seeds;
+                                           chain_set_id="tb1-pad-axis")
+        @test isempty(axis_evidence.certificate.children)
+        @test passed(verify_certificate(axis_evidence))
+        # verdicts/tb1-r3.md N16: a top-level zero map on the EMPTY register is
+        # the zero map on F^5 and is promoted with V_1 = {1..5} (DESIGN 9.4);
+        # inside a chain the empty-register terminal stays empty (the padded
+        # L_ALine's third factor).
+        empty_padded = pad_level(CLZero(TB1_F, 5, Int[]), 3)
+        @test marginal_k(empty_padded, seed, 3).factor_spaces ==
+              [collect(1:5), Int[], Int[]]
+        @test cl_kth_replay(empty_padded, pad_seeds; chain_set_id="tb1-pad-empty").space_sum_ok
+        @test passed(verify_certificate(pad_level_evidence(
+            CLZero(TB1_F, 5, Int[]), 3, pad_seeds; chain_set_id="tb1-pad-empty")))
+        @test marginal_k(padded_axis, seed, 3).factor_spaces[3] == Int[]
+        # A sub-register zero map is still promoted on its own register.
+        @test marginal_k(pad_level(CLZero(TB1_F, 5, (2,)), 2), seed, 2).factor_spaces ==
+              [[2], Int[]]
     end
 end
 
@@ -199,10 +235,17 @@ if tb1_runs("queries")
         z = (TB1_F(3), TB1_F(5), TB1_F(4), TB1_F(6), TB1_F(7))
         zero5 = ntuple(_ -> zero(TB1_F), 5)
         @test Dimension(point) == Dimension(axis) == Dimension(diagonal) == 5
-        for L in (point, axis, diagonal), j in 0:level(L)
+        for L in (point, axis, diagonal), j in 1:level(L)
             @test Marginal(L, j, z) == marginal_k(L, z, j).value
         end
         @test Marginal(diagonal, 3, z) == apply(diagonal, z)
+        # verdicts/tb1-r3.md N14: def:sampler admits 1 <= j <= ell for every
+        # query; the zero marginal of DESIGN 9.2 is the caller's zero vector.
+        for L in (point, axis, diagonal)
+            @test_throws ArgumentError Marginal(L, 0, z)
+            @test_throws ArgumentError Marginal(L, level(L) + 1, z)
+        end
+        @test marginal_k(axis, z, 0).value == zero5
         # Factor returns a length-Dimension 0/1 indicator (DESIGN 9.1).
         @test Factor(axis, 1, zero5) == [0, 0, 1, 1, 1]
         @test Factor(point, 1, zero5) == [1, 1, 1, 1, 1]
@@ -256,6 +299,50 @@ if tb1_runs("describe")
         @test describe_cl(pad_level(axis, 3)) isa CLDescription
         @test describe_cl(pad_level(axis, 3)).term[6][1] == :Padded
         @test describe_cl(pad_level(CLZero(TB1_F, 5), 2)) isa CLDescription
+
+        # verdicts/tb1-r3.md N12: the bytes are tied to the map. (b) decode
+        # round trip on the exhaustive chain set, (c) injectivity on the named
+        # separator pair, (e) the exact byte window of the stage-1 matrix.
+        z = (TB1_F(3), TB1_F(5), TB1_F(4), TB1_F(6), TB1_F(7))
+        roundtrip_ok = true
+        for L in (point, axis, diagonal, pad_level(axis, 3), pad_level(CLZero(TB1_F, 5), 2))
+            bytes = canonical_bytes(describe_cl(L))
+            decoded = decode_cl(bytes)
+            roundtrip_ok &= canonical_bytes(describe_cl(decoded)) == bytes
+            roundtrip_ok &= (level(decoded), seed_dim(decoded)) == (level(L), seed_dim(L))
+            roundtrip_ok &= marginal_k(decoded, z, level(L)).factor_spaces ==
+                            marginal_k(L, z, level(L)).factor_spaces
+            for seed in tb1_seeds()
+                roundtrip_ok &= apply(decoded, seed) == apply(L, seed)
+            end
+        end
+        projector_coord_dir = zeros(TB1_F, 5, 5)
+        for i in 3:5
+            projector_coord_dir[i, i] = one(TB1_F)
+        end
+        alt = CLStep(TB1_F, 5, collect(1:5), Int[], projector_coord_dir,
+                     CLZero(TB1_F, 5, Int[]))
+        point_bytes = canonical_bytes(describe_cl(point))
+        alt_bytes = canonical_bytes(describe_cl(alt))
+        separated = point_bytes != alt_bytes
+        println("MUTATION_EXPECTED_RULE describe_roundtrip ok=", roundtrip_ok,
+                " separator_bytes_differ=", separated)
+        @test roundtrip_ok
+        @test apply(alt, z) == (zero(TB1_F), zero(TB1_F), TB1_F(4), TB1_F(6), TB1_F(7))
+        @test apply(alt, z) != apply(point, z)
+        @test description_size(describe_cl(alt)) == 75
+        @test separated
+        @test length(Set(canonical_bytes(describe_cl(L)) for L in (point, axis, diagonal))) == 3
+        # Header 13 bytes, then Step: tag 1, seed_dim 4, factor 4+2*5, rest 4,
+        # entry count 4 => the 25 GF(8) entries (1 byte each, row-major) sit at
+        # bytes 41:65; L_Point selects (1,1),(2,2), alt selects (3,3),(4,4),(5,5).
+        window(selected) = UInt8[(r == c && r in selected) ? 0x01 : 0x00
+                                 for r in 1:5 for c in 1:5]
+        @test point_bytes[41:65] == window(1:2)
+        @test alt_bytes[41:65] == window(3:5)
+        @test point_bytes[1:40] == alt_bytes[1:40] && point_bytes[66:75] == alt_bytes[66:75]
+        @test_throws ArgumentError decode_cl(point_bytes[1:74])
+        @test_throws ArgumentError decode_cl(vcat(point_bytes, 0x00))
         # An opaque host closure stays usable in memory and is NotDescribable.
         closure = CLStep(TB1_F, 2, (1,), (2,), reshape([one(TB1_F)], 1, 1),
                          CLZero(TB1_F, 2, (2,))) do _
@@ -266,7 +353,8 @@ if tb1_runs("describe")
         # The combinators still wrap host closures (TB5 residue, DESIGN 9.4).
         @test describe_cl(direct_sum(point, axis)) isa NotDescribable
         println("TB1 describe: description_size L_Point/L_ALine/L_DLine=", sizes,
-                " closure=NotDescribable direct_sum=NotDescribable")
+                " closure=NotDescribable direct_sum=NotDescribable",
+                " decode round trip on 3x8^5 seeds + 2 padded maps; separator L_Point vs V_coord(+)V_dir projector (75 bytes both)")
     end
 end
 
@@ -466,71 +554,21 @@ if tb1_runs("restrictions")
     end
 end
 
-function tb1_honest_answer(g, kind::Symbol, raw, m::Int)
-    if kind == :Point
-        u = point_value(raw, m)
-        return (evaluate(g, collect(u)),)
-    elseif kind == :ALine
-        return (restrict(g, axis_line(raw, m)),)
-    elseif kind == :DLine
-        return (restrict(g, diagonal_line(raw, m)),)
-    end
-    error("unknown TB1 type")
-end
+tb1_honest_answer(g, kind::Symbol, raw, m::Int) = ld_honest_answer(g, kind, raw, m)
 
+# The honest sweep is `ld_honest_sweep` (src/verifiers/ldt.jl), attached to a
+# CHECKED certificate by `ld_sweep_evidence` (verdicts/tb1-r3.md N15).
 function tb1_decider_sweep()
     params = LDParams(TB1_F, TB1_M, TB1_D, 1)
     samplers = Dict(:Point => L_Point(TB1_F, TB1_M),
                     :ALine => L_ALine(TB1_F, TB1_M),
                     :DLine => L_DLine(TB1_F, TB1_M))
-    kinds = (:Point, :ALine, :DLine)
-    g = tb1_polynomial()
-    cache = Dict{Tuple{Symbol,Any},Any}()
-    supports = Dict((left, right) => Set{Any}()
-                    for left in kinds for right in kinds)
-    for seed in tb1_seeds()
-        questions = (Point=apply(samplers[:Point], seed),
-                     ALine=apply(samplers[:ALine], seed),
-                     DLine=apply(samplers[:DLine], seed))
-        for left_kind in kinds, right_kind in kinds
-            push!(supports[(left_kind, right_kind)],
-                  (getproperty(questions, left_kind),
-                   getproperty(questions, right_kind)))
-        end
-    end
-    checked = 0
-    non_noop = 0
-    equal_type = 0
-    line_vs_point = 0
-    off_line_hits = 0
-    accepted = true
-    for left_kind in kinds, right_kind in kinds
-        for (left_q, right_q) in supports[(left_kind, right_kind)]
-            left_a = get!(cache, (left_kind, left_q)) do
-                tb1_honest_answer(g, left_kind, left_q, TB1_M)
-            end
-            right_a = get!(cache, (right_kind, right_q)) do
-                tb1_honest_answer(g, right_kind, right_q, TB1_M)
-            end
-            result = ld_decider(params, left_kind, left_q, right_kind,
-                                right_q, left_a, right_a)
-            accepted &= passed(result)
-            non_noop += result.rule != :ld_noop
-            equal_type += result.rule == :ld_consistency
-            if result.rule in (:ld_axis_point, :ld_diagonal_point)
-                line_vs_point += 1
-                off_line_hits += result.location == :question
-            end
-            checked += 1
-        end
-    end
+    evidence = ld_sweep_evidence(params, tb1_polynomial(), samplers, tb1_seeds())
     raw = apply(samplers[:Point], (TB1_F(3), TB1_F(5), TB1_F(0),
                                    TB1_F(0), TB1_F(0)))
     mismatch = ld_decider(params, :Point, raw, :Point, raw,
                           (TB1_F(1),), (TB1_F(0),))
-    (; accepted, checked, non_noop, equal_type, line_vs_point, off_line_hits,
-       support_count=sum(length, values(supports)),
-       nonempty=all(support -> !isempty(support), values(supports)), mismatch)
+    (; evidence.term.report..., mismatch, evidence)
 end
 
 if tb1_runs("decider")
@@ -550,11 +588,28 @@ if tb1_runs("decider")
         # fig:ld-decider items 2/3 (gt-07-ldt.tex:377-384), never reached by
         # honest play.
         @test report.off_line_hits == 0
-        repair = ld_off_line_repair(honest_support_hits=report.off_line_hits,
-                                    of=report.checked)
+        # verdicts/tb1-r3.md N15: the sweep is a CHECKED node whose replay
+        # re-runs it; the off-line SOURCE_REPAIR hangs under it, the answer
+        # bounds d/md and kappa are its facts.
+        evidence = report.evidence
+        @test evidence.certificate.grade == CHECKED
+        @test evidence.certificate.rule == :ld_honest_sweep
+        repair = only(child for child in evidence.certificate.children
+                      if child.rule == :ld_off_line_rejects)
         @test repair.grade == SOURCE_REPAIR
-        @test repair.rule == :ld_off_line_rejects
         @test repair.facts.honest_support_hits == 0 && repair.facts.of == 71_360
+        @test evidence.certificate.facts.d == 1 && evidence.certificate.facts.md == 2 &&
+              evidence.certificate.facts.kappa == 1
+        @test (evidence.certificate.facts.equal_type,
+               evidence.certificate.facts.line_vs_point) == (2_880, 37_888)
+        @test passed(verify_certificate(evidence))
+        # The replay is a recount, not a re-reading of the report: a tampered
+        # report is rejected.
+        tampered = Checked(merge(evidence.term,
+                                 (report=merge(report.evidence.term.report,
+                                               (off_line_hits=1,)),)),
+                           evidence.certificate)
+        @test !passed(verify_certificate(tampered))
         println("TB1 D^ld: type_pairs=9 seeds=32768 support_decisions=",
                 report.checked, " non_noop=", report.non_noop,
                 " (equal-type tautologies=", report.equal_type,
