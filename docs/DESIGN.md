@@ -737,7 +737,12 @@ rationale: each has a different evidence grade; rejected: one `sound=true` field
 Every rung is a separately runnable test target, is scoped to one focused implementation session, prints its complete transformation trace,
 and has a semantic or textual mutation expected to exit nonzero. The 60-second limit is per rung test body, not per suite: `test/runtests.jl`
 clocks `include("tb0_core.jl")` alone (a 45-second warning, then a hard `@test elapsed < 60`); package load/precompile is reported ungated,
-and TB1/TB2 are included after the TB0 clock and carry no gate of their own.
+and TB1/TB2 are included after the TB0 clock and carry no gate of their own. `src/precompile.jl` executes a full TB0 workload at
+image-build time (witness (i) end to end in both fields, every certificate replay including the refusal paths, the `m=2` fixture, the C8
+circuit); it caches method specializations and no values (no global is assigned, every printed TB0 fact is identical with the workload
+removed). The r3 critic measured the cold image build at 97 s with the workload and 31 s without, against a warm TB0 test body of 38 s and
+100 s respectively (the latter fails the 60 s gate); so the gate certifies TB0 compute after JIT on a warm image, never the cost from
+cold. The cold figure is printed by `tools/cold_precompile.sh`, which builds the image in a scratch depot.
 
 TB0 uses a real circuit on `(x_1,...,x_5,o_1,...,o_5)`, with exactly six gates, all fan-in at most two:
 
@@ -827,8 +832,9 @@ constant. With `deg_F=6`,
 Concrete instances:
 
 1.  Check field axioms, inverses, serialization, and distributivity exhaustively in `GF(2^3)` and on 10,000 seeded triples in `GF(2^11)`.
-2.  For `m=1`, extend both non-constant tables `[0,1]` and `[1,0]`; for `m=2`, extend `[0,1,1,0]`. Verify every Boolean value and compare
-    symbolic evaluation with `a dot ind_m(x)` on all points of `GF(8)^m`, then on seeded `GF(2^11)` points.
+2.  For `m=1`, extend both non-constant tables `[0,1]` and `[1,0]`; for `m=2`, extend `[0,1,1,0]` and the asymmetric `[0,0,1,0]`; for
+    `m=3`, the singleton `[0,0,0,0,1,0,0,0]`. Verify every Boolean value and compare symbolic evaluation with `a dot ind_m(x)` on all
+    points of `GF(8)^m` (8, 64, 512 points), then on 512 seeded `GF(2^11)` points per `m` (seed `0x092048`).
 3.  Over `GF(8)`, decompose `f=x^3-x^2+x*y^2-x*y`; replay every rewrite and check the formal coefficient identity. The retained rewrite
     trace is justified because mutation A below directly exercises it.
 4.  Exhaust the `2^10` circuit inputs (128 present/896 absent), all `2^16` Boolean `(x,o,w)` assignments for circuit/Tseitin/output-literal
@@ -850,7 +856,8 @@ Concrete instances:
 6.  Build witness-(ii) `([0,1],[0,1],[0,1],[0,1],[0,1])` proof `Pi_nd` with `MonomialBudget=2,500,000`. Assert every `g_i` is non-constant and
     `Dependencies(g_i)={X_i}` exactly, with no other block; this is the sole C3 block-dependency evidence. Check its displayed `c_0`
     degree vector, `r=0`, the formal coefficient identity, structural bounds versus actual support, and every quotient's
-    `inddeg(c_j)<=6<=d`. Run the same named GF(8) and sampled GF(2^11) completeness checks needed by TB2. Report normalized monomials,
+    `inddeg(c_j)<=6<=d`. The named GF(8) coordinate-line sweep of item 5 is witness (i)'s only; witness (ii)'s completeness evidence
+    is the separator `b_rho[O2<-rho]` in both fields (the mutation-B owner below). Report normalized monomials,
     elapsed time, and peak memory, explicitly comparing the result with the critic's re-measured 788,032-over-`Z` / 534,912-in-char-2
     figures rather than treating those figures as locally confirmed.
 7.  Make C8 a permanent test: the fixture must report the displayed `F_arith` vector, and `docs/findings-F1-check.jl`'s two-gate circuit
@@ -1157,7 +1164,7 @@ The checker grades the two `IntroGap` branches separately.  TB7 evaluates, by ex
 node's coordinate indicator. `Linear` walks the same prefix and multiplies the stage matrix by the projection of `y`.  None enumerates `image(A)`.
 
 An arbitrary Julia `Function` is not serializable.  The description adapter accepts only branches built from a named pure `QuotedBranch` constructor with canonical captured data.  Existing in-memory `CLStep` values remain usable inside TB1/TB2, but an opaque host branch returns `NotDescribable`;
-transformations never fall back to serializing a closure.      The `QuotedBranch` constructors landed in brief 46; `direct_sum`/`concatenate` still wrap host closures, so their outputs are `NotDescribable` until `DL9-direct-sum` answers them at the description level. `describe_cl(L)` serializes one lazy CL value to `CLDescription` (canonical term, `canonical_bytes`, `description_size`) or `NotDescribable`; the pair adapter `describe_cl(LA,LB,q)` wraps it. `Dimension`, `Marginal`, `Linear` and `Factor` exist on `AbstractCL` with the §9.1 domains (`Factor` enforces `u in L_{<j}(V)` by per-stage column-space membership); illegal calls throw `ArgumentError`, which the adapter maps to `QueryError`.
+transformations never fall back to serializing a closure.      The `QuotedBranch` constructors landed in brief 46; `direct_sum`/`concatenate` still wrap host closures, so their outputs are `NotDescribable` until `DL9-direct-sum` answers them at the description level. `describe_cl(L)` serializes one lazy CL value to `CLDescription` (canonical term, `canonical_bytes`, `description_size`) or `NotDescribable`; the pair adapter `describe_cl(LA,LB,q)` and the `SamplerDescription` record are TB5 work (`verdicts/tb2-r3.md` G2). `Dimension`, `Marginal`, `Linear` and `Factor` exist on `AbstractCL` with the §9.1 domains (`Factor` enforces `u in L_{<j}(V)` by per-stage column-space membership); illegal calls throw `ArgumentError`, which the adapter maps to `QueryError`.
 
 The adapter certificate checks, on a finite fixture, every legal `j`, every seed, every reachable `Factor` prefix, every legal `Linear` prefix, and every factor basis vector against `marginal_k`, `apply`, and the stored matrix.  It also performs the §9.2 direct-sum and telescoping replay.
 Generally, level and both well-formedness invariants are CONSTRUCTED by nesting and the query compiler is proved by structural recursion in code.  The source marginal decomposition is `lem:cl-kth`; the machine interface exposing it is `def:sampler` (`gt-04-cl.tex:L151-L180`, `L572-L595`).
@@ -1181,7 +1188,7 @@ For `downsize`, ASSUME `q(n)=p^k` with odd extension degree `k`, as required by 
 The output CL functions are the conjugates `downsize o L o downsize^-1`. Level, field, dimension, distribution, and runtime are the laws in `def:downsize_sampler` and `lem:downsize_sampler` (`gt-04-cl.tex:L628-L680`).
 
 For `direct_sum`, every vector and prefix is split into its registered blocks, the same query is sent to each child, and results or factor indicators are concatenated.  A genuine `r>=1`-level child padded to a larger level keeps its first `r` factors and appends empty factors.  A whole-space zero
-map is instead promoted from level 0 by `rk:higher-level`: stage 1 reports the all-ones indicator for its entire ambient space and the zero linear map, and stages `2..ell` report empty factors and zero maps (`gt-04-cl. (`pad_level` implements this for any register zero map and exposes the node `ZERO_MAP_FACTOR_PARTITION`.)tex:L122-L130`).  This rule is tagged
+map is instead promoted from level 0 by `rk:higher-level`: stage 1 reports the all-ones indicator for its entire ambient space and the zero linear map, and stages `2..ell` report empty factors and zero maps (`gt-04-cl.tex:L122-L130`). `pad_level` implements this for any zero map on a nonempty register and exposes the node `ZERO_MAP_FACTOR_PARTITION`; for an empty-register zero map it must promote to the value's ambient register (`verdicts/tb1-r3.md` N15, TB5 obligation).  This rule is tagged
 `SOURCE_REPAIR(zero-map-factor-partition)` where the source machines print an all-zero factor indicator.
 
 The constructors which originate whole-space zero maps are exactly: `typed_anchor_sampler` on `Anchor`; the Pauli sampler on `PauliX` and `PauliZ`; `tilde S^intro` on every type in `TypeIntro \ TypePauli`; and `detype_sampler`'s conditional child on a zero opposite-edge view.

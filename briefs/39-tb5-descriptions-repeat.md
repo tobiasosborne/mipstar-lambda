@@ -22,3 +22,11 @@ From here on every transformation receives CODE, never a host closure: `SamplerD
 
 ## Report (≤ 40 lines)
 RED excerpt; GREEN summary + walls + peak allocation; the certificate tree printout for `Repeat(V_copy)`; mutation lines; CROSS-LANE EDITS; API REQUESTS; deviations from §9–10 (each with the gt line that forced it); MERGE PROPOSALS: verbatim row text for C12 and C13 with the evidence this rung supplies (proposals only; statuses change only by verdict).
+
+## ADDENDUM (2026-09-05, from verdicts/tb1-r3.md §readiness and verdicts/tb2-r3.md G1–G5)
+The four-query API (`Dimension/Marginal/Factor/Linear`) and `cl_kth_replay` work unchanged on all 54 product maps — build on them. What TB5 must ADD before anchoring/repetition can be described:
+- **G1 (blocking):** `direct_sum`/`concatenate` (`src/samplers/cl.jl`) wrap host closures → every composite is `NotDescribable`. `DL9-direct-sum`/`DL9-concatenate`/`DL9-product` must be `CLDescription`-level combinators (quoted branch constructors for the composite, e.g. `BranchDirectSum(left_desc,right_desc)`), so `typed_anchor_sampler`/`repeat_sampler` outputs are describable with exact `description_size`; the 54 product maps become describable as a by-product (assert 54/54).
+- **G2:** the `SamplerDescription` record (`code, field_size, level, typing, query_time, description_size, dependency_set`), the pair/typed adapter `describe_cl(LA,LB,q)` with the §9.1 arities `Marginal(n,w,j,z[,type])` etc., and `DeciderDescription`.
+- **G3:** the zero marginal stays internal; `Marginal` with `j=0` is a `QueryError` at the description boundary (brief 54 makes the in-memory call throw).
+- **G5:** `ArgumentError → QueryError` mapping at the boundary; a TB2-fixture test of `Factor` rejecting an unreachable PCP prefix.
+- After brief 54 the serializer is injective with a `decode` round trip — extend the round trip to every description TB5 emits (`S^anch`, `S^rep`, intermediates).
