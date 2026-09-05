@@ -63,7 +63,7 @@ guard outside the semantics, not a fourth outcome: it fires only when the number
 (default `10^6`), and `eval_program`/`eval_quoted` refuse `hard_cap < fuel` with `ArgumentError`. `FuelBound(n, λ) = n^λ` with both
 operands of sort `Nat`; when `n^λ` overflows the host integer the inner budget is taken as not below the remaining ambient fuel, so the run
 ends in `Value` or `OutOfFuel` and never in `SortError`. Sorts are declared (`DECLARED_SORTS`: `Program`, `Decider`, `Compressor`,
-`Sampler`, `MachineDesc`, `Pair`, `Nat`, `Bit`, `Bits`) and checked by shape wherever a term becomes a description (`Quote`,
+`Sampler`, `MachineDesc`, `Pair`, `Nat`, `Bit`, `Bits`, `Level`) and checked by shape wherever a term becomes a description (`Quote`,
 `quote_program`, `specialize`, and `Fix`, whose `self_code` hole names `A`) — `Decider` is a five-argument `Lambda` or its `Fix`,
 `Compressor` a two-argument `Lambda`, `MachineDesc` a bit-string literal of the one-tape machine format — and at evaluation, where only
 the function sorts may be applied (`SortError(:eval_sort)`). `halts_within(M, n)` and `quoted_pair` are registered primitives:
@@ -74,9 +74,19 @@ the function sorts may be applied (`SortError(:eval_sort)`). `halts_within(M, n)
 `quote_program`; `specialize(Fix(P), {self_code ↦ …})` is refused (`self_code` is bound by `Fix`) and `specialize(Fix(P), {})` is the
 identity under the size law. Because `Quote` admits only closed terms, the runtime `Specialize` contraction can only ever see hole-free
 code: term-level specialization of a partial body is not representable in this instantiation (TB4 must specialize on the host or admit a
-partial-code sort). Reading note for the display below: `Apply(Quote(Compress), …)` applies a code value, which the evaluator refuses
-(`SortError(:apply_non_closure)`); the evaluable form, used by TB3's test (h) with a stub `Compress`, is `Eval(Apply(Compress, pair, λ),
-(n,x,y,a,b), FuelBound(n,λ))` with `Compress` the closed program itself.
+partial-code sort). **Host-side specialization contract (TB4, `verdicts/tb3-r2.md` §7 item 4):** `fix_specialize(template, env)` closes
+every hole of the open body except `self_code` by `substitute`, ties `self_code` by `Fix`, and quotes the result; its CHECKED `:Specialize`
+node replays the size law `|Fix(P[env])| = |P| − Σ|Hole| + Σ|inserted| + c_fix` with `c_fix = 5` bytes (the `Fix` tag and its child count)
+against the decoded bytes, and the CHECKED `:Quote` node is `quote_program`'s. Reading note for the display below (N17, `verdicts/tb3-r2.md`
+§7 item 5): the display IS the evaluable form. `Compress` is inlined as the closed program of sort `Compressor`; the former
+`Apply(Quote(Compress), …)` applied a code value, which the evaluator refuses (`SortError(:apply_non_closure)`), and the evaluator was not
+changed to admit it. `Compress`'s second argument is `lambda : P{Nat}`, the resource bound of `def:lambda`; the declared sort `Level`
+(a positive `Nat` literal by shape) exists for `definitions.md` §F's level datum but is not what `Compress` receives. Adjudication of
+`briefs/47-analytic-doc-repair-r1.last.md` MP-2 (i): the outer `Eval` of the RETURNED decider under `FuelBound(n,lambda)` is in the
+display; no `ans` selector is needed because `Compressor` returns the decider description (`definitions.md` §F), and no fuel symbol `F_C`
+is introduced because `Compress` is a total polynomial-time program whose run is counted inside `TIME_D` in the ambient budget exactly
+as `lem:lambda` counts it (`gt-12-compression.tex:L578-L596`); the two nested `Eval`s of the analytic display remain that document's
+`SOURCE_REPAIR` against this one.
 
 Only the two representations used by the rungs are IR types:
 
@@ -95,10 +105,14 @@ The description-level fixed-point constructor has the interface
 
 ```text
 Fix : PartialProgram{self_code::Quoted{A}} -> ClosedProgram{A}
-eval(Quote(Fix(P)),u;fuel) = eval(specialize(P,{self_code=>Quote(Fix(P))}),u;fuel)
+eval(Fix(P),u;fuel) = eval(specialize(P,{self_code=>Quote(Fix(P))}),u;fuel - c_Y)      (c_Y = 3)
 ```
 
-for every fuel at which both sides terminate (the left side uses exactly `c_Y = 3` more units, the unfolding charge). It is syntax, not Julia recursion. In the display below, `M:P{MachineDesc}` and
+for every `fuel >= c_Y`, outcome for outcome (`Value`, `SortError` and `OutOfFuel` alike), the left side's used count being exactly
+`c_Y = 3` (the unfolding charge) more than the right side's — MP-2 (ii) of `briefs/47-analytic-doc-repair-r1.last.md`, adopted; this is
+`docs/analytic` Theorem `thm:ycode`, and TB4 pins it at every fuel from `c_Y` past termination on the halting fixture. The right side is
+the materialised unfolding `specialize(P,{self_code=>Quote(Fix(P))})`, a closed `Quoted` with a `SubstCert`; `Fix(P)` itself is
+syntax, not Julia recursion. In the display below, `M:P{MachineDesc}` and
 `lambda:P{Nat}` (the resource bound of `def:lambda`, `gt-12-compression.tex:L435-L440`; not a CL level) are closed literal terms, `n:P{Nat}` and `x,y,a,b` are the five bound arguments, `S_lambda:ClosedProgram{Sampler}`, and
 `Compress:ClosedProgram{Compressor}`. The names `halts_within`, `true`, and `quoted_pair` are declared `PrimName`s, while `self_code` is
 the displayed typed hole; consequently the display has no other free symbols. The halting verifier is the following term:
@@ -107,13 +121,18 @@ the displayed typed hole; consequently the display has no other free symbols. Th
 Psi_M_lambda = Lambda(5,                         -- n,x,y,a,b
   If(Prim(halts_within, Opaque("n steps",(n,)), M, n),
      Prim(true, Concrete(1), ()),
-     Eval(Apply(Quote(Compress),
-                Prim(quoted_pair, Concrete(1), Quote(S_lambda),
-                     Hole(self_code,Quoted{Decider})), lambda),
+     Eval(Apply(Compress,
+                Prim(quoted_pair, Concrete(1), Quote(S_lambda, Sampler),
+                     Hole(self_code, Decider)), lambda),
           (n,x,y,a,b), FuelBound(n,lambda))))
 
 D_M_lambda = Fix(Psi_M_lambda)
 ```
+
+`Hole(self_code, A)` names `A = Decider`, the result sort whose CODE the hole receives: at `Fix` the hole is tied to the value
+`Quote(D_M_lambda, Decider) : Quoted{Decider}`, so the hole's sort annotation is `A`, not `Quoted{A}` (N17). Lambda binders carry no
+sorts in the IR (design-r4 R9): a `Decider`'s five arguments are checked as values at the evaluator entry against
+`DECIDER_ARGUMENT_SORTS = (Nat, Bits, Bits, Bits, Bits)` by `decider_input_sorted`.
 
 Thus `D_M_lambda = Fix(Psi_M_lambda)` is a finite closed term, matching the fixed-point equation in `handoff.md:L21-L35`. The bounded `quoted_pair`
 primitive joins two code values without capture. `Compress` sees the resulting quote `(S_lambda,d)`, traverses and specializes that body,
@@ -976,9 +995,11 @@ not preserve the TB0 fixture, so TB3's PCP evidence rests on a different circuit
 construction of `prop:explicit-padded-succinct-deciders`; obligation 1, `2^m >= 2T`, is a construction step (`pad5` widens `m`).
 
 Exhaustively compare program result, bounded-trace acceptance, the small 3SAT relation, the 256/1024 decoupled relation table, and all 1,024
-witnesses. Feed the generated—not hard-coded—circuit and both retained witnesses into TB0's Tseitin/PCP builder through `build_pcp`'s
-upstream-evidence slot (the front-end certificate is bound by identity to the proof's Tseitin formula; a borrowed front-end certificate is
-refused at its `:Pad5` node with `:certificate_binding` before any PCP certificate exists); feed only witness (ii) into TB2's typed decider.
+witnesses. Feed the generated—not hard-coded—circuit and both retained witnesses into TB0's Tseitin/PCP builder, witness (ii) through
+`build_pcp`'s upstream-evidence slot (the front-end certificate is bound by identity to the proof's Tseitin formula; a borrowed front-end
+certificate is refused at its `:Pad5` node with `:certificate_binding` before any PCP certificate exists; the attached evidence is one that
+generates the proof's Tseitin formula — the formula does not determine `|D|`, so the propagated size and hash are the attached front end's,
+not a property of the proof, `verdicts/tb3-r2.md` N12); feed only witness (ii) into TB2's typed decider.
 Assert canonical quote-size propagation and print every intermediate object. Mutate the accepting transition to rejecting without changing
 the formula; trace/formula equivalence must fail before PCP construction. The equality decider `lambda n x y a b. (a == b)` (`T=3` under
 the same charge table: two lookups and one primitive) is the discriminating fixture for "satisfiable iff `D` accepts" (the trivial decider
@@ -1212,7 +1233,7 @@ The checker grades the two `IntroGap` branches separately.  TB7 evaluates, by ex
 node's coordinate indicator. `Linear` walks the same prefix and multiplies the stage matrix by the projection of `y`.  None enumerates `image(A)`.
 
 An arbitrary Julia `Function` is not serializable.  The description adapter accepts only branches built from a named pure `QuotedBranch` constructor with canonical captured data.  Existing in-memory `CLStep` values remain usable inside TB1/TB2, but an opaque host branch returns `NotDescribable`;
-transformations never fall back to serializing a closure.      The `QuotedBranch` constructors landed in brief 46; `direct_sum`/`concatenate` still wrap host closures, so their outputs are `NotDescribable` until `DL9-direct-sum` answers them at the description level. `describe_cl(L)` serializes one lazy CL value to `CLDescription` (canonical term, `canonical_bytes`, `description_size`) or `NotDescribable`; the pair adapter `describe_cl(LA,LB,q)` and the `SamplerDescription` record are TB5 work (`verdicts/tb2-r3.md` G2). `Dimension`, `Marginal`, `Linear` and `Factor` exist on `AbstractCL` with the §9.1 domains (`Factor` enforces `u in L_{<j}(V)` by per-stage column-space membership); illegal calls throw `ArgumentError`, which the adapter maps to `QueryError`; stage matrix entries are serialized row-major `(1,1),(1,2),…,(w,w)`, pinned by an off-diagonal witness, and `decode_cl` re-imposes `factor ⊎ rest = {1..n}` on the top stage (brief 59); `Marginal` rejects `j=0` like `Factor`/`Linear`, and `cl_kth_replay` supplies the §9.2 zero prefix itself (`verdicts/tb1-r3.md` N14). At TB2's `m'=16` the literal `chi`-indexed `BranchByAxis` table is charged one child term per axis (`ALine_6` 10228 vs `ALine_1` 2893 bytes); the compact-loop form is `DL9` work (ibid. N18).
+transformations never fall back to serializing a closure.      The `QuotedBranch` constructors landed in brief 46; `direct_sum`/`concatenate` still wrap host closures, so their outputs are `NotDescribable` until `DL9-direct-sum` answers them at the description level. `describe_cl(L)` serializes one lazy CL value to `CLDescription` (canonical term, `canonical_bytes`, `description_size`) or `NotDescribable`; the pair adapter `describe_cl(LA,LB,q)` and the `SamplerDescription` record are TB5 work (`verdicts/tb2-r3.md` G2). `Dimension`, `Marginal`, `Linear` and `Factor` exist on `AbstractCL` with the §9.1 domains (`Factor` enforces `u in L_{<j}(V)` by per-stage column-space membership); illegal calls throw `ArgumentError`, which the adapter maps to `QueryError`; stage matrix entries are serialized row-major `(1,1),(1,2),…,(w,w)`, pinned by an off-diagonal witness, and `decode_cl` re-imposes `factor ⊎ rest = {1..n}` on the top stage (brief 59); register index vectors are serialized in their declared order, so canonical bytes are canonical only up to that order (`verdicts/tb1-r5.md` N31/N32; sorting is DL9 work); `Marginal` rejects `j=0` like `Factor`/`Linear`, and `cl_kth_replay` supplies the §9.2 zero prefix itself (`verdicts/tb1-r3.md` N14). At TB2's `m'=16` the literal `chi`-indexed `BranchByAxis` table is charged one child term per axis (`ALine_6` 10228 vs `ALine_1` 2893 bytes); the compact-loop form is `DL9` work (ibid. N18).
 
 The adapter certificate checks, on a finite fixture, every legal `j`, every seed, every reachable `Factor` prefix, every legal `Linear` prefix, and every factor basis vector against `marginal_k`, `apply`, and the stored matrix.  It also performs the §9.2 direct-sum and telescoping replay.
 Generally, level and both well-formedness invariants are CONSTRUCTED by nesting and the query compiler is proved by structural recursion in code.  The source marginal decomposition is `lem:cl-kth`; the machine interface exposing it is `def:sampler` (`gt-04-cl.tex:L151-L180`, `L572-L595`).
