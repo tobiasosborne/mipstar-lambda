@@ -81,7 +81,7 @@ Psi_M_lambda = Lambda(5,                         -- n,x,y,a,b
      Prim(true, Concrete(1), ()),
      Eval(Apply(Quote(Compress),
                 Prim(quoted_pair, Concrete(1), Quote(S_lambda),
-                     Hole(self_code,Quoted{Decider})), L),
+                     Hole(self_code,Quoted{Decider})), lambda),
           (n,x,y,a,b), FuelBound(n,lambda))))
 
 D_M_lambda = Fix(Psi_M_lambda)
