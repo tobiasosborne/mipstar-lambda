@@ -31,12 +31,12 @@ Session 3 was running four agents when the user restarted the machine. Everythin
 | Design v1 (§1–8) | converged, design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | — |
 | TB0 | **CONVERGED** r4 PASS (`verdicts/tb0-r4.md`); C1, C2, C3, C8 TESTED; N13–N16 MINOR folded into brief 23 | — |
-| TB1 / TB2 | TB1 CONVERGED. TB2 repair r7 landed 8af9073 (114-outcome copy-index block); C4b, C9 TESTED | **critic r8 RUNNING (brief 75, closing)** |
+| TB1 / TB2 | **BOTH CONVERGED** (tb1-r6 PASS, tb2-r8 PASS); C4a, C4b, C4c, C9 TESTED | — |
 | TB3 | repair r1 landed; critic r2 FAIL(N11) (orchestrator's clause narrowing — corrected 443092d); **C10 TESTED**; N12–N17 MINOR folded into brief 24 addendum 3 | — (TB3 minors close inside TB4's round; a TB3 r3 critic is optional) |
-| TB4 | repair r1 landed 8af9073 (origin/ℓ=9 witnesses, third stub disclosed, HaltDeciderFuelBound SOURCE_REPAIR, ratio gate); C11 TESTED (weaker; strengthened row proposed) | **critic r2 RUNNING (brief 76)** |
-| TB5 | landed f7e69ed; critic r1 FAIL(O1,O2) small; **C12, C13 TESTED** (scoped) | **repair r1 RUNNING (brief 77, Fable, first of two)** → commit, TB5 critic r2 (closing) |
-| TB6 | **QUEUED on the same worker right after 77 (brief 43 + addendum: interpreter-step fuel unit, TypedDecider tag, oriented edges)** | when it lands: verify, commit, Opus critic r1; worker → brief 44 (TB7) |
-| TB7 | brief 44 written | after TB6 |
+| TB4 | critic r2 FAIL(NEW-1,NEW-2) tiny; C11 TESTED (weaker; strengthened row authorized conditional on NEW-1) | **brief 78 RUNNING (Fable, first of two)** → commit + paste strengthened C11 in the same commit; TB4 critic r3 (closing) |
+| TB5 | repair r1 landed 0ec462e; C12, C13 TESTED (scoped) | adjudicated inside brief 79 (TB5 r2 section) — strike O1/O2 scope sentences if authorized |
+| TB6 | **landed 0ec462e** (12105/12105, 182/182): Pauli test, Introspect as a CompressStage, step Meter, stabilizer simulation, fixtures E/M, two new SOURCE_REPAIRs; C14 proposed TESTED | **critic r1 + TB7 gate RUNNING (brief 79)** → paste C14 if authorized; adjudicate the two SOURCE_REPAIRs |
+| TB7 | **RUNNING (brief 44 + addendum, Fable, second of two)** — Compress with no stub on the path, ToyPolicy, D = Y Ψ end-to-end | when it lands: verify, commit, Opus critic r1; then C15; then explainer chapter 14 flips to executed; then the generalisation surface |
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
 | **Analytic doc (sidequest)** | **CONVERGED** r3 PASS (`verdicts/analytic-doc-r3.md`); 92 pp, 110 figures; PDF v6 sent | pedagogy round (bd d48: n6–n10) and lockstep updates as TB3–TB7 land — low priority |
 | Figure atlas canvas | published: https://claude.ai/code/artifact/d3c355d4-541f-4983-a57f-4d6d7ca097f1 (user approved the direction) | optional: re-seed with rendered figure PNGs as a review gallery (working files in the session scratchpad `atlas/` — regenerate from `docs/analytic` if lost) |
