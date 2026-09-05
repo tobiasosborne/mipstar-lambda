@@ -736,12 +736,18 @@ if tb2_runs("lockstep")
 end
 
 if tb2_runs("replay_seeds")
-    @testset "TB2 nine-case replay at three seeds (verdicts/tb2-r3.md N9, tb2-r5.md NG1/NG2)" begin
+    @testset "TB2 nine-case replay at three seeds, both orientations (verdicts/tb2-r3.md N9, tb2-r5.md NG1/NG2, tb2-r6.md NG3)" begin
         # The certificate replay (`_answer_reduce_replay_steps`) runs the
         # nine fig:decider-pcp cases at the all-zero seed with all-zero
         # answers. Here the same nine cases, honest answers from the TB0
         # proof, run at the zero seed and two nonzero full-field seeds, and
-        # the same four facts are asserted for every (case, seed).
+        # the same four facts are asserted for every (case, seed) — first in
+        # the registered orientation (Point-side type on the LEFT, so the
+        # rejecting guard fires at player = :alice) and then SWAPPED
+        # (`(case.right, case.left)` with the corrupted side flipped, so the
+        # same guard fires at player = :bob; verdicts/tb2-r6.md NG3). The
+        # decider runs player-outer, so a rejection disarmed in one
+        # orientation only is visible only to the other block.
         reduced = tb2_checked_reduction().term
         strategies = Dict(:degenerate => honest_pcp_strategy(tb2_proof(:degenerate), TB2_PARAMS),
                           :nondegenerate => honest_pcp_strategy(tb2_proof(:nondegenerate), TB2_PARAMS))
@@ -750,35 +756,56 @@ if tb2_runs("replay_seeds")
                  tb2_seed(reduced.sampler, 5),
                  ntuple(_ -> rand(rng, field_elements(GF2048)), seed_dim(reduced.sampler)))
         @test count(seed -> all(iszero, seed), seeds) == 1
-        outcomes = Tuple{Symbol,Int,Bool,Bool,Symbol,Bool}[]
-        for case in MIPStarLambda._answer_reduce_replay_cases(), (index, seed) in enumerate(seeds)
-            witness = answer_reduce_requires_nondegenerate(reduced.decider, case.left, case.right) ?
+        outcomes = Tuple{Symbol,Symbol,Int,Bool,Bool,Symbol,Bool,Symbol}[]
+        for orientation in (:forward, :swapped),
+            case in MIPStarLambda._answer_reduce_replay_cases(), (index, seed) in enumerate(seeds)
+            left, right = orientation == :forward ? (case.left, case.right) :
+                                                    (case.right, case.left)
+            side, entry = case.corrupt
+            orientation == :swapped && (side = side == :left ? :right : :left)
+            witness = answer_reduce_requires_nondegenerate(reduced.decider, left, right) ?
                       :nondegenerate : :degenerate
             strategy = strategies[witness]
-            left_q, right_q = sample_answer_reduce_questions(reduced, case.left, case.right, seed)
-            left_a = honest_pcp_answer(strategy, case.left.pcp, left_q.pcp)
-            right_a = honest_pcp_answer(strategy, case.right.pcp, right_q.pcp)
-            honest = typed_answer_reduced_decider(reduced.decider, case.left, left_q,
-                                                  case.right, right_q, left_a, right_a)
-            side, entry = case.corrupt
-            corrupted = typed_answer_reduced_decider(reduced.decider, case.left, left_q,
-                case.right, right_q,
+            left_q, right_q = sample_answer_reduce_questions(reduced, left, right, seed)
+            left_a = honest_pcp_answer(strategy, left.pcp, left_q.pcp)
+            right_a = honest_pcp_answer(strategy, right.pcp, right_q.pcp)
+            honest = typed_answer_reduced_decider(reduced.decider, left, left_q,
+                                                  right, right_q, left_a, right_a)
+            corrupted = typed_answer_reduced_decider(reduced.decider, left, left_q,
+                right, right_q,
                 side == :left ? MIPStarLambda._corrupt_replay_answer(left_a, entry) : left_a,
                 side == :right ? MIPStarLambda._corrupt_replay_answer(right_a, entry) : right_a)
-            push!(outcomes, (case.case, index, passed(honest), passed(corrupted),
+            push!(outcomes, (orientation, case.case, index, passed(honest), passed(corrupted),
                              corrupted.result.rule,
-                             case.step in Set(e.step for e in honest.trace)))
+                             case.step in Set(e.step for e in honest.trace),
+                             corrupted.trace[end].player))
             @test passed(honest)
             @test !passed(corrupted)
             @test corrupted.result.rule == case.expected_rule
             @test case.step in Set(e.step for e in honest.trace)
         end
-        @test length(outcomes) == 27
-        @test count(o -> o[1] in (:proof_individual_diagonal, :proof_simultaneous_diagonal),
-                    outcomes) == 6
+        forward = filter(o -> o[1] == :forward, outcomes)
+        swapped = filter(o -> o[1] == :swapped, outcomes)
+        @test length(outcomes) == 54
+        @test length(forward) == 27 && length(swapped) == 27
+        @test count(o -> o[2] in (:proof_individual_diagonal, :proof_simultaneous_diagonal),
+                    forward) == 6
+        @test count(o -> o[2] in (:proof_individual_diagonal, :proof_simultaneous_diagonal),
+                    swapped) == 6
+        # The rejecting trace entry's player is the orientation coordinate of
+        # the (step, branch, player, index, line_kind) key: :alice on every
+        # forward case, :bob on every swapped case, step 1 alone :both.
+        rejecting_player(o) = o[2] == :global_consistency ? :both :
+                              o[1] == :forward ? :alice : :bob
+        @test all(o -> o[8] == rejecting_player(o), outcomes)
         println("TB2 replay at 3 seeds (zero, tb2_seed 5, rng 0x9E): cases=9 outcomes=",
-                length(outcomes), " honest=", count(o -> o[3], outcomes),
-                " corrupted_rejected=", count(o -> !o[4], outcomes))
+                length(forward), " honest=", count(o -> o[4], forward),
+                " corrupted_rejected=", count(o -> !o[5], forward))
+        println("TB2 replay SWAP orientation (right,left) at the same 3 seeds: cases=9 outcomes=",
+                length(swapped), " honest=", count(o -> o[4], swapped),
+                " corrupted_rejected=", count(o -> !o[5], swapped),
+                " expected_rule=", count(o -> o[6] == first(c.expected_rule for c in
+                    MIPStarLambda._answer_reduce_replay_cases() if c.case == o[2]), swapped))
     end
 end
 
