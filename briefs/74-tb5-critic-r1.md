@@ -1,6 +1,6 @@
 # Brief 74 — CRITIC verdict r1 on rung TB5 (the DESIGN §9 description layer and the executable Repeat = anchoring + 81-fold repetition) — also the readiness gate for TB6
 
-You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb5-r1.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; instantiate there; cold precompile ~90–200 s). Never read src/test from the live tree (a worker edits it); `claims/CLAIMS.md` may be read live.
+You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb5-r1.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `f7e69ed` (`git archive f7e69ed | tar -x -C <scratch>/tree`; instantiate there; cold precompile ~90–200 s). Never read src/test from the live tree (a worker edits it); `claims/CLAIMS.md` may be read live.
 
 Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/critic-tb5-r1/`
 
