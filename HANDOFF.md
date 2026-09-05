@@ -19,11 +19,11 @@ A COMPLETE executable implementation of `Compress = Repeat ∘ AnswerReduce ∘ 
 |---|---|---|
 | Design v1 (§1–8) | converged, design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | — |
-| TB0 | repair r2 landed; **critic r2 FAIL(N1–N5)** (`verdicts/tb0-r2.md`: certificate honesty, false-kill mutant, dead testset; maths reproduced exactly); C8 re-affirmed TESTED | **repair r3 RUNNING (brief 42, Fable)** → orchestrator verifies suite+runner, commits, launches TB0 critic r3 (template) |
-| TB1 / TB2 | repair r1 landed a4dc22a (lazy `CLStep{F}`, runner rewrite 37/37); critic r2: tb1 FAIL(N1–N3), tb2 FAIL(N1); **C4a, C4b, C9 all TESTED** (authorized rows pasted 121c0d1) | **brief 46 QUEUED for Fable after 42**: repair r2 + §9 describability prep (`QuotedBranch`, prefix-addressed `Factor`/`Linear`, replay, `pad_level` append); then critics r3 |
+| TB0 | repair r4 landed 44160d1; C2, C3, C8 TESTED; C1 one step (N8) from TESTED | **critic r4 RUNNING (brief 55)** → expect PASS + C1 PROMOTE; paste the authorized row |
+| TB1 / TB2 | repair r2 + describability landed 9a55215; critics r3: tb1 FAIL(N12,N13), tb2 FAIL(N6) — serializer not tied to the map; C4a, C4b, C9 TESTED (re-affirmed) | **repair r3 RUNNING (brief 54, Fable; small)** → commit, then critics r4 (template; expect PASS) |
 | TB3, TB4 | briefs 23, 24 written (codex-era wording; launch prompt says "Proposer (Fable)") | Fable order after 46: 23 → 24 → 39 (TB5) → 43 (TB6) → 44 (TB7); Opus critic on each landed rung from the template while the worker builds the next |
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
-| **Analytic doc (sidequest)** | brief 37 landed e3fe341: 82 pp, 101 figures, figure on every page, 0 overfull, QA complete; PDF sent to user | **critic r1 RUNNING (brief 45, Opus vision)** → `verdicts/analytic-doc-r1.md`; then a repair brief (Opus) folding in the five pedagogy suggestions it accepts |
+| **Analytic doc (sidequest)** | critic r1 FAIL(11) → repair r1 → critic r2 FAIL(6) → repair r2 landed 8eb67ba (92 pp, 110 figs, page-verified rows); PDF v6 sent | **critic r3 RUNNING (brief 56)** → expect PASS or a short r3 repair; then pedagogy NOTEs become a future round |
 | Figure atlas canvas | published: https://claude.ai/code/artifact/d3c355d4-541f-4983-a57f-4d6d7ca097f1 (user approved the direction) | optional: re-seed with rendered figure PNGs as a review gallery (working files in the session scratchpad `atlas/` — regenerate from `docs/analytic` if lost) |
 | Tutorial artifact | bd issue open | after TB4; drive from real trace printouts |
 
