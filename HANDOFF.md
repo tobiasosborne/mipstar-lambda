@@ -31,10 +31,10 @@ Session 3 was running four agents when the user restarted the machine. Everythin
 | Design v1 (§1–8) | converged, design-r4 PASS | — |
 | Midpoint toy | C6, N1 PROVED | — |
 | TB0 | **CONVERGED** r4 PASS (`verdicts/tb0-r4.md`); C1, C2, C3, C8 TESTED; N13–N16 MINOR folded into brief 23 | — |
-| TB1 / TB2 | TB1 CONVERGED (r6 PASS). TB2 repair r6 landed 8a1b6e2 (54-outcome replay); C4b, C9 TESTED | **TB2 critic r7 RUNNING (brief 71, closing)** → paste C9; lane converged on PASS |
+| TB1 / TB2 | TB1 CONVERGED. TB2 r7 FAIL(NG10) (copy-index witnesses, 114-outcome block pre-written by the critic); C4b, C9 TESTED | **brief 73 RUNNING (Fable, first of two)** → commit, TB2 critic r8 (closing) |
 | TB3 | repair r1 landed; critic r2 FAIL(N11) (orchestrator's clause narrowing — corrected 443092d); **C10 TESTED**; N12–N17 MINOR folded into brief 24 addendum 3 | — (TB3 minors close inside TB4's round; a TB3 r3 critic is optional) |
-| TB4 | **landed 278b1ac** (1253/1253, 115/115): CompressStage interface, contracts, YCode/Fix, Ψ_{M,λ} evaluable, D = Y Ψ (388 bytes), fixed-point equation c_Y=3; C11 proposed TESTED | **critic r1 + TB5 readiness gate RUNNING (brief 70)** → paste C11 if authorized; worker → brief 39 (TB5) after brief 69 |
-| TB5 | **RUNNING (brief 39 + addenda 1–3, Fable)** — §9 description layer (all composites describable) + §10 anchoring/81-fold Repeat as a real CompressStage | forward the TB4 critic's TB5-readiness notes to the worker via SendMessage when brief 70 lands; when TB5 lands: verify, commit, Opus critic r1, worker → brief 43 (TB6) |
+| TB4 | landed 278b1ac; critic r1 FAIL(O1–O5); **C11 TESTED (weaker authorized row)**; C16/C18 caveats applied | **brief 72 RUNNING (Fable, second of two)** → commit, TB4 critic r2 |
+| TB5 | **landed f7e69ed** (1796/1796, 140/140): SamplerDescription/DeciderDescription, DL9 combinators (54/54 product maps describable), anchoring, 81-fold Repeat as a CompressStage, four transcripts, independence; C12/C13 proposed TESTED | **critic r1 + TB6 readiness gate RUNNING (brief 74)** → paste C12/C13 if authorized; adjudicated DESIGN sentences; worker → brief 43 (TB6) |
 | TB6, TB7 | briefs 43, 44 written | sequential on the one Fable worker; critics in parallel |
 | **DESIGN v2 (§9–13)** | **CONVERGED**: r1 FAIL(10) → r2 FAIL(2) → r3 PASS (`verdicts/design-v2-r3.md`); C12–C15 all CONJECTURE in CLAIMS; TB5 implementation-ready; briefs 39 (TB5), 43 (TB6), 44 (TB7) written | — |
 | **Analytic doc (sidequest)** | **CONVERGED** r3 PASS (`verdicts/analytic-doc-r3.md`); 92 pp, 110 figures; PDF v6 sent | pedagogy round (bd d48: n6–n10) and lockstep updates as TB3–TB7 land — low priority |
