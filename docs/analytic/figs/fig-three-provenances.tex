@@ -1,12 +1,12 @@
 \begin{tikzpicture}[x=1cm,y=1cm]
   % ---- column 1: transcribed from the source
   \node[citedbox, anchor=north west, text width=3.9cm, align=left,
-        minimum height=1.0cm] (h1) at (0,0)
+        minimum height=2.0cm] (h1) at (0,0)
     {\textbf{transcribed from the paper}\\[1pt]
      \scriptsize a ground-truth footnote names the source label};
-  \node[tag cited, anchor=north west] at (0,-1.15) {CITED};
+  \node[tag cited, anchor=north west] at ([yshift=-1.2mm]h1.south west) (t1) {CITED};
   \node[citedbox, anchor=north west, text width=3.9cm, align=left,
-        minimum height=3.6cm] (b1) at (0,-1.55)
+        minimum height=4.7cm] (b1) at ([yshift=-1.2mm]t1.south west)
     {\scriptsize
      Definitions~\ref{def:paper-decider}--\ref{def:paper-lambda}
      (\code{def:decider}, \code{def:sampler}, \code{def:normal-ver},
@@ -19,40 +19,48 @@
 
   % ---- column 2: this document's own derivations
   \node[stage, draw=focus, fill=focuslt, anchor=north west, text width=3.9cm,
-        align=left, minimum height=1.0cm] (h2) at (4.5,0)
+        align=left, minimum height=2.0cm] (h2) at (4.5,0)
     {\textbf{derived here, in this document}\\[1pt]
-     \scriptsize written proofs; no row in \code{claims/CLAIMS.md}};
-  \node[tag focus, anchor=north west] at (4.5,-1.15) {SKETCH --- NOT VERIFIED};
+     \scriptsize written proofs, recorded as \code{C16}--\code{C19}};
+  \node[tag focus, anchor=north west] at ([yshift=-1.2mm]h2.south west) (t2)
+    {SKETCH --- C16--C19};
   \node[stage, draw=focus, fill=focuslt, anchor=north west, text width=3.9cm,
-        align=left, minimum height=3.6cm] (b2) at (4.5,-1.55)
+        align=left, minimum height=4.7cm] (b2) at ([yshift=-1.2mm]t2.south west)
     {\scriptsize
-     Theorems~\ref{thm:l-determinism}, \ref{thm:fuel-monotonicity},
+     \textbf{C16} Theorems~\ref{thm:l-determinism},
+     \ref{thm:fuel-monotonicity},
      \ref{thm:quote-eval} and Lemma~\ref{lem:specialization}
      (semantics and fuel)\\[3pt]
-     Theorems~\ref{thm:tm-to-l}--\ref{thm:lambda-preservation}
+     \textbf{C17} Theorems~\ref{thm:tm-to-l}--\ref{thm:lambda-preservation}
      (the simulation bridge, constants \(c_0,C_L\), exponent \(8\))\\[3pt]
-     Lemma~\ref{lem:smn} and
+     \textbf{C18} Lemma~\ref{lem:smn} and
      Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence}
      (self-reference, \(c_Y=3\))\\[3pt]
-     Lemma~\ref{lem:transition-window} and
+     \textbf{C19} Lemma~\ref{lem:transition-window} and
      Theorem~\ref{thm:l-succinct-sat} (Cook--Levin for \(\mathcal L\))};
 
   % ---- column 3: machine-checked and ratcheted
   \node[checked, anchor=north west, text width=3.9cm, align=left,
-        minimum height=1.0cm] (h3) at (9.0,0)
+        minimum height=2.0cm] (h3) at (9.0,0)
     {\textbf{executed and ratcheted}\\[1pt]
      \scriptsize a row of \code{claims/CLAIMS.md} with a converged verdict};
-  \node[tag check, anchor=north west] at (9.0,-1.15) {TESTED / PROVED};
+  \node[tag check, anchor=north west] at ([yshift=-1.2mm]h3.south west) (t3)
+    {TESTED / PROVED};
   \node[checked, anchor=north west, text width=3.9cm, align=left,
-        minimum height=3.6cm] (b3) at (9.0,-1.55)
+        minimum height=4.7cm] (b3) at ([yshift=-1.2mm]t3.south west)
     {\scriptsize
-     C3, C8 --- polynomial and occurrence fixtures (TB0)\\[3pt]
+     C2, C3, C8 --- polynomial and occurrence fixtures (TB0)\\[3pt]
      C4a --- the three CL maps at \((q,m,d)=(8,2,1)\) (TB1)\\[3pt]
      C4b, C9 --- the 18-type sampler and the guarded decider (TB2)\\[3pt]
      C6, N1 --- the midpoint diagnostic, \textsc{proved} (TB0.5)};
 
-  \node[lblsm, anchor=north west, align=left, text width=12.9cm] at (0,-5.45)
-    {Nothing moves rightwards by being typeset as a theorem.  A middle-column
-     result becomes a right-column one only through a test in \code{test/}, a
-     mutation that turns it red, and a converged verdict in \code{verdicts/}.};
+  \node[fit=(b1)(b2)(b3), inner sep=0pt, draw=none] (bodies) {};
+  \node[lblsm, anchor=north west, align=left, text width=12.9cm]
+    at ([yshift=-4mm]bodies.south west)
+    {Every middle-column result now carries a ratchet row --- \code{C16}--\code{C19},
+     all at \textsc{sketch}: written derivation, no machine check, no converged
+     verdict.  Nothing moves rightwards by being typeset as a theorem.  A
+     middle-column result becomes a right-column one only through a test in
+     \code{test/}, a mutation that turns it red, and a converged verdict in
+     \code{verdicts/}.};
 \end{tikzpicture}

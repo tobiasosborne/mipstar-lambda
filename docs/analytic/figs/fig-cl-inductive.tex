@@ -18,13 +18,14 @@
   \draw[brace] ([xshift=1mm]S-1-3.south east) -- ([xshift=-1mm]S-1-1.south west)
     node[midway,below=3.5mm,lblsm]
     {$k$-th marginal retains exactly the first $k$ stage outputs};
-  \node[checked, anchor=north east, minimum width=6.0cm, minimum height=1.15cm,
+  \node[checked, anchor=north east, minimum width=6.0cm, minimum height=1.55cm,
     font=\scriptsize\sffamily] at ([xshift=-2mm,yshift=-15mm]S.south) (sum)
     {$L_{\leq k}(x)=\displaystyle\sum_{i=1}^{k}x^{L_i}$};
-  \node[checked, anchor=north west, minimum width=6.0cm, minimum height=1.15cm,
+  \node[checked, anchor=north west, minimum width=6.0cm, minimum height=1.55cm,
     font=\scriptsize\sffamily] at ([xshift=2mm,yshift=-15mm]S.south) (laws)
-    {$\operatorname{level}(L\mathbin{\|}R)=k+\ell$\qquad
-     $\operatorname{level}(\bigoplus_jL_j)=\max_j\ell_j$};
+    {$L\mathbin{\|}R$ \emph{is} $(k{+}\ell)$-level\qquad
+     $\bigoplus_jL_j$ \emph{is} $\max_j\ell_j$-level\\[2pt]
+     upper bounds (\texttt{rk:higher-level});\\ minimality is never claimed};
   \node[lblsm,text=term,below=3mm of $(sum.south)!0.5!(laws.south)$]
     {each stage is linear on its chosen factor; only the next choice is conditional};
 \end{tikzpicture}

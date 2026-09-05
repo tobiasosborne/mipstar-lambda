@@ -151,8 +151,8 @@ pages; re-run after every batch. Overfull hboxes in figure files: zero.
 - F64 ★ `interpolation-subcube`: the subcube {0,1}^m inside F_q^m; interpolation of a Boolean function; the vanishing polynomial zero(z)=z(z−1) on the axis.
 - F65 `boolean-ideal-rewrite`: z^e → z^{e−1} − z^{e−2}·zero(z); a 2-variable example reduced to remainder 0 with c₁ zero(x₁) + c₂ zero(x₂).
 - F66 ★ `pcp-local-verifier`: proof oracle as a table of point/line evaluations; the local verifier’s queries (points, axis-parallel line, diagonal line) landing in it; the accept predicate.
-- F67 ★ `four-layers`: the four soundness layers of §12.4 as strata: (1) algebraic soundness under low degree — EXECUTED identity; (2) low-degree enforcement — CITED; (3) Schwartz–Zippel — CHECKED at finite instance; (4) quantum consistency and rigidity — CITED. Evidence boundary drawn explicitly.
-- F68 ★ `cl-inductive`: a conditionally linear function as levels: V = V₁ ⊕ V₂ ⊕ …, the linear map on level i conditioned on the output of levels < i (def:cl-func); level laws.
+- F67 ★ `four-layers`: the four soundness layers of §12.4 as strata: (1a) the two identities evaluated at z — EXECUTED; (1b) ⇒ an accepting bounded computation (`thm:pcp-decider`) — CITED, C5 SKETCH; (2) low-degree enforcement — CITED; (3) random evaluation — the two bounds are computed and compared with 1/2 here, but the identity they imply is `lem:schwartz-zippel`, CITED (never “CHECKED AT THE FIXTURE”); (4) quantum consistency and rigidity — CITED. Arrows are the real dependency (2 and 3 feed 1(b); 1 and 4 feed `thm:ar`), not a top-to-bottom chain.
+- F68 ★ `cl-inductive`: a conditionally linear function as levels: V = V₁ ⊕ V₂ ⊕ …, the linear map on level i conditioned on the output of levels < i (def:cl-func); the two level laws stated as memberships (`L‖R` *is* (k+ℓ)-level, `⊕_j L_j` *is* max_j ℓ_j-level), never as equalities.
 - F68b `chi-axis-buckets` (added, brief 37): the fixed integer representatives of F_q split
   into m equal buckets for (q,m)=(8,2); the sampled s=5 picks bucket 2, so χ(s)=2 and the
   axis-line map's direction is e_2 — hence the two CL stages that make L_ALine level two.
@@ -167,7 +167,7 @@ pages; re-run after every batch. Overfull hboxes in figure files: zero.
 - F73 `correspondence-map`: each correspondence table (§14.1–14.6) gets a compact figure: the paper object → the Julia object → the evidence grade (`checked`/`citedbox`). At least one figure per page of §14 (the longtables are long; interleave).
 - F74 ★ `evidence-boundary`: EXECUTED / CHECKED / CITED as a horizontal boundary through the whole pipeline of F0, every stage placed on the correct side.
 - F75 `midpoint-diagnostic`: the midpoint toy (C6/N1): what it measured, as a small pgfplots histogram or bar chart if the numbers are in the text; otherwise a diagram.
-- F76 ★ `final-accounting`: closing figure: the fixed point D_{M,L} = YCode(Ψ_{M,λ}) drawn once more with the three cited leaves (LDT soundness, rigidity, gap-preserving compression) marked slate.
+- F76 ★ `final-accounting`: closing figure: the fixed point D_{M,λ} = YCode(Ψ_{M,λ}) drawn once more with the three cited leaves (LDT soundness, rigidity, gap-preserving compression) marked slate.
 
 Lanes may add figures beyond the plan; they may not drop a ★ figure. If a
 plan item does not match the text (the text has no such object), replace it
@@ -178,9 +178,9 @@ with a figure of what the text actually has and say so in the report.
 Nine figures were added, all outside the original plan; no ★ item was dropped.
 
 - `symbol-table` (front matter, before the TOC) — S5: the nine quantities that travel through both parts, with where each is fixed.
-- `parameter-card` (§7.1) — S2: the eight universal constants of `Compress` (λ, 9, μ, γ, τ, k(n), ε₁/ε₂, C₀) with their ground-truth labels.
+- `parameter-card` (§7.1) — S2: the eight constants of `Compress` (λ, 9, μ, γ, τ, k(n), ε₁/ε₂, C₀) with their ground-truth labels; λ alone is supplied per call, the other seven are universal.
 - `ar-invokes-pcp` (§7.3) — m12: which of `fig:decider-pcp` and `fig:pcpverifier` owns Step 1.
-- `three-provenances` (§8 head) — M7: every named Part II result sorted into cited / derived-here-unverified / executed-and-ratcheted.
+- `three-provenances` (§8 head) — M7: every named Part II result sorted into cited / derived-here at SKETCH under `C16`–`C19` / executed-and-ratcheted.
 - `grades` (§8.2) — M11: the five `CertNode` grades and what each obliges its author to supply.
 - `certificate-tree` (§8.2) — M11: the real `AnswerReduce` certificate tree of `test/tb2_answer_reduce.jl`.
 - `exponent-ladder` (§9.2) — M6: the five-step cost ladder ending at the one-tape conversion that squares the bound.
@@ -188,3 +188,18 @@ Nine figures were added, all outside the original plan; no ★ item was dropped.
 - `tb7-card` (§14.7) — M5: the TB7 toy instantiation, its level/dimension chains, and its printed predicate report.
 
 Redrawn: `decoupled-5sat` (M2, m18), `four-layers` (M8, moved to the head of §12 per S3), `ladder` (M4, m17), `correspondence-map` (m15), `D-threshold-margin` (m3), `three-presentations`, `psi-ml`, `halt-f-construction`, `C-closed-verifier` (M1), `y-derivation` (m16, m9), `roadmap` (m5), `D-correspondence-description` (m14), `D-correspondence-typed`, `D-correspondence-midpoint`, `tseitin-fanout`, `succinct-circuit`, `trace-tableau` (m6, m20).
+
+### Changed in brief 53 (repair round 2)
+
+No figure added, none dropped; 110 figures, one on every page of 92.
+
+- `source-obligations`, `C-diagonal-five-steps`, `final-accounting` (M12): the third argument of `fig:halt_f` is `λ`, the resource bound of `def:lambda`, never a level `L`. In every figure body the only surviving bare `L`s are `C_L`, `\mathcal L`, `L^{lnf}`, the zipper `L`, the CL function `L`, the move direction `L`, and the 5SAT block length `L = 2^{ℓ₀}`.
+- `three-provenances` (M13, M15, m23): tags and footer are positioned *relative* to their own nodes (`[yshift]` off `.south west`, and a `fit` node over the three bodies), so no tag can be overstruck; the middle column is labelled `SKETCH — C16–C19` and its four groups carry C16/C17/C18/C19; the right column carries C2.
+- `cl-inductive` (M14): the level laws are memberships with an explicit “upper bounds (`rk:higher-level`); minimality is never claimed” line.
+- `four-layers` (M17): box 3 stays green for the two bounds it computes and says inside the box that the implication is `lem:schwartz-zippel`, CITED; its tag is `BOUNDS CHECKED; IMPLICATION CITED` and its arrow into the `thm:pcp-decider` spine is dashed/cited.
+- `D-correspondence-typed` (M16): the chip over `detyping and thm:ar` is `NO ROW — CITED`; C5 governs `thm:pcp-decider`, not `thm:ar`.
+- `ladder` (m23): the TB0 chip is `C2, C3, C8 TESTED`.
+- `miniature` (m22): the cell-numbering convention is stated and the window content is `(⟨q₀,Ap⟩, λ, v)`, matching the drawn window.
+- `parameter-card` (m24): “The other seven are universal constants … λ alone is supplied per call.”
+- `tb7-card` (m25): `repetitions = 2` is labelled a `ToyPolicy` override of `k(n) = (λn)^{(1+c₃')τ}`.
+- `symbol-table` (m26): the `f,F` row records that `F` plays the paper's `T` in `prop:standard-succinct-sat`.

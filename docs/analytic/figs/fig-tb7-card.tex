@@ -20,8 +20,10 @@
     font=\scriptsize\sffamily\bfseries] {\(\Repeat\)} (v3);
   \node[lblsm, below=2mm of v0, align=center, text width=3.4cm]
     {toy: \(n=2\), \(N=4\),\\\(\lambda=32768\), \(s_0=9\)};
-  \node[lblsm, below=2mm of v3, align=center, text width=3.6cm]
-    {\(\mu=\gamma=\tau=1\), \(c_3'=1\),\\\(2\) repeated copies};
+  \node[lblsm, below=2mm of v3, align=center, text width=4.1cm]
+    {\(\mu=\gamma=\tau=1\), \(c_3'=1\),\\
+     \code{repetitions}\(=2\): a \code{ToyPolicy}\\
+     override of \(k(n)=(\lambda n)^{(1+c_3')\tau}\)};
 
   % ---- the printed predicate report
   \node[panel, below=13mm of v2, inner sep=6pt, text width=0.90\textwidth] (rep) {%

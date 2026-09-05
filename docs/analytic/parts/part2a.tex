@@ -314,7 +314,7 @@ middle column.
 \begin{figure}[H]
 \centering
 \input{figs/fig-three-provenances.tex}
-\caption{Every named result of Part~II belongs to exactly one of three columns: transcribed from the paper, derived here and unverified, or executed and ratcheted.  The middle column is the largest, which is the honest shape of a document that costs a construction rather than proving its soundness.}
+\caption{Every named result of Part~II belongs to exactly one of three columns: transcribed from the paper, derived here and carried at \textsc{sketch} by \texttt{C16}--\texttt{C19}, or executed and ratcheted by a converged verdict.  The middle column is the largest, which is the honest shape of a document that costs a construction rather than proving its soundness.}
 \label{fig:three-provenances}
 \end{figure}
 
@@ -329,8 +329,20 @@ derivations: Theorems~\ref{thm:l-determinism}, \ref{thm:fuel-monotonicity},
 \ref{thm:fixed-point-equivalence} and \ref{thm:l-succinct-sat}, and
 Lemmas~\ref{lem:specialization}, \ref{lem:smn} and
 \ref{lem:transition-window}, are written proofs which have \emph{not} been
-adversarially verified and carry \emph{no} row in \code{claims/CLAIMS.md}.
-Their status is \textsc{SKETCH --- not yet adversarially verified}, and the
+adversarially verified.  They are recorded as \code{C16}--\code{C19} in
+\code{claims/CLAIMS.md} at \textsc{SKETCH --- not yet adversarially
+verified}: a written derivation, no machine check, no converged verdict.  The
+four rows partition exactly this list --- \code{C16} the semantics and fuel
+results of Section~\ref{sec:resource-lambda}
+(Theorems~\ref{thm:l-determinism}--\ref{thm:quote-eval},
+Lemma~\ref{lem:specialization}), \code{C17} the costed machine/term bridge of
+Section~\ref{sec:simulation} (Theorems~\ref{thm:tm-to-l}--%
+\ref{thm:lambda-preservation}), \code{C18} the self-reference results of
+Section~\ref{sec:self-reference} (Lemma~\ref{lem:smn},
+Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence}), and
+\code{C19} the Cook--Levin construction of
+Section~\ref{sec:l-cook-levin} (Lemma~\ref{lem:transition-window},
+Theorem~\ref{thm:l-succinct-sat}).  The
 constants they name (\(a_0,b_0,c_0,a_U,b_U,C_L,c_Y=3,a_s,b_s,a_K,b_K\)) and
 exponents (\(8\), \(3+\lceil\log_2 72c_0\rceil\)) are fixed by those proofs
 alone.  Results transcribed from the paper are marked instead by a
@@ -1268,7 +1280,7 @@ construction through the behavioral equality.
 By Lemma~\ref{lem:smn} with \(r=1\), let \(s(z,z)\) denote the description
 obtained by hardwiring the string \(z\) into the first input of the program
 \(z\) itself --- the same operation as in Part~I --- for a suitable
-\((k+2)\)-input machine.  Define the partial computable function
+\((k+1)\)-input machine.  Define the partial computable function
 \[
  G(z,x)=\varphi_{Q(s(z,z))}^{(k)}(x).
 \]
@@ -1423,12 +1435,14 @@ nor a fuel symbol for the compression call; \eqref{eq:psi-ml} uses two nested
 run the \emph{returned} decider and the inner one must be given a terminating
 budget.  Second, \S1.1 writes the fixed-point equation with the \emph{same}
 fuel on both sides, while Theorem~\ref{thm:ycode} charges \(f-c_Y\) with
-\(c_Y=3\) for the self-code link.  Third, \S1.1 fixes the hole sort to
-\(\mathsf{Quoted}\{\mathsf{Decider}\}\), whereas
+\(c_Y=3\) for the self-code link.  Third, \S1.1 formerly fixed the hole sort
+to \(\mathsf{Quoted}\{\mathsf{Decider}\}\), whereas
 Section~\ref{sec:resource-lambda} admits \(\mathsf{Quoted}(A)\) for any result
-sort \(A\).  All three are strengthenings, not simplifications; each is a
-proposed edit to \code{DESIGN.md} \S1.1, so that the two documents move in
-lockstep rather than silently diverging.
+sort \(A\); that repair has since been applied, and \code{DESIGN.md} \S1.1
+now declares \(\mathsf{self\_code}:\mathsf{Quoted}\{A\}\), so on this point
+the two agree.  All three are strengthenings, not simplifications; the first
+two remain open proposed edits to \code{DESIGN.md} \S1.1, so that the two
+documents move in lockstep rather than silently diverging.
 
 Figure~\ref{fig:C-closed-verifier} closes the construction into the exact
 sampler--decider pair passed to the later game machinery.

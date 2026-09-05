@@ -3,11 +3,11 @@
     nodes={checked,minimum width=105mm,anchor=center}] {
     \node (s1) {1.\ run \(\mathcal M\) for \(n\) steps
       \(\quad\overset{\mathsf{halts}}{\longrightarrow}\quad\) \textbf{accept}};\\
-    \node (s2) {2.\ hardwire \((\overline{\mathcal F},\overline M,L)\)
+    \node (s2) {2.\ hardwire \((\overline{\mathcal F},\overline M,\lambda)\)
       \(\quad\longrightarrow\quad\overline D\)};\\
     \node (s3) {3.\ \(\overline S=\ComputeSampler(\lambda)\)};\\
     \node (s4) {4.\ \(\overline{V^{\rm compr}}=
-      \Compress((\overline S,\overline D),L)\)};\\
+      \Compress((\overline S,\overline D),\lambda)\)};\\
     \node (s5) {5.\ run \(D^{\rm compr}(n,x,y,a,b)\)};\\
   };
   \foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5} {

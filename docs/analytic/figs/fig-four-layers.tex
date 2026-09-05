@@ -13,13 +13,15 @@
     {\textbf{2 \ low-degree enforcement}\\[1pt]
      \scriptsize a successful game yields measurements of individual degree
      \(\leq d\) (\code{lem:ld-soundness})};
-  \node[checked, anchor=north east, text width=4.2cm, align=left,
+  \node[checked, anchor=north east, text width=4.6cm, align=left,
         minimum height=1.5cm] (l3) at (13.4,-2.30)
     {\textbf{3 \ random evaluation}\\[1pt]
-     \scriptsize unequal polynomials of total degree \(\leq\Delta\) agree at a
-     uniform \(z\) with probability \(\leq\Delta/q\)};
+     \scriptsize the two bounds \((\degF+5d)m'/q\) and \((2+d)m'/q\) are
+     computed here and compared with \(1/2\); the identity they then imply is
+     \code{lem:schwartz-zippel}, \grade{CITED}};
   \node[tag cited, anchor=south west] at (0,-2.24) {CITED};
-  \node[tag check, anchor=south east] at (13.4,-2.24) {CHECKED AT THE FIXTURE};
+  \node[tag check, anchor=south east] at (13.4,-2.24)
+    {BOUNDS CHECKED; IMPLICATION CITED};
 
   % ---- what may then be concluded
   \node[citedbox, anchor=north, text width=6.6cm, align=left,
@@ -46,12 +48,15 @@
   \draw[xform,dashed,cited] (6.7,-1.40) -- (6.7,-5.15);
   \node[lblsm,anchor=west] at (6.95,-1.80) {\code{thm:pcp-decider}};
   \draw[xform,dashed,cited] (l2.east) -- (6.7,-3.20);
-  \draw[xform,check] (l3.west) -- (6.7,-3.20);
+  \draw[xform,dashed,cited] (l3.west) -- (6.7,-3.20);
   \draw[xform,dashed,cited] (6.7,-6.55) -- (8.2,-7.55);
   \draw[xform,dashed,cited] (l4.east) -- (ar.west);
 
-  \node[lblsm, anchor=north, align=center] at (6.7,-10.05)
+  \node[lblsm, anchor=north, align=center, text width=12.9cm] at (6.7,-10.05)
     {\chip{check} executed or finite-checked here \quad$\bullet$\quad
      \chip{cited} imported analytic theorem, dashed border\\
-     layer 3 is used \emph{inside} layer 1, and layer 4 does not follow from layer 3};
+     layer 3 is used \emph{inside} layer 1, and layer 4 does not follow from
+     layer 3; in layer 3 only the two bounds are executed --- the step from a
+     random agreement to a formal identity is \code{lem:schwartz-zippel},
+     which no sample count can replace};
 \end{tikzpicture}

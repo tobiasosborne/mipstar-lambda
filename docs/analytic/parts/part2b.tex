@@ -396,7 +396,7 @@ build the algebra the top row needs; \S12.4 walks the boxes in order.
 \begin{figure}[t]
 \centering
 \input{figs/fig-four-layers.tex}
-\caption{Layer 1 is split: the green box is the identity evaluation the prototype performs, the dashed box beside it is the conditional theorem that turns that evaluation into an accepting computation, and only the second carries C5.  The arrows are the real dependency --- layers 2 and 3 feed layer 1, and layers 1 and 4 feed \code{thm:ar} --- not a top-to-bottom chain.}
+\caption{Layer 1 is split: the green box is the identity evaluation the prototype performs, the dashed box below it is \code{thm:pcp-decider}, and only the second carries C5.  Layer 3 is green for the two bounds it computes, and its box says that the identity they imply is \code{lem:schwartz-zippel}, imported.  The arrows are the real dependency --- layers 2 and 3 feed layer 1(b), and layers 1 and 4 feed \code{thm:ar}.}
 \label{fig:four-layers}
 \end{figure}
 
@@ -642,7 +642,7 @@ factor registers, conditional choices, and two level laws.
 \begin{figure}[H]
 \centering
 \input{figs/fig-cl-inductive.tex}
-\caption{Each rust stage applies a linear map on one complementary register, while the labelled dependency lets earlier outputs select the next stage.  Marginals sum prefixes of stage outputs, concatenation adds levels, and direct sum takes their maximum.}
+\caption{Each rust stage applies a linear map on one complementary register, while the labelled dependency lets earlier outputs select the next stage.  Marginals sum prefixes of stage outputs; concatenation exhibits \(k+\ell\) stages and direct sum \(\max_j\ell_j\); neither is claimed minimal.}
 \label{fig:cl-inductive}
 \end{figure}
 This is \code{def:cl-func} in
@@ -932,11 +932,15 @@ certificate label when an adversarial verdict has not promoted the claim.
 \grade{CONSTRUCTED} means enforced by a constructor,
 \grade{CHECKED} means deterministic replay against an attached object, and
 \grade{CITED} means imported from the named ground-truth statement.
-A claim column reading ``none'' or ``no current row'' means exactly that: no
-row of \code{claims/CLAIMS.md} governs the object.  In particular every
-theorem and lemma of Part~II is a written derivation of this project at
-\textsc{SKETCH --- not yet adversarially verified} status, with no ratchet
-row, as stated at the head of Section~\ref{sec:resource-lambda}.
+A claim column reading ``no current row'' means exactly that: no
+row of \code{claims/CLAIMS.md} governs the object.  Every
+theorem and lemma of Part~II is instead a written derivation of this project
+recorded as \code{C16}--\code{C19} at \textsc{SKETCH --- not yet
+adversarially verified}: a written derivation, no machine check, no converged
+verdict.  \code{C16} covers Section~\ref{sec:resource-lambda}, \code{C17}
+Section~\ref{sec:simulation}, \code{C18} Section~\ref{sec:self-reference},
+and \code{C19} Section~\ref{sec:l-cook-levin}, as stated at the head of
+Section~\ref{sec:resource-lambda}.
 Figure~\ref{fig:ladder} gives the status-bearing order of the tracer-bullet
 rungs, and Figure~\ref{fig:correspondence-map} compresses the six tables into
 one evidence map.
@@ -960,7 +964,7 @@ description-to-SAT implementation without weakening the analytic interface.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-correspondence-description.tex}
-\caption{The paper's bounded decider passes through quoted and succinct IR sorts toward three named front-end operations that are still absent.  The dashed final arrow marks this row as a cited contract rather than an executed construction; the Part~II theorems it rests on are \textsc{sketch --- not yet adversarially verified} and carry no ratchet row.}
+\caption{The paper's bounded decider passes through quoted and succinct IR sorts toward three named front-end operations that are still absent.  The dashed final arrow marks this row as a cited contract rather than an executed construction; the Part~II theorems it rests on are \texttt{C16}--\texttt{C19} at \textsc{sketch --- not yet adversarially verified}: written derivations, no machine check, no converged verdict.}
 \label{fig:D-correspondence-description}
 \end{figure}
 
@@ -975,24 +979,24 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 & Machine conventions in Definition~\ref{def:paper-tm}; costed bridge in
 Theorems~\ref{thm:tm-to-l}--\ref{thm:l-to-tm}
 & \code{Quoted{A}} & \code{Quote}, \code{Eval}, \code{Specialize}
-& \grade{CITED}; absent & none \\
+& \grade{CITED}; absent & C17 \textsc{Sketch} \\
 \code{def:decider}\newline\code{gt-05-games-normalform.tex}
 & Five-input format in Definition~\ref{def:paper-decider}; bounds preserved by
 Theorem~\ref{thm:lambda-preservation} & \code{Quoted{Decider}}
-& \code{description_size} & \grade{CITED}; absent & none \\
+& \code{description_size} & \grade{CITED}; absent & C17 \textsc{Sketch} \\
 \code{DESIGN} \S1.1
 & Determinism, fuel, quotation, and specialization:
 Theorems~\ref{thm:l-determinism}--\ref{thm:quote-eval} and
 Lemma~\ref{lem:specialization}
 & \code{ClosedProgram}, \code{Quoted} & \code{Eval}, \code{specialize}
-& analytic only; absent & none \\
+& analytic only; absent & C16 \textsc{Sketch} \\
 \code{prop:standard-succinct-sat}\newline\code{gt-10-answer-reduction.tex}
 & Transition locality (Lemma~\ref{lem:transition-window}) and succinct 3SAT
 (Theorem~\ref{thm:l-succinct-sat}) & \code{BoundedTrace}, \code{Succinct3SAT}
-& \code{bounded_trace}, \code{cook_levin} & \grade{CITED}; absent & none \\
+& \code{bounded_trace}, \code{cook_levin} & \grade{CITED}; absent & C19 \textsc{Sketch} \\
 \code{sec:succinct-deciders}\newline\code{gt-10-answer-reduction.tex}
 & Three shared reads become five independent blocks &
-\code{SuccinctDecoupled5SAT} & \code{decouple5} & \grade{CITED}; absent & none \\
+\code{SuccinctDecoupled5SAT} & \code{decouple5} & \grade{CITED}; absent & C19 \textsc{Sketch} \\
 \bottomrule
 \end{longtable}
 \normalsize
@@ -1081,7 +1085,7 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 & \code{ld_decider}, \code{D_ld}, \code{restrict} & \grade{CHECKED} fixture & no current row \\
 \code{lem:ld-soundness}\newline\code{gt-07-ldt.tex}
 & Successful quantum strategy yields polynomial measurements & theorem leaf
-& no proof checker & \grade{CITED} & C5 \textsc{Sketch} \\
+& no proof checker & \grade{CITED} & no current row \\
 \bottomrule
 \end{longtable}
 \normalsize
@@ -1093,7 +1097,7 @@ decider execution to their cited theorem boundary.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-correspondence-typed.tex}
-\caption{The 18-type sampler and guarded answer-reduced decider have constructed or finite-checked shapes, carrying C4b and C9 at \textsc{Tested}.  Detyping and the quantum implication in \texttt{thm:ar} stay dashed: detyping has no ratchet row and \texttt{thm:ar} is only C5 \textsc{Sketch}.}
+\caption{The 18-type sampler and guarded answer-reduced decider have constructed or finite-checked shapes, carrying C4b and C9 at \textsc{Tested}.  Detyping and \texttt{thm:ar} stay dashed: both have no ratchet row and stay \grade{CITED}.  Only the executable classical part of the answer-reduced decider is ratcheted, by C9 at \textsc{Tested}; C5 governs \texttt{thm:pcp-decider}'s parameter arithmetic, not \texttt{thm:ar}'s completeness, soundness, and entanglement contract.}
 \label{fig:D-correspondence-typed}
 \end{figure}
 
@@ -1113,7 +1117,7 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 & local \grade{CHECKED} & C4b \textsc{Tested} \\
 \code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
 & Product with the oracularized sampler has 54 types &
-\code{Checked\{TypedSampler\}} & \code{oracularize_sampler},
+\code{Checked{TypedSampler}} & \code{oracularize_sampler},
 \code{typed_sampler_product} & \grade{CHECKED} shape; theorem cited
 & C4b \textsc{Tested} \\
 \code{fig:decider-pcp}\newline\code{gt-10-answer-reduction.tex}
@@ -1126,7 +1130,7 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 \code{thm:ar}\newline\code{gt-10-answer-reduction.tex}
 & Conditional complexity, completeness, soundness, entanglement contract &
 \code{TypedAnswer}\newline\code{ReducedVerifier} & \code{answer_reduce_pcp},
-\code{AnswerReduce} & \grade{Checked}/\newline\grade{Cited} & C5 \textsc{Sketch} \\
+\code{AnswerReduce} & \grade{Checked}/\newline\grade{Cited} & no current row \\
 \bottomrule
 \end{longtable}
 \normalsize
@@ -1214,7 +1218,7 @@ counts \(34/116\) and \(38/128\), detyped level \(5\) & \code{IntroVerifier}
 & Self-application, Kleene, and YCode coincide by
 Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence} &
 \code{PartialProgram}, \code{Quoted} & \code{Hole}, \code{Specialize},
-\code{Fix}/\code{YCode} & \grade{CITED}; absent & C15 \textsc{Conj.} \\
+\code{Fix}/\code{YCode} & \grade{CITED}; absent & C15 \textsc{Conj.};\newline C18 \textsc{Sketch} \\
 \bottomrule
 \end{longtable}
 \normalsize

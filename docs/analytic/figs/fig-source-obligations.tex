@@ -7,7 +7,7 @@
     \node (invoke) {$\textsf{invoke }S,D\quad\longrightarrow\quad U_k+\textsf{timeout}$}; \\
     \node (wire) {$\textsf{hardwire }(\overline V,\lambda,\ell)\quad\longrightarrow\quad\textsf{new finite code}$}; \\
     \node (cl) {$\overline D\quad\longrightarrow\quad\mathsf{PaddedSuccinctDecider}$}; \\
-    \node (self) {$\overline{\mathcal F},\overline M,L\quad\longrightarrow\quad\overline D\hookrightarrow\Compress$}; \\
+    \node (self) {$\overline{\mathcal F},\overline M,\lambda\quad\longrightarrow\quad\overline D\hookrightarrow\Compress$}; \\
   };
   \foreach \n in {scan,invoke,wire,cl,self} {\draw[xform] (V.east) -- (\n.west);}
   \node[tag check, below=3mm of m] {ALL FIVE ARE SOURCE OPERATIONS};

@@ -34,22 +34,24 @@
     {\(\neg y_w\ \vee\ x_{1,2,s}\ \vee\ x_{1,2,s}\)};
   \draw[xform] (idx.east) -- (cl3.west);
   \node[lblsm,anchor=north west,align=left,text width=12.8cm] at (0,-3.55)
-    {\(y_w\) is the Tseitin variable for ``row \(0\) shows
-     \((\lambda,v,\sqcup)\) at this window''; \(x_{1,2,s}\) says ``row \(1\),
+    {Cells are numbered from \(1\), so the window at \(j=2\) is cells
+     \(1,2,3\): \(y_w\) is the Tseitin variable for ``row \(0\) shows
+     \((\langle q_0,\mathsf{Ap}\rangle,\lambda,v)\) at this window'', and
+     \(x_{1,2,s}\) says ``row \(1\),
      cell \(2\) carries \(s=\langle q_1,v\rangle\)''.  A two-literal clause is
      padded to three by repetition, as Theorem~\ref{thm:l-succinct-sat}
      requires.};
 
   % ---------- step 3: the same clause after decoupling
   \node[checked, anchor=north west, text width=12.2cm, align=center, font=\small]
-       (cl5) at (0,-4.65)
+       (cl5) at (0,-5.00)
     {\(a_{i_1}^{o_1}\ \vee\ b_{i_2}^{o_2}\ \vee\ (u_3)^{0}_{\,y_w}\ \vee\
        (u_4)^{1}_{\,x_{1,2,s}}\ \vee\ (u_5)^{1}_{\,x_{1,2,s}}\)\\[1pt]
       {\scriptsize\sffamily for every \(i_1,i_2\) and every
        \(o_1,o_2\in\{0,1\}\)}};
-  \draw[xform] (6.4,-4.20) -- (6.4,-4.65);
-  \node[tag check, anchor=north east] at (12.7,-6.05) {ONE BIT PER BLOCK};
-  \node[lblsm,anchor=north west,align=left,text width=12.8cm] at (0,-6.35)
+  \draw[xform] (6.4,-4.55) -- (6.4,-5.00);
+  \node[tag check, anchor=north east] at (12.7,-6.40) {ONE BIT PER BLOCK};
+  \node[lblsm,anchor=north west,align=left,text width=12.8cm] at (0,-6.70)
     {The first, second and third literal go to \(u_3,u_4,u_5\).  Because both
      polarities \(o_1,o_2\) occur for every pair \(i_1,i_2\), some clause of the
      family has both answer literals false, so the family is equivalent to the
