@@ -509,6 +509,7 @@ The word `Checked` means “paired with inspectable evidence,” not “proved.�
 |---|---|---|
 | question/answer lengths and parser shapes | CHECKED | sampler/decider traversal |
 | CL levels | CONSTRUCTED | sampler datatype |
+| Compress level chain | CHECKED (arithmetic and origin order) / CITED (stage levels) | the chain's arithmetic and origin order are CHECKED over the constructors' data; the stage levels themselves are CITED theorem literals [both conjuncts are red-capable — `M-level`/`M-level-sort` own the arithmetic, `M-order-blind` owns the order] (`verdicts/tb4-r2.md`) |
 | local runtime and description size | CHECKED | exact local counters |
 | asymptotic runtime/size bounds | CITED | theorem node |
 | gap/completeness/entanglement transform | CITED | theorem node |

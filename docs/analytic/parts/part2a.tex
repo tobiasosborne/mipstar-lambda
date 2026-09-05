@@ -1440,9 +1440,21 @@ to \(\mathsf{Quoted}\{\mathsf{Decider}\}\), whereas
 Section~\ref{sec:resource-lambda} admits \(\mathsf{Quoted}(A)\) for any result
 sort \(A\); that repair has since been applied, and \code{DESIGN.md} \S1.1
 now declares \(\mathsf{self\_code}:\mathsf{Quoted}\{A\}\), so on this point
-the two agree.  All three are strengthenings, not simplifications; the first
-two remain open proposed edits to \code{DESIGN.md} \S1.1, so that the two
-documents move in lockstep rather than silently diverging.
+the two agree.  The second has also been adopted: \code{DESIGN.md} \S1.1 now
+carries \(\mathrm{eval}(\operatorname{Fix}(P),u;f)=\mathrm{eval}(\mathrm{specialize}(P,\{\mathsf{self\_code}\mapsto\Quote(\operatorname{Fix}P)\}),u;f-c_Y)\)
+with \(c_Y=3\), and the TB4 rung pins it at every fuel on two machines
+(\code{verdicts/tb4-r1.md}, \code{tb4-r2.md}).  At the byte level
+\(\operatorname{Fix}\) serialises as one tag byte plus a 4-byte child count and
+no sort annotation, so the link costs \(c_{\mathrm{fix}}=5\) bytes of description.
+The first point was adjudicated the other way: the outer \(\Eval\) already
+runs the returned decider, no \(\mathsf{ans}\) selector is needed because
+the compressor returns the decider description (\code{gt-12} fig:halt\_f step~3
+with lem:dhalt-values and lem:compress-independent-samplers), and no separate
+\(F_C\) budget is needed because \(\operatorname{Compress}\) is total
+polynomial time and is counted inside \(\mathrm{TIME}_D\) as lem:lambda
+accounts it (\code{gt-12} L578--L596); \eqref{eq:psi-ml} keeps its two
+\(\Eval\)s as a presentation and is not a repair.  The documents are now
+in lockstep on all three points.
 
 Figure~\ref{fig:C-closed-verifier} closes the construction into the exact
 sampler--decider pair passed to the later game machinery.
