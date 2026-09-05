@@ -1,6 +1,6 @@
 # Brief 71 — CRITIC verdict r7 on rung TB2 after repair r6 (brief 69) — closing round
 
-You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb2-r7.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; instantiate there). Never read src/test from the live tree; `claims/CLAIMS.md` may be read live.
+You are the adversarial critic (Opus). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb2-r7.md` ONLY; Julia/files only under scratch; never edit repo files; no state-changing git. Evaluate the ARCHIVED tree at commit `8a1b6e2` (`git archive 8a1b6e2 | tar -x -C <scratch>/tree`; instantiate there). Never read src/test from the live tree; `claims/CLAIMS.md` may be read live.
 
 Scratch: `/tmp/claude-1000/-home-tobias-Projects-discussions/548f633b-c857-457a-bb33-0aa1a7879403/scratchpad/critic-tb2-r7/`
 
