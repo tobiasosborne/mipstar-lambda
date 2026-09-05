@@ -263,11 +263,14 @@ The intended analytic chain is
  \mathtt{PaddedSuccinctDecoupled5SAT}.
 \end{split}
 \]
-These are the transformations planned for TB3 in \code{briefs/23-tb3.md}.
-That brief is planned work, not evidence that the functions exist or that any
-claim has been checked.  At the time of this note, no \code{bounded_trace},
-\code{cook_levin}, or \code{decouple5} implementation is present in
-\code{src/}; the general contracts remain \grade{CITED}.
+These are the transformations built in TB3 (\code{briefs/23-tb3.md},
+repaired in brief 63): \code{bounded_trace}, \code{cook_levin},
+\code{decouple5} and \code{pad5} exist in \code{src/frontend/} and run the
+generated instance through the PCP builder and the answer-reduced decider on two
+one-bit-answer fixtures.  That is fixture evidence for the decoupled five-block
+placement only (claim C19, \grade{SKETCH}); the alphabet, window function and
+answer-block reservation are not implemented and the general contracts remain
+\grade{CITED}.  The proposed row C10 awaits its critic round.
 
 \subsection{Tseitin and arithmetization}
 
