@@ -56,7 +56,7 @@ type `SortError` (`Core.TypeError` is taken); `Quote(code, sort)` carries its so
 `L`, not `docs/analytic` §8's constants:** its codec is not `def:l-serialization`'s ν prefix code — integer fields are fixed-width
 4-byte big-endian and `|·|` (hence `description_size` and the `Eval` overhead `h(d,u) = 3 + |d| + |enc(u)|`) is a BYTE count where part2a
 counts bits; and its CEK charge table folds evaluation-context navigation (pushing or popping a frame, returning a value) into the
-following charged contraction, where part2a §8.3 charges each administrative transition one unit — so every fuel figure of TB3 (`3` for
+following charged contraction, where part2a §8.3 charges each administrative transition one unit; and its `Eval` contraction charges the full front-end overhead `h(d,u) = 3 + |d| + |enc(u)|` at every `Eval` — including one applied to an internal `Quote` — where part2a §8.3 charges two units for installing and removing the delimiter (`verdicts/tb3-r2.md` N11) — so every fuel figure of TB3 (`3` for
 `λnxyab.true`, `5` for `a == b`, `T = 1`/`T = 3` as minimal accepting body fuel, the `T + 2` frame installation) is a figure of this
 cheaper table. The `Fix` unfolding charge `c_Y = 3` IS part2a's (aligned in brief 63; it was 1 in brief 23). `Aborted(:hard_cap)` is a host
 guard outside the semantics, not a fourth outcome: it fires only when the number of host steps (charged or not) exceeds `hard_cap`
