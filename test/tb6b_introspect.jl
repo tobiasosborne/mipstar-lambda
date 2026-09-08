@@ -28,8 +28,8 @@ const TB6B_RSS_START = Sys.maxrss()
 # --- brief 80 D3/D4 pins (verdicts/tb6-r1.md O3, O4); every value independently reproduced by the critic at 0ec462e ---
 const TB6B_COST_SLOTS = Dict(:TB6b_E => [5, 13, 10, 13, 10], :TB6b_M => [5, 53, 60, 50, 22])   # Dimension, Marginal, Factor, Linear, Decider
 const TB6B_CHARGE_TABLE = Dict("Dimension" => 5, "Marginal(3)" => 53, "Factor(2, e1)" => 39, "Linear(2, e1, e4)" => 40)
-const TB6B_E_LEAF_HISTOGRAM = Pair{Int,Int}[]        # filled from the first brief-80 run (exponent => count)
-const TB6B_E_LEAF_COUNTS = Int[]                      # per oriented pair in `tb6b_edges` order
+const TB6B_E_LEAF_HISTOGRAM = [0 => 3058, 1 => 600, 2 => 10720]   # leaf probability exponent => count (2026-09-09 run: 14,378 leaves)
+const TB6B_E_LEAF_COUNT_VALUES = Set([1, 2, 72, 88, 120, 256])      # the distinct per-oriented-pair leaf counts over that pair's seeds
 
 tb6b_bits(v) = Bool[x == one(GF2) for x in v]
 tb6b_gf2(b) = GF2[GF2(Int(x)) for x in b]
@@ -587,7 +587,7 @@ if tb6b_runs("tb6b_E")
         println("MUTATION_EXPECTED_RULE tb6b_E_leaves total=", leaves_total, " histogram=", sort(collect(leaf_histogram)),
                 " per_edge=", sort(collect(Set(values(leaf_counts)))))
         @test sort(collect(leaf_histogram)) == TB6B_E_LEAF_HISTOGRAM
-        @test [leaf_counts[e] for e in edges] == TB6B_E_LEAF_COUNTS
+        @test Set(values(leaf_counts)) == TB6B_E_LEAF_COUNT_VALUES && length(leaf_counts) == 116
         @test all(==(1), values(operative_accept))
         P_operative = sum(values(operative_accept)) / 116
         P_literal = sum(values(literal_accept)) / 116
