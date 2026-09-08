@@ -116,6 +116,7 @@ function _factor(m::GraphMachine, n::Int, w::Symbol, j::Int, u::Vector{GF2}, t, 
     _charge!(ctx, 2 * length(u))
     _require_graph_prefix(m, j, u, regs)
     indicator = zeros(Int, length(u))
+    j >= 3 && return indicator                              # the empty stage after the last (TB7 Pad legality)
     own = j == 1 ? (regs.own_v, regs.own_e) : (regs.other_v, regs.other_e)
     indicator[own[1]] .= 1
     indicator[own[2]] .= 1

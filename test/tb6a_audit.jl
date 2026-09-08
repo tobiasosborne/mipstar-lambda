@@ -11,8 +11,9 @@ Base.Experimental.@optlevel 0
 # L394-L500, L550-L579, L641-L684). No theorem claim.
 
 const TB6A_TARGET = get(ENV, "TB6A_TARGET", "all")
-tb6a_runs(name) = TB6A_TARGET == "all" || TB6A_TARGET == name
+tb6a_runs(name) = TB6A_TARGET in ("all", "tb6a_gate") || TB6A_TARGET == name   # "tb6a_gate": the whole file with its gate (M6a-gate-body-inflated)
 const M6 = MIPStarLambda
+include(joinpath(@__DIR__, "calibration.jl"))   # the suite kernel, idempotent (brief 80 D2)
 tb6a_started = time()
 
 # Hand transcription (independent of src/introspect/pauli_types.jl): the
@@ -176,8 +177,21 @@ if tb6a_runs("tb6a_require_image")
         L9 = describe_cl(nine_level_leaf(), nine_level_leaf(), 2; tracer_index=2, seeds=2)
         @test L9.term.level == 9
         results = Dict{Int,Any}()
-        for (lambda, ell, tuple) in ((1, 1, M6.PauliTuple(2, 1, 1)), (2, 3, M6.PauliTuple(8, 2, 1)))
-            S = M6.intro_sampler(lambda, ell; tuple, tracer_index=2, seeds=0).detyped.term
+        # brief 80 D7 (verdicts/tb6-r1.md O7): besides 142 and 179, TB7's own introspection block (ell = 9, dimension
+        # 206) and, as the shape of the k-fold direct sums Repeat pads (each summand rebuilt separately), direct sums of
+        # 4 and 8 such blocks (824, 1648; the TB7 chain is 206 -> 840 -> 848 -> 1696).
+        blocks = Dict{Int,Any}()
+        for (lambda, ell, tuple) in ((1, 1, M6.PauliTuple(2, 1, 1)), (2, 3, M6.PauliTuple(8, 2, 1)), (1, 9, M6.PauliTuple(2, 1, 1)))
+            blocks[ell] = (; S=M6.intro_sampler(lambda, ell; tuple, tracer_index=2, seeds=0).detyped.term, ell)
+        end
+        S206 = blocks[9].S
+        @test Dimension(S206, 2) == 206
+        cases = Any[(blocks[1].S, 1, 1), (blocks[3].S, 3, 1), (S206, 9, 1)]
+        if get(ENV, "TB6A_HEAVY", "1") == "1"
+            push!(cases, (direct_sum(S206, S206, S206, S206; tracer_index=2, seeds=0).term, 9, 4))
+            push!(cases, (direct_sum(S206, S206, S206, S206, S206, S206, S206, S206; tracer_index=2, seeds=0).term, 9, 8))
+        end
+        for (S, ell, copies) in cases
             dim = Dimension(S, 2)
             padded = direct_sum(S, L9.term; tracer_index=2, seeds=0).term
             @test padded.level == 9 && Dimension(padded, 2) == dim + 9
@@ -188,7 +202,9 @@ if tb6a_runs("tb6a_require_image")
             edges = Set((findfirst(==(e[1]), labels), findfirst(==(e[2]), labels)) for e in M6.intro_typing(ell).edges)
             neigh(t) = Bool[(t, v) in edges || (v, t) in edges for v in 1:T]
             unit(t) = Bool[v == t for v in 1:T]
-            z = vcat(unit(l), neigh(l), unit(r), neigh(r), falses(dim - 4T))
+            block_dim = dim ÷ copies
+            z_block = vcat(unit(l), neigh(l), unit(r), neigh(r), falses(block_dim - 4T))
+            z = reduce(vcat, fill(z_block, copies))
             u = Marginal(S, 2, :alice, 5, GF2[GF2(Int(b)) for b in z])
             @test !(u isa QueryError)
             prefix = vcat(u, [zero(GF2), zero(GF2), zero(GF2), zero(GF2), zero(GF2), zero(GF2), zero(GF2), zero(GF2), zero(GF2)])
@@ -196,7 +212,7 @@ if tb6a_runs("tb6a_require_image")
             metered_query(padded, padded_query)   # warm
             wall = @elapsed answer, meter = metered_query(padded, padded_query)
             @test !(answer isa QueryError) && answer[1:dim] == zeros(Int, dim)
-            results[dim] = (; steps=meter.steps, child_calls=meter.child_calls, wall=round(wall; digits=4))
+            results[dim] = (; steps=meter.steps, child_calls=meter.child_calls, wall=round(wall; digits=4), copies)
         end
         println("MUTATION_EXPECTED_RULE tb6a_require_image cost=", results)
         ratio_dim = 179 / 142
@@ -204,14 +220,30 @@ if tb6a_runs("tb6a_require_image")
         println("TB6a _require_image: dimension ratio 179/142 = ", round(ratio_dim; digits=3), ", step ratio = ", round(ratio_steps; digits=3),
                 ratio_steps > ratio_dim ? " (SUPER-LINEAR in the dimension: the column-space rebuild grows faster than the dimension; the stored-stage-matrix alternative is reported, not switched, in briefs/43-tb6-introspect.last.md)" : " (at most linear)")
         @test results[142].steps > 0 && results[179].steps > 0
+        # verdicts/tb6-r1.md O4 (brief 80 D4): the two measured costs pinned exactly.
+        @test (results[142].steps, results[142].child_calls) == (74_671, 148)
+        @test (results[179].steps, results[179].child_calls) == (113_946, 185)
+        # brief 80 D7: the fitted exponent over the single blocks (142, 179, 206) and the wall at TB7's dimensions.
+        single = sort([d for (d, r) in results if r.copies == 1])
+        fit = (log(results[single[end]].steps) - log(results[single[1]].steps)) / (log(single[end]) - log(single[1]))
+        println("TB6a _require_image single-block fit: steps ~ dim^", round(fit; digits=2), " over ", single,
+                "; walls (s) = ", [(d, results[d].wall) for d in sort(collect(keys(results)))],
+                " (TB7 chain 206 -> 840 -> 848 -> 1696; the direct-sum proxies rebuild each summand separately)")
+        @test results[206].steps > results[179].steps
     end
 end
 
 tb6a_elapsed = round(time() - tb6a_started; digits=3)
 println("TB6a audit wall seconds (testsets 1-2) = ", tb6a_audit_elapsed, "; with the _require_image measurement = ", tb6a_elapsed,
         " (DESIGN 11.6 target < 1 s; measured in-suite 2.5 s, first-use compilation of the Pauli maps and guards; the gate is the measured ceiling 5 s)")
-if isdefined(Main, :TB0_TARGET) && TB6A_TARGET == "all"
-    @testset "TB6a in-suite audit wall < 5 s (measured $(tb6a_audit_elapsed) s; the 1 s design target is missed by first-use compilation)" begin
-        @test tb6a_audit_elapsed < 5
+if TB6A_TARGET in ("all", "tb6a_gate")
+    # verdicts/tb6-r1.md O2 (brief 80 D2): the absolute 5 s wall (1.8x headroom over the quiet 2.765 s) broke the
+    # suite baseline under the runner's own 4-way load; the gate is now the calibrated ratio K = 18 (3.1x headroom
+    # over the quiet ratio 5.76; the runner's loaded ratio was 4.25) plus an absolute ceiling its load cannot reach.
+    gate = calibrated_gate(:tb6a_audit, tb6a_audit_elapsed)
+    println("MUTATION_EXPECTED_RULE tb6a_gate ratio<", gate.K, " => ", gate.ratio_ok, "; wall<", gate.ceiling, " => ", gate.wall_ok)
+    @testset "TB6a in-suite audit calibrated gate: body / kernel < $(gate.K) (measured $(round(gate.ratio; digits=2)); $(tb6a_audit_elapsed) s, ceiling $(gate.ceiling) s; the 1 s design target is missed by first-use compilation)" begin
+        @test gate.ratio_ok
+        @test gate.wall_ok
     end
 end

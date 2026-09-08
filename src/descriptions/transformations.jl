@@ -32,6 +32,13 @@ function _term_laws(term, parts::Tuple)
                                 query_time=:(poly(TypeCount, C_1(n))), k=nothing)
     tag == :Anchor && return (; field=2, level=:ell_1, dimension=:(s_1(n)), query_time=:(poly(C_1(n))), k=nothing)
     tag == :Repeat && return (; field=2, level=:ell_1, dimension=:(k(n) * s_1(n)), query_time=:(k(n) * C_1(n)), k=K_REP_LAW)
+    tag == :RepeatToy && return (; field=2, level=:ell_1, dimension=:($(term[2]) * s_1(n)), query_time=:($(term[2]) * C_1(n)), k=K_REP_LAW)
+    tag == :Oracularize && return (; field=:q_1, level=:ell_1, dimension=:(s_1(n)), query_time=:(C_1(n)), k=nothing)
+    tag == :Pad && return (; field=:q_1, level=:(ell_1 + $(term[2])), dimension=:(s_1(n)), query_time=:(C_1(n)), k=nothing)
+    if tag == :PCP
+        m = compile_sampler(term)
+        return (; field=m.q, level=m.level, dimension=m.dim, query_time=:(TIME_S(n)), k=nothing)
+    end
     throw(ArgumentError("unknown sampler term $(tag)"))
 end
 
@@ -67,7 +74,10 @@ function tracer_chain_set(S::SamplerDescription, n::Integer; seeds::Int=32, limi
     F = _field(machine(S))
     s = _raise(Dimension(S, n))
     q = field_size(F)
-    if big(q)^s <= limit
+    # DD-29: a dimension beyond the materialization budget yields no chain set
+    # (the sampler exists compactly; its vector queries are BudgetExceeded).
+    s > MATERIALIZATION_BUDGET_BITS && return (Any[], "tb7-budget-exceeded(dimension $(s) > $(MATERIALIZATION_BUDGET_BITS))@n=$(n)")
+    if s <= 62 && big(q)^s <= limit
         return (collect(enumerate_seeds(F, s)), "tb5-exhaustive-$(q)^$(s)@n=$(n)")
     end
     rng = MersenneTwister(rng_seed)
@@ -314,3 +324,60 @@ function typed_anchor_sampler(S::Union{SamplerDescription,Checked}; tracer_index
                evidence=pad.term, extra=(anchor_zero, _relocate(pad_node, x -> x.evidence)),
                display="typed anchor family {Game, Anchor} with the complete graph and both self-loops; Game = S, Anchor = 0 on F_2^$(s)")
 end
+
+# ---------------------------------------------------------------------------
+# TB7 constructors (DESIGN 12.1-12.2; briefs/44 addendum): the explicit Pad
+# node, the oracularized family and the compact PCP family, each with the
+# mandatory DESIGN 9.6 rows.
+
+const CITED_ORAC_DEF = _cited("sec:orac-def", "gt-09-oracularization.tex", 34:86,
+    "the three-role oracularized sampler: roles {oracle, alice, bob}, oracle = the identity on the ambient space, isolated roles = L^alice / L^bob (the construction is executed; its theorems stay CITED)")
+const CITED_ORACLE_COMPLETENESS = _cited("thm:oracle-completeness", "gt-09-oracularization.tex", 125:169,
+    "quantum strategy transfer: a value-1 PCC strategy of V gives one of V^ora (never executed)")
+const CITED_ORACLE_SOUNDNESS = _cited("thm:oracle-soundness", "gt-09-oracularization.tex", 296:329,
+    "oracularization soundness and its Ent map (never executed)")
+const CITED_HIGHER_LEVEL = _cited("rk:higher-level", "gt-04-cl.tex", 122:130,
+    "an ell-level CL function is an (ell + 1)-level one with an empty factor appended; the Pad node's stages beyond the child's level are exactly those empty factors")
+
+"""
+    pad(S, extra; tracer_index=1, seeds=32) :: Checked{SamplerDescription}
+
+(:Pad, extra, S): S with `extra` empty stages appended (rk:higher-level);
+field, dimension and typing of S, level ell + extra. A Factor prefix at a
+padded stage is decided by the child's own walk (machines.jl PadMachine).
+"""
+function pad(S::Union{SamplerDescription,Checked}, extra::Integer; tracer_index::Integer=1, seeds::Integer=32)
+    part = _desc(S)
+    term = (:Pad, Int(extra), part.term)
+    _composite(Symbol("DL9-pad"), term, (S,), (CITED_HIGHER_LEVEL, CITED_CL_KTH);
+               tracer_index=Int(tracer_index), seeds=Int(seeds), expected=expected_laws(Symbol("DL9-pad"), Int(extra)),
+               expected_calls=1, call_law="C_S(n); one child call per query (a padded stage forwards the legality walk)", at_most=true,
+               display="explicit padding: $(extra) empty stage$(extra == 1 ? "" : "s") appended to a level-$(part.level) description (rk:higher-level); the padded stages' Factor legality is the child's own prefix walk, not a column-space rebuild at the parent")
+end
+
+"""
+    oracularize(S; tracer_index=1, seeds=32) :: Checked{SamplerDescription}
+
+(:Oracularize, S) over an untyped S: the typed family {oracle, alice, bob}
+with the complete graph, oracle = the identity on S's ambient space (padded
+to S's level), alice = L^alice, bob = L^bob, the role selecting the map for
+both players (gt-09-oracularization.tex:34-86; TB2's oracularize_sampler on
+descriptions). Field, level and dimension are S's.
+"""
+function oracularize(S::Union{SamplerDescription,Checked}; tracer_index::Integer=1, seeds::Integer=32)
+    part = _desc(S)
+    part.typing isa Untyped || throw(ArgumentError("oracularization takes an untyped normal-form sampler"))
+    term = (:Oracularize, part.term)
+    _composite(Symbol("DL9-oracularize"), term, (S,), (CITED_ORAC_DEF, CITED_ORACLE_COMPLETENESS, CITED_ORACLE_SOUNDNESS, CITED_CL_KTH);
+               tracer_index=Int(tracer_index), seeds=Int(seeds), expected=expected_laws(Symbol("DL9-oracularize")),
+               expected_calls=1, call_law="C_S(n); at most one child call per query (the oracle role answers without one)", at_most=true,
+               display="oracularized family {oracle, alice, bob}, complete type graph (9 oriented pairs); oracle = Id on F_$(part.field_size)^s(n) (level 1, padded to $(part.level)), alice/bob = the two maps of S for both players")
+end
+
+"""
+    repeat_toy_term(k, lambda, tau, c_prime, S_term)
+
+The (:RepeatToy, k, lambda, tau, c_num, c_den, S) term of a ToyPolicy repetition.
+"""
+repeat_toy_term(k::Integer, lambda::Integer, tau::Integer, c::Rational{Int}, S_term) =
+    (:RepeatToy, Int(k), Int(lambda), Int(tau), numerator(c), denominator(c), S_term)

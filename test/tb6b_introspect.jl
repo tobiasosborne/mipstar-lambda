@@ -14,7 +14,8 @@ Base.Experimental.@optlevel 0
 # schedule), L588-L591 (3Q), L923-L953 (lem:commute), L1002-L1172 (honest strategy).
 
 const TB6B_TARGET = get(ENV, "TB6B_TARGET", "all")
-tb6b_runs(name) = TB6B_TARGET == "all" || TB6B_TARGET == name
+include(joinpath(@__DIR__, "calibration.jl"))   # the suite kernel, idempotent (brief 80 D2)
+tb6b_runs(name) = TB6B_TARGET in ("all", "tb6b_gate") || TB6B_TARGET == name   # "tb6b_gate": the whole file with its gates (M6b-gate-body-inflated)
 const M6 = MIPStarLambda
 const TB6B_ROOT = isdir(joinpath(@__DIR__, "..", "ground-truth")) ? normpath(joinpath(@__DIR__, "..")) :
                   normpath(joinpath(dirname(pathof(MIPStarLambda)), ".."))
@@ -23,6 +24,12 @@ const TB6B_LOG = Dict{Symbol,Any}()
 const TB6B_F_CHILD = 65_536
 tb6b_started = time()
 const TB6B_RSS_START = Sys.maxrss()
+
+# --- brief 80 D3/D4 pins (verdicts/tb6-r1.md O3, O4); every value independently reproduced by the critic at 0ec462e ---
+const TB6B_COST_SLOTS = Dict(:TB6b_E => [5, 13, 10, 13, 10], :TB6b_M => [5, 53, 60, 50, 22])   # Dimension, Marginal, Factor, Linear, Decider
+const TB6B_CHARGE_TABLE = Dict("Dimension" => 5, "Marginal(3)" => 53, "Factor(2, e1)" => 39, "Linear(2, e1, e4)" => 40)
+const TB6B_E_LEAF_HISTOGRAM = Pair{Int,Int}[]        # filled from the first brief-80 run (exponent => count)
+const TB6B_E_LEAF_COUNTS = Int[]                      # per oriented pair in `tb6b_edges` order
 
 tb6b_bits(v) = Bool[x == one(GF2) for x in v]
 tb6b_gf2(b) = GF2[GF2(Int(x)) for x in b]
@@ -330,6 +337,84 @@ end
 function tb6b_enumerate(inst, edge, z)
     M6.enumerate_branches(choose -> M6.honest_transcript(inst, edge, z, choose))
 end
+tb6b_enumerate_dense(inst, edge, z) =
+    M6.enumerate_branches(choose -> M6.honest_transcript(inst, edge, z, choose; initial=() -> tb6b_dense_epr(inst.Q + 1)))
+
+# --- brief 80 D3 (verdicts/tb6-r1.md O3): a TEST-ONLY dense reference simulator ---------------
+# "Total mass one" is a structural identity of `enumerate_branches` (every leaf of a complete
+# binary tape tree carries 2^-depth), so it cannot fail; the check that is independent of the
+# tableau code is a dense state vector -- 2(Q+1) = 6 qubits, 64 amplitudes for TB6b-E -- run
+# through the same `honest_answer!` and compared leaf distribution by leaf distribution.
+# DESIGN 11.6 forbids a dense state vector on the PRODUCTION path only (test-only exemption).
+# Amplitudes are exact Gaussian rationals (unnormalised: the EPR state has entries 0/1).
+struct TB6bDense
+    n::Int
+    psi::Vector{Complex{Rational{Int}}}
+end
+function tb6b_dense_epr(pairs::Int)
+    n = 2pairs
+    psi = zeros(Complex{Rational{Int}}, 2^n)
+    for k in 0:2^n-1
+        all(((k >> (i - 1)) & 1) == ((k >> (pairs + i - 1)) & 1) for i in 1:pairs) && (psi[k + 1] = one(Complex{Rational{Int}}))
+    end
+    TB6bDense(n, psi)
+end
+# P|k> for the Hermitian string P = (-1)^r (x) P_j: X flips bit j, Z gives (-1)^{b_j}, Y = iXZ gives i(-1)^{b_j} and flips.
+function tb6b_dense_apply(p::M6.PauliString, psi::Vector{Complex{Rational{Int}}}, n::Int)
+    out = zeros(Complex{Rational{Int}}, length(psi))
+    imag_unit = Complex{Rational{Int}}(0, 1)
+    for k in 0:length(psi)-1
+        iszero(psi[k + 1]) && continue
+        phase = p.r ? -one(Complex{Rational{Int}}) : one(Complex{Rational{Int}})
+        kk = k
+        for j in 1:n
+            b = (k >> (j - 1)) & 1
+            if p.x[j] && p.z[j]
+                phase *= imag_unit * (b == 1 ? -1 : 1)
+                kk ⊻= 1 << (j - 1)
+            elseif p.x[j]
+                kk ⊻= 1 << (j - 1)
+            elseif p.z[j]
+                b == 1 && (phase = -phase)
+            end
+        end
+        out[kk + 1] += phase * psi[k + 1]
+    end
+    out
+end
+tb6b_norm2(psi) = sum(abs2, psi)
+function M6.measure!(t::TB6bDense, p::M6.PauliString, choose::Function)
+    length(p) == t.n || throw(ArgumentError("Pauli string on the wrong number of qubits"))
+    phi = tb6b_dense_apply(p, t.psi, t.n)
+    plus = (t.psi .+ phi) ./ 2
+    minus = (t.psi .- phi) ./ 2
+    p0 = tb6b_norm2(plus) / tb6b_norm2(t.psi)
+    if p0 == 1
+        t.psi .= plus
+        return false
+    elseif p0 == 0
+        t.psi .= minus
+        return true
+    end
+    p0 == 1 // 2 || error("a stabilizer state has outcome probability 0, 1/2 or 1, not $(p0)")
+    b = choose()::Bool
+    t.psi .= (b ? minus : plus)
+    b
+end
+function M6.measure_family!(t::TB6bDense, family::Vector{M6.PauliString}, choose::Function)
+    for i in eachindex(family), j in i+1:length(family)
+        M6.anticommute(family[i], family[j]) && throw(ArgumentError("noncommuting measurement family (dense reference)"))
+    end
+    Bool[M6.measure!(t, p, choose) for p in family]
+end
+tb6b_distribution(leaves) = begin
+    d = Dict{Any,Rational{Int}}()
+    for l in leaves
+        key = (l.result.xA, l.result.xB, l.result.aA, l.result.aB)
+        d[key] = get(d, key, 0 // 1) + l.probability
+    end
+    d
+end
 
 if tb6b_runs("tb6b_schedule")
     @testset "TB6b (d) the decider reads V only through the four queries: the recorded query log equals the DESIGN 11.4 schedule; M6-N" begin
@@ -457,7 +542,9 @@ if tb6b_runs("tb6b_E")
         literal_accept = Dict{Tuple{String,String},Rational{Int}}()
         leaves_total = 0
         max_bits = 0
-        mass_ok = true
+        dense_mismatches = 0                                   # brief 80 D3: tableau vs dense reference, per (edge, seed)
+        leaf_histogram = Dict{Int,Int}()                       # leaf probability exponent -> count (the exact multiset)
+        leaf_counts = Dict{Tuple{String,String},Int}()          # per oriented pair, leaves over its seeds
         recorded_edges = Set{Tuple{String,String}}()
         for edge in edges
             pauli_edge = M6.is_pauli_label(edge[1]) || M6.is_pauli_label(edge[2])
@@ -466,7 +553,12 @@ if tb6b_runs("tb6b_E")
             acc_lit = 0 // 1
             for z in edge_seeds
                 leaves = tb6b_enumerate(inst, edge, collect(z))
-                mass_ok &= sum(l.probability for l in leaves) == 1
+                tb6b_distribution(leaves) == tb6b_distribution(tb6b_enumerate_dense(inst, edge, collect(z))) || (dense_mismatches += 1)
+                leaf_counts[edge] = get(leaf_counts, edge, 0) + length(leaves)
+                for l in leaves
+                    e = -Int(log2(l.probability))
+                    leaf_histogram[e] = get(leaf_histogram, e, 0) + 1
+                end
                 for l in leaves
                     t = l.result
                     bit, trace, _ = M6.typed_decision(inst, t)
@@ -485,7 +577,17 @@ if tb6b_runs("tb6b_E")
             operative_accept[edge] = acc // length(edge_seeds)
             literal_accept[edge] = acc_lit // length(edge_seeds)
         end
-        @test mass_ok
+        # Every leaf carries an exact dyadic probability (structural, true by construction of the enumerator); the
+        # substantive checks are the dense-reference agreement on every (edge, seed), the exact leaf count and the
+        # exact multiset of leaf probabilities (verdicts/tb6-r1.md O3, brief 80 D3).
+        @test all(l -> l.probability isa Rational && ispow2(denominator(l.probability)) && numerator(l.probability) == 1,
+                  tb6b_enumerate(inst, ("Pauli_X", "Hide_1_alice"), collect(seeds[1])))
+        @test dense_mismatches == 0
+        @test leaves_total == 14378
+        println("MUTATION_EXPECTED_RULE tb6b_E_leaves total=", leaves_total, " histogram=", sort(collect(leaf_histogram)),
+                " per_edge=", sort(collect(Set(values(leaf_counts)))))
+        @test sort(collect(leaf_histogram)) == TB6B_E_LEAF_HISTOGRAM
+        @test [leaf_counts[e] for e in edges] == TB6B_E_LEAF_COUNTS
         @test all(==(1), values(operative_accept))
         P_operative = sum(values(operative_accept)) / 116
         P_literal = sum(values(literal_accept)) / 116
@@ -606,9 +708,11 @@ if tb6b_runs("tb6b_M")
         println("TB6b-M enu:hiding-same literal register choice (x_w on V_{>2}(y_w), y_{w,1} = 0 -> <e2,e3>): rejects ", literal_suffix_rejections, " of ",
                 hide_chain_leaves, " honest Hide_1/Hide_2 leaves; the operative V_{>2}(y_wbar) register accepts all (SOURCE_REPAIR(intro-hide-suffix-register))")
         @test literal_suffix_rejections > 0
+        @test hide_chain_leaves == 64 && literal_suffix_rejections == 30     # verdicts/tb6-r1.md O4 (brief 80 D4): pinned
         println("TB6b-M literal dual map (canonical complement of the kernel basis, gt-08:L669-L678): rejects ", literal_perp_rejections, " of ",
                 hide_chain_leaves, " honest Hide_1/Hide_2 leaves; the orthogonal-complement map accepts all (SOURCE_REPAIR(intro-perp-orthogonal))")
         @test literal_perp_rejections > 0
+        @test literal_perp_rejections == 48                                  # verdicts/tb6-r1.md O4 (brief 80 D4): pinned
         # 512 seeded regressions (typed and detyped).
         edges = tb6b_edges(f)
         @test length(edges) == 128
@@ -782,9 +886,11 @@ if tb6b_runs("tb6b_tree")
                         "; TIME_child(N)<=R: ", cost === nothing ? "NE" : (cost <= R ? "PASS" : "FAIL"), "; fits F_child: ", cost === nothing ? "NE" : (cost <= TB6B_F_CHILD ? "PASS" : "FAIL"))
             end
             TB6B_LOG[Symbol(fixture.name, :_costs)] = table
-            if TB6B_TARGET == "all"
+            if TB6B_TARGET in ("all", "tb6b_gate")
                 @test all(haskey(table, mode) for mode in (:Dimension, :Marginal, :Factor, :Linear, :Decider))
                 @test all(v <= TB6B_F_CHILD for v in values(table))
+                # verdicts/tb6-r1.md O4 (brief 80 D4): the ten slots pinned exactly (E 5/13/10/13/10, M 5/53/60/50/22).
+                @test [table[mode] for mode in (:Dimension, :Marginal, :Factor, :Linear, :Decider)] == TB6B_COST_SLOTS[fixture.name]
             end
         end
         # The step-meter charge table (DESIGN 11.4 unit) on the M child at z*: one call per mode with by-depth attribution.
@@ -795,24 +901,201 @@ if tb6b_runs("tb6b_tree")
                           ("Linear(2, e1, e4)", LinearQuery(4, :alice, 2, tb6b_gf2(tb6b_e(1, 6)), tb6b_gf2(tb6b_e(4, 6)), nothing)))
             _, meter = metered_query(S, q)
             println("TB6b charge table M child ", rpad(mode, 18), " steps = ", meter.steps, " by_depth = ", meter.by_depth)
+            @test meter.steps == TB6B_CHARGE_TABLE[mode]                    # verdicts/tb6-r1.md O4 (brief 80 D4): pinned
         end
         walls = (; E_construction=get(TB6B_LOG, :TB6b_E_construction_seconds, nothing), E_transcripts=get(TB6B_LOG, :E_transcript_seconds, nothing),
                    M_construction=get(TB6B_LOG, :TB6b_M_construction_seconds, nothing), M_transcripts=get(TB6B_LOG, :M_transcript_seconds, nothing))
         println("TB6b walls: ", walls, "; process peak RSS MiB = ", round(Sys.maxrss() / 2^20; digits=1))
-        if TB6B_TARGET == "all"
-            # DESIGN 11.6 / 13.1 targets as hard gates (warm, in this process): E construction < 3, E transcripts < 15,
-            # M construction + transcripts < 25, combined < 43, peak < 512 MiB.
-            @test walls.E_construction < 3 && walls.E_transcripts < 15
-            @test walls.M_construction + walls.M_transcripts < 25
-            @test walls.E_construction + walls.E_transcripts + walls.M_construction + walls.M_transcripts < 43
+        if TB6B_TARGET in ("all", "tb6b_gate")
+            # DESIGN 11.6 / 13.1 targets as CALIBRATED gates (verdicts/tb6-r1.md O2, brief 80 D2): the absolute
+            # walls (E 3 + 15, M 25, combined 43) are exercised inside the :suite baseline under the runner's load.
+            gate_E = calibrated_gate(:tb6b_E, walls.E_construction + walls.E_transcripts)
+            gate_M = calibrated_gate(:tb6b_M, walls.M_construction + walls.M_transcripts)
+            gate_all = calibrated_gate(:tb6b_combined, walls.E_construction + walls.E_transcripts + walls.M_construction + walls.M_transcripts)
+            @test gate_E.ratio_ok && gate_E.wall_ok
+            @test gate_M.ratio_ok && gate_M.wall_ok
+            @test gate_all.ratio_ok && gate_all.wall_ok
             rss_delta = (Sys.maxrss() - TB6B_RSS_START) / 2^20
             println("TB6b process peak RSS delta over the TB6b body MiB = ", round(rss_delta; digits=1), " (in-suite 0.0 when TB0's earlier peak dominates; standalone includes compilation)")
             @test rss_delta < 512
-            println("MUTATION_EXPECTED_RULE tb6b_walls E<3+15 => ", walls.E_construction < 3 && walls.E_transcripts < 15, " M<25 => ", walls.M_construction + walls.M_transcripts < 25)
+            println("MUTATION_EXPECTED_RULE tb6b_walls E ratio<", gate_E.K, " => ", gate_E.ratio_ok, " M ratio<", gate_M.K, " => ", gate_M.ratio_ok, " combined ratio<", gate_all.K, " => ", gate_all.ratio_ok)
         end
         census = (length(tb6b_nodes(checked.certificate)), grades[CONSTRUCTED], grades[CHECKED], grades[CITED], grades[ASSUMED], grades[SOURCE_REPAIR])
         println("MUTATION_EXPECTED_RULE tb6b_tree census=", census)
         @test census == (82, 7, 25, 18, 23, 9)
+    end
+end
+
+# --- verdicts/tb6-r1.md O1 (brief 80 D1): one named negative transcript per conjunct ----------
+# The nine-item predicate of fig:intro-decider is an AND; items 2(a)-3(d) compare thirteen
+# fields between the two players (the inventory below, re-derived from `_intro_ordered`).
+# Each witness takes the FIRST enumerated honest leaf of the oriented pair on the zero hat seed
+# (TB6b-M, so the child answer is the single bit `false`), corrupts exactly the field that one
+# conjunct compares -- always inside the first s(N) coordinates of its Q-bit block, so the answer
+# still parses and no other conjunct changes -- and asserts rejection with the fired-test name.
+# Layout of a TB6b-M answer (Q = 12, s = 6): Introspect (y[1:Q], a); Sample (z[1:Q], a);
+# Read (y[1:Q], y_perp[Q+1:2Q], a); Hide_k (y[1:Q], y_perp[Q+1:2Q], x[2Q+1:3Q]).
+const TB6B_CONJUNCTS = (
+    # id   item   oriented pair (w, wbar)                        corrupted field         fired test
+    (:C01, "2(a)", ("Pauli_Z", "Sample_bob"),                  :z_wbar_1,               :sampling_pauli),   # a_w^V = z_wbar
+    (:C02, "2(b)", ("Introspect_alice", "Sample_alice"),       :z_wbar_1,               :sampling_intro),   # y_w = L^role(z_wbar)
+    (:C03, "2(b)", ("Introspect_alice", "Sample_alice"),       :a_wbar,                 :sampling_intro),   # a_w = a_wbar (CRIT-1)
+    (:C04, "3(a)", ("Introspect_bob", "Read_bob"),             :y_wbar_1,               :hiding_intro),     # y_w = y_wbar
+    (:C05, "3(a)", ("Introspect_bob", "Read_bob"),             :a_wbar,                 :hiding_intro),     # a_w = a_wbar (CRIT-1)
+    (:C06, "3(b)", ("Hide_3_alice", "Read_alice"),             :y_wbar_1,               :hiding_read),      # y_{w,<ell} = y_{wbar,<ell}
+    (:C07, "3(b)", ("Hide_3_alice", "Read_alice"),             :yperp_wbar_1,           :hiding_read),      # y_perp_w = y_perp_wbar (CRIT-4)
+    (:C08, "3(c)", ("Hide_2_alice", "Hide_3_alice"),           :y_wbar_1,               :hiding_same),      # y_{w,<k} = y_{wbar,<k} (k = 2)
+    (:C09, "3(c)", ("Hide_1_alice", "Hide_2_alice"),           :yperp_wbar_V1,          :hiding_same),      # y_perp on V_{<=k}
+    (:C10, "3(c)", ("Hide_1_alice", "Hide_2_alice"),           :x_wbar_6,               :hiding_same),      # x on V_{>k+1}(y_wbar) (e6 in both branches)
+    (:C11, "3(c)", ("Hide_1_alice", "Hide_2_alice"),           :yperp_wbar_Vk1,         :hiding_same),      # y_perp_{wbar,k+1} = (L_{k+1,u})^perp(x_{w,k+1})
+    (:C12, "3(d)", ("Pauli_X", "Hide_1_bob"),                  :yperp_wbar_1,           :hiding_pauli),     # y_perp_{wbar,1} = (L_1)^perp(a_hat_w^{V_1})
+    (:C13, "3(d)", ("Pauli_X", "Hide_1_bob"),                  :x_wbar_2,               :hiding_pauli),     # a_hat_w^{V_{>1}} = x_wbar^{V_{>1}}
+)
+
+if tb6b_runs("tb6b_negative")
+    @testset "TB6b (j) thirteen named negative transcripts, one per conjunct of items 2(a)-3(d) (verdicts/tb6-r1.md O1)" begin
+        f = tb6b_M()
+        inst = tb6b_instance(f)
+        Q, s = inst.Q, inst.s
+        @test Q == 12 && s == 6
+        zero_hat = tb6b_gf2(falses(27))
+        flip(v, i) = (w = copy(v); w[i] = !w[i]; w)
+        # The stage-2 register of the Hide_2 player from its own y_1 (DESIGN 11.6: prefix 0 -> <e2,e3>, e1 -> <e4,e5>).
+        V2_of(y1::Bool) = y1 ? 4 : 2
+        function corrupt(t, field::Symbol)
+            aB = t.aB
+            i = field == :z_wbar_1 ? 1 :
+                field == :y_wbar_1 ? 1 :
+                field == :a_wbar ? (startswith(t.edge[2], "Read") ? 2Q + 1 : Q + 1) :
+                field == :yperp_wbar_1 ? Q + 1 :
+                field == :yperp_wbar_V1 ? Q + 1 :
+                field == :yperp_wbar_Vk1 ? Q + V2_of(aB[1]) :
+                field == :x_wbar_6 ? 2Q + 6 :
+                field == :x_wbar_2 ? 2Q + 2 : error("unknown field $(field)")
+            merge(t, (; aB=flip(aB, i)))
+        end
+        count_ok = 0
+        for (id, item, edge, field, expected) in TB6B_CONJUNCTS
+            leaves = tb6b_enumerate(inst, edge, zero_hat)
+            t = first(leaves).result
+            bit0, _, fired0 = M6.typed_decision(inst, t)
+            @test bit0 && fired0 == [expected]                       # the honest leaf accepts through exactly this test
+            t_neg = corrupt(t, field)
+            @test t_neg.aB != t.aB && length(t_neg.aB) == length(t.aB)
+            bit, trace, fired = M6.typed_decision(inst, t_neg)
+            @test !bit
+            @test fired == [expected]
+            @test all(r.outcome == :return for r in trace)           # rejected by the conjunct, not by a failed child call
+            ok = !bit && fired == [expected] && all(r.outcome == :return for r in trace)
+            count_ok += ok
+            println("TB6b negative ", id, " item ", item, " ", edge, " corrupt ", field, ": reject=", !bit, " fired=", fired)
+        end
+        @test count_ok == 13 == length(TB6B_CONJUNCTS)
+        println("MUTATION_EXPECTED_RULE tb6b_negative conjuncts=", count_ok, "/13")
+    end
+end
+
+if tb6b_runs("tb6b_nested")
+    @testset "TB6b (k) a nested TypedDecider as a metered child: same verdict as the flat call, nested steps at depth + 1, one budget (brief 80 D12)" begin
+        f = tb6b_E()
+        inst = tb6b_instance(f)
+        I = tb6b_intro(f).term
+        D_nested = I.decider.term                                 # (:Detype, labels, edges, (:TypedDecider, TypeIntro, (:Intro, ...)))
+        @test D_nested[1] == :Detype && D_nested[4][1] == :TypedDecider
+        edge = ("Introspect_alice", "Introspect_bob")
+        rng = MersenneTwister(0x70)
+        t = M6.honest_transcript(inst, edge, tb6b_gf2(falses(6)), M6.seeded_chooser(rng))
+        xd = M6.detyped_question(inst, :alice, edge, t.xA)
+        yd = M6.detyped_question(inst, :bob, edge, t.xB)
+        flat = decide(I.decider, 2, xd, yd, t.aA, t.aB)
+        @test flat
+        # Unbudgeted metered evaluation through the nested typed decider.
+        ctx = Meter(0)
+        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, ctx) == flat
+        @test ctx.steps > 0 && sum(ctx.by_depth) == ctx.steps
+        @test length(ctx.by_depth) >= 2 && ctx.by_depth[1] > 0 && ctx.by_depth[2] > 0   # the nested child calls sit one depth below
+        total = ctx.steps
+        # The same call under budget exactly `total` returns; under `total - 1` the (budget + 1)-th step never executes.
+        exact = Meter(total)
+        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, exact) == flat && exact.steps == total
+        short = Meter(total - 1)
+        @test_throws M6.FuelExhausted M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, short)
+        @test short.steps <= total - 1
+        # The rejected view-swap is rejected through the nested path too (M-detype-view-orientation family).
+        @test !M6._metered_decide(D_nested, 2, xd, yd, t.aB, t.aA, Meter(0)) == !decide(I.decider, 2, xd, yd, t.aB, t.aA)
+        println("MUTATION_EXPECTED_RULE tb6b_nested total=", total, " by_depth=", ctx.by_depth, " verdict=", flat)
+    end
+end
+
+if tb6b_runs("tb6b_probe")
+    @testset "TB6b (l) one sizing Dimension probe per vector query (O8); FuelExhausted reports the attempted count (O9) (brief 80 D8/D9)" begin
+        f = tb6b_M()
+        inst = tb6b_instance(f)
+        zero_hat = tb6b_gf2(falses(27))
+        t = first(tb6b_enumerate(inst, ("Hide_1_alice", "Hide_2_alice"), zero_hat)).result
+        rec = RecordingMachine(machine(f.V.sampler))
+        bit, trace, fired = M6.with_child_sampler(rec) do
+            M6.typed_decision(inst, t)
+        end
+        @test bit && fired == [:hiding_same]
+        @test trace[1].mode == :Dimension                              # the decider's own FIRST call (gt-08:L420-L423)
+        vector_calls = count(r -> r.mode in (:Marginal, :Factor, :Linear), trace)
+        dimension_records = count(e -> e[1] == :dimension, rec.log)
+        # DESIGN 11.4: "It first asks only Dimension(N)" describes the first call, not a bound on the schedule -- every
+        # vector query runs the child's own sizing Dimension probe on the same meter (`_validated_answer`), so the child
+        # sees 1 + vector_calls Dimension calls (7 for 6 on this leaf) while the decider's trace has one Dimension record.
+        @test vector_calls == 6 && length(trace) == 7 && count(r -> r.mode == :Dimension, trace) == 1
+        @test dimension_records == 1 + vector_calls == 7
+        # O9: the exception carries the ATTEMPTED count for a refused block, never a step index; `steps` is unchanged.
+        ctx = Meter(10)
+        M6._charge!(ctx, 8)
+        err = try; M6._charge!(ctx, 5); nothing; catch e; e; end
+        @test err isa M6.FuelExhausted && err.steps == 13 && err.budget == 10 && ctx.steps == 8
+        println("MUTATION_EXPECTED_RULE tb6b_probe records=", length(trace), " vector_calls=", vector_calls)
+    end
+end
+
+if tb6b_runs("tb6b_currency")
+    @testset "TB6b (m) one fuel currency: a description under Eval charges exactly its metered steps (brief 80 D11; briefs/43 API request 1)" begin
+        f = tb6b_M()
+        S = f.V.sampler
+        D = f.V.decider
+        z = TB6B_Z_STAR
+        # Direct metered queries (the DESIGN 11.4 unit) and the same queries as sampler_machine calls under Eval fuel.
+        queries = (("Dimension", DimensionQuery(4), (0, 4, false, 1, falses(6), falses(6), UInt8[])),
+                   ("Marginal(3)", MarginalQuery(4, :alice, 3, tb6b_gf2(z), nothing), (1, 4, false, 3, z, falses(6), UInt8[])),
+                   ("Factor(2, e1)", FactorQuery(4, :alice, 2, tb6b_gf2(tb6b_e(1, 6)), nothing), (3, 4, false, 2, tb6b_e(1, 6), falses(6), UInt8[])))
+        prog = M6.lower_sampler(S)
+        overheads = Int[]
+        for (name, q, args) in queries
+            answer, meter = metered_query(S, q)
+            out = eval_program(prog, args, 4 * TB6B_F_CHILD)
+            @test out.result isa Value
+            expected = answer isa Int ? answer : eltype(answer) == Int ? Bool[v == 1 for v in answer] : tb6b_bits(answer)
+            @test out.result.value == expected
+            @test out.used >= meter.steps
+            push!(overheads, out.used - meter.steps)
+            # The boundary in the Eval currency: one unit less than `used` is OutOfFuel (the (budget+1)-th step never executes).
+            @test eval_program(prog, args, out.used).result isa Value
+            @test eval_program(prog, args, out.used - 1).result isa OutOfFuel
+            println("TB6b currency sampler ", rpad(name, 14), " metered steps = ", meter.steps, "; Eval used = ", out.used, "; program overhead = ", out.used - meter.steps)
+        end
+        @test length(unique(overheads)) == 1                       # the same constant overhead: fuel unit == metered step
+        # The child decider likewise (the Decider cost slot of TB6b-M is 22 steps on (y_A*, y_B*, 0, 0)).
+        yA = Bool[1, 0, 1, 1, 0, 1]; yB = Bool[0, 1, 0, 0, 1, 1]
+        dprog = M6.lower_decider(D)
+        doverheads = Int[]
+        for (x, y) in ((yA, yB), (yB, yA))
+            ctx = Meter(0)
+            bit = M6._metered_decide(D.term, 4, x, y, [false], [false], ctx)
+            out = eval_program(dprog, (4, x, y, [false], [false]), 4 * TB6B_F_CHILD)
+            @test out.result isa Value && out.result.value == bit == decide(D, 4, x, y, [false], [false])
+            push!(doverheads, out.used - ctx.steps)
+            @test eval_program(dprog, (4, x, y, [false], [false]), out.used - 1).result isa OutOfFuel
+            println("TB6b currency decider (", x == yA ? "y_A*, y_B*" : "y_B*, y_A*", "): metered steps = ", ctx.steps, "; Eval used = ", out.used)
+        end
+        @test length(unique(doverheads)) == 1
+        println("MUTATION_EXPECTED_RULE tb6b_currency overhead=", overheads[1], " decider_overhead=", doverheads[1])
     end
 end
 

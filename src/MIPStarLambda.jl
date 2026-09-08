@@ -165,6 +165,27 @@ export PauliTuple, PauliParams, pauli_sampler, tilde_S_intro, graph_sampler, int
        IntroInstance, honest_transcript, typed_decision, detyped_decision, enumerate_branches,
        seeded_chooser, epr_tableau, measure!, measure_family!, PauliString, pauli_string, FuelExhausted
 
+# TB7 (briefs/44): the policy, the description-level AnswerReduce, the
+# lowering of descriptions into the program IR, Compress on descriptions
+# and the halting fixed point with the real Compressor.
+include("policy/policy.jl")
+include("compress/pcp_description.jl")
+include("compress/lowering.jl")
+include("compress/answer_reduce.jl")
+include("compress/compress7.jl")
+include("compress/fixed_point.jl")
+export ConstructionPolicy, ProductionPolicy, ToyPolicy, TB7_TOY_POLICY, PolicyPredicate, predicate_report_text, predicate_report_table,
+       policy_bytes, decode_policy, result_text,
+       pcp_description, pcp_family, oracularize, pad, PadMachine, OracularizeMachine, ORACULARIZE_TYPING, parameter_dependencies,
+       lower_sampler, lower_decider, lift_decider, lowered_bytes, compressor_program, DESCRIPTION_PRIMITIVES,
+       answer_reduce, ExecutableAnswerReduce, answer_reduce_labels, answer_bit_length, encode_pcp_answer_bits, ARGameNotExecuted, ARStep, AR_GAME_OWNER,
+       compress, compress_terms, compute_sampler, tb7_stages, constructor_order, COMPRESS_ORDER_AST, universal_constants_ast,
+       EXPECTED_UNIVERSAL_CONSTANTS, intro_gap_ast, TB7_RESIDUE_INVENTORY, EXPECTED_COMPRESS_DEPENDENCIES, cited_labels, chain_coverage,
+       chain_coverage_text, bookkeeping_rows, bookkeeping_text, fixed_width_length, tb7_predicate_report,
+       tb7_input_verifier, tb7_input_verifier_prime, tb7_input_verifier_large, coordinate_identity_map, final_questions,
+       halting_fixed_point, anchor_transcript, trivial_verifier_description, BudgetExceeded, MATERIALIZATION_BUDGET_BITS,
+       TRIVIAL_SAMPLER_TERM, TRIVIAL_DECIDER_TERM, fixed_slot_fits, repeat_toy_term
+
 include("precompile.jl")
 include("frontend/precompile_frontend.jl")
 # brief 78 (verdicts/tb4-r2.md NEW-3): the TB4 Compress-skeleton workload.

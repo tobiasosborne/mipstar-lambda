@@ -113,6 +113,12 @@ function expected_laws(rule::Symbol, r::Int=1)
     rule == Symbol("DL9-repeat") && return (; field=2, level=:ell_1, dimension=:(k(n) * s_1(n)),
                                               query_time=:(k(n) * C_1(n)))
     rule == :DescribeCL && return (; field=:q, level=:ell, dimension=:s, query_time=:(TIME_S(n)))
+    # TB7 rows (DESIGN 12.1-12.2): oracularization keeps field, level and
+    # dimension (gt-09:42-86); an explicit Pad adds `extra` empty stages;
+    # the toy repetition substitutes the literal count k for k(n).
+    rule == Symbol("DL9-oracularize") && return (; field=:q_1, level=:ell_1, dimension=:(s_1(n)), query_time=:(C_1(n)))
+    rule == Symbol("DL9-pad") && return (; field=:q_1, level=:(ell_1 + $(r)), dimension=:(s_1(n)), query_time=:(C_1(n)))
+    rule == Symbol("DL9-repeat-toy") && return (; field=2, level=:ell_1, dimension=:($(r) * s_1(n)), query_time=:($(r) * C_1(n)))
     throw(ArgumentError("no expected laws for $(rule)"))
 end
 
@@ -127,6 +133,11 @@ function law_environment(S::SamplerDescription, n::Integer; lambda=nothing, tau=
         env[:c_prime] = S.term[4] // S.term[5]
         env[:k] = m -> k_rep(S.term[2], S.term[3], S.term[4] // S.term[5], m)
         env[:B] = m -> B_rep(S.term[2], S.term[3], m)
+    elseif S.term[1] == :RepeatToy
+        env[:lambda], env[:tau] = S.term[3], S.term[4]
+        env[:c_prime] = S.term[5] // S.term[6]
+        env[:k] = m -> k_rep(S.term[3], S.term[4], S.term[5] // S.term[6], m)   # the SOURCE k(n), never the toy count
+        env[:B] = m -> B_rep(S.term[3], S.term[4], m)
     end
     S.typing isa Typed && (env[:TypeCount] = TypeCount(S.typing))
     for (i, part) in enumerate(S.parts)

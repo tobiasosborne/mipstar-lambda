@@ -328,12 +328,19 @@ struct RepeatMachine <: SamplerMachine
     tau::Int
     c_prime::Rational{Int}
     child::SamplerMachine
+    # TB7 (DESIGN 12.4): the ToyPolicy repetition count of a (:RepeatToy, k,
+    # ...) term; 0 is the production k(n) = (lambda n)^((1 + c') tau). The
+    # substitution is machine-visible in the bytes; k(n) itself is printed
+    # as the FAILED policy predicate `repeat k_toy = (lambda*n)^((1+c')tau)`.
+    k_override::Int
 end
+RepeatMachine(lambda::Int, tau::Int, c_prime::Rational{Int}, child::SamplerMachine) =
+    RepeatMachine(lambda, tau, c_prime, child, 0)
 _field(m::RepeatMachine) = _field(m.child)
 machine_field_size(m::RepeatMachine) = machine_field_size(m.child)
 machine_level(m::RepeatMachine) = machine_level(m.child)
 machine_typing(m::RepeatMachine) = machine_typing(m.child)
-_k(m::RepeatMachine, n::Int) = k_rep(m.lambda, m.tau, m.c_prime, n)
+_k(m::RepeatMachine, n::Int) = m.k_override > 0 ? m.k_override : k_rep(m.lambda, m.tau, m.c_prime, n)
 _s_prime(m::RepeatMachine, n::Int, ctx::Meter) = _forward(ctx, :dimension, () -> _dimension(m.child, n, ctx))
 _dimension(m::RepeatMachine, n::Int, ctx::Meter) = _k(m, n) * _s_prime(m, n, ctx)
 function _repeat_blocks(m::RepeatMachine, n::Int, v::Vector{F}, ctx::Meter) where {F}
@@ -608,6 +615,108 @@ function _factor(m::DownsizeMachine, n::Int, w::Symbol, j::Int, u::Vector{GF2}, 
 end
 
 # ---------------------------------------------------------------------------
+# TB7 (briefs/43 API request 3; verdicts/tb5-r1.md O12): the explicit
+# padding node (:Pad, extra, S). The padded stages j > r have empty factors
+# and zero maps (rk:higher-level, gt-04-cl.tex:122-130); the legality of a
+# Factor prefix u at a padded stage -- u in L_{<= r}(V) -- is decided by the
+# CHILD's own prefix walk at its stage r + 1 (`_factor(child, r + 1, u)`:
+# every machine admits j = level + 1 internally as the empty stage after its
+# last, walking and checking the prefix against its stored stage maps),
+# never by rebuilding the child's column spaces at the parent
+# (`_require_image`, which stays in place for the implicit padding of
+# DirectSum/Product children). The public boundary still refuses j > level.
+
+struct PadMachine <: SamplerMachine
+    child::SamplerMachine
+    extra::Int
+    function PadMachine(child::SamplerMachine, extra::Int)
+        extra >= 0 || throw(ArgumentError("Pad appends a nonnegative number of stages"))
+        machine_level(child) >= 1 || throw(ArgumentError("Pad takes a child of level >= 1 (a zero map is promoted by pad_level)"))
+        new(child, extra)
+    end
+end
+_field(m::PadMachine) = _field(m.child)
+machine_field_size(m::PadMachine) = machine_field_size(m.child)
+machine_level(m::PadMachine) = machine_level(m.child) + m.extra
+machine_typing(m::PadMachine) = machine_typing(m.child)
+_dimension(m::PadMachine, n::Int, ctx::Meter) = _forward(ctx, :dimension, () -> _dimension(m.child, n, ctx))
+function _marginal(m::PadMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
+    r = machine_level(m.child)
+    _forward(ctx, :marginal, () -> _marginal(m.child, n, w, min(j, r), z, t, ctx))
+end
+function _linear(m::PadMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
+    r = machine_level(m.child)
+    j > r && return _zeros(F, length(y), ctx)       # V_{<j} = V at a padded stage: every prefix is legal, the map is zero
+    _forward(ctx, :linear, () -> _linear(m.child, n, w, j, u, y, t, ctx))
+end
+function _factor(m::PadMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
+    r = machine_level(m.child)
+    j <= r && return _forward(ctx, :factor, () -> _factor(m.child, n, w, j, u, t, ctx))
+    # u in L_{<= r}(V): the child's own walk at its stage r + 1 (empty factor).
+    indicator = _forward(ctx, :factor, () -> _factor(m.child, n, w, r + 1, u, t, ctx))
+    all(iszero, indicator) || throw(ArgumentError("a padded child reported a nonempty factor beyond its level"))
+    _charge!(ctx, length(u))
+    zeros(Int, length(u))
+end
+
+# ---------------------------------------------------------------------------
+# TB7 (DESIGN 12.1; gt-09-oracularization.tex:34-86, sec:orac-def): the
+# oracularized typed family (:Oracularize, S) over an untyped S: three roles
+# {oracle, alice, bob} with the complete type graph (all nine oriented
+# pairs); the role selects the map for BOTH players -- oracle = the identity
+# on S's ambient space (level 1, padded to S's level), alice = L^alice,
+# bob = L^bob (TB2's `oracularize_sampler`, now on descriptions).
+
+const ORACULARIZE_LABELS = ["oracle", "alice", "bob"]
+const ORACULARIZE_TYPING = Typed(ORACULARIZE_LABELS, [(l, r) for l in ORACULARIZE_LABELS for r in ORACULARIZE_LABELS])
+
+struct OracularizeMachine <: SamplerMachine
+    child::SamplerMachine
+    function OracularizeMachine(child::SamplerMachine)
+        machine_typing(child) isa Untyped || throw(ArgumentError("oracularization takes an untyped normal-form sampler"))
+        machine_level(child) >= 1 || throw(ArgumentError("oracularization takes a sampler of level >= 1"))
+        new(child)
+    end
+end
+_field(m::OracularizeMachine) = _field(m.child)
+machine_field_size(m::OracularizeMachine) = machine_field_size(m.child)
+machine_level(m::OracularizeMachine) = machine_level(m.child)
+machine_typing(m::OracularizeMachine) = ORACULARIZE_TYPING
+_dimension(m::OracularizeMachine, n::Int, ctx::Meter) = _forward(ctx, :dimension, () -> _dimension(m.child, n, ctx))
+function _oracular_role(t)
+    t == "oracle" && return :oracle
+    t == "alice" && return :alice
+    t == "bob" && return :bob
+    throw(ArgumentError("type out of range for this description"))
+end
+function _marginal(m::OracularizeMachine, n::Int, w::Symbol, j::Int, z::Vector{F}, t, ctx::Meter) where {F}
+    role = _oracular_role(t)
+    role == :oracle && (_charge!(ctx, length(z)); return copy(z))      # the identity: L_{<= j}(z) = z for every j >= 1
+    _forward(ctx, :marginal, () -> _marginal(m.child, n, role, j, z, nothing, ctx))
+end
+function _linear(m::OracularizeMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, y::Vector{F}, t, ctx::Meter) where {F}
+    role = _oracular_role(t)
+    if role == :oracle
+        _charge!(ctx, length(u))
+        j == 1 && !all(iszero, u) && throw(ArgumentError("prefix has support outside V_{<1} = {0}"))
+        j == 1 && (_charge!(ctx, length(y)); return copy(y))
+        return _zeros(F, length(y), ctx)
+    end
+    _forward(ctx, :linear, () -> _linear(m.child, n, role, j, u, y, nothing, ctx))
+end
+function _factor(m::OracularizeMachine, n::Int, w::Symbol, j::Int, u::Vector{F}, t, ctx::Meter) where {F}
+    role = _oracular_role(t)
+    if role == :oracle
+        _charge!(ctx, 2 * length(u))
+        j == 1 && !all(iszero, u) && throw(ArgumentError("Factor prefix is not a reachable marginal L_{<1}(V) = {0}"))
+        # Stage 1 is the whole ambient space (the identity); every later stage is
+        # empty and every u is reachable (L_{<= 1}(V) = V).
+        return j == 1 ? ones(Int, length(u)) : zeros(Int, length(u))
+    end
+    _forward(ctx, :factor, () -> _factor(m.child, n, role, j, u, nothing, ctx))
+end
+
+# ---------------------------------------------------------------------------
 # Query-purity device (DESIGN 9.6): an opaque machine exposing only the four
 # operations and logging every call it receives.
 
@@ -636,6 +745,10 @@ function compile_sampler(term)
     tag in (:Pair, :TypedFamily) && return _compile_leaf(term)
     tag == :DirectSum && return DirectSumMachine(SamplerMachine[compile_sampler(c) for c in term[2]])
     tag == :Repeat && return RepeatMachine(term[2], term[3], term[4] // term[5], compile_sampler(term[6]))
+    tag == :RepeatToy && return RepeatMachine(term[3], term[4], term[5] // term[6], compile_sampler(term[7]), term[2])
+    tag == :Pad && return PadMachine(compile_sampler(term[3]), term[2])
+    tag == :Oracularize && return OracularizeMachine(compile_sampler(term[2]))
+    tag == :PCP && return _compile_pcp(term)
     tag == :Anchor && return AnchorMachine(compile_sampler(term[2]))
     tag == :Detype && return DetypeMachine(compile_sampler(term[2]))
     tag == :Product && return ProductMachine(compile_sampler(term[2]), compile_sampler(term[3]))
@@ -697,9 +810,24 @@ function _validated_answer(m::SamplerMachine, q::SamplerQuery, ctx::Meter)
     answer
 end
 
-"query(S, q): the answer, or QueryError for a malformed call (never throws for an ArgumentError)."
+# DD-29 (DESIGN 12.4): a compact description may exist while a vector query
+# at its index would materialize more than MATERIALIZATION_BUDGET_BITS
+# coordinates; such a query returns BudgetExceeded instead of allocating
+# (never a silent cap of a dimension or loop).
+const MATERIALIZATION_BUDGET_BITS = 1 << 24
+struct BudgetExceeded
+    dimension::Int
+    budget::Int
+end
+Base.show(io::IO, b::BudgetExceeded) = print(io, "BudgetExceeded(dimension ", b.dimension, " > budget ", b.budget, " bits)")
+
+"query(S, q): the answer, QueryError for a malformed call (never throws for an ArgumentError), or BudgetExceeded (DD-29)."
 function query(S::SamplerDescription, q::SamplerQuery)
     try
+        if !(q isa DimensionQuery)
+            s = _dimension(machine(S), q.n, Meter())
+            s > MATERIALIZATION_BUDGET_BITS && return BudgetExceeded(s, MATERIALIZATION_BUDGET_BITS)
+        end
         _validated_answer(machine(S), q, Meter())
     catch error
         error isa ArgumentError && return QueryError(error.msg)
@@ -740,7 +868,8 @@ function sample_questions(S::SamplerDescription, n::Integer, z, edge=nothing)
     edge in S.typing.edges || throw(ArgumentError("oriented type pair is not an edge of the type graph"))
     (_raise(Marginal(S, n, :alice, S.level, z, edge[1])), _raise(Marginal(S, n, :bob, S.level, z, edge[2])))
 end
-_raise(answer) = answer isa QueryError ? throw(ArgumentError(answer.reason)) : answer
+_raise(answer) = answer isa QueryError ? throw(ArgumentError(answer.reason)) :
+                 answer isa BudgetExceeded ? throw(ArgumentError(string(answer))) : answer
 
 # ---------------------------------------------------------------------------
 # The CL function of a description on index n for player w (and type t),

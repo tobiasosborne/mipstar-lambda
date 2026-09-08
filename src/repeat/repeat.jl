@@ -45,15 +45,36 @@ DL9-repeat on the ALREADY ANCHORED sampler: field 2, level ell' (no level
 added), dimension k(n) s'(n), query law O(k(n) C_S(n)); never unrolled.
 """
 function repeat_sampler(S::Union{SamplerDescription,Checked}, lambda::Integer, tau::Integer;
-                        c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=1, seeds::Integer=32)
+                        c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=1, seeds::Integer=32,
+                        repetitions::Integer=0)
     part = _desc(S)
     part.field_size == 2 || throw(ArgumentError("the repeated sampler takes an F_2 (normal form) sampler"))
     part.typing isa Untyped || throw(ArgumentError("the repeated sampler takes an untyped (detyped) sampler"))
     (lambda >= 1 && tau >= 1) || throw(ArgumentError("lambda and tau are positive integers"))
     c = Rational{Int}(c_prime)
     c > 0 || throw(ArgumentError("c' is a positive universal constant"))
-    term = (:Repeat, Int(lambda), Int(tau), numerator(c), denominator(c), part.term)
     n = Int(tracer_index)
+    # TB7 (DESIGN 12.4): a ToyPolicy repetition count replaces k(n) in the
+    # bytes (:RepeatToy); the source k(n) is still computed and printed as
+    # the FAILED predicate `repeat k_toy = (lambda*n)^((1+c')tau)`.
+    if repetitions > 0
+        term = repeat_toy_term(repetitions, lambda, tau, c, part.term)
+        k = Int(repetitions)
+        source_k = try
+            string(k_rep(lambda, tau, c, n))
+        catch error
+            error isa ArgumentError ? "not an integer" : rethrow()
+        end
+        return _composite(Symbol("DL9-repeat-toy"), term, (S,), (CITED_CL_FUNC_PROD, CITED_CL_KTH);
+               tracer_index=n, seeds=Int(seeds), expected=expected_laws(Symbol("DL9-repeat-toy"), k),
+               expected_calls=k, call_law="O(k C_S(n)), toy k = $(k) (source k($(n)) = $(source_k))",
+               extra=(_integrality_node(Int(lambda), Int(tau), c, n),
+                      CertNode(ASSUMED, :ToyRepetitionCount;
+                          facts=(display="ToyPolicy substitutes the repetition count k = $(k) for k($(n)) = $(K_REP_LAW) = $(source_k) (DESIGN 12.4; the production predicate is printed FAIL by the policy report)",
+                                 status=FAIL, repetitions=k))),
+               display="k-fold direct sum of the anchored sampler as one compact loop term with the TOY count k = $(k) (never unrolled); the source k(n) = $(K_REP_LAW) with lambda = $(lambda), tau = $(tau), c' = $(c) is $(source_k)")
+    end
+    term = (:Repeat, Int(lambda), Int(tau), numerator(c), denominator(c), part.term)
     k = try
         k_rep(lambda, tau, c, n)
     catch error
@@ -74,17 +95,18 @@ D^rep: B(n) = (lambda n)^tau first, the streamed guard on all four tuples
 child call), then exactly k(n) calls of D^anch combined by AND.
 """
 function repeat_decider(D::Union{DeciderDescription,Checked}, lambda::Integer, tau::Integer;
-                        c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=2)
+                        c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=2, repetitions::Integer=0)
     child = _ddesc(D)
     child.typing isa Untyped || throw(ArgumentError("the repeated decider wraps an untyped (detyped) decider"))
     c = Rational{Int}(c_prime)
-    term = (:Repeat, Int(lambda), Int(tau), numerator(c), denominator(c), child.term)
+    term = repetitions > 0 ? (:RepeatToy, Int(repetitions), Int(lambda), Int(tau), numerator(c), denominator(c), child.term) :
+                             (:Repeat, Int(lambda), Int(tau), numerator(c), denominator(c), child.term)
     desc = _decider_from_term(term; parts=(child,))
     # The guard replay runs at the construction index (verdicts/tb5-r1.md
     # O3/O11: k(n) must be an integer THERE, e.g. c' = 1/2 admits n = 9, not n = 2).
     n = Int(tracer_index)
     replay = x -> begin
-        k = k_rep(lambda, tau, c, n)
+        k = repetitions > 0 ? Int(repetitions) : k_rep(lambda, tau, c, n)
         B = B_rep(lambda, tau, n)
         empties = [Bool[] for _ in 1:k]
         honest = decide_traced(x, n, frame_components(empties), frame_components(empties), frame_components(empties), frame_components(empties))
@@ -139,25 +161,34 @@ and universal-constant witnesses, the gt-12:70 finding, sampler independence,
 and every intermediate sampler's replay row.
 """
 function anchored_repeat(V::VerifierDescription, lambda::Integer, tau::Integer;
-                         c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=1, seeds::Integer=32)
+                         c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=1, seeds::Integer=32,
+                         repetitions::Integer=0)
     n = Int(tracer_index)
     c = Rational{Int}(c_prime)
     anchored = anchor(V; tracer_index=n, seeds)
     A = anchored.term
-    sampler = repeat_sampler(A.sampler, lambda, tau; c_prime=c, tracer_index=n, seeds)
-    decider = repeat_decider(A.decider, lambda, tau; c_prime=c, tracer_index=n)
+    sampler = repeat_sampler(A.sampler, lambda, tau; c_prime=c, tracer_index=n, seeds, repetitions)
+    decider = repeat_decider(A.decider, lambda, tau; c_prime=c, tracer_index=n, repetitions)
     R = VerifierDescription(sampler.term, decider.term)
     original_sampler = quote_hash(V.sampler)
     original_decider = quote_hash(V.decider)
-    expected_dependencies = Set{Any}([original_sampler, :lambda, :tau, :c_prime])
+    # A leaf input contributes its own hash; a composite input (TB7: the
+    # answer-reduced sampler with two primitive leaves) contributes the leaf
+    # hashes and parameter symbols of its own syntax walk -- never a decider.
+    input_walk = dependency_walk(canonical_bytes(V.sampler))
+    expected_dependencies = Set{Any}(input_walk == Set{Any}([:S]) ? [original_sampler] : collect(input_walk))
+    union!(expected_dependencies, [:lambda, :tau, :c_prime])
+    repetitions > 0 && push!(expected_dependencies, :repetitions)
     independence = CertNode(CHECKED, :SamplerIndependence;
         facts=(display="S^rep depends on {hash(S) = $(original_sampler), lambda, tau, c'} and never on hash(D) = $(original_decider) (gt-11:257-258); dependency set = {$(join(sort(string.(collect(R.sampler.dependency_set))), ", "))}",),
         replay=x -> CheckResult(dependency_walk(canonical_bytes(x.sampler)) == expected_dependencies &&
                                 x.sampler.dependency_set == expected_dependencies &&
                                 !(original_decider in x.sampler.dependency_set), :sampler_independence;
                                 location=:SamplerIndependence, expected=expected_dependencies, actual=x.sampler.dependency_set))
-    hypotheses, audit = _audit(REPEAT_CONTRACT, V, (; lambda, tau))
-    k = Dimension(R.sampler, n) isa QueryError ? "not an integer" : string(k_rep(lambda, tau, c, n))
+    # verdicts/tb5-r1.md O11 (briefs/43 API request 4): the completeness
+    # hypothesis is evaluated at the CONSTRUCTION index n, not at n = 2.
+    hypotheses, audit = _audit(REPEAT_CONTRACT, V, (; lambda, tau, n))
+    k = repetitions > 0 ? "$(repetitions) (toy)" : Dimension(R.sampler, n) isa QueryError ? "not an integer" : string(k_rep(lambda, tau, c, n))
     root = CertNode(CONSTRUCTED, :Repeat;
         facts=(display="V^rep = repeat(anchor(V), lambda = $(lambda), tau = $(tau)); c' = $(c) (toy substitution); at n = $(n): B = $(B_rep(lambda, tau, n)), k = $(k); field 2; level ell + 2 = $(V.sampler.level) + 2 = $(R.sampler.level); dimension k(n)(s(n) + 8) = $(Dimension(R.sampler, n)); |S^rep| = $(description_size(R.sampler)) bytes, |D^rep| = $(description_size(R.decider)) bytes",),
         children=(hypotheses..., _relocate(audit, x -> VerifierDescription(x.sampler.parts[1].parts[1].parts[1], x.decider.parts[1].parts[1].parts[1])),
@@ -179,9 +210,10 @@ struct ExecutableRepeat <: CompressStage
     c_prime::Rational{Int}
     tracer_index::Int
     seeds::Int
+    repetitions::Int          # TB7 ToyPolicy count; 0 = the production k(n)
 end
-ExecutableRepeat(; c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=1, seeds::Integer=32) =
-    ExecutableRepeat(Rational{Int}(c_prime), Int(tracer_index), Int(seeds))
+ExecutableRepeat(; c_prime::Union{Integer,Rational}=1 // 1, tracer_index::Integer=1, seeds::Integer=32, repetitions::Integer=0) =
+    ExecutableRepeat(Rational{Int}(c_prime), Int(tracer_index), Int(seeds), Int(repetitions))
 
 function Repeat(stage::ExecutableRepeat, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, tau::Integer;
                 params::NamedTuple=(;))
@@ -189,7 +221,7 @@ function Repeat(stage::ExecutableRepeat, checked::Union{Checked,_VERIFIER_INPUT}
     V = _verifier_description(input)
     c_prime = get(params, :c_prime, stage.c_prime)
     tracer_index = get(params, :n, stage.tracer_index)
-    result = anchored_repeat(V, lambda, tau; c_prime, tracer_index, seeds=stage.seeds)
+    result = anchored_repeat(V, lambda, tau; c_prime, tracer_index, seeds=stage.seeds, repetitions=get(params, :repetitions, stage.repetitions))
     R = result.term
     k = "k(n) = (lambda*n)^((1+c')*tau)"
     sampler_time = bind_parameter(Opaque("O(k(n) * TIME_S(n)), $(k)", (:n, :lambda, :tau, :c_prime, :TIME_S)),
@@ -198,9 +230,14 @@ function Repeat(stage::ExecutableRepeat, checked::Union{Checked,_VERIFIER_INPUT}
                                   :tau => tau, :c_prime => Rational{Int}(c_prime), :TIME_D => _decider_time(V))
     gap = (Opaque("completeness: value-1 PCC strategy of V_n and TIME_D(n) <= (lambda n)^tau => value-1 PCC strategy of V^rep_n", ()),
            Opaque("soundness: Ent(V^rep_n, p) >= Ent(V_n, 1 - eps) for p > (4/eps) exp(-c eps^17 k(n)/(lambda n)^(tau c'))", ()))
+    # The output sampler's dependency SYMBOLS propagate the input's (TB4's
+    # rule): a Compress chain thus never names :S once Introspect has
+    # replaced the input sampler (DESIGN 12.3); a bare VerifierDescription
+    # input contributes :S, its own content.
+    dependencies = Tuple(unique((_sampler_dependencies(input)..., :lambda, :tau, :c_prime)))
     output = StageVerifier(:Repeat, R.sampler.level, sampler_time, decider_time, Concrete(description_length(R)),
                            Opaque(string(R.decider.question_length), (:n,)), Opaque(string(R.decider.answer_length), (:n,)),
-                           gap, (:S, :lambda, :tau, :c_prime), input, R)
+                           gap, dependencies, input, R)
     node = CertNode(CONSTRUCTED, :Repeat;
         facts=(display="executable Repeat (TB5) behind the CompressStage interface; level ell + 2 = $(V.sampler.level) + 2 = $(output.levels); TIME_S = $(sampler_time.description); TIME_D = $(decider_time.description); sampler depends on S, lambda, tau, c'",),
         children=(_relocate(result.certificate, x -> x.payload), _relocate(input_cert, x -> x.input)))

@@ -14,13 +14,21 @@
 #                                              :TypedAnchor is the compact spelling of the
 #                                              TypedDecider(["Game","Anchor"], anchor) instance
 #   (:ZeroAnswers, coords)                     TB6b-M's diagnostic child decider: a == b == [0] and y zero on coords
+#   (:RepeatToy, k, lambda, tau, c_num, c_den, D) TB7: the Repeat guard and AND with the ToyPolicy count k
+#   (:Program, bytes)                          TB7 (briefs/39 API request, lowering): a DESIGN 1.1 program of
+#                                              sort Decider (canonical Quoted{Decider} bytes) run by the CEK
+#                                              evaluator; metered as a child under the same fuel unit
+#   TypedDecider bodies added by TB7: (:AnswerReduce, lambda, mu, gamma, sigma, q, m, d, s, m_prime, S1, D1)
+#                                              (fig:decider-pcp on the answer-reduced product types) and
+#                                              (:IntroFixed, lambda, ell, q, m, d, fuel, S, D) (fig:intro-decider
+#                                              with S and D in two fixed lambda-byte slots, DESIGN 12.3)
 # Every interpreter path halts; malformed input REJECTS except where the
 # source prescribes accept-on-invalid (the detyped parser).
 
 const DECIDER_HEADER = 0xC4
 const _DECIDER_TAGS = Dict(:Copy => 0x01, :Trivial => 0x02, :TypedAnchor => 0x03, :Detype => 0x04, :Repeat => 0x05,
-                           :TypedDecider => 0x06, :ZeroAnswers => 0x07)
-const _TYPED_BODY_TAGS = Dict(:Pauli => 0x01, :Intro => 0x02)
+                           :TypedDecider => 0x06, :ZeroAnswers => 0x07, :RepeatToy => 0x08, :Program => 0x09)
+const _TYPED_BODY_TAGS = Dict(:Pauli => 0x01, :Intro => 0x02, :AnswerReduce => 0x03, :IntroFixed => 0x04)
 const _TYPED_BODY_NAMES = Dict(byte => tag for (tag, byte) in _TYPED_BODY_TAGS)
 const _DECIDER_TAG_NAMES = Dict(byte => tag for (tag, byte) in _DECIDER_TAGS)
 
@@ -41,6 +49,14 @@ function _encode_decider_term!(buffer::IOBuffer, term)
         write(buffer, _TYPED_BODY_TAGS[body[1]])
         if body[1] == :Pauli
             foreach(v -> _encode_int!(buffer, v), body[2:4])
+        elseif body[1] == :AnswerReduce
+            foreach(v -> _encode_int!(buffer, v), body[2:10])
+            _encode_sampler_term!(buffer, body[11])
+            _encode_decider_term!(buffer, body[12])
+        elseif body[1] == :IntroFixed
+            foreach(v -> _encode_int!(buffer, v), body[2:7])
+            _encode_fixed_slot!(buffer, sampler_term_bytes(body[8]), body[2])
+            _encode_fixed_slot!(buffer, decider_term_bytes(body[9]), body[2])
         else
             foreach(v -> _encode_int!(buffer, v), body[2:7])
             _encode_sampler_term!(buffer, body[8])
@@ -48,8 +64,40 @@ function _encode_decider_term!(buffer::IOBuffer, term)
         end
     elseif tag == :ZeroAnswers
         _encode_indices!(buffer, term[2])
+    elseif tag == :RepeatToy
+        foreach(v -> _encode_int!(buffer, v), term[2:6])
+        _encode_decider_term!(buffer, term[7])
+    elseif tag == :Program
+        _encode_int!(buffer, length(term[2]))
+        write(buffer, term[2])
     end
     buffer
+end
+
+# DESIGN 12.3 / gt-08-introspection.tex:L757-L776: a fixed lambda-byte slot
+# holds a description's canonical bytes (u32 length, content, zero padding)
+# when they fit; otherwise the canonical TRIVIAL code (the source's V' =
+# (0, 0)). The slot is exactly 4 + lambda bytes for every input, so the
+# fixed-width decider's length is a function of (lambda, ell) alone.
+const TRIVIAL_SAMPLER_TERM = (:Pair, 2, (:Zero, 1, [1]), (:Zero, 1, [1]))
+const TRIVIAL_DECIDER_TERM = (:Trivial,)
+fixed_slot_fits(bytes::AbstractVector{UInt8}, lambda::Integer) = length(bytes) <= lambda
+function _encode_fixed_slot!(buffer::IOBuffer, bytes::Vector{UInt8}, lambda::Int)
+    content = fixed_slot_fits(bytes, lambda) ? bytes :
+              (bytes[1] == SAMPLER_HEADER ? sampler_term_bytes(TRIVIAL_SAMPLER_TERM) : decider_term_bytes(TRIVIAL_DECIDER_TERM))
+    _encode_int!(buffer, length(content))
+    write(buffer, content)
+    write(buffer, zeros(UInt8, lambda - length(content)))
+    buffer
+end
+function _decode_fixed_slot!(buffer::IOBuffer, lambda::Int)
+    count = _decode_int!(buffer)
+    count <= lambda || throw(ArgumentError("fixed slot content exceeds lambda"))
+    bytesavailable(buffer) >= lambda || throw(ArgumentError("truncated fixed slot"))
+    content = read(buffer, count)
+    padding = read(buffer, lambda - count)
+    all(iszero, padding) || throw(ArgumentError("fixed slot padding is not canonical"))
+    content
 end
 function _decode_decider_term!(buffer::IOBuffer)
     bytesavailable(buffer) >= 1 || throw(ArgumentError("truncated description"))
@@ -69,11 +117,31 @@ function _decode_decider_term!(buffer::IOBuffer)
         if body_tag == :Pauli
             return (:TypedDecider, labels, (:Pauli, [_decode_int!(buffer) for _ in 1:3]...))
         end
+        if body_tag == :AnswerReduce
+            values = [_decode_int!(buffer) for _ in 1:9]
+            S = _decode_sampler_term!(buffer)
+            return (:TypedDecider, labels, (:AnswerReduce, values..., S, _decode_decider_term!(buffer)))
+        end
+        if body_tag == :IntroFixed
+            values = [_decode_int!(buffer) for _ in 1:6]
+            S = decode_sampler_term(_decode_fixed_slot!(buffer, values[1]))
+            D = decode_decider_term(_decode_fixed_slot!(buffer, values[1]))
+            return (:TypedDecider, labels, (:IntroFixed, values..., S, D))
+        end
         values = [_decode_int!(buffer) for _ in 1:6]
         S = _decode_sampler_term!(buffer)
         return (:TypedDecider, labels, (:Intro, values..., S, _decode_decider_term!(buffer)))
     end
     tag == :ZeroAnswers && return (:ZeroAnswers, _decode_indices!(buffer))
+    if tag == :RepeatToy
+        values = [_decode_int!(buffer) for _ in 1:5]
+        return (:RepeatToy, values..., _decode_decider_term!(buffer))
+    end
+    if tag == :Program
+        count = _decode_int!(buffer)
+        bytesavailable(buffer) >= count || throw(ArgumentError("truncated description"))
+        return (:Program, read(buffer, count))
+    end
     values = [_decode_int!(buffer) for _ in 1:4]
     (:Repeat, values..., _decode_decider_term!(buffer))
 end
@@ -93,8 +161,13 @@ function decode_decider_term(bytes::AbstractVector{UInt8})
 end
 
 _decider_child(term) = term[1] == :TypedAnchor ? term[2] : term[1] == :Detype ? term[4] :
-                       term[1] == :Repeat ? term[6] :
-                       (term[1] == :TypedDecider && term[3][1] == :Intro) ? term[3][9] : nothing
+                       term[1] == :Repeat ? term[6] : term[1] == :RepeatToy ? term[7] :
+                       (term[1] == :TypedDecider && term[3][1] in (:Intro, :IntroFixed)) ? term[3][9] :
+                       (term[1] == :TypedDecider && term[3][1] == :AnswerReduce) ? term[3][12] : nothing
+# The sampler term a typed body embeds (Intro/IntroFixed: the introspected S; AnswerReduce: S1).
+_body_sampler(term) = term[1] != :TypedDecider ? nothing :
+                      term[3][1] in (:Intro, :IntroFixed) ? term[3][8] :
+                      term[3][1] == :AnswerReduce ? term[3][11] : nothing
 # The type labels are read from the bytes of the general typed term
 # (briefs/43 addendum, Blocker 2); :TypedAnchor is its compact instance.
 function _decider_typing(term)
@@ -105,9 +178,11 @@ end
 # Parameter SYMBOLS carried by a term (verdicts/tb5-r1.md O10 convention).
 function _decider_parameter_symbols(term)
     term[1] == :Repeat && return (:lambda, :tau, :c_prime)
+    term[1] == :RepeatToy && return (:lambda, :tau, :c_prime, :repetitions)
     if term[1] == :TypedDecider
         body = term[3]
         body[1] == :Pauli && return (:introparams,)
+        body[1] == :AnswerReduce && return (:lambda, :mu, :gamma, :sigma_1, :pcpparams)
         return body[7] == 0 ? (:lambda, :ell, :introparams) : (:lambda, :ell, :introparams, :F_child)
     end
     ()
@@ -116,21 +191,24 @@ function _decider_dependencies(term)
     child = _decider_child(term)
     if child === nothing
         term[1] == :TypedDecider && return Set{Any}([_decider_parameter_symbols(term)...])
+        term[1] == :Program && return Set{Any}([quote_hash(term[2])])
         return Set{Any}([:D])
     end
     found = Set{Any}()
     union!(found, _decider_parameter_symbols(term))
-    term[1] == :TypedDecider && push!(found, quote_hash(sampler_term_bytes(term[3][8])))
+    S = _body_sampler(term)
+    S === nothing || push!(found, quote_hash(sampler_term_bytes(S)))
     _decider_leaf_hashes!(found, child)
     found
 end
 function _decider_leaf_hashes!(found::Set{Any}, term)
     child = _decider_child(term)
     if child === nothing
-        push!(found, quote_hash(decider_term_bytes(term)))
+        push!(found, term[1] == :Program ? quote_hash(term[2]) : quote_hash(decider_term_bytes(term)))
     else
         union!(found, _decider_parameter_symbols(term))
-        term[1] == :TypedDecider && push!(found, quote_hash(sampler_term_bytes(term[3][8])))
+        S = _body_sampler(term)
+        S === nothing || push!(found, quote_hash(sampler_term_bytes(S)))
         _decider_leaf_hashes!(found, child)
     end
     found
@@ -141,6 +219,8 @@ decider_dependency_walk(bytes::AbstractVector{UInt8}) = _decider_dependencies(de
 function _decider_laws(term)
     tag = term[1]
     tag in (:Copy, :Trivial, :ZeroAnswers) && return (; time=1, question=1, answer=1, B=nothing, k=nothing)
+    # A quoted DESIGN 1.1 program: its TIME is the program's own charged transition count (metered on evaluation).
+    tag == :Program && return (; time=:(TIME_P(n)), question=:(Q_P(n)), answer=:(A_P(n)), B=nothing, k=nothing)
     if tag == :TypedDecider
         body = term[3]
         # fig:decider_pauli / fig:intro-decider: questions are the (3m+3) log q
@@ -148,9 +228,17 @@ function _decider_laws(term)
         # (a (Pauli, W) answer) resp. 3Q (the Hide tuple, gt-08:588-591).
         body[1] == :Pauli && return (; time=:(O(poly(2 ^ m * log2(q)))), question=:((3 * m + 3) * log2(q)),
                                        answer=:(2 ^ m * log2(q)), B=nothing, k=nothing)
+        # fig:decider-pcp on the product types: questions are the oracularized
+        # S1 question plus the downsized PCP register (2m'+6) log q bits; the
+        # largest answer is the copy-6 line bundle (m'+6)(m'd+1) symbols (DESIGN 12.5).
+        body[1] == :AnswerReduce && return (; time=:(O(poly((lambda * n) ^ mu, sigma, gamma))),
+                                              question=:(s_1(n) + (2 * m_prime + 6) * log2(q)),
+                                              answer=:((m_prime + 6) * (m_prime * d + 1) * log2(q)), B=nothing, k=nothing)
         return (; time=:(O(poly(2 ^ (lambda * n), ell))), question=:((3 * m + 3) * log2(q)),
                   answer=:(3 * 2 ^ m * log2(q)), B=nothing, k=nothing)
     end
+    tag == :RepeatToy && return (; time=:(O($(term[2]) * max(TIME_1(n), B(n)))), question=:($(term[2]) * (B(n) + $(FRAME_BITS))),
+                                   answer=:($(term[2]) * (B(n) + $(FRAME_BITS))), B=B_REP_LAW, k=K_REP_LAW)
     tag == :TypedAnchor && return (; time=:(1 + TIME_1(n)), question=:(Q_1(n)), answer=:(max(A_1(n), 1)), B=nothing, k=nothing)
     tag == :Detype && return (; time=:(1 + TIME_1(n)), question=:(Q_1(n) + 4 * TypeCount), answer=:(A_1(n)), B=nothing, k=nothing)
     # SOURCE_REPAIR(repeat-tuple-framing): the source parses x, y, a, b as
@@ -256,6 +344,7 @@ function _decide(term, n::Int, x::Vector{Bool}, y::Vector{Bool}, a::Vector{Bool}
     tag == :Copy && return a == x && b == y
     tag == :Trivial && return true
     tag == :ZeroAnswers && return _decide_zero_answers(term, x, y, a, b)
+    tag == :Program && return _decide_program(term, n, x, y, a, b)
     tag in (:TypedAnchor, :TypedDecider) && throw(ArgumentError("a typed decider takes (n, tA, x, tB, y, a, b)"))
     if tag == :Detype
         labels, edges, child = term[2], term[3], term[4]
@@ -274,12 +363,12 @@ function _decide(term, n::Int, x::Vector{Bool}, y::Vector{Bool}, a::Vector{Bool}
         end
         return true
     end
-    tag == :Repeat || throw(ArgumentError("unknown decider term"))
-    lambda, tau, c_num, c_den, child = term[2], term[3], term[4], term[5], term[6]
+    tag in (:Repeat, :RepeatToy) || throw(ArgumentError("unknown decider term"))
+    lambda, tau, c_num, c_den, child = term[end-4], term[end-3], term[end-2], term[end-1], term[end]
     # B(n) first, without reading the payloads; then the streamed guard on
     # all four tuples (gt-11:216-220, DD-26); only then exactly k child calls.
     B = B_rep(lambda, tau, n)
-    k = k_rep(lambda, tau, c_num // c_den, n)
+    k = tag == :RepeatToy ? term[2] : k_rep(lambda, tau, c_num // c_den, n)
     xs = parse_framed(x, k, B)
     xs === nothing && return false
     ys = parse_framed(y, k, B)
@@ -312,6 +401,15 @@ function _decide_typed(term, n::Int, tA, x::Vector{Bool}, tB, y::Vector{Bool}, a
         return true
     end
     _decide(child, n, x, y, a, b, trace)
+end
+
+# (:Program, bytes): the CEK evaluation of the quoted decider on (n, x, y, a, b)
+# under the unmetered interpreter's host cap; only Value(true) accepts (an
+# OutOfFuel or SortError is not a decider answer and rejects, DESIGN 1.1).
+const PROGRAM_DECIDER_FUEL = 1_000_000
+function _decide_program(term, n::Int, x::Vector{Bool}, y::Vector{Bool}, a::Vector{Bool}, b::Vector{Bool})
+    outcome = eval_quoted(Quoted{:Decider}(Vector{UInt8}(term[2])), (n, x, y, a, b), PROGRAM_DECIDER_FUEL)
+    outcome.result isa Value && outcome.result.value === true
 end
 
 "decide(D, n, x, y, a, b) / decide(D, n, tA, x, tB, y, a, b): the decider's bit."

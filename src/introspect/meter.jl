@@ -46,8 +46,12 @@ end
 # The prefix walk of cl.jl (`_walk_prefix`): each stage's key is read off
 # u, checked against the stage's column space when `reachable`, and the
 # branch is selected; then u's support is scanned.
+# TB7 (Pad node, machines.jl): j = level + 1 is admitted here as the empty
+# stage after the last -- the walk checks every stage's prefix block and
+# ends on the terminal zero map -- so a padding parent decides
+# `u in L_{<= level}(V)` through this walk instead of rebuilding column spaces.
 function _metered_walk(L::AbstractCL{F}, j::Int, u::Vector{F}, ctx::Meter; reachable::Bool) where {F}
-    1 <= j <= level(L) || throw(ArgumentError("stage index out of range"))
+    1 <= j <= level(L) + 1 || throw(ArgumentError("stage index out of range"))
     length(u) == seed_dim(L) || throw(ArgumentError("prefix has wrong dimension"))
     walked = falses(seed_dim(L))
     current = L
@@ -67,7 +71,7 @@ function _metered_walk(L::AbstractCL{F}, j::Int, u::Vector{F}, ctx::Meter; reach
     for c in 1:seed_dim(L)
         walked[c] || iszero(u[c]) || throw(ArgumentError("prefix has support outside V_{<j}"))
     end
-    current::CLStep{F}
+    current
 end
 
 "The metered factor indicator V_{j,u} (def:sampler factor call)."
@@ -75,6 +79,7 @@ function _metered_factor(L::AbstractCL{F}, j::Integer, u::Vector{F}, ctx::Meter)
     node = _metered_walk(L, Int(j), u, ctx; reachable=true)
     _charge!(ctx, seed_dim(L))
     indicator = zeros(Int, seed_dim(L))
+    node isa CLStep{F} || return indicator                 # the empty stage after the last (j = level + 1)
     for c in node.factor
         indicator[c] = 1
     end
@@ -85,6 +90,7 @@ end
 function _metered_linear(L::AbstractCL{F}, j::Integer, u::Vector{F}, y::Vector{F}, ctx::Meter) where {F}
     node = _metered_walk(L, Int(j), u, ctx; reachable=false)
     length(y) == seed_dim(L) || throw(ArgumentError("Linear input has wrong dimension"))
+    node isa CLStep{F} || return _zeros(F, seed_dim(L), ctx)   # the zero map beyond the last stage
     f = node.factor
     k = length(f)
     _charge!(ctx, k + k * k + k)
