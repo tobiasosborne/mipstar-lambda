@@ -151,7 +151,7 @@ D_{M,lambda} = Fix(Psi_{M,lambda}). The CHECKED :Specialize node of
 `fix_specialize` gains one SOURCE_REPAIR child (verdicts/tb4-r1.md O4):
 the outer `Eval` of the RETURNED decider runs under `FuelBound(n, lambda)`,
 an enforced budget of n^lambda units that fig:halt_f step 5
-(gt-12-compression.tex:L451-L453) does not impose -- there the decider
+(gt-12-compression.tex:L448-L449) does not impose -- there the decider
 "accepts if D^compr accepts (n, x, y, a, b)" and TIME_{D^halt}(n) <= n^lambda
 is lem:lambda's CONCLUSION (L570-L638), not a specification. Below the
 budget the fixed point returns OutOfFuel, which is not a decider answer.
@@ -161,8 +161,8 @@ function halting_decider(machine::Program, lambda::Program; sampler::Program=SAM
     checked = fix_specialize(psi_template(; sampler, compress), (:machine => machine, :lambda => lambda))
     node = checked.certificate
     repair = CertNode(SOURCE_REPAIR, :HaltDeciderFuelBound;
-        facts=(display="the returned decider runs under Eval(..., FuelBound(n, lambda)) = n^lambda units, a construction change: fig:halt_f step 5 (gt-12-compression.tex:L451-L453) accepts iff D^compr accepts (n, x, y, a, b) with no budget, and TIME_{D^halt}(n) <= n^lambda is lem:lambda's conclusion (gt-12-compression.tex:L570-L638), not a specification; below the budget the fixed point returns OutOfFuel, not a decider answer (definitions.md F: SOURCE_REPAIR(HaltDeciderFuelBound))",
-               source="gt-12-compression.tex", lines=451:453))
+        facts=(display="the returned decider runs under Eval(..., FuelBound(n, lambda)) = n^lambda units, a construction change: fig:halt_f step 5 (gt-12-compression.tex:L448-L449) accepts iff D^compr accepts (n, x, y, a, b) with no budget, and TIME_{D^halt}(n) <= n^lambda is lem:lambda's conclusion (gt-12-compression.tex:L570-L638), not a specification; below the budget the fixed point returns OutOfFuel, not a decider answer (definitions.md F: SOURCE_REPAIR(HaltDeciderFuelBound))",
+               source="gt-12-compression.tex", lines=448:449))
     Checked(checked.term, CertNode(node.grade, node.rule; facts=node.facts,
                                    children=(node.children..., repair), replay=node.replay))
 end

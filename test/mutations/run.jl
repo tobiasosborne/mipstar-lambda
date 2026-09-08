@@ -342,6 +342,22 @@ function unmutated_baseline(key, index::Int, temporary::String)
     (; ok, result.exitcode, result.seconds)
 end
 
+# Shadow the repository inside `sandbox`: every top-level entry is a link
+# except the directory holding `mutated_source`, which is rebuilt from links
+# to everything but that file (the caller writes the mutated copy there).
+function _shadow_repository!(sandbox::String, mutated_source::String)
+    top = first(splitpath(mutated_source))
+    for entry in readdir(ROOT)
+        entry == top && continue
+        symlink(joinpath(ROOT, entry), joinpath(sandbox, entry))
+    end
+    mkpath(joinpath(sandbox, top))
+    for entry in readdir(joinpath(ROOT, top))
+        top * "/" * entry == mutated_source && continue
+        symlink(joinpath(ROOT, top, entry), joinpath(sandbox, top, entry))
+    end
+end
+
 function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
     rung, test_name, target_variable, target_name = _rung(mutant)
     sandbox = joinpath(temporary, "mutant-$(index)")
@@ -351,21 +367,16 @@ function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
     occurrences = count(mutant.before, original)
     occurrences == 1 || error("mutation $(mutant.label) matched $occurrences source sites")
     mutated_path = joinpath(sandbox, basename(mutant.source))
-    if rung == :suite
+    document = startswith(mutant.source, "docs/") || startswith(mutant.source, "ground-truth/")
+    if rung == :suite || document
         # A mutant of the suite driver includes its sibling rung files
         # relative to itself and those read ground-truth/docs relative to
-        # their own directory: the sandbox shadows the repository (every
-        # top-level entry linked, `test/` rebuilt from links) with only the
-        # mutated driver replaced.
-        for entry in readdir(ROOT)
-            entry == "test" && continue
-            symlink(joinpath(ROOT, entry), joinpath(sandbox, entry))
-        end
-        mkpath(joinpath(sandbox, "test"))
-        for entry in readdir(joinpath(ROOT, "test"))
-            "test/" * entry == mutant.source && continue
-            symlink(joinpath(ROOT, "test", entry), joinpath(sandbox, "test", entry))
-        end
+        # their own directory; a mutant of a DOCUMENT (brief 78, NEW-4) is
+        # read by the rung's test file relative to its own directory. Either
+        # way the sandbox shadows the repository (every top-level entry
+        # linked, the mutated file's directory rebuilt from links) with only
+        # the mutated file replaced.
+        _shadow_repository!(sandbox, mutant.source)
         mutated_path = joinpath(sandbox, mutant.source)
     end
     write(mutated_path, replace(original, mutant.before => mutant.after; count=1))
@@ -375,6 +386,11 @@ function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
         "Base.include(MIPStarLambda, $(repr(mutated_path)))\n"
     elseif mutant.source == "test/" * test_name
         test_path = mutated_path
+        ""
+    elseif document
+        # The rung's test file runs through the sandbox's `test/` link, so
+        # its @__DIR__-relative repository root is the shadow tree.
+        test_path = joinpath(sandbox, "test", test_name)
         ""
     else
         error("mutation $(mutant.label) targets a file outside its rung: $(mutant.source)")

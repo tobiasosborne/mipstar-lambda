@@ -14,15 +14,19 @@ const TB4_CACHE = Dict{Symbol,Any}()
 const TB4_LAMBDA = 1024
 const TB4_ROOT = normpath(joinpath(@__DIR__, ".."))
 
-# Budget gate (verdicts/tb4-r1.md O13; tb1-r5 N33): the 5 s TB4 body budget
-# of briefs/24-tb4.md is enforced as a clock-calibrated RATIO, not a wall
-# clock. A fixed GF(8) kernel is timed in-process here, before any testset;
-# at the end of a whole-file run the body wall divided by that calibration
-# must stay below TB4_RATIO = 42, set once from quiet performance-governor
-# runs (brief 72): the kernel measures 0.14 s standalone and 0.18 s inside
-# the suite, the body 5.9 s in-suite (ratio 32), so 42 is the revised 6 s
-# budget of DESIGN 5.6 at the standalone kernel rate. An optional
-# TB4_BUDGET_SECONDS adds a plain wall bound and never loosens the gate.
+# Budget gate (verdicts/tb4-r1.md O13; tb4-r2.md NEW-3; tb1-r5 N33): the
+# TB4 body budget -- 6 s IN-SUITE, DESIGN 5.6 -- is enforced as a
+# clock-calibrated RATIO, not a wall clock. A fixed GF(8) kernel is timed
+# in-process here, before any testset; at the end of a whole-file run the
+# body wall divided by that calibration must stay below TB4_RATIO. The gate
+# only ever runs in-suite, so the constant derives from the IN-SUITE kernel
+# rate: TB4_KERNEL_REFERENCE is the in-suite kernel measured on the
+# reference box (i7-1365U, performance governor, quiet; the runs are listed
+# in DESIGN 5.6), and TB4_RATIO = floor(6 s / TB4_KERNEL_REFERENCE) is the
+# written budget at that rate. The gate line prints the budget the ratio
+# enforces at THIS run's kernel rate (TB4_RATIO * kernel), so the number is
+# reproducible from any suite log. An optional TB4_BUDGET_SECONDS adds a
+# plain wall bound and never loosens the gate.
 function tb4_calibration_kernel()
     acc = zero(GF8)
     for _ in 1:20_000, a in field_elements(GF8), b in field_elements(GF8), c in field_elements(GF8)
@@ -32,7 +36,9 @@ function tb4_calibration_kernel()
 end
 tb4_calibration_kernel()
 const TB4_CALIBRATION = @elapsed tb4_calibration_kernel()
-const TB4_RATIO = 42.0
+const TB4_BUDGET_WRITTEN = 6.0
+const TB4_KERNEL_REFERENCE = 0.154
+const TB4_RATIO = floor(TB4_BUDGET_WRITTEN / TB4_KERNEL_REFERENCE)
 const TB4_BODY_STARTED = time()
 
 tb4_input(n::Int) = (n, Bool[], Bool[], Bool[true], Bool[false])
@@ -216,6 +222,19 @@ if tb4_runs("tb4_ycode")
               occursin("46 of 376", stub_nodes[1].facts.display) &&
               occursin("constant", stub_nodes[1].facts.display) &&
               occursin("COMPRESS_IDENTITY", stub_nodes[1].facts.display)
+        # verdicts/tb4-r2.md NEW-2: WHICH compressor the disclosure names is
+        # pinned by content -- the `compressor` symbol fact and the leading
+        # clause of the display, not the node's fixed tail sentence -- and
+        # the one non-constant compressor gives the opposite answer.
+        @test stub_nodes[1].facts.compressor == :COMPRESS_STUB
+        @test occursin("is COMPRESS_STUB, the constant", stub_nodes[1].facts.display)
+        @test stub_nodes[1].facts.stub_bytes == 46 && stub_nodes[1].facts.term_bytes == 376
+        identity_nodes = tb4_find(halting_verifier(TWO_STATE_HALTING, TB4_LAMBDA; compress=COMPRESS_IDENTITY).certificate,
+                                  :CompressStubInTerm)
+        @test length(identity_nodes) == 1 && identity_nodes[1].facts.compressor == :COMPRESS_IDENTITY
+        @test occursin("is COMPRESS_IDENTITY, (pair, lambda) -> snd_code(pair)", identity_nodes[1].facts.display)
+        @test !occursin("is COMPRESS_STUB", identity_nodes[1].facts.display)
+        @test identity_nodes[1].facts.stub_bytes == term_size(COMPRESS_IDENTITY) != 46
         println("TB4 ycode: halting branch used 12; compressed branch (looping machine) used ",
                 eval_program(fixed_point(TWO_STATE_LOOPING)[2], tb4_input(2), 10_000).used,
                 "; identity-compressor loop => OutOfFuel(", looping.used, ")")
@@ -290,9 +309,18 @@ if tb4_runs("tb4_psi")
         # says the budget is enforced, not measured.
         repair = tb4_find(v.certificate, :HaltDeciderFuelBound)
         @test length(repair) == 1 && repair[1].grade == SOURCE_REPAIR
-        @test occursin("gt-12-compression.tex:L451-L453", repair[1].facts.display) &&
+        @test occursin("gt-12-compression.tex:L448-L449", repair[1].facts.display) &&
               occursin("lem:lambda", repair[1].facts.display) &&
               occursin("OutOfFuel", repair[1].facts.display)
+        # verdicts/tb4-r2.md NEW-1: the machine-readable citation is fig:halt_f
+        # step 5 itself (L448-L449; L451-L453 is the environment end and the
+        # caption), and the cited range is grepped for the step-5 text.
+        @test repair[1].facts.source == "gt-12-compression.tex" && repair[1].facts.lines == 448:449
+        step5 = tb4_first_lines(repair[1].facts.source)[repair[1].facts.lines]
+        @test any(occursin("Accepts if the decider", line) for line in step5)
+        @test any(occursin("accepts \$(n, x, y, a, b)\$", line) for line in step5)
+        @test occursin("gt-12-compression.tex:L$(first(repair[1].facts.lines))-L$(last(repair[1].facts.lines))",
+                       repair[1].facts.display)
         @test v.certificate.children[2].rule == :Specialize &&
               any(n -> n.rule == :HaltDeciderFuelBound, v.certificate.children[2].children)
         @test occursin("enforced by construction, not measured", v.term.runtime.description)
@@ -381,6 +409,30 @@ if tb4_runs("tb4_compress")
         end
         @test only(tb4_find(root, :Detype)).facts.label == "lem:detyping-verifiers"
         @test only(tb4_find(root, :Oracularization)).facts.source == "gt-09-oracularization.tex"
+        # verdicts/tb4-r2.md NEW-5: citation completeness -- EVERY CITED node
+        # carries source/lines/label (no display-only leaf survives the
+        # filter above), the two leaves that were display-only at r2 named.
+        cited = [n for n in tb4_nodes(root) if n.grade == CITED]
+        @test all(haskey(n.facts, :source) && haskey(n.facts, :lines) && haskey(n.facts, :label) for n in cited)
+        @test length(cited) == length(located) == 9
+        @test only(tb4_find(root, :AnswerReduceQuantumContract)).facts.label == "thm:ar"
+        @test only(tb4_find(root, :CookLevinGeneral)).facts.label == "prop:standard-succinct-sat"
+        # verdicts/tb4-r2.md NEW-1: every node of ANY grade that carries
+        # source+lines is grepped -- the range exists in the file, the display
+        # names it, and a label, when present, sits inside it; the
+        # SOURCE_REPAIR node created at r1 is among them.
+        anchored = [n for n in tb4_nodes(root) if haskey(n.facts, :source) && haskey(n.facts, :lines)]
+        @test :HaltDeciderFuelBound in Set(n.rule for n in anchored)
+        @test length(anchored) == length(cited) + 1
+        for n in anchored
+            lines = tb4_first_lines(n.facts.source)
+            range = n.facts.lines
+            @test first(range) >= 1 && last(range) <= length(lines)
+            @test occursin("$(n.facts.source):L$(first(range))-L$(last(range))", n.facts.display)
+            if haskey(n.facts, :label)
+                @test any(occursin("\\label{$(n.facts.label)}", lines[i]) for i in range)
+            end
+        end
         # Every CITED node has no replay; every CHECKED node has one.
         @test all(n.replay === nothing for n in tb4_nodes(root) if n.grade == CITED)
         @test all(n.replay !== nothing for n in tb4_nodes(root) if n.grade == CHECKED)
@@ -492,6 +544,31 @@ if tb4_runs("tb4_hypotheses")
         end
         @test cited_hypotheses >= 12
         @test occursin("L239-L243 (enu:pr-completeness)", REPEAT_CONTRACT.hypotheses[2].source)
+        # verdicts/tb4-r2.md NEW-4: every data row of every table in
+        # docs/definitions.md has its header's pipe count (a 3-column F row
+        # carries its ground-truth anchor cell; G is two-column), the Level
+        # row is anchored at def:normal-ver, and the F anchor of
+        # SOURCE_REPAIR(HaltDeciderFuelBound) is fig:halt_f step 5 (NEW-1).
+        deflines = readlines(joinpath(TB4_ROOT, "docs", "definitions.md"))
+        pipes(line) = count(==('|'), line)
+        tables = 0
+        header_pipes = 0
+        for line in deflines
+            if !startswith(line, "|")
+                header_pipes = 0
+            elseif header_pipes == 0
+                header_pipes = pipes(line)
+                tables += 1
+            else
+                @test pipes(line) == header_pipes
+            end
+        end
+        @test tables >= 8
+        level_row = only(filter(l -> startswith(l, "| `Level` |"), deflines))
+        @test pipes(level_row) == 4 && occursin("gt-05-games-normalform.tex:L624-L634", level_row)
+        @test any(occursin("\\label{def:normal-ver}", l) for l in tb4_first_lines("gt-05-games-normalform.tex")[624:634])
+        fuel_row = only(filter(l -> startswith(l, "| `SOURCE_REPAIR(HaltDeciderFuelBound)` |"), deflines))
+        @test pipes(fuel_row) == 4 && occursin("gt-12-compression.tex:L448-L449", fuel_row) && !occursin("L451", fuel_row)
     end
 end
 
@@ -634,7 +711,9 @@ if TB4_TARGET in ("all", "tb4_gate")
     tb4_wall_budget = haskey(ENV, "TB4_BUDGET_SECONDS") ? parse(Float64, ENV["TB4_BUDGET_SECONDS"]) : Inf
     println("TB4 test-body wall seconds = ", round(tb4_elapsed; digits=3), "; calibration kernel = ",
             round(TB4_CALIBRATION; digits=4), " s; ratio = ", round(tb4_ratio; digits=1),
-            " (gate ", TB4_RATIO, "; TB4_BUDGET_SECONDS = ", tb4_wall_budget,
+            " (gate ", TB4_RATIO, " = floor(", TB4_BUDGET_WRITTEN, " s / ", TB4_KERNEL_REFERENCE,
+            " s reference in-suite kernel); enforced body budget at this kernel rate = ",
+            round(TB4_RATIO * TB4_CALIBRATION; digits=2), " s; TB4_BUDGET_SECONDS = ", tb4_wall_budget,
             TB4_IN_SUITE || TB4_TARGET == "tb4_gate" ? "; gated)" : "; ungated: standalone cold-JIT run)")
     if TB4_IN_SUITE || TB4_TARGET == "tb4_gate"
         @testset "TB4 budget gate: body / calibration kernel < $(TB4_RATIO) (tb1-r5 N33; verdicts/tb4-r1.md O13)" begin

@@ -167,5 +167,7 @@ export PauliTuple, PauliParams, pauli_sampler, tilde_S_intro, graph_sampler, int
 
 include("precompile.jl")
 include("frontend/precompile_frontend.jl")
+# brief 78 (verdicts/tb4-r2.md NEW-3): the TB4 Compress-skeleton workload.
+include("precompile_compress.jl")
 
 end

@@ -229,6 +229,69 @@ const TB4_SPECIALIZE_UNBOUND_MUTANT = Mutant(
     "        replay=(quoted -> begin\n            decoded = decode_program(quoted.bytes)",
     "tb4_specialize")
 
+# verdicts/tb4-r2.md NEW-1, CRITIC-3 verbatim: the SOURCE_REPAIR's
+# machine-readable citation points nowhere; (c) greps the cited range for
+# the fig:halt_f step-5 text and (d) requires the display to name the range.
+const TB4_FUELBOUND_UNLOCATED_MUTANT = Mutant(
+    "TB4 M-fuelbound-unlocated halt_decider_fuel_bound_lines_1_1",
+    "src/compress.jl",
+    "source=\"gt-12-compression.tex\", lines=448:449))",
+    "source=\"gt-12-compression.tex\", lines=1:1))",
+    "tb4_psi")
+
+# NEW-2, CRITIC-4 verbatim: the first two branches of the `compressor`
+# display ternary in halting_verifier are swapped, so the disclosure names
+# the non-constant compressor for the constant one; (b) pins the leading
+# clause of the display by content.
+const TB4_STUB_MISNAMED_MUTANT = Mutant(
+    "TB4 M-stub-misnamed compress_stub_display_names_identity",
+    "src/compress.jl",
+    "    compressor = compress === COMPRESS_STUB ? \"COMPRESS_STUB, the constant (pair, lambda) -> Quote(lambda n x y a b . true)\" :\n                 compress === COMPRESS_IDENTITY ? \"COMPRESS_IDENTITY, (pair, lambda) -> snd_code(pair), the input decider's own code\" :",
+    "    compressor = compress === COMPRESS_STUB ? \"COMPRESS_IDENTITY, (pair, lambda) -> snd_code(pair), the input decider's own code\" :\n                 compress === COMPRESS_IDENTITY ? \"COMPRESS_STUB, the constant (pair, lambda) -> Quote(lambda n x y a b . true)\" :",
+    "tb4_ycode")
+
+# NEW-2: the `compressor` symbol fact names the other compressor.
+const TB4_STUB_SYMBOL_MISNAMED_MUTANT = Mutant(
+    "TB4 M-stub-symbol-misnamed compressor_fact_swapped",
+    "src/compress.jl",
+    "               compressor=compress === COMPRESS_STUB ? :COMPRESS_STUB :\n                          compress === COMPRESS_IDENTITY ? :COMPRESS_IDENTITY : :custom,",
+    "               compressor=compress === COMPRESS_STUB ? :COMPRESS_IDENTITY :\n                          compress === COMPRESS_IDENTITY ? :COMPRESS_STUB : :custom,",
+    "tb4_ycode")
+
+# NEW-3: the gate is owned on the quantity it bounds -- an inflated body
+# (60 extra kernel runs, ratio ~ 60 > TB4_RATIO) trips the ratio gate.
+const TB4_GATE_BODY_INFLATED_MUTANT = Mutant(
+    "TB4 M-gate-body-inflated sixty_kernel_runs_in_body",
+    "test/tb4_compress_ir.jl",
+    "const TB4_BODY_STARTED = time()\n",
+    "const TB4_BODY_STARTED = time()\nfor _ in 1:60; tb4_calibration_kernel(); end\n",
+    "tb4_gate")
+
+# NEW-5: a CITED leaf that was display-only at r2 loses its label again;
+# (d)'s completeness assertion refuses the tree.
+const TB4_CITED_UNLOCATED_QUANTUM_MUTANT = Mutant(
+    "TB4 M-cited-unlocated-quantum answer_reduce_quantum_contract_display_only",
+    "src/verifiers/answer_reduce.jl",
+    "               source=\"gt-10-answer-reduction.tex\", lines=2077:2116, label=\"thm:ar\"))",
+    "               ))",
+    "tb4_compress")
+const TB4_CITED_UNLOCATED_COOKLEVIN_MUTANT = Mutant(
+    "TB4 M-cited-unlocated-cooklevin cook_levin_general_display_only",
+    "src/frontend/cook_levin.jl",
+    "               source=\"gt-10-answer-reduction.tex\", lines=237:273, label=\"prop:standard-succinct-sat\"))",
+    "               ))",
+    "tb4_compress")
+
+# NEW-4: the definitions.md Level row loses its ground-truth anchor cell
+# (a docs/ mutant: the runner shadows the repository with the mutated
+# document and runs the rung's test file through the sandbox).
+const TB4_LEVEL_ROW_UNANCHORED_MUTANT = Mutant(
+    "TB4 M-level-row-unanchored definitions_level_row_three_pipes",
+    "docs/definitions.md",
+    " | `gt-04-cl.tex:L36-L62` (`def:cl-func`, ℓ-level CL functions); `gt-05-games-normalform.tex:L624-L634` (`def:normal-ver`: the number of levels of `V` is the number of levels of its sampler). |",
+    " |",
+    "tb4_hypotheses")
+
 const TB4_MUTANTS = (TB4_ORDER_SWAP_MUTANT, TB4_ORDER_INTRO_LAST_MUTANT, TB4_RELABEL_MUTANT,
                      TB4_YCODE_MUTANT, TB4_HYPOTHESIS_MUTANT, TB4_AUDIT_MUTANT,
                      TB4_LEVEL_RULE_MUTANT, TB4_BIND_MUTANT, TB4_SIGMA_MUTANT,
@@ -240,4 +303,8 @@ const TB4_MUTANTS = (TB4_ORDER_SWAP_MUTANT, TB4_ORDER_INTRO_LAST_MUTANT, TB4_REL
                      TB4_INDEPENDENCE_LEAK_MUTANT, TB4_SURROGATE_SIBLING_MUTANT,
                      TB4_DETYPE_UNLOCATED_MUTANT, TB4_OFF_BY_ONE_MUTANT,
                      TB4_GATE_UNCALIBRATED_MUTANT, TB4_SPECIALIZE_OPEN_MUTANT,
-                     TB4_SPECIALIZE_UNBOUND_MUTANT)
+                     TB4_SPECIALIZE_UNBOUND_MUTANT,
+                     TB4_FUELBOUND_UNLOCATED_MUTANT, TB4_STUB_MISNAMED_MUTANT,
+                     TB4_STUB_SYMBOL_MISNAMED_MUTANT, TB4_GATE_BODY_INFLATED_MUTANT,
+                     TB4_CITED_UNLOCATED_QUANTUM_MUTANT, TB4_CITED_UNLOCATED_COOKLEVIN_MUTANT,
+                     TB4_LEVEL_ROW_UNANCHORED_MUTANT)

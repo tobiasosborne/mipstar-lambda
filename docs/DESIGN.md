@@ -1030,11 +1030,17 @@ and requiring the `ell_level` hypothesis node to print `ell = 9`. Disclose every
 `D_{M,lambda}` (`COMPRESS_STUB`) is an `[ASSUMED] CompressStubInTerm` node, and the enforced `FuelBound(n, lambda)` on the returned
 decider is `SOURCE_REPAIR(HaltDeciderFuelBound)` (`definitions.md` §F). TB4's body budget, 5 s in `briefs/24-tb4.md`, is REVISED to 6 s by brief 72 (the O1/O2/O9 witnesses add two `Compress`
 calls and the surrogate/citation walks; measured 5.9 s in-suite on a quiet performance-governor box) and is enforced as a clock-calibrated
-ratio gate, not a wall clock (tb1-r5 N33): the file times a fixed GF(8) kernel in-process before its first testset (0.14 s standalone,
-0.18 s in-suite on the reference box) and asserts `elapsed / calibration < TB4_RATIO = 42` (6 s at the standalone kernel rate; the in-suite
-ratio measured 32) when the whole file runs inside the suite (a standalone run of the file is cold-JIT and prints the numbers ungated;
-the registry's `tb4_gate` target owns the gate's mechanics); an optional `TB4_BUDGET_SECONDS` only adds a wall bound
-(`verdicts/tb4-r1.md` O13). The old closure/quote dispatch check is deleted because it tested only host
+ratio gate, not a wall clock (tb1-r5 N33): the file times a fixed GF(8) kernel in-process before its first testset and asserts
+`elapsed / calibration < TB4_RATIO` when the whole file runs inside the suite, where `TB4_RATIO = floor(6 s / TB4_KERNEL_REFERENCE) = 38`
+derives the written budget from the IN-SUITE kernel rate — the gate never runs standalone — with `TB4_KERNEL_REFERENCE = 0.154 s` the
+quiet in-suite kernel of the reference box (i7-1365U, performance governor: `verdicts/tb4-r2.md` §0 measured 0.154 s quiet and 0.1669 s
+under light contention; brief 78 measured 0.1513 s quiet), so the enforced in-suite budget is 6.0 s at the reference rate, and the gate
+line prints `TB4_RATIO × kernel`, the budget it enforces at each run's own rate (brief 78: 5.75 s at 0.1513 s). Brief 78 (`verdicts/tb4-r2.md`
+NEW-3) moved the skeleton's JIT into the package image (`src/precompile_compress.jl`, the TB3 workload pattern): the in-suite body measured
+5.67 s / ratio 37.5 quiet before it and 3.18 s / ratio 17.1 after it (one in-suite run at kernel 0.186 s by the session-4 triage of the interrupted worker tree, `verdicts`-grade quiet runs still owed), against the
+critic's pre-workload range 35.4–36.6 over three loads. `M-gate-body-inflated` owns the gate on its numerator (60 extra kernel runs, ratio
+≈ 60) and `M-gate-uncalibrated` on its denominator (a standalone run of the file is cold-JIT and prints the numbers ungated; the registry's
+`tb4_gate` target owns the gate's mechanics); an optional `TB4_BUDGET_SECONDS` only adds a wall bound (`verdicts/tb4-r1.md` O13). The old closure/quote dispatch check is deleted because it tested only host
 dispatch, not semantics. No theorem stub is executed.
 
 **DD-14 — Optimize rungs for falsifiability.** Prefer exhaustive tiny fields, branch-directed questions, and exact rationals; rationale:

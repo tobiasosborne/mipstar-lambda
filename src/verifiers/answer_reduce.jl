@@ -86,7 +86,8 @@ function answer_reduce_pcp(original::TrivialOriginalVerifier{F},
     assumptions = CertNode(ASSUMED, :AnswerReduceHypotheses;
         facts=(display="normal form, T(n)=(2^(lambda*n))^mu, Q=(lambda*n)^mu, and time bounds; lambda=$(lambda), mu=$(mu)",))
     quantum = CertNode(CITED, :AnswerReduceQuantumContract;
-        facts=(display="thm:ar completeness/soundness/entanglement implications; gt-10:2077-2116",))
+        facts=(display="thm:ar completeness/soundness/entanglement implications; gt-10-answer-reduction.tex:L2077-L2116 (thm:ar)",
+               source="gt-10-answer-reduction.tex", lines=2077:2116, label="thm:ar"))
     fixed_formula = CertNode(SOURCE_REPAIR, :PCPVerifierFixedFormula;
         facts=(display="fig:pcpverifier steps 1-2 are not executed on the TB0 fixture; its construction-time circuit is independent of (x,y), while x_alice/x_bob remain explicit decider-specification fields",))
     fallthrough = CertNode(SOURCE_REPAIR, :PCPGameOtherwiseFallthrough;
