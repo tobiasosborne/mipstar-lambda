@@ -20,7 +20,7 @@ struct IntroChildCall
     input::Any
     steps::Int                    # exact metered cost consumed (the budget on a timeout)
     by_depth::Vector{Int}
-    source_R::Int
+    source_R::Integer             # N^lambda (a BigInt beyond the host integer, TB7's lambda = 32768)
     supplied_fuel::Int
     outcome::Symbol               # :return, :timeout, :query_error
     result::Any
@@ -54,27 +54,59 @@ end
 
 struct _IntroContext
     N::Int
-    R::Int
+    R::Integer                    # N^lambda exactly (BigInt when it exceeds the host integer)
     fuel::Int
     child::SamplerMachine
     child_hash::String
     D_term::Any
     trace::Vector
+    parent::Union{Nothing,Meter}  # the enclosing meter when this decider is itself a metered child (brief 80 D12)
 end
-_budget(c::_IntroContext) = c.fuel == 0 ? c.R : c.fuel
+_IntroContext(N, R, fuel, child, child_hash, D_term, trace) = _IntroContext(N, R, fuel, child, child_hash, D_term, trace, nothing)
+# The production budget is R itself; when R exceeds the host step counter
+# (TB7: 4^32768) no finite run can reach it and the meter runs unbudgeted
+# (0), which is the same semantics -- the (R+1)-th step is never reached.
+_budget(c::_IntroContext) = c.fuel == 0 ? (c.R <= typemax(Int) ? Int(c.R) : 0) : c.fuel
+# A child call of a NESTED typed decider (DESIGN 11.4, nested typed deciders):
+# it runs on its own meter with budget min(own budget, the enclosing meter's
+# remaining budget) and its exact cost is charged to the enclosing meter at
+# depth + 1 as it returns, so no level ever executes a step the enclosing
+# budget could not pay for; an exhausted enclosing budget refuses the call
+# before its first step (a timeout, hence a rejection).
+function _child_meter(c::_IntroContext)
+    own = _budget(c)
+    c.parent === nothing && return Meter(own)
+    c.parent.budget == 0 && return Meter(own)
+    remaining = c.parent.budget - c.parent.steps
+    remaining <= 0 && throw(FuelExhausted(c.parent.steps + 1, c.parent.budget))
+    Meter(own == 0 ? remaining : min(own, remaining))
+end
+function _charge_parent!(c::_IntroContext, ctx::Meter)
+    c.parent === nothing && return nothing
+    saved = c.parent.depth
+    c.parent.depth = max(saved, 1) + 1          # one machine depth below the enclosing decider's own steps
+    try
+        _charge!(c.parent, ctx.steps)
+    finally
+        c.parent.depth = saved
+    end
+    nothing
+end
 
 # One metered child sampler query; nothing on timeout or QueryError (the
 # decider then rejects, gt-08:L417-L419 "aborts and rejects").
 function _child_query(c::_IntroContext, mode::Symbol, q::SamplerQuery; role=nothing, stage=nothing, prefix=nothing, input=nothing)
-    ctx = Meter(_budget(c))
+    ctx = Meter(0)
     outcome, result = try
+        ctx = _child_meter(c)
         (:return, _validated_answer(c.child, q, ctx))
     catch error
         error isa FuelExhausted ? (:timeout, nothing) :
         error isa ArgumentError ? (:query_error, error.msg) : rethrow()
     end
+    _charge_parent!(c, ctx)
     push!(c.trace, IntroChildCall(c.child_hash, mode, role, stage, prefix, input,
-                                  outcome == :timeout ? _budget(c) : ctx.steps, copy(ctx.by_depth), c.R, _budget(c), outcome, result))
+                                  outcome == :timeout ? ctx.budget : ctx.steps, copy(ctx.by_depth), c.R, _budget(c), outcome, result))
     outcome == :return ? result : nothing
 end
 
@@ -84,8 +116,10 @@ _bools(v::AbstractVector{GF2}) = Bool[x == one(GF2) for x in v]
 # --- the metered child decider call (enu:intro-game) ------------------------------
 # The universal interpreter's evaluation of an UNTYPED child decider term
 # with every primitive step charged (input decoding per bit, comparisons
-# per bit, control transfers). Nested typed introspection deciders are TB7
-# work (API REQUEST): they are refused here.
+# per bit, control transfers). TB7 (briefs/43 API request 2): nested typed
+# deciders (a detyped introspection or answer-reduced decider as the child)
+# are metered too, and a quoted DESIGN 1.1 program child runs on the CEK
+# evaluator with the remaining budget as its fuel (API request 1).
 function _metered_decide(term, n::Int, x::AbstractVector{Bool}, y::AbstractVector{Bool}, a::AbstractVector{Bool}, b::AbstractVector{Bool}, ctx::Meter)
     tag = term[1]
     _charge!(ctx, 1 + ndigits(n; base=2) + length(x) + length(y) + length(a) + length(b))
@@ -114,10 +148,16 @@ function _metered_decide(term, n::Int, x::AbstractVector{Bool}, y::AbstractVecto
             return _metered_decide_typed(child, n, labels[l], x[4T+1:end], labels[r], y[4T+1:end], a, b, ctx)
         end
         return true
-    elseif tag == :Repeat
-        lambda, tau, c_num, c_den, child = term[2], term[3], term[4], term[5], term[6]
+    elseif tag == :Program
+        remaining = ctx.budget == 0 ? PROGRAM_DECIDER_FUEL : ctx.budget - ctx.steps
+        outcome = eval_quoted(Quoted{:Decider}(Vector{UInt8}(term[2])), (n, x, y, a, b), remaining; hard_cap=max(remaining, DEFAULT_HARD_CAP))
+        outcome.result isa OutOfFuel && ctx.budget > 0 && throw(FuelExhausted(ctx.steps + remaining + 1, ctx.budget))
+        _charge!(ctx, outcome.used)
+        return outcome.result isa Value && outcome.result.value === true
+    elseif tag in (:Repeat, :RepeatToy)
+        lambda, tau, c_num, c_den, child = term[end-4], term[end-3], term[end-2], term[end-1], term[end]
         B = B_rep(lambda, tau, n)
-        k = k_rep(lambda, tau, c_num // c_den, n)
+        k = tag == :RepeatToy ? term[2] : k_rep(lambda, tau, c_num // c_den, n)
         _charge!(ctx, 2)
         parts = Vector{Vector{Bool}}[]
         for v in (x, y, a, b)
@@ -147,19 +187,33 @@ function _metered_decide_typed(term, n::Int, tA, x::AbstractVector{Bool}, tB, y:
         end
         return _metered_decide(term[2], n, x, y, a, b, ctx)
     end
-    throw(ArgumentError("a nested typed introspection decider as a child is TB7 work (API REQUEST): not metered here"))
+    if tag == :TypedDecider
+        # A nested typed decider (brief 80 D12; DESIGN 11.4 "nested typed
+        # deciders"): its own input decoding is charged here, and every child
+        # call it makes runs on a meter bounded by THIS meter's remaining
+        # budget and is charged here at depth + 1 as it returns (`by_depth`
+        # attributes the nested steps separately), so the nested decider's
+        # transcript never escapes the enclosing budget.
+        labels, body = term[2], term[3]
+        _charge!(ctx, 2 + length(x) + length(y) + length(a) + length(b))
+        inner = Any[]
+        return _decide_typed_body(labels, body, n, String(tA), x, String(tB), y, a, b, inner; parent=ctx)
+    end
+    throw(ArgumentError("unknown typed decider term $(tag) for a metered child call"))
 end
 
 function _child_decide(c::_IntroContext, yA::AbstractVector{Bool}, yB::AbstractVector{Bool}, aA::AbstractVector{Bool}, aB::AbstractVector{Bool})
-    ctx = Meter(_budget(c))
+    ctx = Meter(0)
     outcome, result = try
+        ctx = _child_meter(c)
         (:return, _metered_decide(c.D_term, c.N, yA, yB, aA, aB, ctx))
     catch error
         error isa FuelExhausted ? (:timeout, nothing) :
         error isa ArgumentError ? (:query_error, error.msg) : rethrow()
     end
+    _charge_parent!(c, ctx)
     push!(c.trace, IntroChildCall(quote_hash(decider_term_bytes(c.D_term)), :Decider, nothing, nothing, nothing, (yA, yB, aA, aB),
-                                  outcome == :timeout ? _budget(c) : ctx.steps, copy(ctx.by_depth), c.R, _budget(c), outcome, result))
+                                  outcome == :timeout ? ctx.budget : ctx.steps, copy(ctx.by_depth), c.R, _budget(c), outcome, result))
     outcome == :return ? result : nothing
 end
 
@@ -387,18 +441,17 @@ function intro_decide_traced(body, n::Int, tA::String, x::AbstractVector{Bool}, 
     (bit, trace, fired)
 end
 
-function _decide_intro(body, n::Int, tA::String, x::AbstractVector{Bool}, tB::String, y::AbstractVector{Bool}, a::AbstractVector{Bool}, b::AbstractVector{Bool}, trace::Vector; fired::Vector{Symbol}=Symbol[])
+function _decide_intro(body, n::Int, tA::String, x::AbstractVector{Bool}, tB::String, y::AbstractVector{Bool}, a::AbstractVector{Bool}, b::AbstractVector{Bool}, trace::Vector; fired::Vector{Symbol}=Symbol[], parent::Union{Nothing,Meter}=nothing)
     lambda, ell, q, m, d, fuel, S_term, D_term = body[2], body[3], body[4], body[5], body[6], body[7], body[8], body[9]
     n <= 30 || throw(ArgumentError("N = 2^n does not fit the interpreter's index (n <= 30)"))
     N = 2 ^ n
-    R = big(N) ^ lambda
-    R <= typemax(Int) || throw(ArgumentError("R = N^lambda exceeds the interpreter's step counter"))
+    R = big(N) ^ lambda                                     # exact; the budget clamps it (see _budget)
     labels = intro_type_labels(ell)
     (tA in labels && tB in labels) || return false
     p = PauliParams(q, m, d)
     Q = pauli_Q(p.tuple)
     child = _intro_child_machine(S_term)
-    c = _IntroContext(N, Int(R), fuel, child, quote_hash(sampler_term_bytes(S_term)), D_term, trace)
+    c = _IntroContext(N, R <= typemax(Int) ? Int(R) : R, fuel, child, quote_hash(sampler_term_bytes(S_term)), D_term, trace, parent)
     # First: s(N) by Dimension(N) (gt-08:L420-L423), reject if s(N) > R.
     dimension = _child_query(c, :Dimension, DimensionQuery(N))
     dimension === nothing && return false
@@ -458,26 +511,41 @@ the embedded input verifier is read only through the four sampler queries
 and one decider call, each under the step meter with budget N^lambda
 (F_child = 0) or the explicit toy F_child (DESIGN 12.4).
 """
-function typed_intro_decider(V::VerifierDescription, lambda::Integer, ell::Integer; tuple::PauliTuple, F_child::Integer=0)
+function typed_intro_decider(V::VerifierDescription, lambda::Integer, ell::Integer; tuple::PauliTuple, F_child::Integer=0,
+                             fixed_width::Bool=false)
     V.sampler.typing isa Untyped || throw(ArgumentError("the introspected verifier is an untyped normal-form verifier"))
     V.sampler.field_size == 2 || throw(ArgumentError("the introspected sampler is over F_2 (normal form)"))
-    term = (:TypedDecider, intro_type_labels(ell), (:Intro, Int(lambda), Int(ell), tuple.q, tuple.m, tuple.d, Int(F_child), V.sampler.term, V.decider.term))
+    # TB7 (DESIGN 12.3, SOURCE_REPAIR(intro-decider-fixed-width)): the two
+    # fixed lambda-byte slots hold S and D when their bytes fit, else the
+    # canonical trivial code (gt-08:L757-L776); the in-memory term carries
+    # the EFFECTIVE content so evaluation and bytes agree.
+    S_fits = fixed_slot_fits(canonical_bytes(V.sampler), lambda)
+    D_fits = fixed_slot_fits(canonical_bytes(V.decider), lambda)
+    S_term = !fixed_width || S_fits ? V.sampler.term : TRIVIAL_SAMPLER_TERM
+    D_term = !fixed_width || D_fits ? V.decider.term : TRIVIAL_DECIDER_TERM
+    body_tag = fixed_width ? :IntroFixed : :Intro
+    term = (:TypedDecider, intro_type_labels(ell), (body_tag, Int(lambda), Int(ell), tuple.q, tuple.m, tuple.d, Int(F_child), S_term, D_term))
     desc = _decider_from_term(term; parts=(V.decider,))
     Q = pauli_Q(tuple)
+    # The F_2^Q wire embedding needs Q >= s(N) (gt-08:L524-L530); below it every
+    # non-Pauli transcript is rejected at the embedding guard, so the equal-answer
+    # accept (bit4) is VACUOUS(owner=Q_I<s_0) and expected to reject (DESIGN 12.5).
+    s_N = Dimension(V.sampler, 2 ^ 2)
+    embedding = s_N isa QueryError ? false : Q >= s_N
     replay = x -> begin
         n = 2
         body = x.term[3]
         # Out-of-range types reject; an answer of 3Q + 1 bits rejects with no child call past Dimension.
         bit1 = decide(x, n, "Referee", Bool[], "Introspect_alice", Bool[], Bool[], Bool[])
         bit2, trace2, _ = intro_decide_traced(body, n, "Hide_1_alice", falses(0), "Hide_1_alice", falses(0), falses(3Q + 1), falses(3Q + 1))
-        # Equal types with unequal answers reject; equal answers accept when no other test applies.
+        # Equal types with unequal answers reject; equal answers accept when no other test applies (and the embedding holds).
         bit3 = decide(x, n, "Sample_bob", Bool[], "Sample_bob", Bool[], vcat(falses(Q), true), vcat(falses(Q), false))
         bit4 = decide(x, n, "Sample_bob", Bool[], "Sample_bob", Bool[], vcat(falses(Q), true), vcat(falses(Q), true))
-        ok = !bit1 && !bit2 && length(trace2) <= 1 && all(r -> r.mode == :Dimension, trace2) && !bit3 && bit4
-        CheckResult(ok, :intro_decider; location=:IntroDecider, actual=(; bit1, bit2, calls=length(trace2), bit3, bit4))
+        ok = !bit1 && !bit2 && length(trace2) <= 1 && all(r -> r.mode == :Dimension, trace2) && !bit3 && bit4 == embedding
+        CheckResult(ok, :intro_decider; location=:IntroDecider, actual=(; bit1, bit2, calls=length(trace2), bit3, bit4, embedding))
     end
     _decider_certificate(:IntroDecider, desc,
-        "fig:intro-decider on (lambda, ell) = ($(lambda), $(ell)), $(tuple), Q = $(Q): Dimension(N) first (reject if s(N) > R = N^lambda), operative > 3Q guard, then the nine tests in both player orders with child calls under the step meter ($(F_child == 0 ? "budget R = N^lambda (production)" : "toy budget F_child = $(F_child)")), accept when no test applies",
+        "fig:intro-decider on (lambda, ell) = ($(lambda), $(ell)), $(tuple), Q = $(Q): Dimension(N) first (reject if s(N) > R = N^lambda), operative > 3Q guard, then the nine tests in both player orders with child calls under the step meter ($(F_child == 0 ? "budget R = N^lambda (production)" : "toy budget F_child = $(F_child)")), accept when no test applies$(fixed_width ? "; S and D in two fixed lambda-byte slots (S fits: $(S_fits), D fits: $(D_fits); DESIGN 12.3)" : "")$(embedding ? "" : "; the equal-answer accept is VACUOUS(owner=Q_I<s_0): Q = $(Q) < s(N) = $(s_N)")",
         replay, (CITED_INTRO_DECIDER_FIG, CITED_INTRO_DECIDER_COMPLEXITY, CITED_PAULI_DECIDER, CITED_THM_PAULI, CITED_CL_CANONICAL, CITED_L_PERP, INTRO_3Q_GUARD, INTRO_HIDE_SUFFIX_REGISTER, INTRO_PERP_ORTHOGONAL), (V.decider,))
 end
 

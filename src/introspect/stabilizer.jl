@@ -177,7 +177,7 @@ The measurement {tau^W_[L(.) = b]} for the linear map with matrix M on the
 register: measure W(v) for the canonical basis v of ker(M)^perp and return
 b = M z0 for a solution z0 (gt-08:L861-L921).
 """
-function coarse_measure!(t::StabilizerTableau, W::Symbol, register::Vector{Int}, M::Matrix{GF2}, choose::Function)
+function coarse_measure!(t, W::Symbol, register::Vector{Int}, M::Matrix{GF2}, choose::Function)
     r = length(register)
     dual = _gf2rows(dual_basis(kernel_basis(M), r))
     family = PauliString[W == :Z ? pauli_string(t.n; zs=register[findall(v)]) : pauli_string(t.n; xs=register[findall(v)]) for v in dual]
@@ -187,7 +187,7 @@ function coarse_measure!(t::StabilizerTableau, W::Symbol, register::Vector{Int},
     Bool[x == one(GF2) for x in out]
 end
 "Measure W on every qubit of the register."
-plain_measure!(t::StabilizerTableau, W::Symbol, register::Vector{Int}, choose::Function) =
+plain_measure!(t, W::Symbol, register::Vector{Int}, choose::Function) =
     Bool[measure!(t, W == :Z ? pauli_string(t.n; zs=[q]) : pauli_string(t.n; xs=[q]), choose) for q in register]
 
 # ---------------------------------------------------------------------------

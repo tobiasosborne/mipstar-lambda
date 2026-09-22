@@ -54,6 +54,7 @@ end
 _value_key(v::Bool) = (:bool, v)
 _value_key(v::Int) = (:nat, v)
 _value_key(v::Vector{Bool}) = (:bits, Tuple(v))
+_value_key(v::Vector{UInt8}) = (:bytes, quote_hash(v))
 _value_key(v::Code) = (:code, quote_hash(_quoted_bytes(v.program, v.sort)))
 _value_key(v::Closure) = (:closure, quote_hash(term_bytes(v.body)), length(v.env))
 _value_key(v) = (:other, string(v))

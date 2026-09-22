@@ -51,7 +51,9 @@ function _pauli_of(inst::IntroInstance, w::Symbol, W::Symbol, v::AbstractVector)
 end
 
 "The honest answer of player w to the typed question (t, x_bits) on the shared tableau."
-function honest_answer!(inst::IntroInstance, tab::StabilizerTableau, w::Symbol, t::String, x::AbstractVector{Bool}, choose::Function)
+# `tab` is the stabilizer tableau in production; a test may supply any state offering
+# `measure!`/`measure_family!` (brief 80 D3: the dense 64-amplitude reference for TB6b-E).
+function honest_answer!(inst::IntroInstance, tab, w::Symbol, t::String, x::AbstractVector{Bool}, choose::Function)
     p = inst.params
     Q, s = inst.Q, inst.s
     kind, arg = parse_type_label(t)
@@ -135,14 +137,15 @@ function honest_answer!(inst::IntroInstance, tab::StabilizerTableau, w::Symbol, 
 end
 
 """
-    honest_transcript(inst, edge, z, choose) -> (; edge, xA, xB, aA, aB)
+    honest_transcript(inst, edge, z, choose; initial=() -> epr_tableau(inst.Q + 1)) -> (; edge, xA, xB, aA, aB)
 
 One honest transcript: the typed questions of hat S^intro on seed z for the
-oriented edge, and both players' answers from a fresh |EPR_2>^{(x)(Q+1)}.
+oriented edge, and both players' answers from a fresh |EPR_2>^{(x)(Q+1)}
+(`initial` builds it; a test may substitute a reference simulator, brief 80 D3).
 """
-function honest_transcript(inst::IntroInstance, edge::Tuple{String,String}, z, choose::Function)
+function honest_transcript(inst::IntroInstance, edge::Tuple{String,String}, z, choose::Function; initial::Function=() -> epr_tableau(inst.Q + 1))
     xA, xB = sample_questions(inst.hat, inst.n, z, edge)
-    tab = epr_tableau(inst.Q + 1)
+    tab = initial()
     xa, xb = _bools(xA), _bools(xB)
     aA = honest_answer!(inst, tab, :alice, edge[1], xa, choose)
     aB = honest_answer!(inst, tab, :bob, edge[2], xb, choose)

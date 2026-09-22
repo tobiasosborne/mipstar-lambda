@@ -16,20 +16,11 @@ println("MIPStarLambda load/precompile seconds = ", round(load_elapsed; digits=3
 # BEFORE `started` so it is excluded from the timed body; the gate is
 # elapsed / calibration < TB0_RATIO, set once from quiet performance-governor
 # runs (brief 77). TB0_BUDGET_SECONDS only LOWERS the wall bound. Red
-# witness: test/mutations/tb5_gate.jl (the body run three times).
-function suite_calibration_kernel()
-    elements = collect(field_elements(GF8))   # runtime data, so the loop is not folded away
-    acc = zero(GF8)
-    for i in 1:1_200_000, a in elements, b in elements, c in elements
-        acc += a * b + c * elements[(i % 8) + 1]
-    end
-    acc
-end
-const SUITE_KERNEL_VALUE = suite_calibration_kernel()   # warm-up; the value is deterministic
-const SUITE_CALIBRATION = @elapsed suite_calibration_kernel()
+# witness: test/mutations/tb5_gate.jl (the body run three times). The kernel
+# lives in test/calibration.jl (brief 80 D2) so every rung file gates on it.
+include("calibration.jl")   # suite_calibration_kernel, SUITE_CALIBRATION, calibrated_gate (brief 80 D2)
 const TB0_RATIO = 50.0
 const TB0_WALL_BUDGET = min(60.0, haskey(ENV, "TB0_BUDGET_SECONDS") ? parse(Float64, ENV["TB0_BUDGET_SECONDS"]) : 60.0)
-println("suite calibration kernel seconds = ", round(SUITE_CALIBRATION; digits=4), " (excluded from the TB0 body)")
 
 started = time()
 @testset verbose=true "MIPStarLambda" begin

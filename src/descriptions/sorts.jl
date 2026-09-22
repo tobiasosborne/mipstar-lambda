@@ -18,6 +18,14 @@
 #   (:Pauli, q, m, d)                        TB6: the typed Pauli family (gt-07:1070-1120), 26 types
 #   (:Intro, lambda, ell, q, m, d)           TB6: tilde S^intro (gt-08:317-345), 32 + 2 ell types
 #   (:Graph, labels, edges)                  TB6: graph_sampler(G) (gt-06:225-339), level 2, dim 4|Type|
+#   (:Oracularize, S)                        TB7: the three-role typed family {oracle, alice, bob}
+#                                            of gt-09:34-86 over an untyped S (oracle = Id, padded)
+#   (:Pad, extra, S)                         TB7: S with `extra` empty stages appended (rk:higher-level;
+#                                            verdicts/tb5-r1.md O12 / briefs/43 API request 3)
+#   (:PCP, q, m, d, s, m_prime, gamma, sigma) TB7: TB2's typed PCP family (18 types) as a compact
+#                                            primitive carrying pcpparams and sigma = |D| (gt-10:1396-1422)
+#   (:RepeatToy, k, lambda, tau, c_num, c_den, S) TB7: DL9-repeat with the ToyPolicy repetition count k
+#                                            substituted (DESIGN 12.4; k(n) stays printed FAIL)
 # Bytes: 0xC3 then the term; tags below; integers u32 big-endian; labels as
 # u32-length-prefixed UTF-8; CL terms exactly as `describe_cl` writes them.
 
@@ -162,7 +170,8 @@ const SAMPLER_HEADER = 0xC3
 const _SAMPLER_TAGS = Dict(:Pair => 0x01, :TypedFamily => 0x02, :DirectSum => 0x03,
                            :Repeat => 0x04, :Anchor => 0x05, :Detype => 0x06,
                            :Product => 0x07, :Downsize => 0x08,
-                           :Pauli => 0x09, :Intro => 0x0A, :Graph => 0x0B)
+                           :Pauli => 0x09, :Intro => 0x0A, :Graph => 0x0B,
+                           :Oracularize => 0x0C, :Pad => 0x0D, :PCP => 0x0E, :RepeatToy => 0x0F)
 const _SAMPLER_TAG_NAMES = Dict(byte => tag for (tag, byte) in _SAMPLER_TAGS)
 
 _field_width(q::Int) = cld(round(Int, log2(q)), 8)
@@ -230,6 +239,16 @@ function _encode_sampler_term!(buffer::IOBuffer, term)
         foreach(v -> _encode_int!(buffer, v), term[2:6])
     elseif tag == :Graph
         _encode_typing!(buffer, term[2], term[3])
+    elseif tag == :Oracularize
+        _encode_sampler_term!(buffer, term[2])
+    elseif tag == :Pad
+        _encode_int!(buffer, term[2])
+        _encode_sampler_term!(buffer, term[3])
+    elseif tag == :PCP
+        foreach(v -> _encode_int!(buffer, v), term[2:8])
+    elseif tag == :RepeatToy
+        foreach(v -> _encode_int!(buffer, v), term[2:6])
+        _encode_sampler_term!(buffer, term[7])
     else
         throw(ArgumentError("unknown sampler term"))
     end
@@ -266,6 +285,14 @@ function _decode_sampler_term!(buffer::IOBuffer)
     elseif tag == :Graph
         labels, edges = _decode_typing!(buffer)
         return (:Graph, labels, edges)
+    elseif tag == :Pad
+        extra = _decode_int!(buffer)
+        return (:Pad, extra, _decode_sampler_term!(buffer))
+    elseif tag == :PCP
+        return (:PCP, [_decode_int!(buffer) for _ in 1:7]...)
+    elseif tag == :RepeatToy
+        values = [_decode_int!(buffer) for _ in 1:5]
+        return (:RepeatToy, values..., _decode_sampler_term!(buffer))
     else
         return (tag, _decode_sampler_term!(buffer))
     end
@@ -291,9 +318,11 @@ end
 # The children of a term (embedded descriptions) and its leaf test.
 _term_children(term) = term[1] == :DirectSum ? term[2] :
                        term[1] == :Repeat ? Any[term[6]] :
+                       term[1] == :RepeatToy ? Any[term[7]] :
+                       term[1] == :Pad ? Any[term[3]] :
                        term[1] == :Product ? Any[term[2], term[3]] :
-                       term[1] in (:Anchor, :Detype, :Downsize) ? Any[term[2]] : Any[]
-_is_leaf(term) = term[1] in (:Pair, :TypedFamily, :Pauli, :Intro, :Graph)
+                       term[1] in (:Anchor, :Detype, :Downsize, :Oracularize) ? Any[term[2]] : Any[]
+_is_leaf(term) = term[1] in (:Pair, :TypedFamily, :Pauli, :Intro, :Graph, :PCP)
 
 """
     dependency_walk(bytes) :: Set
@@ -320,6 +349,33 @@ function _dependency_walk!(found::Set{Any}, term)
         return found
     end
     term[1] == :Repeat && push!(found, :lambda, :tau, :c_prime)
+    term[1] == :RepeatToy && push!(found, :lambda, :tau, :c_prime, :repetitions)
     foreach(child -> _dependency_walk!(found, child), _term_children(term))
+    found
+end
+
+"""
+    parameter_dependencies(bytes) :: Set{Symbol}
+
+DESIGN 12.3's static dependency analysis: the parameter SYMBOLS a sampler
+description depends on (never a hash, never decider content): `:lambda`,
+`:ell`, `:introparams` (the tilde S^intro leaf), `:pcpparams`, `:sigma_1`
+and `:gamma` (the PCP leaf), `:tau`, `:c_prime`, `:repetitions` (a
+repetition), and `:S` for a CL leaf (its own content).
+"""
+function parameter_dependencies(bytes::AbstractVector{UInt8})
+    found = Set{Symbol}()
+    _parameter_walk!(found, decode_sampler_term(bytes))
+    found
+end
+function _parameter_walk!(found::Set{Symbol}, term)
+    tag = term[1]
+    tag in (:Pair, :TypedFamily) && push!(found, :S)
+    tag == :Pauli && push!(found, :introparams)
+    tag == :Intro && push!(found, :lambda, :ell, :introparams)
+    tag == :PCP && push!(found, :pcpparams, :gamma, :sigma_1)
+    tag == :Repeat && push!(found, :lambda, :tau, :c_prime)
+    tag == :RepeatToy && push!(found, :lambda, :tau, :c_prime, :repetitions)
+    foreach(child -> _parameter_walk!(found, child), _term_children(term))
     found
 end

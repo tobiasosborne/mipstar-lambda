@@ -13,12 +13,13 @@ sampler chain's DESIGN 9.6 rows, the decider rows, the SOURCE_REPAIR
 disclosures and the CITED leaves; sampler independence of V is CHECKED.
 """
 function introspect(V::VerifierDescription, lambda::Integer, ell::Integer; tuple::PauliTuple, F_child::Integer=0,
-                    tracer_index::Integer=1, seeds::Integer=32)
+                    tracer_index::Integer=1, seeds::Integer=32, fixed_width::Bool=false)
     n = Int(tracer_index)
     N = 2 ^ n
-    R = Int(big(N) ^ lambda)
+    R = big(N) ^ lambda
+    R = R <= typemax(Int) ? Int(R) : R                      # exact (BigInt at TB7's lambda = 32768)
     samplers = intro_sampler(lambda, ell; tuple, tracer_index=n, seeds)
-    typed_decider = typed_intro_decider(V, lambda, ell; tuple, F_child)
+    typed_decider = typed_intro_decider(V, lambda, ell; tuple, F_child, fixed_width)
     hat = samplers.hat.term
     decider = detype_decider(typed_decider, hat.typing)
     out = VerifierDescription(samplers.detyped.term, decider.term)
@@ -58,9 +59,10 @@ struct ExecutableIntrospect <: CompressStage
     F_child::Int
     tracer_index::Int
     seeds::Int
+    fixed_width::Bool
 end
-ExecutableIntrospect(; tuple::PauliTuple, F_child::Integer=0, tracer_index::Integer=1, seeds::Integer=32) =
-    ExecutableIntrospect(tuple, Int(F_child), Int(tracer_index), Int(seeds))
+ExecutableIntrospect(; tuple::PauliTuple, F_child::Integer=0, tracer_index::Integer=1, seeds::Integer=32, fixed_width::Bool=false) =
+    ExecutableIntrospect(tuple, Int(F_child), Int(tracer_index), Int(seeds), fixed_width)
 
 function Introspect(stage::ExecutableIntrospect, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, ell::Integer;
                     params::NamedTuple=(;))
@@ -69,7 +71,7 @@ function Introspect(stage::ExecutableIntrospect, checked::Union{Checked,_VERIFIE
     tuple = get(params, :tuple, stage.tuple)
     F_child = get(params, :F_child, stage.F_child)
     tracer_index = get(params, :n, stage.tracer_index)
-    result = introspect(V, lambda, ell; tuple, F_child, tracer_index, seeds=stage.seeds)
+    result = introspect(V, lambda, ell; tuple, F_child, tracer_index, seeds=stage.seeds, fixed_width=stage.fixed_width)
     I = result.term
     sampler_time = Opaque("TIME_S(n): $(I.sampler.query_time) (poly(n, lambda, ell) CITED); metered steps only", (:n,))
     decider_time = Opaque("TIME_D(n): $(I.decider.time_bound); child calls under the step meter with budget $(F_child == 0 ? "N^lambda" : "F_child = $(F_child) (toy)")", (:n,))

@@ -65,8 +65,8 @@ const TB5_NO_GUARD_MUTANT = Mutant(
 const TB5_DECIDER_HASH_MUTANT = Mutant(
     "TB5 M5-decider-hash sampler_depends_on_decider",
     "src/repeat/repeat.jl",
-    "    sampler = repeat_sampler(A.sampler, lambda, tau; c_prime=c, tracer_index=n, seeds)",
-    "    sampler = repeat_sampler(A.sampler, lambda, tau + (V.decider.term[1] == :Copy ? 0 : 1); c_prime=c, tracer_index=n, seeds)",
+    "    sampler = repeat_sampler(A.sampler, lambda, tau; c_prime=c, tracer_index=n, seeds, repetitions)",
+    "    sampler = repeat_sampler(A.sampler, lambda, tau + (V.decider.term[1] == :Copy ? 0 : 1); c_prime=c, tracer_index=n, seeds, repetitions)",
     "tb5_independence")
 
 # M-factor-partition (Anchor-scoped, NOTE-A): the literal all-zero Anchor
@@ -110,8 +110,8 @@ const TB5_LAW_DRIFT_MUTANT = Mutant(
 const TB5_DEPENDENCY_MUTANT = Mutant(
     "TB5 M-dependency walk_drops_c_prime",
     "src/descriptions/sorts.jl",
-    "    term[1] == :Repeat && push!(found, :lambda, :tau, :c_prime)\n    foreach(child -> _dependency_walk!(found, child), _term_children(term))",
-    "    term[1] == :Repeat && push!(found, :lambda, :tau)\n    foreach(child -> _dependency_walk!(found, child), _term_children(term))",
+    "    term[1] == :Repeat && push!(found, :lambda, :tau, :c_prime)\n    term[1] == :RepeatToy",
+    "    term[1] == :Repeat && push!(found, :lambda, :tau)\n    term[1] == :RepeatToy",
     "tb5_independence")
 
 # M-tensor: the product type graph is the Cartesian graph; the red edge

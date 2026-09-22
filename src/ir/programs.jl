@@ -46,8 +46,11 @@ end
 
 # A primitive name is finite serializable data: a registered operator
 # (Symbol) or a literal: Bool (`Prim(true, Concrete(1), ())` of DESIGN 1.1),
-# natural (Int) or bit string (Vector{Bool}).
-const PrimName = Union{Symbol,Bool,Int,Vector{Bool}}
+# natural (Int), bit string (Vector{Bool}) or -- TB7 (briefs/39 API request,
+# the lowering of descriptions into the program IR) -- a byte string
+# (Vector{UInt8}): a description's canonical bytes as a literal, one byte per
+# byte, so `sampler_machine`/`decider_machine` run descriptions under Eval fuel.
+const PrimName = Union{Symbol,Bool,Int,Vector{Bool},Vector{UInt8}}
 
 struct BoundVar <: Program
     depth::Int
@@ -275,7 +278,7 @@ const _PROGRAM_TAGS = Dict(
     :Fix => 0x24, :If => 0x25, :Prim => 0x26, :Quote => 0x27, :Eval => 0x28,
     :Specialize => 0x29, :Concrete => 0x30, :Opaque => 0x31,
     :FuelLiteral => 0x32, :FuelBound => 0x33,
-    :NameSymbol => 0x40, :NameNat => 0x41, :NameBits => 0x42, :NameBool => 0x43)
+    :NameSymbol => 0x40, :NameNat => 0x41, :NameBits => 0x42, :NameBool => 0x43, :NameBytes => 0x44)
 const _PROGRAM_TAG_NAMES = Dict(byte => tag for (tag, byte) in _PROGRAM_TAGS)
 const PROGRAM_HEADER = 0xC2
 
@@ -336,6 +339,10 @@ function _encode_name!(buffer::IOBuffer, name::PrimName)
     elseif name isa Int
         write(buffer, _PROGRAM_TAGS[:NameNat])
         _encode_int!(buffer, name)
+    elseif name isa Vector{UInt8}
+        write(buffer, _PROGRAM_TAGS[:NameBytes])
+        _encode_int!(buffer, length(name))
+        write(buffer, name)
     else
         write(buffer, _PROGRAM_TAGS[:NameBits])
         _encode_bits!(buffer, name)
@@ -456,6 +463,11 @@ function _decode_name!(buffer::IOBuffer)
         return read(buffer, UInt8) != 0
     end
     tag == :NameNat && return _decode_int!(buffer)
+    if tag == :NameBytes
+        count = _decode_int!(buffer)
+        bytesavailable(buffer) >= count || throw(ArgumentError("truncated description"))
+        return read(buffer, count)
+    end
     tag == :NameBits || throw(ArgumentError("expected a primitive name"))
     _decode_bits!(buffer)
 end
@@ -707,6 +719,10 @@ function _encode_value!(buffer::IOBuffer, value)
     elseif value isa Vector{Bool}
         write(buffer, 0x52)
         _encode_bits!(buffer, value)
+    elseif value isa Vector{UInt8}
+        write(buffer, 0x54)
+        _encode_int!(buffer, length(value))
+        write(buffer, value)
     elseif value isa Code
         write(buffer, 0x53)
         bytes = _quoted_bytes(value.program, value.sort)
@@ -739,7 +755,7 @@ eval_overhead(q::Quoted, values::Tuple) = 3 + description_size(q) + encoded_size
 
 function _same_ground(a, b)
     (a isa Bool && b isa Bool) || (a isa Int && b isa Int) ||
-        (a isa Vector{Bool} && b isa Vector{Bool})
+        (a isa Vector{Bool} && b isa Vector{Bool}) || (a isa Vector{UInt8} && b isa Vector{UInt8})
 end
 
 # The machine model of a MachineDesc literal (see `_is_machine_desc`):
@@ -806,8 +822,19 @@ function _primitive(name::PrimName)
     name isa Bool && return (0, 1, () -> name)
     name isa Int && return (0, 1, () -> name)
     name isa Vector{Bool} && return (0, 1, () -> copy(name))
+    name isa Vector{UInt8} && return (0, 1, () -> copy(name))
     get(PRIMITIVES, name, nothing)
 end
+
+# TB7 (briefs/39 and briefs/43 API request 1): DESCRIPTION primitives run a
+# quoted description on the universal description interpreter with the
+# remaining Eval fuel as the step budget, so one metered interpreter step is
+# one fuel unit (the same charge table as DESIGN 11.4's Meter); the
+# (budget+1)-th step is never executed: the run ends in OutOfFuel exactly
+# where the meter would have refused. An implementation returns
+# `(result, steps)`, `nothing` for an illegal call (SortError, the primitive
+# contract), or `:timeout`. Registered by src/compress/lowering.jl.
+const DESCRIPTION_PRIMITIVES = Dict{Symbol,Tuple{Int,Function}}()
 
 # ---------------------------------------------------------------------------
 # The deterministic call-by-value CEK machine (analytic part2a 8.3): charged
@@ -931,6 +958,18 @@ function _contract_sequence!(m::Machine, frame::SeqFrame)
         return true
     elseif frame.kind == :prim
         node = frame.node::Prim
+        if node.name isa Symbol && haskey(DESCRIPTION_PRIMITIVES, node.name)
+            arity, implementation = DESCRIPTION_PRIMITIVES[node.name]
+            length(values) == arity || return _type_error!(m, :primitive_arity)
+            remaining = isempty(m.limits) ? m.fuel : min(m.fuel, m.limits[end] - m.used)
+            outcome = implementation(values..., remaining)
+            outcome === nothing && return _type_error!(m, :primitive_contract)
+            outcome === :timeout && return _charge!(m, remaining + 1)     # exhausts the budget: OutOfFuel
+            result, steps = outcome
+            _charge!(m, steps) || return false
+            m.control = Ret(result)
+            return true
+        end
         registered = _primitive(node.name)
         registered === nothing && return _type_error!(m, :unknown_primitive)
         arity, declared_charge, implementation = registered
@@ -950,7 +989,7 @@ function _contract_sequence!(m::Machine, frame::SeqFrame)
         code.sort in FUNCTION_SORTS || return _type_error!(m, :eval_sort)
         count = length(node.args)
         args = values[2:1 + count]
-        all(v -> v isa Bool || v isa Int || v isa Vector{Bool} || v isa Code, args) ||
+        all(v -> v isa Bool || v isa Int || v isa Vector{Bool} || v isa Vector{UInt8} || v isa Code, args) ||
             return _type_error!(m, :eval_argument)
         inner = _fuel_value(node.fuel, values[2 + count:end])
         inner === nothing && return _type_error!(m, :eval_fuel)
@@ -1141,7 +1180,7 @@ function program_label(p::Program)
     p isa Apply && return "Apply(...)"
     p isa Fix && return "Fix(...)"
     p isa If && return "If(...)"
-    p isa Prim && return "Prim($(p.name isa Vector{Bool} ? join(Int.(p.name)) : p.name))"
+    p isa Prim && return "Prim($(p.name isa Vector{Bool} ? join(Int.(p.name)) : p.name isa Vector{UInt8} ? "bytes[$(length(p.name))]" : p.name))"
     p isa Quote && return "Quote(...)"
     p isa Eval && return "Eval(...)"
     "Specialize(...)"
@@ -1151,6 +1190,7 @@ function value_label(v)
     v isa Bool && return string(v)
     v isa Int && return string(v)
     v isa Vector{Bool} && return "[" * join(Int.(v)) * "]"
+    v isa Vector{UInt8} && return "bytes[$(length(v))]"
     v isa Code && return "Code(" * quote_hash(_quoted_bytes(v.program, v.sort)) * ")"
     v isa Closure && return "Closure($(v.arity))"
     string(v)

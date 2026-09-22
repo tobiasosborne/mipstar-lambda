@@ -337,9 +337,12 @@ _combine(statuses) = any(==(FAIL), statuses) ? FAIL :
 # A constant runtime c satisfies c <= limit(n) for all n >= 2 iff c <= limit(2)
 # when limit is nondecreasing in n (n^lambda, (2^(lambda n))^mu, (lambda n)^mu, (lambda n)^tau).
 function _time_status(bound::BoundExpr, limit::BigInt, label::String, limit_label::String)
-    bound isa Concrete || return (NOT_EVALUABLE, "$(label) = $(bound.description) (opaque)")
+    bound isa Concrete || return (NOT_EVALUABLE, "$(label) = $(bound.description) (opaque) <= $(limit_label)")
     (big(bound.value) <= limit ? PASS : FAIL, "$(label) = $(bound.value) <= $(limit_label)")
 end
+# REPEAT_CONTRACT's completeness bound (lambda n)^tau is evaluated at the CONSTRUCTION index the stage
+# supplies as `n` (verdicts/tb5-r1.md O11; brief 80 D14), n = 2 only when no index is supplied.
+_repeat_index(p) = get(p, :n, 2)
 
 function _times_status(v, limit::BigInt, limit_label::String)
     s = _time_status(_sampler_time(v), limit, "TIME_S", limit_label)
@@ -355,11 +358,16 @@ end
 
 _normal_form_status(v::Verifier, params) =
     (NOT_EVALUABLE, "sampler is a stub description; field size 2 and the decider format are not decided here")
+# TB7 (briefs/43 API request 4; verdicts/tb5-r1.md O11): an executable stage
+# output carries a VerifierDescription payload whose normal form is decided
+# structurally; a CITED stub's stays NOT_EVALUABLE. The display states only
+# what is checked (field 2, untyped): totality is the interpreter's property.
 _normal_form_status(v::AbstractStageVerifier, params) =
+    v.payload isa VerifierDescription ? _normal_form_status(v.payload, params) :
     (NOT_EVALUABLE, "normal form of a $(v.origin) output is that stage's CITED conclusion")
 _normal_form_status(v::VerifierDescription, params) =
     (v.sampler.field_size == 2 && v.sampler.typing isa Untyped ? PASS : FAIL,
-     "sampler over F_$(v.sampler.field_size), $(v.sampler.typing isa Untyped ? "untyped" : "typed"), level $(v.sampler.level), decider a total $(v.decider.typing isa Untyped ? "five" : "seven")-input predicate (structural check of gt-05:625-635; the value/PCC content is not decided here)")
+     "sampler over F_$(v.sampler.field_size), $(v.sampler.typing isa Untyped ? "untyped" : "typed"), level $(v.sampler.level); decider $(v.decider.typing isa Untyped ? "untyped (n, x, y, a, b)" : "typed") -- the structural check of gt-05:625-635 (field size 2, untyped); totality, value and PCC content are not decided here")
 
 const _DEF_LAMBDA = "gt-05-games-normalform.tex:L641-L653 (def:lambda)"
 const _DEF_NORMAL_FORM = "gt-05-games-normalform.tex:L625-L635 (normal form verifier)"
@@ -398,7 +406,8 @@ const REPEAT_CONTRACT = Contract(:Repeat, Symbol("thm:repetition"),
     (Hypothesis(:normal_form, "V is an ell-level normal form verifier", _DEF_NORMAL_FORM, _normal_form_status),
      Hypothesis(:completeness_decider_time, "(completeness only) TIME_D(n) <= (lambda*n)^tau",
                 "gt-11-parallel-repetition.tex:L239-L243 (enu:pr-completeness)",
-                (v, p) -> _time_status(_decider_time(v), big(2 * p.lambda)^p.tau, "TIME_D", "(2 lambda)^tau (n = 2)"))),
+                # verdicts/tb5-r1.md O11: evaluated at the construction index p.n when the stage supplies it.
+                (v, p) -> _time_status(_decider_time(v), big(_repeat_index(p) * p.lambda)^p.tau, "TIME_D", "($(_repeat_index(p)) lambda)^tau (n = $(_repeat_index(p)))"))),
     ("V^rep is (ell + 2)-level with k(n) = (lambda n)^((1 + c') tau)",
      "TIME_S = O(k(n) TIME_S(n)); TIME_D = O(k(n) max(TIME_D(n), (lambda n)^tau))",
      "S^rep depends only on S, lambda, tau", "completeness (PCC), soundness Ent(V^rep_n, p) >= Ent(V_n, 1 - eps)"))
@@ -651,7 +660,10 @@ function level_chain(v::AbstractStageVerifier)
 end
 
 const _COMPRESS_FREE = (:n, :lambda)
-const _INDEPENDENCE_ALLOWED = (:lambda, :ell, :mu, :gamma, :tau, :D1_size)
+# TB7 adds the executable stages' parameter symbols: c' (Repeat), the Pauli
+# tuple symbols (Introspect), the PCP tuple / sigma_1 (AnswerReduce) and the
+# ToyPolicy repetition count; none of them is a component of V.
+const _INDEPENDENCE_ALLOWED = (:lambda, :ell, :mu, :gamma, :tau, :D1_size, :c_prime, :introparams, :pcpparams, :sigma_1, :repetitions)
 
 "Every runtime bound along the chain closes to free parameters within {n, lambda}, and Compress reports poly(n, lambda)."
 function runtime_composition_ok(v::AbstractStageVerifier)
@@ -662,7 +674,12 @@ function runtime_composition_ok(v::AbstractStageVerifier)
     all(issubset(free_parameters(b), _COMPRESS_FREE) for b in bounds) &&
         v.sampler_time == Opaque("poly(n, lambda)", _COMPRESS_FREE) &&
         v.decider_time == Opaque("poly(n, lambda)", _COMPRESS_FREE) &&
-        all(free_parameters(stages[i].sampler_time) == free_parameters(stages[i].decider_time) == _COMPRESS_FREE
+        # A CITED stub stage closes to exactly {n, lambda}; an executable stage
+        # (TB5-TB7, a StageVerifier) carries description-level laws whose only
+        # free symbol is n, lambda being bound data in its bytes.
+        all(stages[i] isa StubVerifier ?
+                free_parameters(stages[i].sampler_time) == free_parameters(stages[i].decider_time) == _COMPRESS_FREE :
+                issubset(free_parameters(stages[i].sampler_time), _COMPRESS_FREE) && issubset(free_parameters(stages[i].decider_time), _COMPRESS_FREE)
             for i in 1:3)
 end
 

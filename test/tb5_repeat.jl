@@ -12,7 +12,8 @@ Base.Experimental.@optlevel 0
 # L89-L136, repetition L200-L220, thm:repetition L229-L258.
 
 const TB5_TARGET = get(ENV, "TB5_TARGET", "all")
-tb5_runs(name) = TB5_TARGET == "all" || TB5_TARGET == name
+include(joinpath(@__DIR__, "calibration.jl"))   # the suite kernel, idempotent (brief 80 D2)
+tb5_runs(name) = TB5_TARGET in ("all", "tb5_gate") || TB5_TARGET == name   # "tb5_gate": the whole file with its gates (M5-gate-body-inflated)
 # The repository root: this file's parent, or (for a mutated copy of this
 # file run from a sandbox by test/mutations/run.jl) the package's own root.
 const TB5_ROOT = isdir(joinpath(@__DIR__, "..", "ground-truth")) ? normpath(joinpath(@__DIR__, "..")) :
@@ -636,8 +637,9 @@ if tb5_runs("tb5_repeat")
                 " (DESIGN 10.3 gate < 2); total bytes allocated during construction MiB = ", TB5_LOG[:construction_alloc_MiB],
                 "; peak RSS delta MiB = ", TB5_LOG[:construction_peak_rss_delta_MiB],
                 "; GC live-heap delta MiB = ", TB5_LOG[:construction_live_delta_MiB])
-        println("MUTATION_EXPECTED_RULE tb5_walls construction<2 => ", TB5_LOG[:construction_seconds] < 2)
-        @test TB5_LOG[:construction_seconds] < 2
+        gate = calibrated_gate(:tb5_construction, TB5_LOG[:construction_seconds])     # verdicts/tb6-r1.md O2 (brief 80 D2)
+        println("MUTATION_EXPECTED_RULE tb5_walls construction ratio<", gate.K, " => ", gate.ratio_ok, " wall<", gate.ceiling, " => ", gate.wall_ok)
+        @test gate.ratio_ok && gate.wall_ok
         @test TB5_LOG[:construction_peak_rss_delta_MiB] < 256
     end
 end
@@ -790,8 +792,9 @@ if tb5_runs("tb5_transcripts")
         println("MUTATION_EXPECTED_RULE T5-boundary accept9=", bit9, " reject10=", !bit10, " pre_call_log_empty=", isempty(calls10))
         TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)
         println("TB5 (g) warm transcript seconds = ", TB5_LOG[:transcript_seconds], " (DESIGN 10.3 gate < 5)")
-        println("MUTATION_EXPECTED_RULE tb5_walls transcripts<5 => ", TB5_LOG[:transcript_seconds] < 5)
-        @test TB5_LOG[:transcript_seconds] < 5
+        gate = calibrated_gate(:tb5_transcripts, TB5_LOG[:transcript_seconds])        # verdicts/tb6-r1.md O2 (brief 80 D2)
+        println("MUTATION_EXPECTED_RULE tb5_walls transcripts ratio<", gate.K, " => ", gate.ratio_ok, " wall<", gate.ceiling, " => ", gate.wall_ok)
+        @test gate.ratio_ok && gate.wall_ok
     end
 end
 
@@ -825,6 +828,15 @@ if tb5_runs("tb5_cited")
         @test length(hyp) >= 1
         @test any(occursin("NOT_EVALUABLE(owner=", n.facts.display) for n in hyp)
         @test any(n.facts.status == NOT_EVALUABLE for n in hyp)
+        # verdicts/tb5-r1.md O11 (brief 80 D14): the predicate is printed at the CONSTRUCTION index n = 9, where B(9) = 9,
+        # never at n = 2; the grade stays NOT_EVALUABLE because the bound is opaque.
+        @test all(occursin("(9 lambda)^tau (n = 9)", n.facts.display) && !occursin("(n = 2)", n.facts.display) for n in hyp)
+        println("MUTATION_EXPECTED_RULE tb5_cited repeat_index=", all(occursin("(n = 9)", n.facts.display) for n in hyp))
+        # brief 80 D14 (ii): the normal-form hypothesis on a VerifierDescription displays exactly what is checked
+        # (field size 2, untyped; def:normal-ver gt-05:L624-L634), not a totality claim.
+        nf = tb5_find(R.certificate, :normal_form)
+        @test length(nf) >= 1 && all(n.facts.status == PASS for n in nf)
+        @test all(occursin("field size 2, untyped", n.facts.display) && !occursin("total five-input", n.facts.display) for n in nf)
         cited = [n for n in tb5_nodes(R.certificate) if n.grade == CITED]
         labels = Set(n.rule for n in cited)
         for label in (Symbol("thm:repetition"), Symbol("prop:anchoring"), Symbol("lem:detyping-verifiers"),
@@ -884,8 +896,9 @@ if tb5_runs("tb5_tree")
                 "; construction peak RSS delta MiB = ", get(TB5_LOG, :construction_peak_rss_delta_MiB, nothing),
                 "; process peak RSS MiB = ", round(Sys.maxrss() / 2^20; digits=1))
         if walls.construction !== nothing && walls.transcripts !== nothing
-            println("MUTATION_EXPECTED_RULE tb5_walls total<7 => ", walls.construction + walls.transcripts < 7)
-            @test walls.construction + walls.transcripts < 7
+            gate = calibrated_gate(:tb5_total, walls.construction + walls.transcripts)  # verdicts/tb6-r1.md O2 (brief 80 D2)
+            println("MUTATION_EXPECTED_RULE tb5_walls total ratio<", gate.K, " => ", gate.ratio_ok, " wall<", gate.ceiling, " => ", gate.wall_ok)
+            @test gate.ratio_ok && gate.wall_ok
         end
     end
 end
