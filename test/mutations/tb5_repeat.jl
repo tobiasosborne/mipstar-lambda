@@ -244,22 +244,22 @@ const TB5_DROP_FRAMING_DISCLOSURE_MUTANT = Mutant(
     "tb5_tree", "census=(55, 9, 27, 10, 4, 5)")
 
 # O5 M5-wall-construction: the construction's chain set is inflated 128x;
-# the hard DESIGN 10.3 construction gate (< 2 s) fails.
+# the calibrated construction gate (ratio < K, brief 80 D2; formerly the hard < 2 s wall) fails.
 const TB5_WALL_CONSTRUCTION_MUTANT = Mutant(
     "TB5 M5-wall-construction chain_set_inflated",
     "test/tb5_repeat.jl",
     "c_prime=TB5_C_PRIME, tracer_index=TB5_N, seeds=32)",
     "c_prime=TB5_C_PRIME, tracer_index=TB5_N, seeds=4096)",
-    "tb5_repeat", "construction<2 => false")
+    "tb5_repeat", "tb5_walls construction ratio<4 => false")
 
 # O5 M5-wall-transcripts: every honest transcript samples its questions 1000
-# times; the hard transcript gate (< 5 s) fails while every verdict holds.
+# times; the calibrated transcript gate (ratio < K, brief 80 D2; formerly the hard < 5 s wall) fails while every verdict holds.
 const TB5_WALL_TRANSCRIPTS_MUTANT = Mutant(
     "TB5 M5-wall-transcripts question_sampling_inflated",
     "test/tb5_repeat.jl",
     "    x, y = sample_questions(V.sampler, TB5_N, z)\n    xs = [",
     "    foreach(_ -> sample_questions(V.sampler, TB5_N, z), 1:999)\n    x, y = sample_questions(V.sampler, TB5_N, z)\n    xs = [",
-    "tb5_transcripts", "transcripts<5 => false")
+    "tb5_transcripts", "tb5_walls transcripts ratio<4 => false")
 
 # O7 M5-law-framing-dropped: the emitted question law loses the 32 framing
 # bits; the law assertion and the DESIGN 10.2 lockstep fail.

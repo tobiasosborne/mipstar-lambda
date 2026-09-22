@@ -368,7 +368,13 @@ function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
     occurrences == 1 || error("mutation $(mutant.label) matched $occurrences source sites")
     mutated_path = joinpath(sandbox, basename(mutant.source))
     document = startswith(mutant.source, "docs/") || startswith(mutant.source, "ground-truth/")
-    if rung == :suite || document
+    # A mutant of a rung TEST file is also run from a shadow tree: the rung
+    # files include `joinpath(@__DIR__, "calibration.jl")` (brief 80 D2), so a
+    # mutated copy written alone into the sandbox died on load -- the five
+    # test-file gate mutants were scored SURVIVED / KILLED-BY-CRASH on a
+    # SystemError, never on their gate (found 2026-09-22).
+    test_file = startswith(mutant.source, "test/")
+    if rung == :suite || document || test_file
         # A mutant of the suite driver includes its sibling rung files
         # relative to itself and those read ground-truth/docs relative to
         # their own directory; a mutant of a DOCUMENT (brief 78, NEW-4) is

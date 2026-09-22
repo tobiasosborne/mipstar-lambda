@@ -29,4 +29,4 @@ julia --project=. test/mutations/run.jl       # every mutation must exit NONZERO
 ```
 
 ## Beads
-`bd` is the issue tracker (prefix `mipstar-lambda-`). No git remote exists: the "push" steps in the bd session protocol do NOT apply; commit locally with status-bearing messages.
+`bd` is the issue tracker (prefix `mipstar-lambda-`), but its Dolt database is gitignored and local to the original machine; a fresh clone has none (session 5: not needed). The git remote is the public GitHub repo; commit with status-bearing messages and push `main` (one branch; no long-lived side branches).

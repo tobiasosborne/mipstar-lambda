@@ -1328,6 +1328,8 @@ is conditional concatenation, so the level is `ell+2` and the dimension is `4|Ty
 `D(n,tA,x_body,tB,y_body,a,b)`.  This accept-on-invalid behavior is literal, including its adversarial tests
 (`gt-06-types.tex:L409-L427`).
 
+The stored type graph is the oriented pair set: an undirected source graph is stored as both orientations of every non-loop edge plus every loop (G^pauli: 26 loops + 30 non-loops = 86 oriented pairs; G^intro: 2ℓ+39 non-loops, 6ℓ+110 oriented pairs), asserted against the undirected transcription, and `detype_decider` iterates the oriented list.
+
 The construction, `+2`, `4|Type|`, parser, exact bytes, and child-call costs are CONSTRUCTED or CHECKED.  Value-one preservation, the implication with `16^|Type| epsilon`, the Ent map, and the theorem-level polynomial time bounds remain CITED from `lem:detyping-verifiers`
 (`gt-06-types.tex:L444-L475`).
 
@@ -1363,7 +1365,7 @@ Every result has an ASSUME/PROVE contract.  ASSUME nodes contain field alignment
 | formula AST for runtime and gap bookkeeping | CHECKED |
 | asymptotic bound, completeness, soundness, or Ent implication | CITED |
 
-This output-sampler row is mandatory for **every** signature above: `downsize`, `direct_sum`, `product`, `detype`, `anchor`, `repeat`, `introspect`, and `compress`, and for the primitive sampler-producing signatures `pauli_sampler`, `tilde_S_intro` (the code spelling of `tilde S^intro`), and `graph_sampler`.  For composites the certificate tree retains the replay at every intermediate sampler, not only at the final output.
+This output-sampler row is mandatory for **every** signature above: `downsize`, `direct_sum`, `product`, `detype`, `anchor`, `repeat`, `introspect`, and `compress`, and for the primitive sampler-producing signatures `pauli_sampler`, `tilde_S_intro` (the code spelling of `tilde S^intro`), and `graph_sampler`.  For composites the certificate tree retains the replay at every intermediate sampler, not only at the final output.  `TypedDecider(TypeSet, body)` is the general typed decider term whose bytes carry the labels, with `pauli_decider` and `typed_intro_decider` as instances and `:TypedAnchor` as the compact spelling of the anchor instance.
 
 The decider constructors carry equally explicit local laws:
 
