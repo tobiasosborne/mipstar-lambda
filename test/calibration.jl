@@ -18,30 +18,45 @@
 # on the kernel, so a rung file included standalone by the mutation runner
 # (TB5_TARGET / TB6A_TARGET / TB6B_TARGET) has the kernel too.
 if !isdefined(Main, :SUITE_CALIBRATION)
-    function suite_calibration_kernel()
-        elements = collect(field_elements(GF8))   # runtime data, so the loop is not folded away
-        acc = zero(GF8)
-        for i in 1:1_200_000, a in elements, b in elements, c in elements
-            acc += a * b + c * elements[(i % 8) + 1]
+    # The kernel lives in its own module with the optimization level pinned:
+    # every rung file sets `Base.Experimental.@optlevel 0` on Main BEFORE it
+    # includes this file, and a module inherits its parent's level, so a kernel
+    # defined in Main would compile at -O0 when a rung file runs standalone (the
+    # mutation runner's TB5_TARGET/TB6A_TARGET/TB6B_TARGET path) -- measured
+    # 17.49 s standalone vs 0.79 s in-suite on one box, which made every
+    # standalone ratio ~20x laxer than the in-suite one.
+    @eval module SuiteCalibrationKernel   # @eval: a module expression must be evaluated at top level
+        Base.Experimental.@optlevel 2
+        using MIPStarLambda: GF8, field_elements
+        function kernel()
+            elements = collect(field_elements(GF8))   # runtime data, so the loop is not folded away
+            acc = zero(GF8)
+            for i in 1:1_200_000, a in elements, b in elements, c in elements
+                acc += a * b + c * elements[(i % 8) + 1]
+            end
+            acc
         end
-        acc
     end
+    suite_calibration_kernel() = SuiteCalibrationKernel.kernel()
     const SUITE_KERNEL_VALUE = suite_calibration_kernel()   # warm-up; the value is deterministic
     const SUITE_CALIBRATION = @elapsed suite_calibration_kernel()
     println("suite calibration kernel seconds = ", round(SUITE_CALIBRATION; digits=4), " (excluded from every timed body)")
 
-    # The calibrated gates: (K, absolute ceiling in seconds, the quiet in-suite
-    # measurement the K was set from, in seconds, and its quiet ratio). The
-    # quiet numbers are the brief-80 measurements on the reference box
-    # (performance governor, load < 1); they are documentation, the gate is K.
+    # The calibrated gates: (K, absolute ceiling in seconds, the in-suite
+    # measurement the K was set from, in seconds, and its ratio). tb6a_audit's
+    # numbers are the critic's quiet reference-box measurement; the TB5/TB6b
+    # rows were set on 2026-09-22 from ONE in-suite run (runtests.jl, load ~1,
+    # kernel 0.7825 s) in a 4-core cloud container, not the reference box --
+    # no performance governor is available there. K = max(4, ceil(3 ratio)),
+    # ceiling = 4 K 0.48 s. They are documentation; the gate is K.
     const CALIBRATED_GATES = (
-        tb5_construction = (K=4,  ceiling=8.0,  quiet_seconds=0.0,   quiet_ratio=0.0),
-        tb5_transcripts  = (K=4,  ceiling=8.0,  quiet_seconds=0.0,   quiet_ratio=0.0),
-        tb5_total        = (K=8,  ceiling=16.0, quiet_seconds=0.0,   quiet_ratio=0.0),
+        tb5_construction = (K=4, ceiling=7.68, quiet_seconds=0.533, quiet_ratio=0.68),
+        tb5_transcripts  = (K=4, ceiling=7.68, quiet_seconds=0.986, quiet_ratio=1.26),
+        tb5_total        = (K=6, ceiling=11.52, quiet_seconds=1.519, quiet_ratio=1.94),
         tb6a_audit       = (K=18, ceiling=35.0, quiet_seconds=2.765, quiet_ratio=5.76),
-        tb6b_E           = (K=4,  ceiling=8.0,  quiet_seconds=0.0,   quiet_ratio=0.0),
-        tb6b_M           = (K=4,  ceiling=8.0,  quiet_seconds=0.0,   quiet_ratio=0.0),
-        tb6b_combined    = (K=8,  ceiling=16.0, quiet_seconds=0.0,   quiet_ratio=0.0),
+        tb6b_E           = (K=33, ceiling=63.36, quiet_seconds=8.51, quiet_ratio=10.88),
+        tb6b_M           = (K=21, ceiling=40.32, quiet_seconds=5.316, quiet_ratio=6.79),
+        tb6b_combined    = (K=54, ceiling=103.68, quiet_seconds=13.826, quiet_ratio=17.67),
     )
 
     """

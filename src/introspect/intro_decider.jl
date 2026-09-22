@@ -197,7 +197,8 @@ function _metered_decide_typed(term, n::Int, tA, x::AbstractVector{Bool}, tB, y:
         labels, body = term[2], term[3]
         _charge!(ctx, 2 + length(x) + length(y) + length(a) + length(b))
         inner = Any[]
-        return _decide_typed_body(labels, body, n, String(tA), x, String(tB), y, a, b, inner; parent=ctx)
+        # Normalize to Vector{Bool} exactly as the flat `decide_traced` entry does (a BitVector transcript reaches here).
+        return _decide_typed_body(labels, body, n, String(tA), Vector{Bool}(x), String(tB), Vector{Bool}(y), Vector{Bool}(a), Vector{Bool}(b), inner; parent=ctx)
     end
     throw(ArgumentError("unknown typed decider term $(tag) for a metered child call"))
 end

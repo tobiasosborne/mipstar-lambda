@@ -1018,9 +1018,17 @@ if tb6b_runs("tb6b_nested")
         # The same call under budget exactly `total` returns; under `total - 1` the (budget + 1)-th step never executes.
         exact = Meter(total)
         @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, exact) == flat && exact.steps == total
+        # One unit short: a nested child call is refused on its bounded meter -- a timeout, hence a rejection
+        # (DESIGN 11.4 "Nested typed deciders"; gt-08:L417-L419) -- and no step beyond the budget executes.
         short = Meter(total - 1)
-        @test_throws M6.FuelExhausted M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, short)
+        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, short) == false
         @test short.steps <= total - 1
+        # Below the enclosing level's OWN charges (depth 1) the enclosing meter itself refuses its (budget+1)-th step.
+        own = ctx.by_depth[1]
+        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, Meter(own)) == false
+        starved = Meter(own - 1)
+        @test_throws M6.FuelExhausted M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, starved)
+        @test starved.steps <= own - 1
         # The rejected view-swap is rejected through the nested path too (M-detype-view-orientation family).
         @test !M6._metered_decide(D_nested, 2, xd, yd, t.aB, t.aA, Meter(0)) == !decide(I.decider, 2, xd, yd, t.aB, t.aA)
         println("MUTATION_EXPECTED_RULE tb6b_nested total=", total, " by_depth=", ctx.by_depth, " verdict=", flat)
@@ -1062,9 +1070,10 @@ if tb6b_runs("tb6b_currency")
         D = f.V.decider
         z = TB6B_Z_STAR
         # Direct metered queries (the DESIGN 11.4 unit) and the same queries as sampler_machine calls under Eval fuel.
-        queries = (("Dimension", DimensionQuery(4), (0, 4, false, 1, falses(6), falses(6), UInt8[])),
-                   ("Marginal(3)", MarginalQuery(4, :alice, 3, tb6b_gf2(z), nothing), (1, 4, false, 3, z, falses(6), UInt8[])),
-                   ("Factor(2, e1)", FactorQuery(4, :alice, 2, tb6b_gf2(tb6b_e(1, 6)), nothing), (3, 4, false, 2, tb6b_e(1, 6), falses(6), UInt8[])))
+        # Eval arguments are Vector{Bool}: the primitive contract refuses a BitVector (falses) as a Bits value.
+        queries = (("Dimension", DimensionQuery(4), (0, 4, false, 1, fill(false, 6), fill(false, 6), UInt8[])),
+                   ("Marginal(3)", MarginalQuery(4, :alice, 3, tb6b_gf2(z), nothing), (1, 4, false, 3, z, fill(false, 6), UInt8[])),
+                   ("Factor(2, e1)", FactorQuery(4, :alice, 2, tb6b_gf2(tb6b_e(1, 6)), nothing), (3, 4, false, 2, Vector{Bool}(tb6b_e(1, 6)), fill(false, 6), UInt8[])))
         prog = M6.lower_sampler(S)
         overheads = Int[]
         for (name, q, args) in queries

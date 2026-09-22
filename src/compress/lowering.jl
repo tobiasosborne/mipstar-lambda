@@ -2,7 +2,7 @@
 # into the DESIGN 1.1 program IR, so a description runs under `Eval` fuel
 # with the interpreter-step unit of DESIGN 11.4 as the fuel unit.
 #
-#   lower_sampler(S)  = Lambda(8, sampler_machine(bytes, mode, n, w, j, u, y, t))   sort Sampler
+#   lower_sampler(S)  = Lambda(7, sampler_machine(bytes, mode, n, w, j, u, y, t))   sort Sampler
 #   lower_decider(D)  = Lambda(5, decider_machine(bytes, n, x, y, a, b))            sort Decider
 #   lift_decider(q)   = the DeciderDescription (:Program, bytes) of a Quoted{Decider}
 #
@@ -84,8 +84,8 @@ DESCRIPTION_PRIMITIVES[:decider_machine] = (6, _run_decider_machine)
 "The DESIGN 1.1 program of sort Sampler running the description S under Eval fuel (one metered step = one unit)."
 function lower_sampler(S::SamplerDescription)
     S.field_size == 2 || throw(ArgumentError("only an F_2 (normal form) sampler is lowered into the program IR"))
-    args = (Prim(canonical_bytes(S), Concrete(1), ()), ntuple(i -> BoundVar(0, i - 1), 8)...)
-    Lambda(8, Prim(:sampler_machine, Opaque("TIME_S(n): the metered steps of the description interpreter on this query (DESIGN 11.4 unit)", (:n,)), args))
+    args = (Prim(canonical_bytes(S), Concrete(1), ()), ntuple(i -> BoundVar(0, i - 1), 7)...)   # bytes + the 7 query arguments = the registered arity 8
+    Lambda(7, Prim(:sampler_machine, Opaque("TIME_S(n): the metered steps of the description interpreter on this query (DESIGN 11.4 unit)", (:n,)), args))
 end
 "The DESIGN 1.1 program of sort Decider running the (untyped) description D under Eval fuel."
 function lower_decider(D::DeciderDescription)

@@ -239,6 +239,14 @@ const TB7_CURRENCY_FLAT_CHARGE_MUTANT = Mutant(
     "            result, steps = outcome\n            _charge!(m, steps) || return false",
     "            result, steps = outcome\n            _charge!(m, 1) || return false",
     "tb6b_currency")
+# The lowered sampler binds exactly the 7 query arguments (mode, n, w, j, u, y, t); the bytes literal
+# makes the primitive's registered arity 8. Lambda(8, ...) refuses the 7-argument call (SortError(:apply_arity)).
+const TB7_LOWER_SAMPLER_ARITY_MUTANT = Mutant(
+    "TB7 M7-lower-sampler-arity lambda_binds_eight",
+    "src/compress/lowering.jl",
+    "ntuple(i -> BoundVar(0, i - 1), 7)...)   # bytes + the 7 query arguments = the registered arity 8\n    Lambda(7, Prim(:sampler_machine,",
+    "ntuple(i -> BoundVar(0, i - 1), 8)...)   # bytes + the 7 query arguments = the registered arity 8\n    Lambda(8, Prim(:sampler_machine,",
+    "tb6b_currency")
 
 # D14: REPEAT_CONTRACT's index and the normal-form display (verdicts/tb5-r1.md O11).
 const TB7_REPEAT_INDEX_MUTANT = Mutant(
@@ -257,7 +265,7 @@ const TB7_NORMAL_FORM_DISPLAY_MUTANT = Mutant(
 const TB6_REPAIR_R1_MUTANTS = (TB6_CONJUNCT_MUTANTS..., TB6A_GATE_BODY_INFLATED_MUTANT, TB6B_GATE_BODY_INFLATED_MUTANT,
                                TB5_GATE_BODY_INFLATED_MUTANT, TB6_FORCED_OUTCOME_FREE_MUTANT, TB6_CHARGE_BRANCH_MUTANT,
                                TB6_LITERAL_SUFFIX_REGISTER_MUTANT, TB6A_REQUIRE_IMAGE_CHARGE_MUTANT, TB6_PROBE_FROM_INPUT_MUTANT,
-                               TB6_FUEL_ATTEMPTED_CLAMPED_MUTANT, TB6_NESTED_DEPTH_MUTANT, TB7_CURRENCY_FLAT_CHARGE_MUTANT,
+                               TB6_FUEL_ATTEMPTED_CLAMPED_MUTANT, TB6_NESTED_DEPTH_MUTANT, TB7_CURRENCY_FLAT_CHARGE_MUTANT, TB7_LOWER_SAMPLER_ARITY_MUTANT,
                                TB7_REPEAT_INDEX_MUTANT, TB7_NORMAL_FORM_DISPLAY_MUTANT)
 
 const TB6_MUTANTS = (TB6_PAULI_EDGE_MUTANT, TB6A_COUNT_MUTANT, TB6A_GUARD_MUTANT, TB6_PAULI_GAMMA_MUTANT,

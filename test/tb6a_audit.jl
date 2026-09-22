@@ -235,7 +235,7 @@ end
 
 tb6a_elapsed = round(time() - tb6a_started; digits=3)
 println("TB6a audit wall seconds (testsets 1-2) = ", tb6a_audit_elapsed, "; with the _require_image measurement = ", tb6a_elapsed,
-        " (DESIGN 11.6 target < 1 s; measured in-suite 2.5 s, first-use compilation of the Pauli maps and guards; the gate is the measured ceiling 5 s)")
+        " (DESIGN 11.6 target < 1 s; measured in-suite 2.5 s, first-use compilation of the Pauli maps and guards; the gate is the calibrated ratio CALIBRATED_GATES.tb6a_audit, brief 80 D2)")
 if TB6A_TARGET in ("all", "tb6a_gate")
     # verdicts/tb6-r1.md O2 (brief 80 D2): the absolute 5 s wall (1.8x headroom over the quiet 2.765 s) broke the
     # suite baseline under the runner's own 4-way load; the gate is now the calibrated ratio K = 18 (3.1x headroom
