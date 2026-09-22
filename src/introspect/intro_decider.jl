@@ -542,8 +542,17 @@ function typed_intro_decider(V::VerifierDescription, lambda::Integer, ell::Integ
         # Equal types with unequal answers reject; equal answers accept when no other test applies (and the embedding holds).
         bit3 = decide(x, n, "Sample_bob", Bool[], "Sample_bob", Bool[], vcat(falses(Q), true), vcat(falses(Q), false))
         bit4 = decide(x, n, "Sample_bob", Bool[], "Sample_bob", Bool[], vcat(falses(Q), true), vcat(falses(Q), true))
-        ok = !bit1 && !bit2 && length(trace2) <= 1 && all(r -> r.mode == :Dimension, trace2) && !bit3 && bit4 == embedding
-        CheckResult(ok, :intro_decider; location=:IntroDecider, actual=(; bit1, bit2, calls=length(trace2), bit3, bit4, embedding))
+        # A vector not presented in V rejects (gt-08:L531-L534; verdicts/tb6-r2.md N1): a Sample answer z = e_{s+1}
+        # (zero on V, so its Marginal image and the equal answer bits would otherwise agree) with no call past
+        # Dimension. Without the embedding (Q < s(N)) the guard already rejects; with Q = s(N) there is no
+        # coordinate outside V and the case is VACUOUS.
+        outside = embedding && Q > s_N
+        bit5, trace5, _ = outside ?
+            intro_decide_traced(body, n, "Introspect_alice", falses(0), "Sample_alice", falses(0), vcat(falses(Q), false), vcat(falses(s_N), true, falses(Q - s_N - 1), false)) :
+            (false, IntroChildCall[], Symbol[])
+        ok = !bit1 && !bit2 && length(trace2) <= 1 && all(r -> r.mode == :Dimension, trace2) && !bit3 && bit4 == embedding &&
+             !bit5 && all(r -> r.mode == :Dimension, trace5)
+        CheckResult(ok, :intro_decider; location=:IntroDecider, actual=(; bit1, bit2, calls=length(trace2), bit3, bit4, embedding, bit5, outside))
     end
     _decider_certificate(:IntroDecider, desc,
         "fig:intro-decider on (lambda, ell) = ($(lambda), $(ell)), $(tuple), Q = $(Q): Dimension(N) first (reject if s(N) > R = N^lambda), operative > 3Q guard, then the nine tests in both player orders with child calls under the step meter ($(F_child == 0 ? "budget R = N^lambda (production)" : "toy budget F_child = $(F_child)")), accept when no test applies$(fixed_width ? "; S and D in two fixed lambda-byte slots (S fits: $(S_fits), D fits: $(D_fits); DESIGN 12.3)" : "")$(embedding ? "" : "; the equal-answer accept is VACUOUS(owner=Q_I<s_0): Q = $(Q) < s(N) = $(s_N)")",

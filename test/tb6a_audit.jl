@@ -230,6 +230,12 @@ if tb6a_runs("tb6a_require_image")
                 "; walls (s) = ", [(d, results[d].wall) for d in sort(collect(keys(results)))],
                 " (TB7 chain 206 -> 840 -> 848 -> 1696; the direct-sum proxies rebuild each summand separately)")
         @test results[206].steps > results[179].steps
+        # verdicts/tb6-r2.md N5: the D7 measurements pinned, not only printed (824 / 1648 are direct-sum PROXIES for
+        # TB7's 848 / 1696, measured only under TB6A_HEAVY); one child call per coordinate plus six, at every size.
+        @test (results[206].steps, results[206].child_calls) == (155_631, 212)
+        haskey(results, 824) && @test (results[824].steps, results[824].child_calls) == (4_488_710, 830)
+        haskey(results, 1648) && @test (results[1648].steps, results[1648].child_calls) == (17_899_098, 1_654)
+        @test all(r.child_calls == d + 6 for (d, r) in results)
     end
 end
 

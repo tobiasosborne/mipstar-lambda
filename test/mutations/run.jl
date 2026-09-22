@@ -419,8 +419,11 @@ function disposition(mutant::Mutant, result, baseline)
         return (; killed=false,
                   label="UNATTRIBUTABLE (target exits $(baseline.exitcode) unmutated)")
     end
-    killed = failed_after_start && evidence_ok
-    label = killed ? (assertion_failure ? "KILLED" : "KILLED-BY-CRASH") :
+    # verdicts/tb6-r2.md N8: only a failed ASSERTION is a kill; a crash after the marker (e.g. a
+    # test file that fails to load its includes) is reported KILLED-BY-CRASH and FAILS the registry.
+    killed = failed_after_start && evidence_ok && assertion_failure
+    label = killed ? "KILLED" :
+            failed_after_start && evidence_ok ? "KILLED-BY-CRASH (not credited)" :
             result.test_started ? "SURVIVED" : "LOAD-ERROR"
     (; killed, label)
 end

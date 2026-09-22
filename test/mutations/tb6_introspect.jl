@@ -173,13 +173,13 @@ const TB6B_GATE_BODY_INFLATED_MUTANT = Mutant(
     "test/tb6b_introspect.jl",
     "        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)",
     "        for _ in 1:(CALIBRATED_GATES.tb6b_M.K + 1)\n            suite_calibration_kernel()\n        end\n        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)",
-    "tb6b_gate")
+    "tb6b_gate", "tb6b_walls E ratio<33 => true M ratio<21 => false")
 const TB5_GATE_BODY_INFLATED_MUTANT = Mutant(
     "TB5 M5-gate-body-inflated tb5_transcripts_plus_K_kernels",
     "test/tb5_repeat.jl",
     "        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)",
     "        for _ in 1:(CALIBRATED_GATES.tb5_transcripts.K + 1)\n            suite_calibration_kernel()\n        end\n        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)",
-    "tb5_gate")
+    "tb5_gate", "tb5_walls transcripts ratio<4 => false")
 
 # D3: a determined stabilizer outcome sampled freely -- the enumerator's total mass stays one, the distribution
 # changes; caught by the dense reference and the leaf pins, never by a mass check.
@@ -239,6 +239,21 @@ const TB7_CURRENCY_FLAT_CHARGE_MUTANT = Mutant(
     "            result, steps = outcome\n            _charge!(m, steps) || return false",
     "            result, steps = outcome\n            _charge!(m, 1) || return false",
     "tb6b_currency")
+# verdicts/tb6-r2.md N1 (the critic's CRIT-6): vectors not presented in V are accepted.
+const TB6_IN_V_MUTANT = Mutant(
+    "TB6 M6-in-V out_of_V_vectors_accepted",
+    "src/introspect/intro_decider.jl",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v))",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = true",
+    "tb6b_negative")
+# verdicts/tb6-r2.md N2 (the critic's CRIT-5): a timed-out nested child's executed steps are not charged
+# to the enclosing meter (the sampler-query site; the decider site is the same pattern).
+const TB6_NESTED_TIMEOUT_UNCHARGED_MUTANT = Mutant(
+    "TB6 M6-nested-timeout-uncharged timed_out_child_steps_dropped",
+    "src/introspect/intro_decider.jl",
+    "    _charge_parent!(c, ctx)\n    push!(c.trace, IntroChildCall(c.child_hash, mode,",
+    "    outcome == :return && _charge_parent!(c, ctx)\n    push!(c.trace, IntroChildCall(c.child_hash, mode,",
+    "tb6b_nested")
 # The lowered sampler binds exactly the 7 query arguments (mode, n, w, j, u, y, t); the bytes literal
 # makes the primitive's registered arity 8. Lambda(8, ...) refuses the 7-argument call (SortError(:apply_arity)).
 const TB7_LOWER_SAMPLER_ARITY_MUTANT = Mutant(
@@ -265,7 +280,7 @@ const TB7_NORMAL_FORM_DISPLAY_MUTANT = Mutant(
 const TB6_REPAIR_R1_MUTANTS = (TB6_CONJUNCT_MUTANTS..., TB6A_GATE_BODY_INFLATED_MUTANT, TB6B_GATE_BODY_INFLATED_MUTANT,
                                TB5_GATE_BODY_INFLATED_MUTANT, TB6_FORCED_OUTCOME_FREE_MUTANT, TB6_CHARGE_BRANCH_MUTANT,
                                TB6_LITERAL_SUFFIX_REGISTER_MUTANT, TB6A_REQUIRE_IMAGE_CHARGE_MUTANT, TB6_PROBE_FROM_INPUT_MUTANT,
-                               TB6_FUEL_ATTEMPTED_CLAMPED_MUTANT, TB6_NESTED_DEPTH_MUTANT, TB7_CURRENCY_FLAT_CHARGE_MUTANT, TB7_LOWER_SAMPLER_ARITY_MUTANT,
+                               TB6_FUEL_ATTEMPTED_CLAMPED_MUTANT, TB6_NESTED_DEPTH_MUTANT, TB7_CURRENCY_FLAT_CHARGE_MUTANT, TB7_LOWER_SAMPLER_ARITY_MUTANT, TB6_IN_V_MUTANT, TB6_NESTED_TIMEOUT_UNCHARGED_MUTANT,
                                TB7_REPEAT_INDEX_MUTANT, TB7_NORMAL_FORM_DISPLAY_MUTANT)
 
 const TB6_MUTANTS = (TB6_PAULI_EDGE_MUTANT, TB6A_COUNT_MUTANT, TB6A_GUARD_MUTANT, TB6_PAULI_GAMMA_MUTANT,

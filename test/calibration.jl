@@ -10,7 +10,8 @@
 # load slowed the kernel 2.7x and the TB6a body 2.0x in verdicts/tb6-r1.md
 # O2) plus an absolute ceiling the runner's load cannot reach. Rule for K
 # (brief 80 D2): K = max(4, ceil(3 * quiet_ratio)); ceiling = 4 * K * 0.48 s
-# (>= 12x the quiet measurement). Red witnesses: test/mutations/tb5_gate.jl
+# (12x the quiet ratio at the reference kernel of 0.48 s; ~7.4-8x on the
+# 4-core container, where the kernel is ~0.78 s -- verdicts/tb6-r2.md N6). Red witnesses: test/mutations/tb5_gate.jl
 # (TB0) and the M6a-/M6b-gate-body-inflated mutants of
 # test/mutations/tb6_introspect.jl (the body inflated, never the kernel).
 #

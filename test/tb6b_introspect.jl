@@ -903,6 +903,34 @@ if tb6b_runs("tb6b_tree")
             println("TB6b charge table M child ", rpad(mode, 18), " steps = ", meter.steps, " by_depth = ", meter.by_depth)
             @test meter.steps == TB6B_CHARGE_TABLE[mode]                    # verdicts/tb6-r1.md O4 (brief 80 D4): pinned
         end
+        # verdicts/tb6-r2.md N7: the four values re-derived from the DESIGN 11.4 charge-site TABLE (not from the
+        # package's meter), with this file's own GF(2) elimination cost count for the reachable-walk check.
+        function elim_cost(A::Matrix{Bool}, b::Vector{Bool})
+            rows, cols = size(A); M = hcat(A, b); cost = rows * (cols + 1); p = 1
+            for c in 1:cols
+                p > rows && break
+                cost += rows - p + 1
+                r = findfirst(i -> M[i, c], p:rows)
+                r === nothing && continue
+                r = r + p - 1
+                r != p && (cost += 2 * (cols + 1); M[[p, r], :] = M[[r, p], :])
+                cost += cols + 1                                         # scale (a no-op over F_2, still charged)
+                for i in 1:rows
+                    (i == p || !M[i, c]) && continue
+                    cost += cols + 1; M[i, :] = M[i, :] .⊻ M[p, :]
+                end
+                p += 1
+            end
+            cost + rows * (cols + 1)
+        end
+        header = 1 + ndigits(4; base=2); sN = 6; stage(k) = k + k^2 + k + 1
+        derived = Dict(
+            "Dimension"         => header + 1,
+            "Marginal(3)"       => header + 2 + sN + sum(stage(k) + k for k in (1, 2, 3)) + sN,
+            "Factor(2, e1)"     => header + 2 + sN + (1 + elim_cost(fill(true, 1, 1), [true]) + 1) + sN + sN + sN,
+            "Linear(2, e1, e4)" => header + 2 + 2sN + (1 + 1) + sN + (2 + 4 + 2) + sN)
+        @test derived == TB6B_CHARGE_TABLE
+        println("TB6b charge table derived from the DESIGN 11.4 site table: ", derived)
         walls = (; E_construction=get(TB6B_LOG, :TB6b_E_construction_seconds, nothing), E_transcripts=get(TB6B_LOG, :E_transcript_seconds, nothing),
                    M_construction=get(TB6B_LOG, :TB6b_M_construction_seconds, nothing), M_transcripts=get(TB6B_LOG, :M_transcript_seconds, nothing))
         println("TB6b walls: ", walls, "; process peak RSS MiB = ", round(Sys.maxrss() / 2^20; digits=1))
@@ -992,6 +1020,26 @@ if tb6b_runs("tb6b_negative")
         end
         @test count_ok == 13 == length(TB6B_CONJUNCTS)
         println("MUTATION_EXPECTED_RULE tb6b_negative conjuncts=", count_ok, "/13")
+        # verdicts/tb6-r2.md N1: vectors not presented in V are rejected (gt-08:L531-L534). One honest leaf per
+        # answer schema with coordinate s+1 (outside V, inside the Q-bit field) flipped: rejected at the parse,
+        # before any child call past the sizing Dimension (the honest Sample/Hide leaves make further calls).
+        out_of_V = 0
+        for (id, edge, index, expected) in ((:V1, ("Introspect_bob", "Read_bob"),         Q + s + 1,  :hiding_intro),     # y_perp on Read
+                                            (:V2, ("Introspect_alice", "Sample_alice"),   s + 1,      :sampling_intro),   # z on Sample
+                                            (:V3, ("Hide_1_alice", "Hide_2_alice"),       2Q + s + 1, :hiding_same),      # x on Hide
+                                            (:V4, ("Pauli_Z", "Sample_bob"),              s + 1,      :sampling_pauli))   # z on Sample via 2(a)
+            t = first(tb6b_enumerate(inst, edge, zero_hat)).result
+            @test M6.typed_decision(inst, t)[1]
+            t_neg = merge(t, (; aB=flip(t.aB, index)))
+            @test M6.parse_intro_answer(edge[2], t_neg.aB, Q, s) === nothing
+            bit, trace, fired = M6.typed_decision(inst, t_neg)
+            @test !bit && fired == [expected]
+            @test [r.mode for r in trace] == [:Dimension]
+            out_of_V += !bit && [r.mode for r in trace] == [:Dimension]
+            println("TB6b out-of-V ", id, " ", edge, " flip ", index, ": reject=", !bit, " fired=", fired, " calls=", [r.mode for r in trace])
+        end
+        @test out_of_V == 4
+        println("MUTATION_EXPECTED_RULE tb6b_out_of_V rejected=", out_of_V, "/4")
     end
 end
 
@@ -1015,6 +1063,10 @@ if tb6b_runs("tb6b_nested")
         @test ctx.steps > 0 && sum(ctx.by_depth) == ctx.steps
         @test length(ctx.by_depth) >= 2 && ctx.by_depth[1] > 0 && ctx.by_depth[2] > 0   # the nested child calls sit one depth below
         total = ctx.steps
+        # verdicts/tb6-r2.md N3, the DOCUMENTED GAP (owner=tb7-nested-own-steps): the nested body's depth-2 steps are
+        # exactly the sum of its child calls' steps (the flat traced call's records); its own predicate work is uncharged.
+        flat_steps = sum(r.steps for r in M6.decide_traced(I.decider, 2, xd, yd, t.aA, t.aB)[2] if r isa M6.IntroChildCall)
+        @test ctx.by_depth == [22618, 15] && ctx.by_depth[2] == flat_steps == 15
         # The same call under budget exactly `total` returns; under `total - 1` the (budget + 1)-th step never executes.
         exact = Meter(total)
         @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, exact) == flat && exact.steps == total
@@ -1023,6 +1075,12 @@ if tb6b_runs("tb6b_nested")
         short = Meter(total - 1)
         @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, short) == false
         @test short.steps <= total - 1
+        # verdicts/tb6-r2.md N2: the steps a timed-out nested child DID execute are charged to the enclosing
+        # meter at depth + 1 (the copy decider runs 8 steps before its refused block): pinned exactly.
+        @test (short.steps, short.by_depth) == (22631, [22618, 13])
+        mid = Meter(22622)
+        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, mid) == false
+        @test (mid.steps, mid.by_depth) == (22622, [22618, 4])
         # Below the enclosing level's OWN charges (depth 1) the enclosing meter itself refuses its (budget+1)-th step.
         own = ctx.by_depth[1]
         @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, Meter(own)) == false
