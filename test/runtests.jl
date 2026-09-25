@@ -51,4 +51,7 @@ started = time()
     include("tb6a_audit.jl")
     include("tb6b_introspect.jl")
     println("TB6 test-body wall seconds = ", round(time() - tb6_started; digits=3), " (TB6a target < 1; TB6b-E < 3 + 15, TB6b-M < 25, combined < 43)")
+    tb7_started = time()
+    include("tb7_compress.jl")
+    println("TB7 test-body wall seconds = ", round(time() - tb7_started; digits=3), " (calibrated ratio gate: tb7_total)")
 end

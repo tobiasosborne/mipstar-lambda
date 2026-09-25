@@ -180,7 +180,7 @@ export ConstructionPolicy, ProductionPolicy, ToyPolicy, TB7_TOY_POLICY, PolicyPr
        lower_sampler, lower_decider, lift_decider, lowered_bytes, compressor_program, DESCRIPTION_PRIMITIVES,
        answer_reduce, ExecutableAnswerReduce, answer_reduce_labels, answer_bit_length, encode_pcp_answer_bits, ARGameNotExecuted, ARStep, AR_GAME_OWNER,
        compress, compress_terms, compute_sampler, tb7_stages, constructor_order, COMPRESS_ORDER_AST, universal_constants_ast,
-       EXPECTED_UNIVERSAL_CONSTANTS, intro_gap_ast, TB7_RESIDUE_INVENTORY, EXPECTED_COMPRESS_DEPENDENCIES, cited_labels, chain_coverage,
+       EXPECTED_UNIVERSAL_CONSTANTS, intro_gap_ast, TB7_RESIDUE_INVENTORY, EXPECTED_COMPRESS_DEPENDENCIES, cited_labels, certificate_tree_text, chain_coverage,
        chain_coverage_text, bookkeeping_rows, bookkeeping_text, fixed_width_length, tb7_predicate_report,
        tb7_input_verifier, tb7_input_verifier_prime, tb7_input_verifier_large, coordinate_identity_map, final_questions,
        halting_fixed_point, anchor_transcript, trivial_verifier_description, BudgetExceeded, MATERIALIZATION_BUDGET_BITS,

@@ -51,11 +51,38 @@ function AnswerReduce(stage::ExecutableAnswerReduce, checked::Union{Checked,_VER
     Checked(output, node)
 end
 
+"A timing wrapper around one executable CompressStage; it preserves TB4 dispatch and its certificates."
+struct TimedStage{S<:CompressStage} <: CompressStage
+    inner::S
+    label::Symbol
+    walls::Dict{Symbol,Float64}
+end
+function Introspect(stage::TimedStage{<:ExecutableIntrospect}, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, ell::Integer; params::NamedTuple=(;))
+    started = time()
+    result = Introspect(stage.inner, checked, lambda, ell; params)
+    stage.walls[stage.label] = time() - started
+    result
+end
+function AnswerReduce(stage::TimedStage{<:ExecutableAnswerReduce}, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, mu::Integer, gamma::Integer; params::NamedTuple=(;))
+    started = time()
+    result = AnswerReduce(stage.inner, checked, lambda, mu, gamma; params)
+    stage.walls[stage.label] = time() - started
+    result
+end
+function Repeat(stage::TimedStage{<:ExecutableRepeat}, checked::Union{Checked,_VERIFIER_INPUT}, lambda::Integer, tau::Integer; params::NamedTuple=(;))
+    started = time()
+    result = Repeat(stage.inner, checked, lambda, tau; params)
+    stage.walls[stage.label] = time() - started
+    result
+end
+
 "The TB7 stage table: executable Introspect (fixed-width), AnswerReduce and Repeat under one policy."
-function tb7_stages(policy::ToyPolicy; tracer_index::Integer=2, seeds::Integer=4)
-    CompressStages(ExecutableIntrospect(; tuple=policy.intro_tuple, F_child=policy.child_fuel, tracer_index, seeds, fixed_width=true),
-                   ExecutableAnswerReduce(policy; tracer_index, seeds),
-                   ExecutableRepeat(; c_prime=policy.c_prime, tracer_index, seeds, repetitions=policy.repetitions))
+function tb7_stages(policy::ToyPolicy; tracer_index::Integer=2, seeds::Integer=4, walls::Union{Nothing,Dict{Symbol,Float64}}=nothing)
+    I = ExecutableIntrospect(; tuple=policy.intro_tuple, F_child=policy.child_fuel, tracer_index, seeds, fixed_width=true)
+    A = ExecutableAnswerReduce(policy; tracer_index, seeds)
+    R = ExecutableRepeat(; c_prime=policy.c_prime, tracer_index, seeds, repetitions=policy.repetitions)
+    walls === nothing ? CompressStages(I, A, R) :
+        CompressStages(TimedStage(I, :Introspect, walls), TimedStage(A, :AnswerReduce, walls), TimedStage(R, :Repeat, walls))
 end
 
 # --- DESIGN 12.1: the constructor order and the universal constants ------------------------------
@@ -299,6 +326,23 @@ function cited_labels(root::CertNode; theorem_like::Bool=true)
     labels
 end
 
+"A lossless, one-node-per-line rendering of a TB7 certificate, including grades and cited source spans."
+function certificate_tree_text(root::CertNode)
+    lines = String[]
+    function visit(node::CertNode, prefix::String, is_last::Bool, is_root::Bool=false)
+        stem = is_root ? "" : is_last ? "└─ " : "├─ "
+        citation = node.grade == CITED && haskey(node.facts, :source) && haskey(node.facts, :lines) ?
+                   "  [$(node.facts.source):$(first(node.facts.lines))-$(last(node.facts.lines))]" : ""
+        push!(lines, prefix * stem * string(node.grade) * " " * string(node.rule) * citation)
+        child_prefix = prefix * (is_root ? "" : is_last ? "   " : "│  ")
+        for (i, child) in enumerate(node.children)
+            visit(child, child_prefix, i == length(node.children))
+        end
+    end
+    visit(root, "", true, true)
+    join(lines, "\n")
+end
+
 # --- compress ------------------------------------------------------------------------------------------
 """
     compress(V, lambda; policy=TB7_TOY_POLICY, tracer_index=2, seeds=4) :: Checked{VerifierDescription}
@@ -311,7 +355,7 @@ function compress(V::VerifierDescription, lambda::Integer; policy::ConstructionP
     n = Int(tracer_index)
     lambda = Int(lambda)
     walls = Dict{Symbol,Float64}()
-    stages = tb7_stages(policy; tracer_index=n, seeds)
+    stages = tb7_stages(policy; tracer_index=n, seeds, walls)
     started = time()
     C4 = Compress(V, lambda; stages, mu=policy.mu, gamma=policy.gamma, tau=policy.tau, stage_params=(; n))
     walls[:compress] = time() - started
@@ -354,8 +398,18 @@ function compress(V::VerifierDescription, lambda::Integer; policy::ConstructionP
         replay=x -> CheckResult(intro_gap_ast(lambda, n).full == :(max(Ent(V_{2 ^ n}, 1 - delta_intro(epsilon, n)), (1 - delta_intro(epsilon, n)) * 2 ^ (2 ^ (lambda * n)))), :intro_gap; location=:IntroGap))
     # 12.2 the bookkeeping table.
     rows = bookkeeping_rows(V, V1, V2, out, lambda, n, policy)
+    row_certs = Tuple(CertNode(CHECKED, :LawCert;
+        facts=(display="TB7 bookkeeping $(r.stage): field $(r.field), level $(r.level), dimension $(r.dimension) = $(r.law) = $(r.law_value)",
+               stage=r.stage, expected=(r.field, r.level, r.law_value)),
+        replay=x -> begin
+            fresh = bookkeeping_rows(V, V1, V2, x, lambda, n, policy)[i]
+            CheckResult(x === out && (fresh.field, fresh.level, fresh.dimension) == (r.field, r.level, r.law_value),
+                        :bookkeeping_law; location=Symbol("TB7_row_$(i)"), expected=(r.field, r.level, r.law_value),
+                        actual=(fresh.field, fresh.level, fresh.dimension))
+        end) for (i, r) in enumerate(rows))
     bookkeeping = CertNode(CHECKED, :Bookkeeping;
         facts=(display="DESIGN 12.2 table at n = $(n):\n" * bookkeeping_text(rows), rows),
+        children=row_certs,
         replay=x -> begin
             x === out || return CheckResult(false, :bookkeeping; location=:Bookkeeping, actual=:borrowed)
             fresh = bookkeeping_rows(V, V1, V2, x, lambda, n, policy)
@@ -402,8 +456,9 @@ function compress(V::VerifierDescription, lambda::Integer; policy::ConstructionP
     commute_note = CertNode(CONSTRUCTED, :ResidueFilter;
         facts=(display="lem:commute (gt-08:L923-L953) is removed from the TB7 tree: it is a source anchor of the honest-strategy simulation, which TB7 does not run (no non-Pauli transcript executes at Q_I < s_0), and DESIGN 13.2 excludes it from the residue inventory",))
     residue_extra = CertNode(CONSTRUCTED, :ResidueLeaves;
-        facts=(display="DESIGN 13.2 residue items not cited by a stage constructor: 3 (Pauli rigidity family), 9 (thm:bvy), 10 (thm:compression, cited by the skeleton), 11 (the halting fixed point, cited in the fixed-point run)",),
-        children=(CITED_PAULI_COMPLETENESS, CITED_PAULI_BINARY, CITED_DELTA_BOUND, CITED_INTROPARAMS_COMPLEXITY, CITED_QLD_COMPLEXITY, CITED_BVY))
+        facts=(display="DESIGN 13.2 residue items not cited by a stage constructor: 3 (Pauli rigidity family), 9 (thm:bvy), 10 (thm:compression, cited by the skeleton), 11 (lem:dhalt-values, lem:lambda and thm:halting, also cited by the fixed-point run)",),
+        children=(CITED_PAULI_COMPLETENESS, CITED_PAULI_BINARY, CITED_DELTA_BOUND, CITED_INTROPARAMS_COMPLEXITY, CITED_QLD_COMPLEXITY, CITED_BVY,
+                  CITED_DHALT_VALUES, CITED_LEM_LAMBDA, CITED_THM_HALTING))
     binding = CertNode(CHECKED, :OutputBinding;
         facts=(display="the attached term is the Repeat stage's payload (sampler and decider by identity)",),
         replay=x -> CheckResult(x === out || (x.sampler === out.sampler && x.decider === out.decider), :output_binding; location=:OutputBinding))
@@ -411,8 +466,8 @@ function compress(V::VerifierDescription, lambda::Integer; policy::ConstructionP
                      binding, _relocate(inner, x -> C4.term))
     labels = cited_labels(CertNode(CONSTRUCTED, :probe; children=root_children))
     inventory = CertNode(CHECKED, :ResidueInventory;
-        facts=(display="CITED theorem-like labels in the tree ($(length(labels))) == DESIGN 13.2 inventory ($(length(TB7_RESIDUE_INVENTORY))) minus the fixed-point items cited by the fixed-point run: missing = $(sort(collect(setdiff(TB7_RESIDUE_INVENTORY, labels)))), phantom = $(sort(collect(setdiff(labels, TB7_RESIDUE_INVENTORY))))", labels=labels),
-        replay=x -> CheckResult(issubset(labels, TB7_RESIDUE_INVENTORY) && issubset(setdiff(TB7_RESIDUE_INVENTORY, labels), Set(["lem:dhalt-values", "lem:lambda", "thm:halting"])),
+        facts=(display="CITED theorem-like labels in the tree ($(length(labels))) == DESIGN 13.2 inventory ($(length(TB7_RESIDUE_INVENTORY))): missing = $(sort(collect(setdiff(TB7_RESIDUE_INVENTORY, labels)))), phantom = $(sort(collect(setdiff(labels, TB7_RESIDUE_INVENTORY))))", labels=labels),
+        replay=x -> CheckResult(labels == TB7_RESIDUE_INVENTORY,
                                 :residue_inventory; location=:ResidueInventory, expected=TB7_RESIDUE_INVENTORY, actual=labels))
     census = Dict(g => 0 for g in instances(Grade))
     root = CertNode(CONSTRUCTED, :CompressOnDescriptions;
@@ -476,11 +531,10 @@ function tb7_input_verifier(; s::Integer=9, tracer_index::Integer=4)
 end
 "A byte-distinct second input at the same lambda: the same sampler with the diagnostic decider (a decider of a different byte length)."
 tb7_input_verifier_prime(; s::Integer=9) = VerifierDescription(tb7_input_verifier(; s).sampler, diagnostic_decider([1, 3]).term)
-"A third input straddling |V| <= lambda: the direct sum of `copies` identity samplers (its bytes exceed lambda for 120 copies at lambda = 32768)."
-function tb7_input_verifier_large(; copies::Integer=120, s::Integer=9)
+"A third input straddling |V| <= lambda: its 17000-coordinate diagnostic decider exceeds lambda while the sampler remains the same nine-level identity."
+function tb7_input_verifier_large(; copies::Integer=17000, s::Integer=9)
     S = tb7_input_verifier(; s).sampler
-    big_S = direct_sum(ntuple(_ -> S, Int(copies))...; tracer_index=4, seeds=0)
-    VerifierDescription(big_S.term, copy_decider().term)
+    VerifierDescription(S, diagnostic_decider(collect(1:Int(copies))).term)
 end
 
 "Sample `count` final question pairs of the compressed sampler on seeded uniform seeds (DESIGN 12.5: 16 final questions)."

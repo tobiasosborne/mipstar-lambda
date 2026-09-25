@@ -47,7 +47,7 @@ const TWO_STATE_HALTING = machine_desc("0101" * "0100" * "0110" * "0100")
 const TWO_STATE_LOOPING = machine_desc("0100" * "0100" * "0100" * "0100")
 
 "S_lambda stub: a one-argument closed program of sort Sampler (TB5 supplies the real one)."
-const SAMPLER_STUB = Lambda(1, BoundVar(0, 0))
+const SAMPLER_STUB = Lambda(7, BoundVar(0, 0))
 "lambda n x y a b . true (TB3's trivial decider, |D| = 33 bytes)."
 const TRIVIAL_DECIDER = Lambda(5, Prim(true, Concrete(1), ()))
 "Compress stub of sort Compressor: (pair, lambda) -> the code of the trivial decider."

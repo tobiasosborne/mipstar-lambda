@@ -16,6 +16,14 @@
 
 const AR_GAME_OWNER = "pcpverifier-D1-trace"
 
+# TB2's public constructor retains its in-memory fixture method; the
+# description method is the TB7 path. A transformation against the §9 API
+# dispatches here and receives a Checked{VerifierDescription} with the same
+# certificate grammar as the other description transformations.
+answer_reduce_pcp(V1::VerifierDescription, lambda::Integer, mu::Integer, gamma::Integer;
+                  policy::ConstructionPolicy=TB7_TOY_POLICY, tracer_index::Integer=2, seeds::Integer=4) =
+    answer_reduce(V1, lambda, mu, gamma; policy, tracer_index, seeds)
+
 "The record a reached enu:ar-game leaves in the decider trace (never executed at TB7)."
 struct ARGameNotExecuted
     D1_hash::String
@@ -119,7 +127,8 @@ bit-string questions/answers. Steps 1-4 execute; step 5 records
 ARGameNotExecuted and rejects (P_pcp_encodes_D1 = FAIL at TB7).
 """
 function _decide_answer_reduce(labels::Vector{String}, body, n::Int, tA::String, x::AbstractVector{Bool}, tB::String, y::AbstractVector{Bool},
-                               a::AbstractVector{Bool}, b::AbstractVector{Bool}, trace::Vector)
+                               a::AbstractVector{Bool}, b::AbstractVector{Bool}, trace::Vector; parent::Union{Nothing,Meter}=nothing)
+    _charge_typed_own!(parent, 2 + length(tA) + length(tB) + length(x) + length(y) + length(a) + length(b))
     lambda, mu, gamma, sigma, q, m, d, s, m_prime, S1_term, D1_term = body[2:12]
     (tA in labels && tB in labels) || return false
     left_type, right_type = _parse_ar_label(tA), _parse_ar_label(tB)
@@ -139,7 +148,8 @@ function _decide_answer_reduce(labels::Vector{String}, body, n::Int, tA::String,
         push!(trace, ARStep(0, :pcp_answer_format, left_answer === nothing ? :alice : :bob, :pcp_answer_format, false))
         return false
     end
-    record!(step, branch, player, result) = (push!(trace, ARStep(step, branch, player, result.rule, passed(result))); passed(result))
+    record!(step, branch, player, result) = (_charge_typed_own!(parent, 1 + length(a) + length(b));
+                                             push!(trace, ARStep(step, branch, player, result.rule, passed(result))); passed(result))
     # Step 1: equal product types must answer identically.
     if left_type == right_type
         record!(1, :global_consistency, :both, CheckResult(_answers_equal(left_answer, right_answer), :global_consistency)) || return false
@@ -270,8 +280,8 @@ function answer_reduce(V1::VerifierDescription, lambda::Integer, mu::Integer, ga
     encodes = pcp_encodes_D1_evidence(V1.decider, fx, Int(lambda), Int(mu), sigma, n)
     agreement = answer_reduce_agreement_node(typed_decider, params, s1, pcp_bits, fx, Int(lambda), Int(mu), Int(gamma))
     local_pcp = CertNode(ASSUMED, :PCPFixtureLocalOnly;
-        facts=(display="separately labelled LOCAL PCP algebra/predicate sub-tests on the immutable fixture (trivial decider |D| = $(fx.sigma) bytes, fnv1a64 $(quote_hash(fx.quoted.term)), T = $(fx.T)): its construction certificate replays on the fixture's own PCP proof (bound by identity to that object, not reached from V^ar); its content is NOT the actual D1 and is never fed to enu:ar-game or P_pcp_encodes_D1 (DESIGN 13.1)",
-               fixture_hash=quote_hash(fx.quoted.term), fixture_sigma=fx.sigma),
+        facts=(display="separately labelled LOCAL PCP algebra/predicate sub-tests on the immutable fixture (trivial decider |D| = $(fx.sigma) bytes, fnv1a64 $(quote_hash(fx.quoted.term)), T = $(fx.T)): representation=structural-evaluator (sparse polynomial terms and shared powers, no dense 12^16 monomial vector); its construction certificate replays on the fixture's own PCP proof (bound by identity to that object, not reached from V^ar); its content is NOT the actual D1 and is never fed to enu:ar-game or P_pcp_encodes_D1 (DESIGN 13.1)",
+               fixture_hash=quote_hash(fx.quoted.term), fixture_sigma=fx.sigma, representation="structural-evaluator"),
         children=(_relocate(fx.pcp.certificate, x -> fx.pcp.proof),))
     game = CertNode(ASSUMED, :ARGameNotExecuted;
         facts=(display="enu:ar-game against the actual D1 (gt-10:L2060-L2063): NOT_EXECUTED(owner=$(AR_GAME_OWNER)) whenever step 5 is reached, because P_pcp_encodes_D1 = FAIL; the decider rejects there and no accept is counted as transcript evidence (DD-31)",
@@ -329,18 +339,22 @@ function pcp_encodes_D1_evidence(D1::DeciderDescription, fx::FrontEndFixture, la
     T_actual = halting_row === nothing ? 256 : halting_row - 1
     trace = bounded_trace(quoted, input, T_actual)
     sat = cook_levin(trace; gate_budget=1 << 20)
-    actual = sat isa CompilationRefused ? (; m=nothing, M=nothing, clauses=nothing, refused=string(sat)) :
-             (; m=sat.term.index_width, M=sat.term.variable_count, clauses=length(sat.term.clauses), refused=nothing)
+    decoupled = sat isa CompilationRefused ? sat : decouple5(sat; gate_budget=1 << 20)
+    actual = sat isa CompilationRefused ? (; m=nothing, M=nothing, clauses=nothing, decoupled_clauses=nothing, refused=string(sat)) :
+             (; m=sat.term.index_width, M=sat.term.variable_count, clauses=length(sat.term.clauses),
+                decoupled_clauses=decoupled isa CompilationRefused ? nothing : length(decoupled.term.clauses),
+                refused=decoupled isa CompilationRefused ? string(decoupled) : nothing)
     fixture_sat = fx.padded.term
     fixture_m = fx.params.m
     fixture_hash = quote_hash(fx.quoted.term)
     logT = lambda * n * mu
-    detail = "the instance supplied to pcpverifier arithmetizes the fixture decider $(fixture_hash) (|D| = $(fx.sigma) bytes) at T = $(fx.T) with index width m = $(fixture_m), while the ACTUAL fixed-width D1 (fnv1a64 $(quote_hash(D1)), sigma_1 = $(sigma) bytes) lowered into the program IR halts after $(T_actual) body transitions on a sorted input and TB3's front end gives $(actual.refused === nothing ? "index width m = $(actual.m), M = $(actual.M) variables, $(actual.clauses) clauses" : "CompilationRefused ($(actual.refused))"); at the printed (T = 2^$(logT), sigma_1 = $(sigma)) no instance of index width $(fixture_m) indexes a trace of 2^$(logT) rows (prop:explicit-padded-succinct-deciders: 2^m >= 2T)"
+    detail = "the instance supplied to pcpverifier arithmetizes the fixture decider $(fixture_hash) (|D| = $(fx.sigma) bytes) at T = $(fx.T) with index width m = $(fixture_m), while the ACTUAL fixed-width D1 (fnv1a64 $(quote_hash(D1)), sigma_1 = $(sigma) bytes) lowered into the program IR halts after $(T_actual) body transitions on a sorted input and TB3's bounded_trace -> cook_levin -> decouple5 front end gives $(actual.refused === nothing ? "index width m = $(actual.m), M = $(actual.M) variables, $(actual.clauses) 3SAT clauses, $(actual.decoupled_clauses) decoupled 5SAT clauses" : "CompilationRefused ($(actual.refused))"); at the printed (T = 2^$(logT), sigma_1 = $(sigma)) no instance of index width $(fixture_m) indexes a trace of 2^$(logT) rows (prop:explicit-padded-succinct-deciders: 2^m >= 2T)"
     CertNode(ASSUMED, :P_pcp_encodes_D1;
         facts=(display="P_pcp_encodes_D1 | FAIL(owner=$(AR_GAME_OWNER)): $(detail)", status="FAIL", owner=AR_GAME_OWNER,
                D1_hash=quote_hash(D1), sigma_1=sigma, T_actual=T_actual, actual=actual, fixture_m=fixture_m, fixture_hash=fixture_hash,
                used_fuel=trace.term.result isa Value ? "halted" : string(trace.term.result)),
-        children=(_relocate(trace.certificate, x -> trace.term),))
+        children=(decoupled isa CompilationRefused ? _relocate(trace.certificate, x -> trace.term) :
+                  _relocate(decoupled.certificate, x -> decoupled.term),))
 end
 
 # --- the PCP encoding-consistency sub-test -------------------------------------------------------

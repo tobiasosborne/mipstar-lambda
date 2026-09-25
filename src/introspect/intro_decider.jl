@@ -443,6 +443,11 @@ function intro_decide_traced(body, n::Int, tA::String, x::AbstractVector{Bool}, 
 end
 
 function _decide_intro(body, n::Int, tA::String, x::AbstractVector{Bool}, tB::String, y::AbstractVector{Bool}, a::AbstractVector{Bool}, b::AbstractVector{Bool}, trace::Vector; fired::Vector{Symbol}=Symbol[], parent::Union{Nothing,Meter}=nothing)
+    # Reserve both ordered type scans before either branch can issue a child
+    # call. Their declared cost is independent of the branch outcome, so a
+    # bounded nested call still converts child exhaustion into rejection.
+    _charge_typed_own!(parent, 2 + length(tA) + length(tB) + length(x) + length(y) + length(a) + length(b) +
+                               2 * (2 + length(tA) + length(tB)))
     lambda, ell, q, m, d, fuel, S_term, D_term = body[2], body[3], body[4], body[5], body[6], body[7], body[8], body[9]
     n <= 30 || throw(ArgumentError("N = 2^n does not fit the interpreter's index (n <= 30)"))
     N = 2 ^ n

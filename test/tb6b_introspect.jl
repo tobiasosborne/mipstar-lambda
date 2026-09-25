@@ -1063,10 +1063,10 @@ if tb6b_runs("tb6b_nested")
         @test ctx.steps > 0 && sum(ctx.by_depth) == ctx.steps
         @test length(ctx.by_depth) >= 2 && ctx.by_depth[1] > 0 && ctx.by_depth[2] > 0   # the nested child calls sit one depth below
         total = ctx.steps
-        # verdicts/tb6-r2.md N3, the DOCUMENTED GAP (owner=tb7-nested-own-steps): the nested body's depth-2 steps are
-        # exactly the sum of its child calls' steps (the flat traced call's records); its own predicate work is uncharged.
+        # TB7 N3: the nested body's depth-2 steps include 114 reserved predicate/type-scan steps
+        # as well as the flat traced child calls' 15 steps.
         flat_steps = sum(r.steps for r in M6.decide_traced(I.decider, 2, xd, yd, t.aA, t.aB)[2] if r isa M6.IntroChildCall)
-        @test ctx.by_depth == [22618, 15] && ctx.by_depth[2] == flat_steps == 15
+        @test ctx.by_depth == [22618, 129] && ctx.by_depth[2] == flat_steps + 114 && flat_steps == 15
         # The same call under budget exactly `total` returns; under `total - 1` the (budget + 1)-th step never executes.
         exact = Meter(total)
         @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, exact) == flat && exact.steps == total
@@ -1077,13 +1077,13 @@ if tb6b_runs("tb6b_nested")
         @test short.steps <= total - 1
         # verdicts/tb6-r2.md N2: the steps a timed-out nested child DID execute are charged to the enclosing
         # meter at depth + 1 (the copy decider runs 8 steps before its refused block): pinned exactly.
-        @test (short.steps, short.by_depth) == (22631, [22618, 13])
-        mid = Meter(22622)
+        @test (short.steps, short.by_depth) == (22745, [22618, 127])
+        mid = Meter(22732)
         @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, mid) == false
-        @test (mid.steps, mid.by_depth) == (22622, [22618, 4])
-        # Below the enclosing level's OWN charges (depth 1) the enclosing meter itself refuses its (budget+1)-th step.
+        @test (mid.steps, mid.by_depth) == (22732, [22618, 114])
+        # At the old depth-1 boundary, the newly charged depth-2 predicate scan now refuses.
         own = ctx.by_depth[1]
-        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, Meter(own)) == false
+        @test_throws M6.FuelExhausted M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, Meter(own))
         starved = Meter(own - 1)
         @test_throws M6.FuelExhausted M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, starved)
         @test starved.steps <= own - 1
@@ -1116,7 +1116,7 @@ if tb6b_runs("tb6b_probe")
         ctx = Meter(10)
         M6._charge!(ctx, 8)
         err = try; M6._charge!(ctx, 5); nothing; catch e; e; end
-        @test err isa M6.FuelExhausted && err.steps == 13 && err.budget == 10 && ctx.steps == 8
+        @test err isa M6.FuelExhausted && err.attempted == 13 && err.budget == 10 && ctx.steps == 8
         println("MUTATION_EXPECTED_RULE tb6b_probe records=", length(trace), " vector_calls=", vector_calls)
     end
 end

@@ -176,13 +176,29 @@ fig:decider_pauli: item 1 on equal types (equal answers as bit strings);
 otherwise every applicable guard among items 2-7 in both orders (w, wbar);
 accept when none applies.
 """
-function pauli_decide(p::PauliParams, tA::String, xA::AbstractVector{Bool}, tB::String, xB::AbstractVector{Bool}, aA::AbstractVector{Bool}, aB::AbstractVector{Bool})
+function _charge_typed_own!(parent::Union{Nothing,Meter}, k::Int)
+    parent === nothing && return nothing
+    saved = parent.depth
+    parent.depth = max(saved, 1) + 1
+    try
+        _charge!(parent, k)
+    finally
+        parent.depth = saved
+    end
+    nothing
+end
+function pauli_decide(p::PauliParams, tA::String, xA::AbstractVector{Bool}, tB::String, xB::AbstractVector{Bool}, aA::AbstractVector{Bool}, aB::AbstractVector{Bool}; parent::Union{Nothing,Meter}=nothing)
+    _charge_typed_own!(parent, 2 + length(xA) + length(xB) + length(aA) + length(aB))
     (tA in pauli_type_labels() && tB in pauli_type_labels()) || return false
-    tA == tB && return aA == aB
+    if tA == tB
+        _charge_typed_own!(parent, length(aA) + length(aB) + 1)
+        return aA == aB
+    end
     qA = parse_pauli_question(p, xA)
     qB = parse_pauli_question(p, xB)
     verdicts = Bool[]
     for (tw, xw, aw, tv, xv, av) in ((tA, qA, aA, tB, qB, aB), (tB, qB, aB, tA, qA, aA))
+        _charge_typed_own!(parent, 1 + length(aw) + length(av))
         g = _pauli_guard(p, tw, xw, aw, tv, xv, av)
         g === nothing || push!(verdicts, g)
     end
@@ -281,9 +297,9 @@ end
 # The TypedDecider dispatch (deciders.jl `_decide_typed`).
 function _decide_typed_body(labels::Vector{String}, body, n::Int, tA, x::AbstractVector{Bool}, tB, y::AbstractVector{Bool}, a::AbstractVector{Bool}, b::AbstractVector{Bool}, trace::Vector; parent::Union{Nothing,Meter}=nothing)
     (tA in labels && tB in labels) || return false
-    body[1] == :Pauli && return pauli_decide(PauliParams(body[2], body[3], body[4]), String(tA), x, String(tB), y, a, b)
+    body[1] == :Pauli && return pauli_decide(PauliParams(body[2], body[3], body[4]), String(tA), x, String(tB), y, a, b; parent)
     body[1] in (:Intro, :IntroFixed) && return _decide_intro(body, n, String(tA), x, String(tB), y, a, b, trace; parent)
-    body[1] == :AnswerReduce && return _decide_answer_reduce(labels, body, n, String(tA), x, String(tB), y, a, b, trace)
+    body[1] == :AnswerReduce && return _decide_answer_reduce(labels, body, n, String(tA), x, String(tB), y, a, b, trace; parent)
     throw(ArgumentError("unknown typed decider body"))
 end
 

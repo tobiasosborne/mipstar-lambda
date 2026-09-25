@@ -152,7 +152,7 @@ function _admits_sort(p::Program, sort::Symbol)
                               (p isa Fix && _admits_sort(p.body, sort))
     sort == :Compressor && return (p isa Lambda && p.arity == 2) ||
                                  (p isa Fix && _admits_sort(p.body, sort))
-    sort == :Sampler && return (p isa Lambda && p.arity >= 1) ||
+    sort == :Sampler && return (p isa Lambda && p.arity == 7) ||
                               (p isa Fix && _admits_sort(p.body, sort))
     sort == :MachineDesc && return _literal(p, Vector{Bool}) && _is_machine_desc(p.name)
     sort == :Pair && return p isa Prim && p.name == :quoted_pair && length(p.args) == 2 &&

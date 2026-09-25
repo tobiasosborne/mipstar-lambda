@@ -58,6 +58,9 @@ if !isdefined(Main, :SUITE_CALIBRATION)
         tb6b_E           = (K=33, ceiling=63.36, quiet_seconds=8.51, quiet_ratio=10.88),
         tb6b_M           = (K=21, ceiling=40.32, quiet_seconds=5.316, quiet_ratio=6.79),
         tb6b_combined    = (K=54, ceiling=103.68, quiet_seconds=13.826, quiet_ratio=17.67),
+        # TB7 first in-suite body, 2026-09-25 (kernel 0.7806 s, uptime
+        # load 3.22 at completion): 51.438 s / 0.7806 = 65.9; K=ceil(3*65.9)=198.
+        tb7_total        = (K=198, ceiling=380.16, quiet_seconds=51.438, quiet_ratio=65.9),
     )
 
     """

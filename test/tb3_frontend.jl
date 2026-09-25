@@ -138,7 +138,7 @@ if tb3_runs("tb3_quote")
         @test_throws ArgumentError Quote(Lambda(1, BoundVar(0, 1)))
         @test_throws ArgumentError Quote(Lambda(5, Hole(:h, :Bit)))
         @test_throws ArgumentError quote_program(Hole(:h, :Bit))
-        @test Quote(Lambda(1, BoundVar(0, 0)), :Sampler) isa Quote
+        @test Quote(Lambda(7, BoundVar(0, 0)), :Sampler) isa Quote
         # Quote(code, sort) carries the A of Quoted{A} and checks it against
         # the term's shape: a one-argument Lambda is no Decider.
         @test_throws ArgumentError Quote(Lambda(1, BoundVar(0, 0)))
@@ -706,7 +706,7 @@ if tb3_runs("tb3_tb4prep")
         # verdicts/tb3-r1.md section 8, gaps 1-6.
         trivial = tb3_trivial()
         # Gap 1: D = YCode(Psi) is representable, closed, quotable, and is Fix.
-        sampler_stub = Lambda(1, BoundVar(0, 0))
+        sampler_stub = Lambda(7, BoundVar(0, 0))
         compress_stub = Lambda(2, Quote(trivial))           # (pair, lambda) -> a decider's code
         @test quote_program(sampler_stub; sort=:Sampler).term isa Quoted{:Sampler}
         @test quote_program(compress_stub; sort=:Compressor).term isa Quoted{:Compressor}

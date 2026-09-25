@@ -37,10 +37,10 @@ Meter(budget::Integer) = Meter(0, 0, 0, 0, 0, Int(budget), Int[])
 
 "Thrown BEFORE the step that would exceed the meter's budget executes (DESIGN 11.4)."
 struct FuelExhausted <: Exception
-    steps::Int
+    attempted::Int
     budget::Int
 end
-Base.showerror(io::IO, e::FuelExhausted) = print(io, "FuelExhausted: step ", e.steps, " exceeds the budget of ", e.budget, " steps")
+Base.showerror(io::IO, e::FuelExhausted) = print(io, "FuelExhausted: attempted count ", e.attempted, " exceeds the budget of ", e.budget, " steps")
 
 # Charge k primitive steps at the current depth; refuse before executing
 # the (budget + 1)-th step.

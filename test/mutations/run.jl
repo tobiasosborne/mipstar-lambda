@@ -238,6 +238,8 @@ include("tb5_repeat.jl")
 include("tb5_gate.jl")
 # briefs/43-tb6-introspect.md: the TB6 mutants (M6-*, M-factor-partition, M-detype-view-orientation, M-intro-fuel, TB6a's three).
 include("tb6_introspect.jl")
+# Brief 44: the eleven M7 construction mutations and Pad's terminal walk.
+include("tb7_compress.jl")
 # TB6 mutants join the queue once src/introspect is included (briefs/43); until then the tuple is empty.
 const TB6_QUEUE = occursin("introspect/introspect.jl", read(joinpath(ROOT, "src", "MIPStarLambda.jl"), String)) ? TB6_MUTANTS : ()
 
@@ -288,6 +290,8 @@ function _rung(mutant::Mutant)
         "TB6A_TARGET", mutant.target)
     startswith(mutant.target, "tb6b_") && return (:tb6b, "tb6b_introspect.jl",
         "TB6B_TARGET", mutant.target)
+    startswith(mutant.target, "tb7_") && return (:tb7, "tb7_compress.jl",
+        "TB7_TARGET", mutant.target)
     startswith(mutant.target, "tb5_") && return (:tb5, "tb5_repeat.jl",
         "TB5_TARGET", mutant.target)
     startswith(mutant.target, "tb4_") && return (:tb4, "tb4_compress_ir.jl",
@@ -436,18 +440,41 @@ queue = Tuple{String,Mutant}[]
 for (name, mutants) in (("TB0", MUTANTS), ("TB1", TB1_MUTANTS),
                         ("TB2", TB2_MUTANTS), ("TB3", TB3_MUTANTS),
                         ("TB4", TB4_MUTANTS), ("TB5", TB5_MUTANTS),
-                        ("SUITE", SUITE_MUTANTS), ("TB6", TB6_QUEUE)), mutant in mutants
+                        ("SUITE", SUITE_MUTANTS), ("TB6", TB6_QUEUE),
+                        ("TB7", TB7_MUTANTS)), mutant in mutants
     selected(mutant) && push!(queue, (name, mutant))
 end
 baseline_keys = unique(baseline_key(mutant) for (_, mutant) in queue)
 jobs = vcat([(:baseline, key) for key in baseline_keys],
             [(:mutant, entry) for entry in queue])
 outcomes = mktempdir() do temporary
-    asyncmap(enumerate(jobs); ntasks=MUTATION_JOBS) do (index, job)
-        kind, payload = job
-        kind == :baseline ? unmutated_baseline(payload, index, temporary) :
-                            isolated_mutant(last(payload), index, temporary)
+    # The whole-suite TB0 gate is a wall/ratio measurement. Four independent
+    # Julia workers made its unmutated baseline exceed both ceilings while
+    # the same tree passed the suite in isolation (2026-09-25: 75.086 s and
+    # ratio 62.9 under MUTATION_JOBS=4). Run that baseline and its body-
+    # inflation mutant alone; all ordinary targets still use four workers.
+    result = Vector{Any}(undef, length(jobs))
+    suite_job(i) = jobs[i][1] == :baseline ? jobs[i][2][1] == "runtests.jl" :
+                   _rung(last(jobs[i][2]))[1] == :suite
+    run_index(i) = begin
+        kind, payload = jobs[i]
+        kind == :baseline ? unmutated_baseline(payload, i, temporary) :
+                            isolated_mutant(last(payload), i, temporary)
     end
+    baseline_range = 1:length(baseline_keys)
+    mutant_range = (length(baseline_keys) + 1):length(jobs)
+    for indices in ([i for i in baseline_range if !suite_job(i)],
+                    [i for i in baseline_range if suite_job(i)],
+                    [i for i in mutant_range if !suite_job(i)],
+                    [i for i in mutant_range if suite_job(i)])
+        isempty(indices) && continue
+        concurrent = length(indices) > 1 && !suite_job(first(indices))
+        batch = concurrent ? asyncmap(run_index, indices; ntasks=MUTATION_JOBS) : map(run_index, indices)
+        for (i, value) in zip(indices, batch)
+            result[i] = value
+        end
+    end
+    result
 end
 baselines = Dict(key => outcomes[i] for (i, key) in enumerate(baseline_keys))
 results = map(enumerate(queue)) do (i, entry)
