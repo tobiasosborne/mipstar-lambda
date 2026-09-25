@@ -18,7 +18,7 @@ Key locations:
 - Claims ratchet in `claims/CLAIMS.md`. Status ∈ {PROVED, TESTED, SKETCH, CONJECTURE, REFUTED}. Status goes UP only via a converged critic verdict in `verdicts/`. Never by the author.
 - Single-source definitions: `docs/DESIGN.md` (term language) and `docs/definitions.md`. Code cites; never redefines.
 - Every machine-checkable claim has a test in `test/` AND a mutation (red) test proving the test can fail (`test/mutations/`).
-- Hard cognition (design, proofs, implementation, review) is delegated to `codex exec` (gpt-5.6-sol, xhigh). Claude subagents, when used, are Opus (never Fable). Briefs live in `briefs/`, verdicts in `verdicts/`.
+- **No codex (user directive 2026-09-25).** Hard cognition (design, proofs, implementation, review) is done by Claude: Opus subagents (never Fable subagents) or the main thread. Briefs live in `briefs/`, verdicts in `verdicts/`.
 - Red/green TDD: tests are written and shown RED before implementation; mutation testing after GREEN.
 
 ## Build & test
