@@ -944,8 +944,11 @@ if tb6b_runs("tb6b_tree")
             @test gate_M.ratio_ok && gate_M.wall_ok
             @test gate_all.ratio_ok && gate_all.wall_ok
             rss_delta = (Sys.maxrss() - TB6B_RSS_START) / 2^20
-            println("TB6b process peak RSS delta over the TB6b body MiB = ", round(rss_delta; digits=1), " (in-suite 0.0 when TB0's earlier peak dominates; standalone includes compilation)")
-            @test rss_delta < 512
+            println("TB6b process peak RSS delta over the TB6b body MiB = ", round(rss_delta; digits=1), " (in-suite 0.0 when TB0's earlier peak dominates; standalone includes compilation); diagnostic only")
+            # The former `@test rss_delta < 512` was removed on 2026-09-27 (user decision): 512 MiB was a round
+            # pre-implementation guess of DESIGN v2, never replaced by a measurement; peak RSS over the whole
+            # standalone file measures compilation and GC timing (488-543 MiB on a 62 GB box, 115-212 in-suite),
+            # not the construction. No claim row makes a memory claim.
             println("MUTATION_EXPECTED_RULE tb6b_walls E ratio<", gate_E.K, " => ", gate_E.ratio_ok, " M ratio<", gate_M.K, " => ", gate_M.ratio_ok, " combined ratio<", gate_all.K, " => ", gate_all.ratio_ok)
         end
         census = (length(tb6b_nodes(checked.certificate)), grades[CONSTRUCTED], grades[CHECKED], grades[CITED], grades[ASSUMED], grades[SOURCE_REPAIR])
