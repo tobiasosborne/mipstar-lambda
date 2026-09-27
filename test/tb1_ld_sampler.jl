@@ -292,7 +292,10 @@ if tb1_runs("queries")
         y = (TB1_F(3), TB1_F(5), TB1_F(1), TB1_F(2), TB1_F(3))
         e2 = (zero(TB1_F), one(TB1_F))
         expected = L_lnf(e2, (TB1_F(3), TB1_F(5)))
-        @test Linear(axis, 2, unreachable, y) == (expected..., zero5[3:5]...)
+        # verdicts/tb6-r3.md R3 (brief 84): evaluated under `try`, so a narrowed domain (M9-linear-narrowed-domain
+        # throws ArgumentError) FAILS this comparison instead of erroring inside it.
+        answered = try Linear(axis, 2, unreachable, y) catch err; err end
+        @test answered == (expected..., zero5[3:5]...)
         @test Linear(axis, 2, reachable, y) == (expected..., zero5[3:5]...)
         @test Linear(axis, 1, zero5, y) == (zero(TB1_F), zero(TB1_F), TB1_F(1),
                                            zero(TB1_F), zero(TB1_F))
@@ -537,11 +540,15 @@ if tb1_runs("histogram_axis") || tb1_runs("histogram_diagonal")
             @test !isempty(zero_direction)
             evidence = diagonal_histogram_evidence(
                 actual_diagonal, reference.diagonal, TB1_M)
-            repair = only(child for child in evidence.certificate.children
-                          if child.rule == :ld_lnf_zero_direction)
+            # verdicts/tb6-r3.md R3 (brief 84): the repair node's presence is an ASSERTION (a missing node --
+            # M-repair -- fails it; `only` used to throw, an error-only non-credit).
+            repairs = [child for child in evidence.certificate.children
+                       if child.rule == :ld_lnf_zero_direction]
+            @test length(repairs) == 1
+            repair = isempty(repairs) ? nothing : first(repairs)
             @test evidence.certificate.grade == CHECKED
-            @test repair.grade == SOURCE_REPAIR
-            @test repair.facts == (support=512, mass=2304, of=32768)
+            @test repair !== nothing && repair.grade == SOURCE_REPAIR
+            @test repair !== nothing && repair.facts == (support=512, mass=2304, of=32768)
             @test passed(verify_certificate(evidence))
             println("TB1 diagonal histogram: seeds=32768 support=",
                     length(actual_diagonal), " total=", sum(values(actual_diagonal)),

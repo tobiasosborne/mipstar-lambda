@@ -149,17 +149,20 @@ if tb5_runs("tb5_queries")
             @test factor_ok && linear_ok
             println("TB5 (a) $(name): distinct reachable prefixes = ", length(prefixes))
         end
-        # Illegal calls return QueryError, never throw (DESIGN 9.1; G3/G5).
+        # Illegal calls return QueryError, never throw (DESIGN 9.1; G3/G5). verdicts/tb6-r3.md R3 (brief 84):
+        # each illegal call is evaluated under `try`, so a throwing query (M-boundary) FAILS `isa QueryError`
+        # instead of erroring inside the assertion.
+        tb5_attempt(f) = try f() catch err; err end
         S = pairs[:ALine].term
         z = GF8[3, 5, 4, 6, 7]
         zero5 = fill(zero(GF8), 5)
-        @test Marginal(S, 1, :alice, 0, z) isa QueryError            # G3: j = 0 at the boundary
-        @test Marginal(S, 1, :alice, 3, z) isa QueryError
-        @test Marginal(S, 1, :carol, 1, z) isa QueryError
-        @test Marginal(S, 1, :alice, 1, z[1:4]) isa QueryError
-        @test Marginal(S, 1, :alice, 1, z, "Game") isa QueryError      # a type on an untyped sampler
+        @test tb5_attempt(() -> Marginal(S, 1, :alice, 0, z)) isa QueryError            # G3: j = 0 at the boundary
+        @test tb5_attempt(() -> Marginal(S, 1, :alice, 3, z)) isa QueryError
+        @test tb5_attempt(() -> Marginal(S, 1, :carol, 1, z)) isa QueryError
+        @test tb5_attempt(() -> Marginal(S, 1, :alice, 1, z[1:4])) isa QueryError
+        @test tb5_attempt(() -> Marginal(S, 1, :alice, 1, z, "Game")) isa QueryError      # a type on an untyped sampler
         unreachable = GF8[0, 0, 4, 1, 0]
-        @test Factor(S, 1, :alice, 2, unreachable) isa QueryError    # G5: ArgumentError -> QueryError
+        @test tb5_attempt(() -> Factor(S, 1, :alice, 2, unreachable)) isa QueryError    # G5: ArgumentError -> QueryError
         @test !(Linear(S, 1, :alice, 2, unreachable, z) isa QueryError)
         @test Factor(S, 1, :alice, 1, zero5) == [0, 0, 1, 1, 1]
         # An opaque host branch is NotDescribable.
@@ -178,8 +181,9 @@ if tb5_runs("tb5_queries")
         bad = copy(reached)
         bad[dead] = one(GF2048)
         @test Factor(T, 1, :alice, 2, reached) isa Vector
-        @test Factor(T, 1, :alice, 2, bad) isa QueryError
-        @test occursin("reachable", Factor(T, 1, :alice, 2, bad).reason)
+        bad_answer = tb5_attempt(() -> Factor(T, 1, :alice, 2, bad))
+        @test bad_answer isa QueryError
+        @test bad_answer isa QueryError && occursin("reachable", bad_answer.reason)
         # M9-adapter-enumerates owner: a Marginal walks exactly the selected
         # branch of each stage, never the whole BranchByAxis table (DESIGN 9.3):
         # a freshly decoded L_DLine memoises exactly one continuation per
@@ -526,7 +530,10 @@ end
 
 if tb5_runs("tb5_repeat")
     @testset "TB5 (f) repeat_sampler / repeat_decider at lambda = tau = c' = 1, n = 9: B = 9, k = 81, level 3, dimension 729" begin
-        R = tb5_repeat()
+        # verdicts/tb6-r3.md R3 (brief 84): the construction is an ASSERTION -- a level law that breaks the
+        # construction's own lem:cl-kth replay (M-repeat-level) FAILS here instead of erroring before any @test.
+        R = try tb5_repeat() catch err; err end
+        @test R isa Checked
         V = R.term
         @test V isa VerifierDescription
         @test k_rep(TB5_LAMBDA, TB5_TAU, TB5_C_PRIME, TB5_N) == 81

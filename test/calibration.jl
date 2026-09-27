@@ -9,9 +9,14 @@
 # K` (load-invariant where an absolute wall is not: the runner's own 4-way
 # load slowed the kernel 2.7x and the TB6a body 2.0x in verdicts/tb6-r1.md
 # O2) plus an absolute ceiling the runner's load cannot reach. Rule for K
-# (brief 80 D2): K = max(4, ceil(3 * quiet_ratio)); ceiling = 4 * K * 0.48 s
-# (12x the quiet ratio at the reference kernel of 0.48 s; ~7.4-8x on the
-# 4-core container, where the kernel is ~0.78 s -- verdicts/tb6-r2.md N6). Red witnesses: test/mutations/tb5_gate.jl
+# (brief 80 D2): K = max(4, ceil(3 * quiet_ratio)); ceiling = 4 * K * 0.48 s.
+# Guarantee: K >= 3 * quiet_ratio, so the ceiling is AT LEAST 12x the quiet
+# body at the reference kernel rate (0.48 s). Against the recorded seconds
+# below (ceiling / quiet_seconds; verdicts/tb6-r3.md R5) the six cloud TB5/TB6b
+# rows span 7.4-14.4x: tb5_construction 14.41 (the K = 4 floor), tb5_transcripts
+# 7.79, tb5_total 7.58, tb6b_E 7.45, tb6b_M 7.58, tb6b_combined 7.50; tb6a_audit
+# 12.66 (reference box), tb7_total 7.39 (the cloud kernel ran at ~0.78 s).
+# Red witnesses: test/mutations/tb5_gate.jl
 # (TB0) and the M6a-/M6b-gate-body-inflated mutants of
 # test/mutations/tb6_introspect.jl (the body inflated, never the kernel).
 #

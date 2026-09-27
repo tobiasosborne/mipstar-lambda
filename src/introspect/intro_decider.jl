@@ -250,6 +250,10 @@ function parse_intro_answer(label::AbstractString, bits::AbstractVector{Bool}, Q
     end
     nothing
 end
+"Both answers presented as the answer key requires: each non-Pauli answer parses (schema + every vector field in V)."
+_intro_answers_presented(tA::AbstractString, a::AbstractVector{Bool}, tB::AbstractString, b::AbstractVector{Bool}, Q::Int, s::Int) =
+    (is_pauli_label(tA) || parse_intro_answer(tA, a, Q, s) !== nothing) &&
+    (is_pauli_label(tB) || parse_intro_answer(tB, b, Q, s) !== nothing)
 "The V-part (first s coordinates) of a Q-bit vector."
 _V(v::AbstractVector{Bool}, s::Int) = v[1:s]
 "Embed an s-bit vector in F_2^Q."
@@ -466,6 +470,15 @@ function _decide_intro(body, n::Int, tA::String, x::AbstractVector{Bool}, tB::St
     Q >= s || return false                       # the F_2^Q embedding needs Q >= s(N) (gt-08:L524-L530)
     # The OPERATIVE answer-length guard (SOURCE_REPAIR(intro-3Q-guard)).
     intro_guard_operative(a, b, Q) && return false
+    # The V-presentation rejection (answer key gt-08:L410-L413; L531-L534 "if y, y^perp are not presented as
+    # vectors in the subspace V, then the decider rejects"), which the source states unconditionally: every
+    # non-Pauli answer is parsed against its type's schema with every vector field in V, ONCE, here, on every
+    # edge -- self-loops included, where no ordered test applies and item 5 compares two equal answers --
+    # before any test is dispatched (verdicts/tb6-r3.md R1). `:membership` marks this rejection in `fired`.
+    if !_intro_answers_presented(tA, a, tB, b, Q, s)
+        push!(fired, :membership)
+        return false
+    end
     verdicts = Bool[]
     # 1: both Pauli types -> D^pauli.
     if is_pauli_label(tA) && is_pauli_label(tB)
@@ -555,9 +568,14 @@ function typed_intro_decider(V::VerifierDescription, lambda::Integer, ell::Integ
         bit5, trace5, _ = outside ?
             intro_decide_traced(body, n, "Introspect_alice", falses(0), "Sample_alice", falses(0), vcat(falses(Q), false), vcat(falses(s_N), true, falses(Q - s_N - 1), false)) :
             (false, IntroChildCall[], Symbol[])
+        # The LAST coordinate of the tail too (verdicts/tb6-r3.md R2): z = e_Q, on the Sample_alice SELF-LOOP with
+        # equal answers (no ordered test applies; only the up-front V-presentation validation rejects, R1).
+        bit6, trace6, _ = outside ?
+            intro_decide_traced(body, n, "Sample_alice", falses(0), "Sample_alice", falses(0), vcat(falses(Q - 1), true, false), vcat(falses(Q - 1), true, false)) :
+            (false, IntroChildCall[], Symbol[])
         ok = !bit1 && !bit2 && length(trace2) <= 1 && all(r -> r.mode == :Dimension, trace2) && !bit3 && bit4 == embedding &&
-             !bit5 && all(r -> r.mode == :Dimension, trace5)
-        CheckResult(ok, :intro_decider; location=:IntroDecider, actual=(; bit1, bit2, calls=length(trace2), bit3, bit4, embedding, bit5, outside))
+             !bit5 && all(r -> r.mode == :Dimension, trace5) && !bit6 && all(r -> r.mode == :Dimension, trace6)
+        CheckResult(ok, :intro_decider; location=:IntroDecider, actual=(; bit1, bit2, calls=length(trace2), bit3, bit4, embedding, bit5, bit6, outside))
     end
     _decider_certificate(:IntroDecider, desc,
         "fig:intro-decider on (lambda, ell) = ($(lambda), $(ell)), $(tuple), Q = $(Q): Dimension(N) first (reject if s(N) > R = N^lambda), operative > 3Q guard, then the nine tests in both player orders with child calls under the step meter ($(F_child == 0 ? "budget R = N^lambda (production)" : "toy budget F_child = $(F_child)")), accept when no test applies$(fixed_width ? "; S and D in two fixed lambda-byte slots (S fits: $(S_fits), D fits: $(D_fits); DESIGN 12.3)" : "")$(embedding ? "" : "; the equal-answer accept is VACUOUS(owner=Q_I<s_0): Q = $(Q) < s(N) = $(s_N)")",

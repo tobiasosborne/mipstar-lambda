@@ -254,6 +254,38 @@ const TB6_NESTED_TIMEOUT_UNCHARGED_MUTANT = Mutant(
     "    _charge_parent!(c, ctx)\n    push!(c.trace, IntroChildCall(c.child_hash, mode,",
     "    outcome == :return && _charge_parent!(c, ctx)\n    push!(c.trace, IntroChildCall(c.child_hash, mode,",
     "tb6b_nested")
+# verdicts/tb6-r3.md R1 (brief 84 Step 2): the up-front V-presentation validation skipped on equal types
+# (self-loops) -- the real-loop bypass the critic found; killed only by TB6b (j)'s membership-loop witnesses.
+const TB6_MEMBERSHIP_DISPATCH_BYPASS_MUTANT = Mutant(
+    "TB6 M6-membership-dispatch-bypass validation_skipped_on_self_loops",
+    "src/introspect/intro_decider.jl",
+    "    if !_intro_answers_presented(tA, a, tB, b, Q, s)",
+    "    if tA != tB && !_intro_answers_presented(tA, a, tB, b, Q, s)",
+    "tb6b_negative", "tb6b_membership_loops rejected=0/4")
+# verdicts/tb6-r3.md R2 (the critic's CRIT-R3-tail; brief 84 Step 3): membership tests only the first coordinate
+# outside V (it SURVIVED 9,667/9,667 at 2eff253); killed by TB6b (j)'s s+2 and Q tail witnesses.
+const TB6_IN_V_FIRST_TAIL_ONLY_MUTANT = Mutant(
+    "TB6 M6-in-V-first-tail-only only_coordinate_s_plus_1_checked",
+    "src/introspect/intro_decider.jl",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v))",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = length(v) <= s || !v[s+1]",
+    "tb6b_negative")
+# brief 84 S1 (the critic's CRIT-R3-decider-timeout): the decider-call twin of M6-nested-timeout-uncharged; killed
+# by TB6b (k)'s part-way decider boundary (budget 22,745).
+const TB6_NESTED_DECIDER_TIMEOUT_UNCHARGED_MUTANT = Mutant(
+    "TB6 M6-nested-decider-timeout-uncharged timed_out_child_decider_steps_dropped",
+    "src/introspect/intro_decider.jl",
+    "    _charge_parent!(c, ctx)\n    push!(c.trace, IntroChildCall(quote_hash(decider_term_bytes(c.D_term)), :Decider,",
+    "    outcome == :return && _charge_parent!(c, ctx)\n    push!(c.trace, IntroChildCall(quote_hash(decider_term_bytes(c.D_term)), :Decider,",
+    "tb6b_nested")
+# verdicts/tb6-r3.md R4 (brief 84 Step 4): the Detype control transfer (decider charge table row) uncharged;
+# killed by TB6b (k)'s table-derived by_depth.
+const TB6_DECIDER_CHARGE_TRANSFER_MUTANT = Mutant(
+    "TB6 M6-decider-charge-transfer detype_control_transfer_uncharged",
+    "src/introspect/intro_decider.jl",
+    "            _charge!(ctx, 1)\n            return _metered_decide_typed(child, n, labels[l]",
+    "            return _metered_decide_typed(child, n, labels[l]",
+    "tb6b_nested")
 # The lowered sampler binds exactly the 7 query arguments (mode, n, w, j, u, y, t); the bytes literal
 # makes the primitive's registered arity 8. Lambda(8, ...) refuses the 7-argument call (SortError(:apply_arity)).
 const TB7_LOWER_SAMPLER_ARITY_MUTANT = Mutant(
@@ -281,6 +313,8 @@ const TB6_REPAIR_R1_MUTANTS = (TB6_CONJUNCT_MUTANTS..., TB6A_GATE_BODY_INFLATED_
                                TB5_GATE_BODY_INFLATED_MUTANT, TB6_FORCED_OUTCOME_FREE_MUTANT, TB6_CHARGE_BRANCH_MUTANT,
                                TB6_LITERAL_SUFFIX_REGISTER_MUTANT, TB6A_REQUIRE_IMAGE_CHARGE_MUTANT, TB6_PROBE_FROM_INPUT_MUTANT,
                                TB6_FUEL_ATTEMPTED_CLAMPED_MUTANT, TB6_NESTED_DEPTH_MUTANT, TB7_CURRENCY_FLAT_CHARGE_MUTANT, TB7_LOWER_SAMPLER_ARITY_MUTANT, TB6_IN_V_MUTANT, TB6_NESTED_TIMEOUT_UNCHARGED_MUTANT,
+                               TB6_MEMBERSHIP_DISPATCH_BYPASS_MUTANT, TB6_IN_V_FIRST_TAIL_ONLY_MUTANT,
+                               TB6_NESTED_DECIDER_TIMEOUT_UNCHARGED_MUTANT, TB6_DECIDER_CHARGE_TRANSFER_MUTANT,
                                TB7_REPEAT_INDEX_MUTANT, TB7_NORMAL_FORM_DISPLAY_MUTANT)
 
 const TB6_MUTANTS = (TB6_PAULI_EDGE_MUTANT, TB6A_COUNT_MUTANT, TB6A_GUARD_MUTANT, TB6_PAULI_GAMMA_MUTANT,

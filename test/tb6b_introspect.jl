@@ -1023,23 +1023,91 @@ if tb6b_runs("tb6b_negative")
         # verdicts/tb6-r2.md N1: vectors not presented in V are rejected (gt-08:L531-L534). One honest leaf per
         # answer schema with coordinate s+1 (outside V, inside the Q-bit field) flipped: rejected at the parse,
         # before any child call past the sizing Dimension (the honest Sample/Hide leaves make further calls).
+        # verdicts/tb6-r3.md R1 (brief 84): the parse is now the decider's single up-front validation of every
+        # non-Pauli answer, so the rejection is recorded as `:membership` (no test is dispatched); that the named
+        # test applies to the pair is asserted on the honest leaf (`fired == [expected]`).
         out_of_V = 0
         for (id, edge, index, expected) in ((:V1, ("Introspect_bob", "Read_bob"),         Q + s + 1,  :hiding_intro),     # y_perp on Read
                                             (:V2, ("Introspect_alice", "Sample_alice"),   s + 1,      :sampling_intro),   # z on Sample
                                             (:V3, ("Hide_1_alice", "Hide_2_alice"),       2Q + s + 1, :hiding_same),      # x on Hide
                                             (:V4, ("Pauli_Z", "Sample_bob"),              s + 1,      :sampling_pauli))   # z on Sample via 2(a)
             t = first(tb6b_enumerate(inst, edge, zero_hat)).result
-            @test M6.typed_decision(inst, t)[1]
+            honest_bit, _, honest_fired = M6.typed_decision(inst, t)
+            @test honest_bit && honest_fired == [expected]
             t_neg = merge(t, (; aB=flip(t.aB, index)))
             @test M6.parse_intro_answer(edge[2], t_neg.aB, Q, s) === nothing
             bit, trace, fired = M6.typed_decision(inst, t_neg)
-            @test !bit && fired == [expected]
+            @test !bit && fired == [:membership]
             @test [r.mode for r in trace] == [:Dimension]
             out_of_V += !bit && [r.mode for r in trace] == [:Dimension]
             println("TB6b out-of-V ", id, " ", edge, " flip ", index, ": reject=", !bit, " fired=", fired, " calls=", [r.mode for r in trace])
         end
         @test out_of_V == 4
         println("MUTATION_EXPECTED_RULE tb6b_out_of_V rejected=", out_of_V, "/4")
+        # verdicts/tb6-r3.md R1 (brief 84 Step 2): the V-presentation rejection is UNCONDITIONAL (answer key
+        # gt-08:L410-L413; L531-L534 "if y, y^perp are not presented as vectors in the subspace V, then the decider
+        # rejects"). On the REAL self-loops of G^intro both players return the IDENTICAL malformed answer with one
+        # vector field = e_{s+1} = e7 (orthogonal to all of V = span(e1..e6) and still outside it). No ordered test of
+        # items 2-4 applies to a loop and item 5 compares two equal answers, so only a validation of every non-Pauli
+        # answer before dispatch can reject: the direct parser, the typed decider and the valid detyped encoding must
+        # all reject, with no child call past the sizing Dimension.
+        ev(i) = (v = falses(Q); v[i] = true; Vector{Bool}(v))
+        loops = ((:L1, "Read_alice",     vcat(falses(Q), ev(s + 1), [false])),          # (y, y_perp, a) = (0^12, e7, 0)
+                 (:L2, "Introspect_bob", vcat(ev(s + 1), [false])),                     # (y, a) = (e7, 0)
+                 (:L3, "Sample_alice",   vcat(ev(s + 1), [false])),                     # (z, a) = (e7, 0)
+                 (:L4, "Hide_2_bob",     vcat(falses(Q), falses(Q), ev(s + 1))))        # (y, y_perp, x) = (0, 0, e7)
+        loop_rejected = 0
+        for (id, label, bad) in loops
+            edge = (label, label)
+            @test edge in tb6b_edges(f)                                   # a real oriented pair (self-loop) of G^intro
+            t = first(tb6b_enumerate(inst, edge, zero_hat)).result
+            @test M6.typed_decision(inst, t)[1]                           # control: the honest loop leaf accepts
+            t_bad = merge(t, (; aA=copy(bad), aB=copy(bad)))
+            @test M6.parse_intro_answer(label, bad, Q, s) === nothing
+            bit, trace, fired = M6.typed_decision(inst, t_bad)
+            @test !bit
+            @test !M6.detyped_decision(inst, t_bad)
+            @test [r.mode for r in trace] == [:Dimension]
+            loop_rejected += !bit && [r.mode for r in trace] == [:Dimension]
+            println("TB6b membership loop ", id, " ", edge, " answer bits ", length(bad), ": reject=", !bit, " fired=", fired, " calls=", [r.mode for r in trace])
+        end
+        @test loop_rejected == 4
+        println("MUTATION_EXPECTED_RULE tb6b_membership_loops rejected=", loop_rejected, "/4")
+        # verdicts/tb6-r3.md R2 (brief 84 Step 3): the WHOLE outside tail. For every vector slot of the answer key
+        # (gt-08:L410-L413) -- Introspect y, Sample z, Read y and y_perp, Hide y, y_perp and x -- one honest leaf
+        # with exactly one bit of that one field set at coordinate s+1, s+2 or Q (outside V, inside the Q-bit
+        # field): the parser refuses it and the decider rejects with no child call past Dimension. The critic's
+        # red_tail.jl case is (Read_bob) y_perp at coordinate Q = 12, wire position 24, on (Introspect_bob, Read_bob).
+        slots = ((:Introspect_y, ("Introspect_alice", "Sample_alice"), :A, 0),
+                 (:Sample_z,     ("Introspect_alice", "Sample_alice"), :B, 0),
+                 (:Read_y,       ("Introspect_bob", "Read_bob"),       :B, 0),
+                 (:Read_yperp,   ("Introspect_bob", "Read_bob"),       :B, Q),
+                 (:Hide_y,       ("Hide_1_alice", "Hide_2_alice"),     :B, 0),
+                 (:Hide_yperp,   ("Hide_1_alice", "Hide_2_alice"),     :B, Q),
+                 (:Hide_x,       ("Hide_1_alice", "Hide_2_alice"),     :B, 2Q))
+        tail_rejected = 0
+        tail_cases = 0
+        for (slot, edge, side, offset) in slots
+            t = first(tb6b_enumerate(inst, edge, zero_hat)).result
+            @test M6.typed_decision(inst, t)[1]
+            for coordinate in (s + 1, s + 2, Q)
+                answer = side == :A ? t.aA : t.aB
+                wire = offset + coordinate
+                @test !answer[wire]                                     # honest leaves vanish outside V
+                corrupted = flip(answer, wire)
+                @test count(corrupted .!= answer) == 1
+                t_neg = side == :A ? merge(t, (; aA=corrupted)) : merge(t, (; aB=corrupted))
+                label = side == :A ? edge[1] : edge[2]
+                @test M6.parse_intro_answer(label, corrupted, Q, s) === nothing
+                bit, trace, _ = M6.typed_decision(inst, t_neg)
+                @test !bit
+                @test [r.mode for r in trace] == [:Dimension]
+                tail_cases += 1
+                tail_rejected += M6.parse_intro_answer(label, corrupted, Q, s) === nothing && !bit && [r.mode for r in trace] == [:Dimension]
+            end
+        end
+        @test tail_rejected == tail_cases == 21
+        println("MUTATION_EXPECTED_RULE tb6b_out_of_V_tail rejected=", tail_rejected, "/21")
     end
 end
 
@@ -1081,6 +1149,42 @@ if tb6b_runs("tb6b_nested")
         mid = Meter(22732)
         @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, mid) == false
         @test (mid.steps, mid.by_depth) == (22732, [22618, 114])
+        # brief 84 S1 (the verdicts/tb6-r2.md N2 discharge, restored on the TB7 accounting): budgets at which a nested
+        # child is refused PART-WAY, so the steps it DID execute must reach the enclosing meter at depth + 1.
+        # Derivation (DESIGN 11.4 sampler and decider charge tables): 22,618 own + 114 reserved = 22,732 before
+        # the first child call. Budget 22,736 leaves 4: the child Dimension query charges its header
+        # 1 + ndigits(4; base=2) = 4, then its answer unit is refused -> (22736, [22618, 118]); dropping the timed-out
+        # sampler steps (M6-nested-timeout-uncharged) gives (22732, [22618, 114]). Budget 22,745 leaves 8 after
+        # Dimension's 5 (22,737): the child :Copy decider charges its input 1 + 3 + 1 + 1 + 1 + 1 = 8, then its
+        # comparison block 2 is refused -> (22745, [22618, 127]); dropping the timed-out decider steps
+        # (M6-nested-decider-timeout-uncharged) gives (22737, [22618, 119]).
+        dim_part = Meter(22736)
+        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, dim_part) == false
+        @test (dim_part.steps, dim_part.by_depth) == (22736, [22618, 118])
+        dec_part = Meter(22745)
+        @test M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, dec_part) == false
+        @test (dec_part.steps, dec_part.by_depth) == (22745, [22618, 127])
+        # verdicts/tb6-r3.md R4 (brief 84): the unbudgeted by_depth derived from the DESIGN 11.4 DECIDER charge-site
+        # table (formulas on the term's own data, never the meter), then compared with the metered value.
+        labels_d, edges_d = D_nested[2], D_nested[3]
+        T = length(labels_d)
+        l_idx, r_idx = findfirst(==(edge[1]), labels_d), findfirst(==(edge[2]), labels_d)
+        scanned = findfirst(==((l_idx, r_idx)), edges_d)          # edges scanned up to and including the match
+        bx, by = length(xd) - 4T, length(yd) - 4T                  # the typed question bodies
+        na, nb = length(t.aA), length(t.aB)
+        untyped_input = 1 + ndigits(2; base=2) + length(xd) + length(yd) + na + nb
+        typed_input = 2 + bx + by + na + nb
+        depth1 = untyped_input + 8T + scanned * 8T + 1 + typed_input
+        reservation = 2 + ncodeunits(edge[1]) + ncodeunits(edge[2]) + bx + by + na + nb + 2 * (2 + ncodeunits(edge[1]) + ncodeunits(edge[2]))
+        child_dimension = (1 + ndigits(4; base=2)) + 1
+        copy_input = 1 + ndigits(4; base=2) + inst.s + inst.s + (na - inst.Q) + (nb - inst.Q)
+        copy_comparison = inst.s + inst.s
+        derived = [depth1, reservation + child_dimension + copy_input + copy_comparison]
+        println("TB6b nested charge derivation: T = ", T, ", scanned edges = ", scanned, ", depth 1 = ", untyped_input, " + ", 8T, " + ", scanned * 8T,
+                " + 1 + ", typed_input, " = ", depth1, "; depth 2 = ", reservation, " + ", child_dimension, " + ", copy_input, " + ", copy_comparison, " = ", derived[2])
+        @test (untyped_input, 8T, scanned * 8T, typed_input) == (293, 272, 22032, 20)
+        @test (reservation, child_dimension, copy_input, copy_comparison) == (114, 5, 8, 2)
+        @test derived == ctx.by_depth
         # At the old depth-1 boundary, the newly charged depth-2 predicate scan now refuses.
         own = ctx.by_depth[1]
         @test_throws M6.FuelExhausted M6._metered_decide(D_nested, 2, xd, yd, t.aA, t.aB, Meter(own))

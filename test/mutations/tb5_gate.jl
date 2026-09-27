@@ -11,5 +11,5 @@ const TB0_GATE_BODY_INFLATED_MUTANT = Mutant(
     "test/runtests.jl",
     "    include(\"tb0_core.jl\")\n    elapsed = time() - started",
     "    include(\"tb0_core.jl\")\n    for extra in 1:(Int(TB0_RATIO) + 1)\n        suite_calibration_kernel()\n    end\n    elapsed = time() - started",
-    "tb0_gate", "TB0 ratio gate: ratio<")
+    "tb0_gate", "TB0 ratio gate: ratio<100.0 => false")
 const SUITE_MUTANTS = (TB0_GATE_BODY_INFLATED_MUTANT,)

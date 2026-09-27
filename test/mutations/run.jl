@@ -13,17 +13,29 @@ using Test
 # UNATTRIBUTABLE, never KILLED, and fails the registry — "no mutation is
 # credited merely because an unrelated test fails" (DESIGN.md section 5.1).
 #
-# Scoring: KILLED needs a passing baseline, a nonzero exit AFTER the
+# Scoring (verdicts/tb6-r3.md R3, brief 84): the child process wraps the
+# rung file in ONE root `@testset` and prints a structured tally line
+# `MUTANT_TALLY pass=P fail=F error=E broken=B` taken from Julia's own Test
+# counts (the root's TestSetException, or the root testset's counts when it
+# passes). KILLED needs a passing baseline (exit 0, tally F = E = 0), the
 # "MUTANT_TEST_STARTED" marker (so a load/mutation failure is LOAD-ERROR,
-# never a kill), plus the mutant's expected evidence line when one is
-# registered (the named rejection rule). A nonzero exit without a failed
-# `@test` is KILLED-BY-CRASH.
+# never a kill), a nonzero exit, AT LEAST ONE FAILED ASSERTION (F >= 1), plus
+# the mutant's expected evidence line when one is registered (the named
+# rejection rule). A run with errors but zero failed assertions is
+# KILLED-BY-ERROR (not credited) -- wherever Julia caught the exception,
+# inside or outside a rung @testset -- and a process that dies without a
+# tally is KILLED-BY-CRASH (not credited); both FAIL the registry. The
+# generic "Some tests did not pass" sentence is never evidence (Julia prints
+# it for 0 failed / >= 1 errored). test/mutations/runner_probes.jl holds the
+# two permanent negative tests of this rule (expected non-kills).
 
 const ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const MUTATION_FILTER = get(ENV, "MUTATION_FILTER", "")
 # Mutant processes are independent, so up to MUTATION_JOBS run concurrently.
 const MUTATION_JOBS = max(1, parse(Int, get(ENV, "MUTATION_JOBS", "4")))
-selected(mutant) = isempty(MUTATION_FILTER) || occursin(MUTATION_FILTER, mutant.label)
+# MUTATION_FILTER: a label substring, or several separated by `|` (any matches).
+selected(mutant) = isempty(MUTATION_FILTER) ||
+                   any(f -> !isempty(f) && occursin(f, mutant.label), split(MUTATION_FILTER, '|'))
 
 struct Mutant
     label::String
@@ -240,6 +252,8 @@ include("tb5_gate.jl")
 include("tb6_introspect.jl")
 # Brief 44: the eleven M7 construction mutations and Pad's terminal walk.
 include("tb7_compress.jl")
+# verdicts/tb6-r3.md R3 (brief 84): the runner's own negative tests (expected NON-kills).
+include("runner_probes.jl")
 # TB6 mutants join the queue once src/introspect is included (briefs/43); until then the tuple is empty.
 const TB6_QUEUE = occursin("introspect/introspect.jl", read(joinpath(ROOT, "src", "MIPStarLambda.jl"), String)) ? TB6_MUTANTS : ()
 
@@ -309,6 +323,34 @@ end
 # name): every mutant sharing a target shares one baseline run.
 baseline_key(mutant::Mutant) = _rung(mutant)[2:4]
 
+# The child's epilogue: the structured pass/fail/error tally of the root
+# testset (every rung @testset nests under it, so nothing escapes it: an
+# exception outside a rung testset is recorded as an Error of the root).
+const TALLY_EPILOGUE = """
+let o = MUTANT_ROOT_OUTCOME
+    if o isa Test.TestSetException
+        println("MUTANT_TALLY pass=", o.pass, " fail=", o.fail, " error=", o.error, " broken=", o.broken)
+        exit(1)
+    elseif o isa Test.DefaultTestSet
+        c = Test.get_test_counts(o)
+        f = c.fails + c.cumulative_fails
+        e = c.errors + c.cumulative_errors
+        println("MUTANT_TALLY pass=", c.passes + c.cumulative_passes, " fail=", f, " error=", e, " broken=", c.broken + c.cumulative_broken)
+        exit(f + e == 0 ? 0 : 1)
+    else
+        println("MUTANT_ROOT_OUTCOME unexpected ", typeof(o))
+        exit(2)
+    end
+end
+"""
+
+"The structured tally printed by the child, or nothing (the process died before printing it)."
+function test_tally(output::AbstractString)
+    m = match(r"MUTANT_TALLY pass=(\d+) fail=(\d+) error=(\d+) broken=(\d+)", output)
+    m === nothing && return nothing
+    (; pass=parse(Int, m[1]), fail=parse(Int, m[2]), error=parse(Int, m[3]), broken=parse(Int, m[4]))
+end
+
 # One isolated Julia process: load the package image, apply `patch` (a
 # `Base.include` of the mutated source file, or nothing), print the marker,
 # include the test file with the target selected.
@@ -318,7 +360,14 @@ function run_isolated(sandbox::String, test_path::String, patch::String,
     script = joinpath(sandbox, "run.jl")
     write(script, "using Test, MIPStarLambda\n" * patch *
                   "println(\"MUTANT_TEST_STARTED\")\n" *
-                  "include($(repr(test_path)))\n")
+                  "const MUTANT_ROOT_OUTCOME = try\n" *
+                  "    @testset \"MUTANT_ROOT\" begin\n" *
+                  "        include($(repr(test_path)))\n" *
+                  "    end\n" *
+                  "catch err\n" *
+                  "    err\n" *
+                  "end\n" *
+                  TALLY_EPILOGUE)
     command = addenv(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) $script`,
                      target_variable => target_name,
                      "JULIA_PKG_PRECOMPILE_AUTO" => "0")
@@ -338,10 +387,13 @@ function unmutated_baseline(key, index::Int, temporary::String)
     result = run_isolated(joinpath(temporary, "baseline-$(index)"),
                           joinpath(ROOT, "test", test_name), "",
                           target_variable, target_name)
-    ok = result.exitcode == 0 && result.test_started
+    tally = test_tally(result.output)
+    ok = result.exitcode == 0 && result.test_started && tally !== nothing &&
+         tally.fail == 0 && tally.error == 0
     println("BASELINE ", test_name, " ", target_variable, "=", target_name,
             " => ", ok ? "OK" : "BROKEN", " (exit=", result.exitcode, ", ",
-            result.seconds, " s)")
+            result.seconds, " s; pass/fail/error = ",
+            tally === nothing ? "no tally" : "$(tally.pass)/$(tally.fail)/$(tally.error)", ")")
     ok || print(result.output)
     (; ok, result.exitcode, result.seconds)
 end
@@ -412,24 +464,29 @@ function isolated_mutant(mutant::Mutant, index::Int, temporary::String)
 end
 
 # Disposition needs the baseline: a kill is credited only when the same
-# target exits 0 unmutated.
+# target exits 0 unmutated, and only on an explicitly FAILED ASSERTION
+# (verdicts/tb6-r3.md R3; the header above).
 function disposition(mutant::Mutant, result, baseline)
-    evidence_ok = mutant.expected_evidence === nothing ||
-                  occursin(mutant.expected_evidence, result.output)
-    failed_after_start = result.exitcode != 0 && result.test_started
-    assertion_failure = occursin("Test Failed", result.output) ||
-                        occursin("Some tests did not pass", result.output)
     if !baseline.ok
         return (; killed=false,
                   label="UNATTRIBUTABLE (target exits $(baseline.exitcode) unmutated)")
     end
-    # verdicts/tb6-r2.md N8: only a failed ASSERTION is a kill; a crash after the marker (e.g. a
-    # test file that fails to load its includes) is reported KILLED-BY-CRASH and FAILS the registry.
-    killed = failed_after_start && evidence_ok && assertion_failure
-    label = killed ? "KILLED" :
-            failed_after_start && evidence_ok ? "KILLED-BY-CRASH (not credited)" :
-            result.test_started ? "SURVIVED" : "LOAD-ERROR"
-    (; killed, label)
+    result.test_started || return (; killed=false, label="LOAD-ERROR")
+    tally = test_tally(result.output)
+    if tally === nothing
+        return (; killed=false,
+                  label=result.exitcode == 0 ? "NO-TALLY (not credited)" :
+                        "KILLED-BY-CRASH (not credited; no test tally)")
+    end
+    counts = "pass/fail/error = $(tally.pass)/$(tally.fail)/$(tally.error)"
+    tally.fail == 0 && tally.error == 0 && return (; killed=false, label="SURVIVED ($counts)")
+    tally.fail == 0 && return (; killed=false, label="KILLED-BY-ERROR (not credited; $counts)")
+    result.exitcode != 0 || return (; killed=false, label="INCONSISTENT (failed assertions but exit 0; $counts)")
+    evidence_ok = mutant.expected_evidence === nothing ||
+                  occursin(mutant.expected_evidence, result.output)
+    evidence_ok || return (; killed=false,
+                             label="NO-EVIDENCE (not credited; expected $(repr(mutant.expected_evidence)); $counts)")
+    (; killed=true, label="KILLED ($counts)")
 end
 
 started = time()
@@ -441,7 +498,7 @@ for (name, mutants) in (("TB0", MUTANTS), ("TB1", TB1_MUTANTS),
                         ("TB2", TB2_MUTANTS), ("TB3", TB3_MUTANTS),
                         ("TB4", TB4_MUTANTS), ("TB5", TB5_MUTANTS),
                         ("SUITE", SUITE_MUTANTS), ("TB6", TB6_QUEUE),
-                        ("TB7", TB7_MUTANTS)), mutant in mutants
+                        ("TB7", TB7_MUTANTS), ("PROBE", RUNNER_PROBES)), mutant in mutants
     selected(mutant) && push!(queue, (name, mutant))
 end
 baseline_keys = unique(baseline_key(mutant) for (_, mutant) in queue)
@@ -483,13 +540,27 @@ results = map(enumerate(queue)) do (i, entry)
     verdict = disposition(mutant, result, baselines[baseline_key(mutant)])
     println("MUTANT ", mutant.label, " target=", mutant.target, " => ",
             verdict.label, " (exit=", result.exitcode, ", ", result.seconds, " s)")
-    verdict.killed || print(result.output)
-    "$name $(mutant.label)" => verdict.killed
+    # MUTATION_VERBOSE=1 also prints a credited kill's output (attribution: its `Test Failed at` lines).
+    (verdict.killed && get(ENV, "MUTATION_VERBOSE", "") != "1") || print(result.output)
+    (; name, id=name == "PROBE" ? mutant.label : "$name $(mutant.label)", verdict.killed, verdict.label)
 end
+probe_results = [r for r in results if r.name == "PROBE"]
+real_results = [r for r in results if r.name != "PROBE"]
+# A runner probe is correctly refused when its run DID fail (so the probe
+# was live) and the failure was NOT credited as a kill.
+probe_refused(r) = !r.killed && (startswith(r.label, "KILLED-BY-ERROR") || startswith(r.label, "KILLED-BY-CRASH"))
+for r in probe_results
+    println("PROBE-CHECK ", r.id, " => ", probe_refused(r) ? "correctly refused" : "WRONGLY SCORED", " (", r.label, ")")
+end
+results = [r.id => r.killed for r in real_results]
+# The summary line is printed BEFORE the final assertions (verdicts/tb6-r3.md
+# section "Required runs": the registry used to throw before printing it).
+println("MUTATION REGISTRY: killed=", count(last, results), "/", length(results),
+        " baselines ok=", count(b -> b.ok, values(baselines)), "/", length(baselines),
+        " probes refused=", count(probe_refused, probe_results), "/", length(probe_results),
+        " wall=", round(time() - started; digits=2), " s")
 @testset "isolated targeted mutations" begin
     @test all(baseline.ok for baseline in values(baselines))
     @test all(last, results)
+    @test all(probe_refused, probe_results)
 end
-println("MUTATION REGISTRY: killed=", count(last, results), "/", length(results),
-        " baselines ok=", count(b -> b.ok, values(baselines)), "/", length(baselines),
-        " wall=", round(time() - started; digits=2), " s")
