@@ -52,9 +52,10 @@ visible on the literal tape consumed by the machine.
 \end{figure}
 
 This is the model in the Turing-machine subsection of the paper.
-\gt{sec:tms}{ground-truth/gt-03-prelim.tex}  Its universal-machine convention
-is quantitative.  For each \(k\) there is a fixed one-tape \(U_k\), and
-universal constants \(C_U,c_U\geq1\), such that if \([\alpha]_k(x)\) halts in
+\gt{sec:tms}{ground-truth/gt-03-prelim.tex}  The paper says only that such simulations carry a polynomial overhead; the
+explicit form below is this document's own quantification of that overhead,
+not notation from the paper.  For each \(k\) there is a fixed one-tape \(U_k\), and
+universal constants \(C_U,c_U\geq1\) (our notation), such that if \([\alpha]_k(x)\) halts in
 \(T\) steps then \(U_k(\operatorname{enc}_{k+1}(\alpha,x))\) produces the same
 answer within
 \[
@@ -1453,7 +1454,7 @@ with \(c_Y=3\), and the TB4 rung pins it at every fuel on two machines
 no sort annotation, so the link costs \(c_{\mathrm{fix}}=5\) bytes of description.
 The first point was adjudicated the other way: the outer \(\Eval\) already
 runs the returned decider, no \(\mathsf{ans}\) selector is needed because
-the compressor returns the decider description (\code{gt-12} fig:halt\_f step~3
+the compressor returns the decider description (\code{gt-12} fig:halt\_f steps~4--5
 with lem:dhalt-values and lem:compress-independent-samplers), and no separate
 \(F_C\) budget is needed because \(\operatorname{Compress}\) is total
 polynomial time and is counted inside \(\mathrm{TIME}_D\) as lem:lambda

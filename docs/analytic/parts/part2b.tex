@@ -299,7 +299,7 @@ variable \(w_i\) and an equivalence formula
  \qquad F=\bigwedge_i z_i.
 \]
 The required contract is
-\(C(x)=1\) iff there exists \(w\) with \(F(x,w)=1\), with size and
+\(C(x)=1\) iff there exists \(w\) with \(F(x,w)=1\),\footnote{The source's \code{def:tseitin} writes \(F(x,s)\) here; this document uses the corrected \(F(x,w)\).} with size and
 construction time \(O(|C|)\).\gt{def:tseitin}{ground-truth/gt-10-answer-reduction.tex}
 The project follows the explicit gate-equivalence form in
 \code{ground-truth/nw19/nw19-tseitin-arith.tex} and also conjoins the output
@@ -315,16 +315,15 @@ occurrence vector; it does not, by that replay alone, establish the general
 Cook--Levin or Tseitin semantic equivalence.  Those implications are exhausted
 only on the small TB0 fixture and remain cited in general.
 
-Arithmetization recursively applies
+Arithmetization follows the NW19 rule \code{def:arithmetization}, found in
+\code{ground-truth/nw19/nw19-tseitin-arith.tex}.  It recursively applies
 \[
   \neg A\mapsto 1-A,\qquad
   A\wedge B\mapsto AB,\qquad
   A\vee B\mapsto A+B-AB.
 \]
-It agrees with the Boolean formula on the Boolean cube.
-\gt{def:formula-arithmetization}{ground-truth/gt-10-answer-reduction.tex}
-The related NW19 rule is \code{def:arithmetization} in
-\code{ground-truth/nw19/nw19-tseitin-arith.tex}.  Julia's \code{arith_q}
+The paper's definition states only that it agrees with the Boolean formula on the Boolean cube.\gt{def:formula-arithmetization}{ground-truth/gt-10-answer-reduction.tex}\footnote{The source writes the domain of \(F_{\mathrm{arith}}\) as \(\mathbb F_q^{m'}\) in this definition; this document uses \(\mathbb F_q^{m}\), matching the \(m\) variables of \(F\).}
+Julia's \code{arith_q}
 returns a sparse formal \code{Poly}; its \code{ArithTseitin} certificate checks
 support degrees against a structural bound.
 
@@ -1037,7 +1036,7 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 & Circuit becomes a linear-size formula with auxiliary wires &
 \code{Circuit}, \code{TseitinFormula} & \code{tseitin}, \code{occurrences}
 & \grade{CHECKED} occurrence & C2 \textsc{Tested} \\
-\code{def:formula-arithmetization}\newline\code{gt-10-answer-reduction.tex}
+\code{def:formula-arithmetization}\newline\code{gt-10-answer-reduction.tex} (agreement on the cube); connective rules from NW19 \code{def:arithmetization}
 & Boolean connectives become a formal polynomial & \code{Poly}
 & \code{arith_q}, \code{actual_degrees} & \grade{CHECKED} & C8 \textsc{Tested} \\
 \code{sec:ld-encoding}\newline\code{gt-03-prelim.tex}
@@ -1126,11 +1125,11 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 & A type graph selects a pair of CL maps sharing one seed & \code{TypedSampler}
 & \code{TypedSampler}, \code{sample}, \code{pad_level}
 & \constructed\ base & C4b \textsc{Tested} \\
-\code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
+\code{sec:ar-verifier}, \code{gt-10-answer-reduction.tex} L1889--L1894
 & Six low-degree copies form an 18-type family & \code{CLStep}
 & \code{_pcp_cl_map}, \code{pcp_sampler}, \code{intrinsic_pcp_levels}
 & local \grade{CHECKED} & C4b \textsc{Tested} \\
-\code{sec:ld-compiler}\newline\code{gt-10-answer-reduction.tex}
+\code{sec:ar-verifier}, \code{gt-10-answer-reduction.tex} L1949; \code{gt-09-oracularization.tex} L43
 & Product with the oracularized sampler has 54 types &
 \code{Checked{TypedSampler}} & \code{oracularize_sampler},
 \code{typed_sampler_product} & \grade{CHECKED} shape; theorem cited
@@ -1226,7 +1225,7 @@ and the four sampler queries alone & \code{SamplerDescription}
 \(1,1\to3,9\to3,729\) on the TB5 fixture & \code{VerifierDescription}
 & \code{anchor}, \code{anchored_repeat}, \code{repeat_decider}
 & \grade{CHECKED} fixture; theorems \grade{CITED} & C13 \textsc{Tested} \\
-\code{thm:pauli}, \code{thm:introspection}\newline\code{gt-08-introspection.tex}
+\code{thm:pauli}\newline\code{gt-07-ldt.tex}; \code{thm:introspection}\newline\code{gt-08-introspection.tex}
 & Introspection takes a level-\(9\) verifier to a level-\(5\) one; TB6 type and
 oriented-pair counts \(34/116\) (\(\ell=1\)) and \(38/128\) (\(\ell=3\))
 & \code{VerifierDescription} & \code{introspect}, \code{pauli_decider},
