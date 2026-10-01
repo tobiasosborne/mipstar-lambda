@@ -39,7 +39,7 @@
     3 & introspection embedding \(Q_I\geq s_0(N)\): \(2\geq9\) & \textcolor{bad}{FAIL} (owner \(Q_I<s_0\)) \\
     4 & introspection canonical tuple equality; source \(M_I\geq R\) & \textcolor{bad}{FAIL} \\
     5 & non-Pauli answer schemas: \(\Introspect\), Sample, Read, every Hide stage (both roles) & \textcolor{cited}{VACUOUS} (owner \(Q_I<s_0\)) \\
-    6 & AR \(P_{\mathrm{shape}}\), \(P_{\mathrm{formula\_paper}}\), \(P_{\mathrm{tail}}\), \(P_{\mathrm{divisibility}}\), \(P_{\mathrm{degree}}\); structural formula check & \textcolor{check}{PASS} \\
+    6 & AR \(P_{\mathrm{shape}}\), \(P_{\mathrm{formula\_paper}}\), \(P_{\mathrm{tail}}\), \(P_{\mathrm{divisibility}}\), \(P_{\mathrm{degree}}\); structural formula check, on the disclosed local polynomial fixture (not the formula of \(D^{(1)}\)) & \textcolor{check}{PASS} \\
     7 & AR \(P_{\mathrm{growth}}\); universal \(\mu,\gamma,\tau\); \(n\geq C_0\) & \textcolor{inkmute}{NOT\_EVALUABLE} \\
     8 & AR tuple equals \(\mathrm{pcpparams}(n,T,Q,\sigma,\gamma)\) & \textcolor{bad}{FAIL} \\
     9 & \(P_{\mathrm{pcp\_encodes\_D1}}\): the PCP instance arithmetizes the actual \(D^{(1)}\) trace & \textcolor{bad}{FAIL} (owner \code{pcpverifier-D1-trace}) \\
@@ -52,5 +52,6 @@
   \node[lblsm, below=1.5mm of rep, align=center]
     {level chain \(9\to5\to7\to9\) \quad$\bullet$\quad dimension chain
      \(206\to840\to848\to1696\) \quad$\bullet$\quad amber: executed at the toy policy\\
-     TB7 executes as a toy-policy checkpoint; C15 remains \textsc{conjecture} pending critic r1};
+     no introspection predicate is dispatched at TB7, Pauli pairs included (rows 3, 5)\\
+     C15 remains \textsc{conjecture}; critic r1 (\code{verdicts/tb7-r1.md}): FAIL, C15 on HOLD};
 \end{tikzpicture}

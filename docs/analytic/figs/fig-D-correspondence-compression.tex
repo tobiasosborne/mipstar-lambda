@@ -1,8 +1,17 @@
 \begin{tikzpicture}[node distance=5mm]
   \node[checked,minimum width=3.4cm,minimum height=1.25cm] (intro)
     {$\Introspect$\\built (TB6)};
-  \node[checked,right=of intro,minimum width=3.4cm,minimum height=1.25cm] (ar)
-    {$\AnswerReduce$\\built (TB2; TB7 on\\descriptions)};
+  % AnswerReduce has two implementations with different evidence: the TB2
+  % host-object construction (C9 TESTED) and the TB7 description overload
+  % (part of C15, CONJECTURE).  They get separate boxes and separate labels.
+  \node[right=of intro,minimum width=3.4cm,minimum height=1.32cm,inner sep=0pt] (ar) {};
+  \node[checked,anchor=north,minimum width=3.4cm,text width=3.2cm,
+    minimum height=0.6cm,inner sep=2pt,font=\scriptsize\sffamily] (ar2) at (ar.north)
+    {$\AnswerReduce$, TB2 host};
+  \node[stage,draw=focus,fill=focuslt,anchor=south,minimum width=3.4cm,
+    text width=3.2cm,minimum height=0.6cm,inner sep=2pt,
+    font=\scriptsize\sffamily] (ar7) at (ar.south)
+    {TB7 overload: C15 conj.};
   \node[checked,right=of ar,minimum width=3.4cm,minimum height=1.25cm] (repeat)
     {$\Repeat$\\built (TB5)};
   \node[stage,draw=focus,fill=focuslt,right=of repeat,minimum width=3.4cm,
@@ -12,7 +21,7 @@
   \draw[xform,check] (ar) -- (repeat);
   \draw[xform] (repeat) -- (comp);
   \node[tag check,above=1.5mm of intro] {C14 TESTED (SCOPED)};
-  \node[tag check,above=1.5mm of ar] {C9 TESTED};
+  \node[tag check,above=1.5mm of ar] {C9 TESTED (TB2 only)};
   \node[tag check,above=1.5mm of repeat] {C13 TESTED};
   \node[tag cited,above=1.5mm of comp,align=center]
     {\textcolor{check}{C11 TESTED}\\C15 CONJECTURE};

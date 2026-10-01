@@ -52,10 +52,12 @@ visible on the literal tape consumed by the machine.
 \end{figure}
 
 This is the model in the Turing-machine subsection of the paper.
-\gt{sec:tms}{ground-truth/gt-03-prelim.tex}  The paper says only that such simulations carry a polynomial overhead; the
-explicit form below is this document's own quantification of that overhead,
-not notation from the paper.  For each \(k\) there is a fixed one-tape \(U_k\), and
-universal constants \(C_U,c_U\geq1\) (our notation), such that if \([\alpha]_k(x)\) halts in
+\gt{sec:tms}{ground-truth/gt-03-prelim.tex}  The bound below is the paper's
+efficient universal Turing machine theorem\footnote{Ground truth:
+\code{thm:universal-tm} in \code{ground-truth/gt-03-prelim.tex}, L116--L124,
+which states the bound \(C(k\cdot|\alpha|\cdot|x|\cdot T)^c\) with universal
+\(C,c\geq1\).} with its constants renamed.  For each \(k\) there is a fixed one-tape \(U_k\), and
+universal constants \(C_U,c_U\geq1\) (the paper's \(C,c\)), such that if \([\alpha]_k(x)\) halts in
 \(T\) steps then \(U_k(\operatorname{enc}_{k+1}(\alpha,x))\) produces the same
 answer within
 \[
@@ -309,13 +311,16 @@ finite, inspectable descriptions.
 \section{A lambda calculus with resources}
 \label{sec:resource-lambda}
 
-Figure~\ref{fig:three-provenances} sorts every named result of Part~II into
+Figure~\ref{fig:three-provenances} sorts the named results of Part~II into
 three provenances, and the reminder below states the consequence for the
-middle column.
+middle column.  Two lemmas fall outside its columns:
+Lemma~\ref{lem:zero-rewrite} and Lemma~\ref{lem:level-laws} restate source
+arguments for the implementation and have no row of their own
+(Section~\ref{sec:tables}).
 \begin{figure}[H]
 \centering
 \input{figs/fig-three-provenances.tex}
-\caption{Every named result of Part~II belongs to exactly one of three columns: transcribed from the paper, derived here and carried at \textsc{sketch} by \texttt{C16}--\texttt{C19}, or executed and ratcheted by a converged verdict.  Keeping the middle column apart from the right one is the honest shape of a document that costs a construction rather than proving its soundness.}
+\caption{The named results of Part~II, apart from the two lemmas noted in the text, each belong to exactly one of three columns: transcribed from the paper, derived here and carried at \textsc{sketch} by \texttt{C16}--\texttt{C19}, or executed and ratcheted by a converged verdict.  Keeping the middle column apart from the right one is the honest shape of a document that costs a construction rather than proving its soundness.}
 \label{fig:three-provenances}
 \end{figure}
 
@@ -512,9 +517,24 @@ them with what each obliges its author to supply.
 \code{verify\_certificate} walks the tree and re-runs every
 \grade{CHECKED} replay against the term actually attached; a
 \grade{CHECKED} node with no replay function is a verification failure, not a
-pass.  That is what makes stale evidence unrepresentable: there is no detached
-cache to go out of date, and a mutation that changes the term but not the
-certificate turns the suite red.  Symbolic bounds are either
+pass.  That is all the walk itself guarantees.  A replay is an arbitrary
+callback stored in the node (\code{src/certificates.jl}), and calling it does
+not by itself show that it checks the node's recorded facts, its children, or
+the attached subject.  Where the binding has been tested, it is a property of
+particular constructors, not of the API.  The TB0 PCP certificate admits each
+replayed sub-term only after an object-identity check that the attached proof
+owns it, at ten of its eleven nodes (C1).  The TB3 front-end nodes are bound by object identity to their
+subjects, so a certificate attached to a different padded object is refused
+(C10).  The TB4 \code{specialize}/\code{fix_specialize} nodes are
+identity-bound and recompute the substitution (C11).  The TB7 tree fails this
+standard: its first review found that forging the recorded facts of its 133
+\grade{CHECKED} nodes changed none of their replay outcomes, that a stale
+printed hash survived the whole TB7 rung, and that two semantic mutants
+(a constant decider substituted for the fixed-point evaluation, and the
+supplied decider code discarded) survived as well (\code{verdicts/tb7-r1.md} T7-2, T7-3).  A repair that binds each
+replay to its node's facts and children is in the live tree (brief~93) but has
+no converged verdict, so no general claim that stale evidence is
+unrepresentable is made here.  Symbolic bounds are either
 \(\operatorname{Concrete}(k)\) or
 \(\operatorname{Opaque}(\text{description},\text{parameters})\); no
 \(\poly(\cdot)\) is silently given an exponent.
@@ -541,7 +561,9 @@ constant), \code{VACUOUS} (the guard set is empty, or a promised margin is
 faithful content, printed with its owner).  They are outcomes printed beside a
 predicate, not grades on a node, and none of them may be folded into
 \code{PASS}; the thirteen-row report that TB7 prints at its toy policy, in
-Figure~\ref{fig:tb7-card}, is where they appear.
+Figure~\ref{fig:tb7-card}, is where they appear.  The vocabulary is not a
+checker: TB7's first review found several of those rows printed as literals
+rather than derived from attached evidence (\code{verdicts/tb7-r1.md} T7-1).
 
 \subsection{Small-step semantics and fuel}
 
@@ -1432,6 +1454,15 @@ description.  Define
 \tag{10.5}\label{eq:dml}
 \]
 
+Figure~\ref{fig:C-closed-verifier} closes the construction into the exact
+sampler--decider pair passed to the later game machinery.
+\begin{figure}[t]
+\centering
+\input{figs/fig-C-closed-verifier.tex}
+\caption{The literal bound \(\lambda\) produces \(S_\lambda\), while \(\operatorname{YCode}(\Psi_{M,\lambda})\) closes its sole self-code socket before quotation places \(D_{M,\lambda}\) beside that sampler.  The resulting \(V_{M,\lambda}\) is one finite normal-form verifier description, not an oracle for either component.}
+\label{fig:C-closed-verifier}
+\end{figure}
+
 Three points at which \eqref{eq:psi-ml} and the surrounding sections deviate
 from the single source \code{docs/DESIGN.md} \S1.1 are declared here as
 \grade{SOURCE\_REPAIR} against that file rather than left implicit.  First,
@@ -1453,23 +1484,18 @@ with \(c_Y=3\), and the TB4 rung pins it at every fuel on two machines
 \(\operatorname{Fix}\) serialises as one tag byte plus a 4-byte child count and
 no sort annotation, so the link costs \(c_{\mathrm{fix}}=5\) bytes of description.
 The first point was adjudicated the other way: the outer \(\Eval\) already
-runs the returned decider, no \(\mathsf{ans}\) selector is needed because
-the compressor returns the decider description (\code{gt-12} fig:halt\_f steps~4--5
-with lem:dhalt-values and lem:compress-independent-samplers), and no separate
+runs the returned decider, and no \(\mathsf{ans}\) selector is needed because
+the project's \code{Compressor} returns only the decider.  This is a named
+narrowing of the paper, whose \(\Compress\) returns the verifier pair
+(\code{gt-12} L28--L39, L445--L449); it is licensed because
+\(\mathsf{ComputeSampler}(\lambda)\) supplies the common sampler
+(\code{gt-12} L530--L534, L108--L118; \code{docs/definitions.md} \S F).
+No separate
 \(F_C\) budget is needed because \(\operatorname{Compress}\) is total
 polynomial time and is counted inside \(\mathrm{TIME}_D\) as lem:lambda
 accounts it (\code{gt-12} L578--L596); \eqref{eq:psi-ml} keeps its two
 \(\Eval\)s as a presentation and is not a repair.  The documents are now
 in lockstep on all three points.
-
-Figure~\ref{fig:C-closed-verifier} closes the construction into the exact
-sampler--decider pair passed to the later game machinery.
-\begin{figure}[t]
-\centering
-\input{figs/fig-C-closed-verifier.tex}
-\caption{The literal bound \(\lambda\) produces \(S_\lambda\), while \(\operatorname{YCode}(\Psi_{M,\lambda})\) closes its sole self-code socket before quotation places \(D_{M,\lambda}\) beside that sampler.  The resulting \(V_{M,\lambda}\) is one finite normal-form verifier description, not an oracle for either component.}
-\label{fig:C-closed-verifier}
-\end{figure}
 
 The complete constructor tree in Figure~\ref{fig:psi-ml} locates the single
 self-code hole inside the nested bounded evaluations.

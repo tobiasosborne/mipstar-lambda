@@ -265,11 +265,16 @@ The intended analytic chain is
 \]
 These are the transformations built in TB3 (\code{briefs/23-tb3.md},
 repaired in brief 63): \code{bounded_trace}, \code{cook_levin},
-\code{decouple5} and \code{pad5} exist in \code{src/frontend/} and run the
-generated instance through the PCP builder and the answer-reduced decider on two
-one-bit-answer fixtures.  That fixture evidence is claim C10 at
-\textsc{TESTED} (\code{verdicts/tb3-r2.md}), and it covers the two fixtures
-only.  The general construction of this section is claim C19 at
+\code{decouple5} and \code{pad5} exist in \code{src/frontend/}.  On two
+one-bit-answer fixtures, the constant-true decider and the equality decider,
+they carry the program through the bounded trace, the succinct 3SAT and 5SAT
+instances and the padding.  Only the trivial fixture's padded circuit goes on
+through the PCP builder and TB2's answer-reduced decider.  The equality
+fixture's padded circuit is refused by \code{arith_q}
+(\code{ExpansionRefused}, \(279\,936>160\,000\) monomials) and never reaches
+\code{build_pcp}.  That fixture evidence is claim C10 at \textsc{TESTED}
+(\code{verdicts/tb3-r2.md}), with exactly this scope: two fixtures up to the
+padded circuit, one of them through the PCP and answer-reduction steps.  The general construction of this section is claim C19 at
 \textsc{SKETCH}; the alphabet, window function and answer-block reservation
 are not implemented, and the general contracts remain \grade{CITED}.
 
@@ -642,14 +647,6 @@ chooses complementary registers \(V_1\oplus V_{>1}=V\), applies a linear map
 level-\((\ell-1)\) CL function on \(V_{>1}\).  Its output is the sum of the
 first-stage and continuation outputs.
 \end{definition}
-Figure~\ref{fig:cl-inductive} unfolds this definition into its sequential
-factor registers, conditional choices, and two level laws.
-\begin{figure}[H]
-\centering
-\input{figs/fig-cl-inductive.tex}
-\caption{Each rust stage applies a linear map on one complementary register, while the labelled dependency lets earlier outputs select the next stage.  Marginals sum prefixes of stage outputs; concatenation exhibits \(k+\ell\) stages and direct sum \(\max_j\ell_j\); neither is claimed minimal.}
-\label{fig:cl-inductive}
-\end{figure}
 This is \code{def:cl-func} in
 \code{ground-truth/gt-04-cl.tex}.  Julia mirrors it with
 \code{AbstractCL}, \code{CLZero}, and \code{CLStep}.  The constructor verifies
@@ -671,6 +668,15 @@ of a CL function need not be unique, and the identity on \(\F^n\) is a
 any \(k\in\{2,\ldots,n\}\).  Correspondingly, every \((\ell-1)\)-level CL
 function is also \(\ell\)-level.\gt{rk:higher-level}{ground-truth/gt-04-cl.tex}
 Both facts are used below, and neither can be strengthened to an equality.
+
+Figure~\ref{fig:cl-inductive} unfolds Definition~\ref{def:cl-func-doc} into its sequential
+factor registers, conditional choices, and two level laws.
+\begin{figure}[H]
+\centering
+\input{figs/fig-cl-inductive.tex}
+\caption{Each rust stage applies a linear map on one complementary register, while the labelled dependency lets earlier outputs select the next stage.  Marginals sum prefixes of stage outputs; concatenation exhibits \(k+\ell\) stages and direct sum \(\max_j\ell_j\); neither is claimed minimal.}
+\label{fig:cl-inductive}
+\end{figure}
 
 \begin{lemma}[Level laws]
 \label{lem:level-laws}
@@ -804,14 +810,6 @@ behaviour just described is its induced distribution
 Julia's \code{TypedSampler} checks exact type coverage, a common field and seed
 dimension, graph endpoints, and a padded common level.
 
-\emph{Detyping} encodes the external graph choice into an untyped CL
-distribution by a rejection-sampling construction.  It adds two levels,
-preserves value-one completeness, and changes soundness error by
-\(16^{|\mathrm{Type}|}\).\gt{lem:detyping-verifiers}{ground-truth/gt-06-types.tex}
-The Julia function \code{detype} returns \code{CitedDetypedVerifier}; the
-certificate is deliberately \grade{CITED}.  For the 54 answer-reduction types,
-the displayed factor is \(16^{54}\), not an executed estimate.
-
 The answer-reduction PCP sampler has the 18 types
 \[
  \{\mathrm{Point}_i,\mathrm{ALine}_i,\mathrm{DLine}_i:1\leq i\leq6\}
@@ -828,23 +826,6 @@ type and register bookkeeping, the private constructor \code{_pcp_cl_map}
 \code{pcp_sampler} for the family.  It carries a visible
 \grade{SOURCE\_REPAIR} for the copy-6 coordinate-register conflict between the
 displayed ambient space and the parser table.
-
-\emph{Oracularization} is the typed transformation in which the isolated
-roles receive the original left or right CL image while an oracle role receives
-the common seed and can reconstruct both; the code name is
-\code{oracularize_sampler}.  Its theorem contract is \grade{CITED}.
-\gt{sec:orac-def}{ground-truth/gt-09-oracularization.tex}
-The typed
-answer-reduced sampler is the product of this three-role family with the
-18-type PCP family.  \code{typed_sampler_product} produces 54 types and
-combines levels by a maximum.  The lazy object here is \code{CLStep}
-(\code{src/samplers/cl.jl}), whose \code{branch} continuation is evaluated only
-at the seeds actually reached and memoised after a field/dimension/register/level
-check.  \claim{C4b}{TESTED} is scoped to exactly what that buys: type and edge
-counts, the common level, and self-consistent marginals.  The decider's questions
-are generated by an explicit seed split rather than by applying the product maps,
-so the product is not evidenced as the source of the questions.  Local
-certificate labels must not be confused with a wider promoted claim.
 
 The typed decider implements the five guarded checks of
 \code{fig:decider-pcp}: global consistency, input consistency, input low degree,
@@ -863,6 +844,27 @@ The Julia names are \code{TypedAnswerReducedDecider},
 \code{PCPGameCall}.  \code{answer_reduce_pcp} constructs the typed verifier of
 level \(\max(\ell,3)\) on its fixture and attaches explicit assumptions.
 
+\emph{Oracularization} is the typed transformation in which the isolated
+roles receive the original left or right CL image while an oracle role receives
+the common seed and can reconstruct both; the code name is
+\code{oracularize_sampler}.  Its theorem contract is \grade{CITED}.
+\gt{sec:orac-def}{ground-truth/gt-09-oracularization.tex}
+The typed
+answer-reduced sampler is the product of this three-role family with the
+18-type PCP family.  \code{typed_sampler_product} produces 54 types and
+combines levels by a maximum.  The lazy object here is \code{CLStep}
+(\code{src/samplers/cl.jl}), whose \code{branch} continuation is evaluated only
+at the seeds actually reached and memoised after a field/dimension/register/level
+check.  \claim{C4b}{TESTED} is scoped to exactly what that buys: type and edge
+counts, the common level, and self-consistent marginals.  The decider's
+questions are the projections of the 54-type product sampler's own
+\code{sample} output (\code{sample_answer_reduce_questions} in
+\code{src/verifiers/answer_reduce.jl}).  An explicit seed split is kept only as
+an independent test reference: the suite asserts that the two agree on 20
+seeds, all 54 types and both sides (C4b, C9; \code{verdicts/tb2-r2.md} N1,
+repaired in brief~46).  Local
+certificate labels must not be confused with a wider promoted claim.
+
 The full theorem contract is conditional:
 \[
 \begin{array}{ll}
@@ -878,6 +880,19 @@ This is \code{thm:ar} in
 \code{ground-truth/gt-10-answer-reduction.tex}.  The finite guarded decider is
 executable; the quantum implication, detyping, and asymptotic theorem are
 \grade{CITED}.
+
+\emph{Detyping} encodes the external graph choice into an untyped CL
+distribution by a rejection-sampling construction.  It adds two levels,
+preserves value-one completeness, and changes soundness error by
+\(16^{|\mathrm{Type}|}\).\gt{lem:detyping-verifiers}{ground-truth/gt-06-types.tex}
+On the TB2 host object, the one-argument Julia function \code{detype} returns
+the marker \code{CitedDetypedVerifier}; its certificate is deliberately
+\grade{CITED}.  For the 54 answer-reduction types, the displayed factor is
+\(16^{54}\), not an executed estimate.  The description-level detyping of DL9
+is a different, executable overload (\code{detype_sampler},
+\code{detype_decider} and the two-argument \code{detype}, which return
+description sorts; C12), and Section~\ref{sec:tables} lists the two
+separately.
 
 \subsection{The structural hypothesis}
 
@@ -945,11 +960,19 @@ certificate label when an adversarial verdict has not promoted the claim.
 A claim column reading ``no current row'' means exactly that: no
 row of \code{claims/CLAIMS.md} governs the object.  Where a transformation is
 built, its row grades the executed contract on named toys; the soundness
-theorem beside it stays \grade{CITED} and is never promoted by that row.  Every
-theorem and lemma of Part~II is instead a written derivation of this project
-recorded as \code{C16}--\code{C19} at \textsc{SKETCH --- not yet
+theorem beside it stays \grade{CITED} and is never promoted by that row.  The
+thirteen theorems and lemmas of Sections~\ref{sec:resource-lambda}--%
+\ref{sec:l-cook-levin} enumerated at the head of
+Section~\ref{sec:resource-lambda} are instead written derivations of this
+project, recorded as \code{C16}--\code{C19} at \textsc{SKETCH --- not yet
 adversarially verified}: a written derivation, no machine check, no converged
-verdict.  \code{C16} covers Section~\ref{sec:resource-lambda}, \code{C17}
+verdict.  Part~II has two further lemmas with no row of their own.
+Lemma~\ref{lem:zero-rewrite} states the implemented rewrite behind the division
+step of the \code{prop:zero-basis} proof (\code{gt-10} L1296--L1359), and
+Lemma~\ref{lem:level-laws} restates for levels the source's concatenation and
+direct-sum lemmas (\code{gt-04} L282--L363).  Their executed instances are
+checked under C2 and under C4a and C12 respectively; their general statements
+are written proofs that no verdict has examined.  \code{C16} covers Section~\ref{sec:resource-lambda}, \code{C17}
 Section~\ref{sec:simulation}, \code{C18} Section~\ref{sec:self-reference},
 and \code{C19} Section~\ref{sec:l-cook-levin}, as stated at the head of
 Section~\ref{sec:resource-lambda}.
@@ -1139,8 +1162,11 @@ Paper object & Analytic statement & IR sort & Julia name & Grade & Claim \\
 \code{TypedAnswer}\newline\code{ReducedDecider} & \code{typed_answer_reduced_decider}
 & \grade{CHECKED} finite paths & C9 \textsc{Tested} \\
 \code{lem:detyping-verifiers}\newline\code{gt-06-types.tex}
-& Remove types at cost \(+2\) levels and \(16^{54}\) soundness factor &
-\code{CitedDetyped}\newline\code{Verifier} & \code{detype_sampler}, \code{detype_decider} & \grade{CHECKED} DL9 levels; loss \grade{CITED} & C12 \textsc{Tested};\newline loss: no current row \\
+& TB2 host object: remove types at cost \(+2\) levels and \(16^{54}\) soundness factor, recorded, not executed &
+\code{CitedDetyped}\newline\code{Verifier} (marker) & \code{detype} on the checked TB2 verifier & \grade{CITED} & loss: no current row \\
+\code{lem:detyping-verifiers}\newline\code{gt-06-types.tex}
+& Descriptions (DL9): \(+2\) levels, \(4|\mathrm{Type}|\) graph bits added to the dimension &
+\code{SamplerDescription}, \code{DeciderDescription}, \code{VerifierDescription} & \code{detype_sampler}, \code{detype_decider}, two-argument \code{detype} & \grade{CHECKED} DL9 levels; loss \grade{CITED} & C12 \textsc{Tested};\newline loss: no current row \\
 \code{thm:ar}\newline\code{gt-10-answer-reduction.tex}
 & Conditional complexity, completeness, soundness, entanglement contract &
 \code{TypedAnswer}\newline\code{ReducedVerifier} & \code{answer_reduce_pcp},
@@ -1178,6 +1204,15 @@ Analytic anchor & Analytic statement & IR sort & Implementation & Grade & Claim 
 \end{longtable}
 \normalsize
 
+Figure~\ref{fig:midpoint-diagnostic} plots the collapsing one-copy gap and the
+exact first six repetition counts that the N1 formula gives.
+\begin{figure}[t]
+\centering
+\input{figs/fig-midpoint-diagnostic.tex}
+\caption{The left bars approach value one as \(p_n=1-2^{-n}\), while the right bars give the exact repetition counts \(1,3,6,11,22,45\) needed to recover error at most one half.  The paired growth makes the \(\Theta(n2^n)\) sequential transcript cost visible and diagnoses why representation alone is insufficient.}
+\label{fig:midpoint-diagnostic}
+\end{figure}
+
 \subsection{Compression and fixed point (TB4--TB7)}
 \label{sec:tables-compression}
 
@@ -1190,9 +1225,12 @@ end-to-end \(\Compress\) and the halting fixed point (TB7).  Their code is in
 ratchet reads: C11 (the TB4 \(\Compress\) skeleton), C12 (the
 description-level closure laws) and C13 (TB5 anchoring and repetition) at
 \textsc{TESTED}; C14 (TB6 \(\Introspect\)) at \textsc{TESTED}, scoped to
-explicit toy child fuel; C15 (TB7) at \textsc{CONJECTURE}.  TB7 executes as a
-toy-policy checkpoint; C15 remains \textsc{CONJECTURE} pending critic r1
-(Section~\ref{sec:tb7-card}).  What these rows grade is the built
+explicit toy child fuel; C15 (TB7) at \textsc{CONJECTURE}.  TB7 runs as a
+toy-policy checkpoint.  Its first critic review (\code{verdicts/tb7-r1.md})
+returned FAIL with C15 on HOLD, and a repair round (brief~93) is in progress.
+C15 therefore stays \textsc{CONJECTURE} (Section~\ref{sec:tb7-card}).  C14
+keeps its earlier \textsc{TESTED} row; the replacement row reviewed in
+\code{verdicts/tb6-r4.md} is on HOLD, with two findings (T6-1, T6-2) open.  What these rows grade is the built
 transformation on descriptions and its checked contracts on named toys.  The
 soundness theorems --- \code{thm:introspection}, \code{thm:ar},
 \code{prop:anchoring} with \code{thm:repetition}, and \code{thm:compression}
@@ -1204,7 +1242,7 @@ transformations and from their cited soundness leaves.
 \begin{figure}[H]
 \centering
 \input{figs/fig-D-correspondence-compression.tex}
-\caption{Introspection, answer reduction, and repetition are built transformations on descriptions that compose, in the \code{fig:compress} order, into the \(\Compress\) row (C11 for the TB4 skeleton; TB7 a toy-policy checkpoint with C15 \textsc{conjecture}), while their soundness leaves remain dashed and cited.  The amber fixed point supplies self-reference only; it does not discharge those analytic contracts.}
+\caption{Introspection, answer reduction, and repetition are built transformations that compose, in the \code{fig:compress} order, into the \(\Compress\) row (C11 for the TB4 skeleton; TB7 a toy-policy checkpoint with C15 \textsc{conjecture}), while their soundness leaves remain dashed and cited.  Answer reduction is split in two: C9 \textsc{tested} covers only the TB2 host-object construction on its proof/formula fixture, and the TB7 description overload belongs to C15, whose actual-\(D^{(1)}\) game is not executed.  The amber fixed point supplies self-reference only; it does not discharge those analytic contracts.}
 \label{fig:D-correspondence-compression}
 \end{figure}
 
@@ -1263,15 +1301,18 @@ together with the level and dimension chains that \code{compress} constructs
 there and the thirteen-row predicate report it prints, including the two layers
 it does \emph{not} execute on faithful content.  It is printed here for one
 reason: it is the only place where the document's compression chapter carries
-numbers that can be falsified.  TB7 executes as a toy-policy checkpoint; C15
-remains \textsc{CONJECTURE} pending critic r1.  The figure transcribes the
+numbers that can be falsified.  TB7 runs as a toy-policy checkpoint, and C15
+remains \textsc{CONJECTURE}: critic r1 (\code{verdicts/tb7-r1.md}) returned
+FAIL on eight obligations (T7-1 to T7-8) with C15 on HOLD, and the repair
+round of brief~93 had not been reviewed when this was written.  The figure
+transcribes the
 checkpoint's printed output (\code{briefs/44-tb7-compress.last.md}, with the
 statuses asserted in \code{test/tb7_compress.jl}); it is not a verified claim,
 and the certificate tree that the run builds is not reproduced here.
 \begin{figure}[H]
 \centering
 \input{figs/fig-tb7-card.tex}
-\caption{The TB7 toy-policy checkpoint at \(n=2\), \(\lambda=32768\), \(s_0=9\): the constructed level and dimension chains and all thirteen printed predicate outcomes, with every \code{FAIL}, \code{VACUOUS}, \code{NOT\_EVALUABLE} and \code{NOT\_EXECUTED} row kept beside the chain.  Printing the failures beside the chain is what keeps an executed construction from reading as a discharged theorem; C15 remains \textsc{conjecture} pending critic r1.}
+\caption{The TB7 toy-policy checkpoint at \(n=2\), \(\lambda=32768\), \(s_0=9\): the constructed level and dimension chains and all thirteen printed predicate outcomes, with every \code{FAIL}, \code{VACUOUS}, \code{NOT\_EVALUABLE} and \code{NOT\_EXECUTED} row kept beside the chain.  Printing the failures beside the chain is what keeps an executed construction from reading as a discharged theorem.  Row~6's PASS is on the disclosed local polynomial fixture, not on the formula of \(D^{(1)}\).  C15 remains \textsc{conjecture}; critic r1 returned FAIL/HOLD.}
 \label{fig:tb7-card}
 \end{figure}
 
@@ -1283,8 +1324,15 @@ and the game branch is \code{NOT\_EXECUTED}.  Second, the non-Pauli
 introspection answer schemas: with \(M_I=2\) the introspection register carries
 \(Q_I=2\) bits while the input verifier needs \(s_0(N)=9\), and
 \(3Q_I=6<9\), so Introspect, Sample, Read and Hide are \code{VACUOUS} in both
-roles and only the Pauli-typed introspection predicates execute at TB7.
-Neither failure is folded into a pass.
+roles.  The Pauli-typed predicates do not execute either.  The embedding guard
+\(Q\geq s(N)\) runs before any test is dispatched, Pauli pairs included, so at
+TB7 \emph{no} introspection predicate is dispatched: the critic's sweep found
+0 firings on all 86 Pauli-oriented pairs (\code{verdicts/tb7-r1.md} T7-6), and
+the repaired test in the live tree asserts 0 of 164 oriented pairs.  What does execute
+at TB7 is the construction of the Pauli sampler and its finite sampler
+queries.  Local evidence that the Pauli predicates accept and reject correctly
+is TB6's (C14, on its two toy quotes), not TB7's.  Neither failure is folded
+into a pass.
 
 \section{What is analytic and what is computed}
 
@@ -1301,15 +1349,6 @@ transformation pipeline.
 \label{fig:evidence-boundary}
 \end{figure}
 
-Figure~\ref{fig:midpoint-diagnostic} plots the collapsing one-copy gap and the
-exact first six repetition counts used in the next diagnostic.
-\begin{figure}[t]
-\centering
-\input{figs/fig-midpoint-diagnostic.tex}
-\caption{The left bars approach value one as \(p_n=1-2^{-n}\), while the right bars give the exact repetition counts \(1,3,6,11,22,45\) needed to recover error at most one half.  The paired growth makes the \(\Theta(n2^n)\) sequential transcript cost visible and diagnoses why representation alone is insufficient.}
-\label{fig:midpoint-diagnostic}
-\end{figure}
-
 \begin{center}
 \small
 \begin{tabularx}{\textwidth}{P{0.20\textwidth}P{0.35\textwidth}X}
@@ -1324,7 +1363,8 @@ repetition (TB5); Pauli test and \(\Introspect\) on two toy quotes (TB6);
 the TB7 toy-policy checkpoint (C15 \textsc{conjecture})
 & A front end beyond fixture scale (the equality fixture's padded circuit is
 refused by \code{arith_q}); a production-policy \(\Compress\); the
-actual-\(D^{(1)}\) \code{enu:ar-game} layer \\
+actual-\(D^{(1)}\) \code{enu:ar-game} layer; any introspection predicate
+dispatch at TB7 \\
 Certified identities
 & Normalized coefficient equality; zero remainder; structural and actual
 degrees; dependency blocks; CL marginals; TB1 exact histograms; finite parser
@@ -1341,6 +1381,12 @@ samples \\
 \bottomrule
 \end{tabularx}
 \end{center}
+\begin{figure}[t]
+\centering
+\input{figs/fig-final-accounting.tex}
+\caption{The actual term \(\Psi_{M,\lambda}\) places its self-code hole inside the quoted call to \(\Compress\), and the amber fixed point \(D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})\) closes that hole with constant overhead.  The executable algebraic middle does not discharge the three dashed leaves: low-degree soundness, rigidity/oracularization, and gap-preserving compression.}
+\label{fig:final-accounting}
+\end{figure}
 
 Lean or another proof assistant could check the algebraic core once finite
 fields, sparse polynomials, interpolation, and polynomial division are
@@ -1358,19 +1404,40 @@ holds for the whole compression layer: \code{docs/DESIGN.md} \S\S9--12 fixes
 the description-level API and the TB5, TB6 and TB7 constructions, the code
 executes them on named toys, and the ratchet grades that execution --- C12,
 C13 and C14 (scoped to explicit toy child fuel) at \textsc{TESTED}, while TB7
-executes as a toy-policy checkpoint and C15 remains \textsc{CONJECTURE}
-pending critic r1 (Section~\ref{sec:tables-compression}).  What is missing is
-not the toy implementation but the analytic leaves, a production-policy
-construction (still a broken test in \code{test/tb7_compress.jl}) and a C15
-verdict.  Introspection
+runs as a toy-policy checkpoint and C15 remains \textsc{CONJECTURE}
+(Section~\ref{sec:tables-compression}).  Three concrete examples mark where the
+evidence stops.  In TB3 the trivial fixture reaches the PCP builder and the
+answer-reduced decider, while the equality fixture is refused by
+\code{arith_q} before \code{build_pcp}.  In TB6 the introspection predicates
+accept only under the disclosed toy child fuel.  In TB7 the sampler stages and
+one finite unfold of the self-reference are constructed, but the actual-\(D^{(1)}\)
+game and \emph{every} introspection predicate dispatch are absent at this
+fixture.  TB7's first review (\code{verdicts/tb7-r1.md}) returned FAIL and put
+C15 on HOLD.  Its eight open findings are not only analytic: the predicate
+report's statuses are not derived from attached evidence (T7-1), \grade{CHECKED}
+replays do not consume the recorded facts and children of their nodes (T7-2),
+two semantic mutants survive the TB7 rung (T7-3), the reached final-seed chains
+are not replayed (T7-4), the trivial-pair fallback chooses sampler and decider
+separately (T7-5), the report claimed Pauli predicate execution (T7-6), two
+timing-gate mutants survive (T7-7), and the answer-reduction agreement node
+fails at 4 of 9 cases (T7-8).  The C14 replacement row is likewise on HOLD
+(\code{verdicts/tb6-r4.md}, T6-1 and T6-2).  A repair round (brief~93) is in
+progress and has no converged verdict.  So what is missing is these evidence
+repairs, a production-policy construction (still a broken test in
+\code{test/tb7_compress.jl}), a converged C15 verdict, and the analytic leaves.
+Introspection
 and compression soundness would require a still broader object: a formal
 semantics for quoted verifier descriptions, resource bounds under
 specialization and universal evaluation, and a proof that the directed value
-and entanglement implications compose.  As of 2026-09-27 the executable
-evidence behind these rows is the suite at 12730 passed / 1 broken, with all
-235 registered mutants killed and 93/93 baselines (\code{HANDOFF.md}, session
-7: full runs before, and a focused run after, the removal of one memory
-bound).  The relevant final statements are
+and entanglement implications compose.  Run history, dated: on 2026-09-27
+\code{HANDOFF.md} (session~7) recorded the suite at 12730 passed / 1 broken,
+all 235 registered mutants killed and 93/93 baselines, stitched from full runs
+before, and a focused run after, the removal of one memory bound.  The latest
+governing run is the TB7 critic's, recorded in \code{verdicts/tb7-r1.md} on
+2026-10-01 on the archive of commit \code{2fa15e4}: the suite exits 0 at 12729
+passed / 1 broken, and the mutation registry exits 1 with 233 of 235 mutants
+killed (two timing-gate survivors, T7-7) and 93/93 baselines.  Neither run
+covers the brief-93 repairs.  The relevant final statements are
 \code{fig:compress} and \code{thm:compression} in
 \code{ground-truth/gt-12-compression.tex}.
 
@@ -1411,12 +1478,6 @@ analytic transformation is the hard requirement.
 
 Figure~\ref{fig:final-accounting} closes the account at the fixed point itself,
 with the three analytic leaves kept visibly dashed.
-\begin{figure}[t]
-\centering
-\input{figs/fig-final-accounting.tex}
-\caption{The actual term \(\Psi_{M,\lambda}\) places its self-code hole inside the quoted call to \(\Compress\), and the amber fixed point \(D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})\) closes that hole with constant overhead.  The executable algebraic middle does not discharge the three dashed leaves: low-degree soundness, rigidity/oracularization, and gap-preserving compression.}
-\label{fig:final-accounting}
-\end{figure}
 
 \subsection{Final accounting}
 
