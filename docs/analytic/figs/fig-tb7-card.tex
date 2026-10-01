@@ -2,13 +2,13 @@
   % ---- the constructed level / dimension chain
   \node[descbox, minimum width=2.35cm, minimum height=1.15cm, font=\scriptsize\sffamily]
     (v0) {input \(V\)\\level \(9\)\\dim \(s_0=9\)};
-  \node[citedbox, right=of v0, minimum width=2.35cm, minimum height=1.15cm,
+  \node[stage, draw=focus, fill=focuslt, right=of v0, minimum width=2.35cm, minimum height=1.15cm,
         font=\scriptsize\sffamily] (v1) {\(V^{(1)}\)\\level \(5\)\\dim \(206\)};
-  \node[citedbox, right=of v1, minimum width=2.35cm, minimum height=1.15cm,
+  \node[stage, draw=focus, fill=focuslt, right=of v1, minimum width=2.35cm, minimum height=1.15cm,
         font=\scriptsize\sffamily] (v2) {\(V^{(2)}\)\\level \(7\)\\dim \(840\)};
-  \node[citedbox, right=of v2, minimum width=2.35cm, minimum height=1.15cm,
+  \node[stage, draw=focus, fill=focuslt, right=of v2, minimum width=2.35cm, minimum height=1.15cm,
         font=\scriptsize\sffamily] (v2a) {anchored\\level \(9\)\\dim \(848\)};
-  \node[citedbox, right=of v2a, minimum width=2.35cm, minimum height=1.15cm,
+  \node[stage, draw=focus, fill=focuslt, right=of v2a, minimum width=2.35cm, minimum height=1.15cm,
         font=\scriptsize\sffamily] (v3) {\(V^{(3)}\)\\level \(9\)\\dim \(1696\)};
   \draw[xform] (v0) -- node[midway, above=8mm, text=ink,
     font=\scriptsize\sffamily\bfseries] {\(\Introspect\)} (v1);
@@ -25,28 +25,32 @@
      \code{repetitions}\(=2\): a \code{ToyPolicy}\\
      override of \(k(n)=(\lambda n)^{(1+c_3')\tau}\)};
 
-  % ---- the printed predicate report
-  \node[panel, below=13mm of v2, inner sep=6pt, text width=0.90\textwidth] (rep) {%
-    {\footnotesize\sffamily\bfseries\color{inkmute} PRINTED PREDICATE REPORT}\par\smallskip
-    \scriptsize
-    \begin{tabular}{@{}p{0.62\textwidth}@{\quad}l@{}}
+  % ---- the printed predicate report (tb7_predicate_report, src/compress/compress7.jl;
+  %      statuses asserted in test/tb7_compress.jl)
+  \node[panel, below=13mm of v2, inner sep=5pt, text width=0.92\textwidth] (rep) {%
+    {\footnotesize\sffamily\bfseries\color{inkmute} PRINTED PREDICATE REPORT (13 ROWS)}\par\smallskip
+    \scriptsize\renewcommand{\arraystretch}{0.95}%
+    \begin{tabular}{@{}r@{\enspace}>{\raggedright\arraybackslash}p{0.60\textwidth}@{\quad}l@{}}
     \toprule
-    predicate & outcome \\
+    & predicate & printed outcome \\
     \midrule
-    input field, level, \(\lambda\)-boundedness; \(n\geq2\) & \textcolor{check}{PASS} \\
-    introspection field admissible, \(m_I\mid q_I\), \(d_I=1\) & \textcolor{check}{PASS} \\
-    answer-reduction shape, formula, tail, divisibility, degree & \textcolor{check}{PASS} \\
-    repeat question and answer component guard, \((\lambda n)^\tau=65{,}536\) & \textcolor{check}{PASS} \\
-    \midrule
-    introspection embedding \(Q_I\geq s_0(N)\): \(2\geq9\) & \textcolor{bad}{FAIL} \\
-    \(P_{\mathrm{pcp\_encodes\_D1}}\): the PCP instance arithmetizes the actual \(D^{(1)}\) trace & \textcolor{bad}{FAIL} \\
-    \code{enu:ar-game} against the actual \(D^{(1)}\) & \textcolor{cited}{NOT EXECUTED} \\
-    non-Pauli \(\Introspect\)/Sample/Read/Hide answer schemas (\(3Q_I=6<9\)) & \textcolor{cited}{VACUOUS} \\
-    universal \(\mu,\gamma,\tau\); \(n\geq C_0\); answer-reduction growth & \textcolor{inkmute}{NOT EVALUABLE} \\
+    1 & input field, level, \(\lambda\)-boundedness; \(n\geq2\) & \textcolor{check}{PASS} \\
+    2 & introspection field admissible, \(m_I\mid q_I\), \(d_I=1\) & \textcolor{check}{PASS} \\
+    3 & introspection embedding \(Q_I\geq s_0(N)\): \(2\geq9\) & \textcolor{bad}{FAIL} (owner \(Q_I<s_0\)) \\
+    4 & introspection canonical tuple equality; source \(M_I\geq R\) & \textcolor{bad}{FAIL} \\
+    5 & non-Pauli answer schemas: \(\Introspect\), Sample, Read, every Hide stage (both roles) & \textcolor{cited}{VACUOUS} (owner \(Q_I<s_0\)) \\
+    6 & AR \(P_{\mathrm{shape}}\), \(P_{\mathrm{formula\_paper}}\), \(P_{\mathrm{tail}}\), \(P_{\mathrm{divisibility}}\), \(P_{\mathrm{degree}}\); structural formula check & \textcolor{check}{PASS} \\
+    7 & AR \(P_{\mathrm{growth}}\); universal \(\mu,\gamma,\tau\); \(n\geq C_0\) & \textcolor{inkmute}{NOT\_EVALUABLE} \\
+    8 & AR tuple equals \(\mathrm{pcpparams}(n,T,Q,\sigma,\gamma)\) & \textcolor{bad}{FAIL} \\
+    9 & \(P_{\mathrm{pcp\_encodes\_D1}}\): the PCP instance arithmetizes the actual \(D^{(1)}\) trace & \textcolor{bad}{FAIL} (owner \code{pcpverifier-D1-trace}) \\
+    10 & \code{enu:ar-game} against the actual \(D^{(1)}\) & \textcolor{cited}{NOT\_EXECUTED} (same owner) \\
+    11 & fixed-width \(\sigma_1=\mathrm{length}(\mathrm{canonical\_bytes}(D^{(1)}))\) printed as an exact integer & \textcolor{check}{PASS} \\
+    12 & repeat \(k_{\mathrm{toy}}=(\lambda n)^{(1+c')\tau}\) & \textcolor{bad}{FAIL} \\
+    13 & repeat question and answer component guard, \(B(n)=(\lambda n)^\tau=65{,}536\) & \textcolor{check}{PASS} \\
     \bottomrule
     \end{tabular}};
   \node[lblsm, below=1.5mm of rep, align=center]
     {level chain \(9\to5\to7\to9\) \quad$\bullet$\quad dimension chain
-     \(206\to840\to848\to1696\)\\
-     designed in \textsc{design} \S12; C15 \textsc{Conjecture}; nothing here has been executed};
+     \(206\to840\to848\to1696\) \quad$\bullet$\quad amber: executed at the toy policy\\
+     TB7 executes as a toy-policy checkpoint; C15 remains \textsc{conjecture} pending critic r1};
 \end{tikzpicture}

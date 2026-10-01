@@ -136,3 +136,12 @@
 
 % legend chips usable in captions: \chip{machine} etc.
 \newcommand{\chip}[1]{\tikz[baseline=-0.6ex]\fill[#1] (0,0) rectangle (1.2ex,1.2ex);}
+
+% status chip for a theorem/lemma environment that a ratchet row governs
+% (n6, brief 89): \statuschip{C17}{SKETCH}.  The pair is transcribed from
+% claims/CLAIMS.md and never written from memory; amber = SKETCH (a written
+% derivation, not yet adversarially verified).
+\newcommand{\statuschip}[2]{\tikz[baseline=(sc.base)]\node[draw=focus,
+  fill=focuslt, rounded corners=1pt, inner sep=1.4pt, line width=0.5pt,
+  font=\normalfont\scriptsize\sffamily\bfseries, text=ink] (sc)
+  {#1\,\textperiodcentered\,#2};}

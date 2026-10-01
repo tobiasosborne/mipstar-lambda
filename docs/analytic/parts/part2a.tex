@@ -314,7 +314,7 @@ middle column.
 \begin{figure}[H]
 \centering
 \input{figs/fig-three-provenances.tex}
-\caption{Every named result of Part~II belongs to exactly one of three columns: transcribed from the paper, derived here and carried at \textsc{sketch} by \texttt{C16}--\texttt{C19}, or executed and ratcheted by a converged verdict.  The middle column is the largest, which is the honest shape of a document that costs a construction rather than proving its soundness.}
+\caption{Every named result of Part~II belongs to exactly one of three columns: transcribed from the paper, derived here and carried at \textsc{sketch} by \texttt{C16}--\texttt{C19}, or executed and ratcheted by a converged verdict.  Keeping the middle column apart from the right one is the honest shape of a document that costs a construction rather than proving its soundness.}
 \label{fig:three-provenances}
 \end{figure}
 
@@ -342,7 +342,9 @@ Section~\ref{sec:self-reference} (Lemma~\ref{lem:smn},
 Theorems~\ref{thm:kleene-two}--\ref{thm:fixed-point-equivalence}), and
 \code{C19} the Cook--Levin construction of
 Section~\ref{sec:l-cook-levin} (Lemma~\ref{lem:transition-window},
-Theorem~\ref{thm:l-succinct-sat}).  The
+Theorem~\ref{thm:l-succinct-sat}); each of the thirteen statements carries
+its row as a chip, \statuschip{C16}{SKETCH} and so on, at the head of its
+text.  The
 constants they name (\(a_0,b_0,c_0,a_U,b_U,C_L,c_Y=3,a_s,b_s,a_K,b_K\)) and
 exponents (\(8\), \(3+\lceil\log_2 72c_0\rceil\)) are fixed by those proofs
 alone.  Results transcribed from the paper are marked instead by a
@@ -529,13 +531,16 @@ because detyping is imported; the executed content sits strictly below it.
 \label{fig:certificate-tree}
 \end{figure}
 
-The TB5--TB7 design adds four \emph{predicate outcomes} on top of these
-grades, for the parameter guards a toy instantiation cannot satisfy:
-\code{PASS}, \code{FAIL}, \code{NOT\_EVALUABLE} (the cost or fit was never
-measured) and \code{VACUOUS} (the guard set is empty, or a promised margin is
-\(\geq1/2\)).  They are outcomes printed beside a predicate, not grades on a
-node, and none of them may be folded into \code{PASS}; the TB7 report of
-Figure~\ref{fig:tb7-card} is where they appear.
+The TB5--TB7 code adds five \emph{predicate outcomes} on top of these
+grades, for the parameter guards a toy instantiation cannot satisfy
+(\code{src/policy/policy.jl}): \code{PASS}, \code{FAIL},
+\code{NOT\_EVALUABLE} (the cost or fit was never measured, or needs a universal
+constant), \code{VACUOUS} (the guard set is empty, or a promised margin is
+\(\geq1/2\)) and \code{NOT\_EXECUTED} (a layer that is reached but not run on
+faithful content, printed with its owner).  They are outcomes printed beside a
+predicate, not grades on a node, and none of them may be folded into
+\code{PASS}; the thirteen-row report that TB7 prints at its toy policy, in
+Figure~\ref{fig:tb7-card}, is where they appear.
 
 \subsection{Small-step semantics and fuel}
 
@@ -680,7 +685,7 @@ finite-fuel execution.
 For the paper, the next theorem buys a unique bounded-evaluation trace for
 each quoted verifier call, which can later be encoded by Cook--Levin.
 \begin{theorem}[Determinism and outcome trichotomy]
-\label{thm:l-determinism}
+\label{thm:l-determinism}\statuschip{C16}{SKETCH}\enspace%
 Every nonfinal configuration with positive fuel has at most one successor.
 For every closed raw term and finite initial fuel, evaluation terminates in
 exactly one of \(\mathsf{Value}(v)\), \(\mathsf{OutOfFuel}\), or
@@ -708,7 +713,7 @@ the reached tag unique.
 For the paper, the next theorem buys safe enlargement of a proved timeout:
 extra fuel cannot change a completed verifier answer.
 \begin{theorem}[Fuel monotonicity]
-\label{thm:fuel-monotonicity}
+\label{thm:fuel-monotonicity}\statuschip{C16}{SKETCH}\enspace%
 If \(\operatorname{run}(t;f)=R\) with
 \(R\neq\mathsf{OutOfFuel}\), then
 \(\operatorname{run}(t;f+g)=R\) for every \(g\geq0\).  More precisely, if the
@@ -771,7 +776,7 @@ at the first identical CEK configuration.
 For the paper, the next theorem buys the right to replace execution of a term
 by execution of its transmitted description while charging for decoding.
 \begin{theorem}[Quote/Eval equation with explicit overhead]
-\label{thm:quote-eval}
+\label{thm:quote-eval}\statuschip{C16}{SKETCH}\enspace%
 Let \(t\) be a closed function term, let \(d=\operatorname{ser}(t)\), and let
 \(u\) have the required argument sorts.  For every \(f\geq0\),
 \[
@@ -797,7 +802,7 @@ final outcome.  The front-end accounts for the stated additional
 \end{proof}
 
 \begin{lemma}[Capture-free specialization and its size]
-\label{lem:specialization}
+\label{lem:specialization}\statuschip{C16}{SKETCH}\enspace%
 Let \(P\) be well-scoped partial syntax satisfying the affine-hole discipline,
 and let \(\sigma\) map every hole of \(P\) to closed, sort-correct syntax.
 There is a unique term \(\Specialize(P,\sigma)\), it has no holes, it preserves
@@ -916,7 +921,7 @@ of \(\mathsf{loop}_m\), including the charged table lookup.
 For the paper, the next theorem buys a lambda description for every original
 sampler or decider without changing its answers or hiding a size blow-up.
 \begin{theorem}[TM to \(\mathcal L\), with resources]
-\label{thm:tm-to-l}
+\label{thm:tm-to-l}\statuschip{C17}{SKETCH}\enspace%
 There are universal constants \(a_0,b_0,c_0\geq1\) such that for every
 \(k\)-input machine \(M\), \eqref{eq:tm-interpreter-term} is a closed term and
 \[
@@ -1001,7 +1006,7 @@ tape.
 \end{figure}
 
 \begin{theorem}[A universal evaluator for \(\mathcal L\)]
-\label{thm:l-to-tm}
+\label{thm:l-to-tm}\statuschip{C17}{SKETCH}\enspace%
 There is a fixed three-input Turing machine \(U_{\mathcal L}\), of description
 length \(b_U=O(1)\), and a universal constant \(C_L\geq1\), such that on input
 \((d,u,f)\) it returns the same value, out-of-fuel, or type-error result as
@@ -1139,7 +1144,7 @@ its proof, whose maximum determines the universal rescaling \(A\).
 \end{figure}
 
 \begin{theorem}[Preservation of \(\lambda\)-boundedness]
-\label{thm:lambda-preservation}
+\label{thm:lambda-preservation}\statuschip{C17}{SKETCH}\enspace%
 Fix the encodings and primitive registry above.  There is a universal integer
 \(A\geq1\) such that:
 \begin{enumerate}
@@ -1213,7 +1218,7 @@ machine with description \(e\).  We use equality of partial functions only in
 the conclusion; every operation in the construction acts on strings.
 
 \begin{lemma}[The \(s\)-\(m\)-\(n\) operation]
-\label{lem:smn}
+\label{lem:smn}\statuschip{C18}{SKETCH}\enspace%
 For every \(r,k\geq1\) there is a total source transformer \(s_{r,k}\) such
 that
 \[
@@ -1251,7 +1256,7 @@ forever.
 For the paper, the next theorem buys self-reference while keeping the fixed
 point's source length linear in the source transformer.
 \begin{theorem}[Kleene's second recursion theorem, paper model]
-\label{thm:kleene-two}
+\label{thm:kleene-two}\statuschip{C18}{SKETCH}\enspace%
 Let \(Q\) be a total computable transformation from descriptions of
 \(k\)-input machines to descriptions of \(k\)-input machines.  There is an
 effectively constructible description \(e_Q\) such that
@@ -1350,7 +1355,7 @@ larger source tree materialized only on demand.
 For the paper, the next theorem buys an operational self-code equation whose
 unfolding cost and serialized size are both explicit.
 \begin{theorem}[Description-level fixed-point equation]
-\label{thm:ycode}
+\label{thm:ycode}\statuschip{C18}{SKETCH}\enspace%
 For every well-sorted \(P\), argument tuple \(u\), and \(f\geq c_Y=3\),
 \[
  \operatorname{eval}_{\mathcal L}(\operatorname{YCode}(P),u;f)
@@ -1410,8 +1415,8 @@ five bound inputs.  The partial body corresponding to \code{fig:halt_f} is
  &\operatorname{Eval}(
    \operatorname{ans}(\operatorname{Eval}(
       \Quote(\Compress),\\[-2pt]
- &\quad (\operatorname{quoted\_pair}(\Quote(S_\lambda),
-       \operatorname{Hole}(\mathsf{self\_code},
+ &\quad (\operatorname{quoted\_pair}(\Quote(S_\lambda),\\[-2pt]
+ &\qquad\quad \operatorname{Hole}(\mathsf{self\_code},
           \mathsf{Quoted}(\mathsf{Decider}))),\lambda),F_C)),\\[-2pt]
  &\quad(n,x,y,a,b),\operatorname{FuelBound}(n,\lambda))).
 \end{split}
@@ -1477,7 +1482,7 @@ self-code hole inside the nested bounded evaluations.
 For the paper, the next theorem buys the identification of the published
 \(\mathcal F\) trick, Kleene's theorem, and the IR fixed-point constructor.
 \begin{theorem}[Equivalence of the three fixed-point presentations]
-\label{thm:fixed-point-equivalence}
+\label{thm:fixed-point-equivalence}\statuschip{C18}{SKETCH}\enspace%
 The following are translations of the same description-level construction:
 \begin{enumerate}
 \item the paper's explicit

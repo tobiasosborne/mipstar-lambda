@@ -2,11 +2,11 @@
   % ---- column 1: transcribed from the source
   \node[citedbox, anchor=north west, text width=3.9cm, align=left,
         minimum height=2.0cm] (h1) at (0,0)
-    {\textbf{transcribed from the paper}\\[1pt]
+    {\textbf{\mbox{transcribed from}\\\mbox{the paper}}\\[1pt]
      \scriptsize a ground-truth footnote names the source label};
   \node[tag cited, anchor=north west] at ([yshift=-1.2mm]h1.south west) (t1) {CITED};
   \node[citedbox, anchor=north west, text width=3.9cm, align=left,
-        minimum height=4.7cm] (b1) at ([yshift=-1.2mm]t1.south west)
+        minimum height=5.3cm] (b1) at ([yshift=-1.2mm]t1.south west)
     {\scriptsize
      Definitions~\ref{def:paper-decider}--\ref{def:paper-lambda}
      (\code{def:decider}, \code{def:sampler}, \code{def:normal-ver},
@@ -20,12 +20,12 @@
   % ---- column 2: this document's own derivations
   \node[stage, draw=focus, fill=focuslt, anchor=north west, text width=3.9cm,
         align=left, minimum height=2.0cm] (h2) at (4.5,0)
-    {\textbf{derived here, in this document}\\[1pt]
+    {\textbf{\mbox{derived here,}\\\mbox{in this document}}\\[1pt]
      \scriptsize written proofs, recorded as \code{C16}--\code{C19}};
   \node[tag focus, anchor=north west] at ([yshift=-1.2mm]h2.south west) (t2)
     {SKETCH --- C16--C19};
   \node[stage, draw=focus, fill=focuslt, anchor=north west, text width=3.9cm,
-        align=left, minimum height=4.7cm] (b2) at ([yshift=-1.2mm]t2.south west)
+        align=left, minimum height=5.3cm] (b2) at ([yshift=-1.2mm]t2.south west)
     {\scriptsize
      \textbf{C16} Theorems~\ref{thm:l-determinism},
      \ref{thm:fuel-monotonicity},
@@ -42,16 +42,18 @@
   % ---- column 3: machine-checked and ratcheted
   \node[checked, anchor=north west, text width=3.9cm, align=left,
         minimum height=2.0cm] (h3) at (9.0,0)
-    {\textbf{executed and ratcheted}\\[1pt]
+    {\textbf{\mbox{executed and}\\\mbox{ratcheted}}\\[1pt]
      \scriptsize a row of \code{claims/CLAIMS.md} with a converged verdict};
   \node[tag check, anchor=north west] at ([yshift=-1.2mm]h3.south west) (t3)
     {TESTED / PROVED};
   \node[checked, anchor=north west, text width=3.9cm, align=left,
-        minimum height=4.7cm] (b3) at ([yshift=-1.2mm]t3.south west)
+        minimum height=5.3cm] (b3) at ([yshift=-1.2mm]t3.south west)
     {\scriptsize
-     C2, C3, C8 --- polynomial and occurrence fixtures (TB0)\\[3pt]
-     C4a --- the three CL maps at \((q,m,d)=(8,2,1)\) (TB1)\\[3pt]
-     C4b, C9 --- the 18-type sampler and the guarded decider (TB2)\\[3pt]
+     C1, C2, C3, C8 --- PCP proofs, polynomial and occurrence fixtures (TB0)\\[2pt]
+     C4a, C4c --- the three CL maps and \(D^{\mathrm{ld}}\) at \((q,m,d)=(8,2,1)\) (TB1)\\[2pt]
+     C4b, C9 --- the 18-type sampler and the guarded decider (TB2)\\[2pt]
+     C10, C11 --- front end and \(\Compress\) skeleton (TB3, TB4)\\[2pt]
+     C12, C13, C14 --- description laws, \(\Repeat\), \(\Introspect\) (TB5, TB6; C14 scoped)\\[2pt]
      C6, N1 --- the midpoint diagnostic, \textsc{proved} (TB0.5)};
 
   \node[fit=(b1)(b2)(b3), inner sep=0pt, draw=none] (bodies) {};

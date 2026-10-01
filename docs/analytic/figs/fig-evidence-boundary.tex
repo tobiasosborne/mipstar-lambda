@@ -7,35 +7,39 @@
     at (7.45,0) {evidence boundary};
 
   \node[citedbox,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (-6.0,1.35) (quote) {quoted verifier $\langle V\rangle$};
+    at (-6.0,1.35) (cl) {Cook--Levin for every $\langle V\rangle$};
   \node[citedbox,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (-3.0,1.35) (cl) {Cook--Levin asymptotics};
+    at (-3.0,1.35) (ldt) {low-degree extraction};
   \node[citedbox,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (0,1.35) (ldt) {low-degree extraction};
+    at (0,1.35) (rigid) {rigidity / oracularization};
   \node[citedbox,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (3.0,1.35) (rigid) {rigidity / oracularization};
+    at (3.0,1.35) (intro) {introspection, repetition soundness};
   \node[citedbox,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (6.0,1.35) (compress) {introspection, repetition, compression};
-  \draw[xform,dashed,cited] (quote) -- (cl);
+    at (6.0,1.35) (compress) {gap-preserving compression};
   \draw[xform,dashed,cited] (cl) -- (ldt);
   \draw[xform,dashed,cited] (ldt) -- (rigid);
-  \draw[xform,dashed,cited] (rigid) -- (compress);
+  \draw[xform,dashed,cited] (rigid) -- (intro);
+  \draw[xform,dashed,cited] (intro) -- (compress);
 
   \node[checked,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (-4.5,-1.45) (syntax) {circuit / Tseitin syntax};
+    at (-6.0,-1.45) (front) {quoted $\langle V\rangle$ front end (TB3 fixtures)};
   \node[checked,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (-1.5,-1.45) (poly) {$F_{\rm arith},g_i,c_i$ coefficient replay};
+    at (-3.0,-1.45) (poly) {Tseitin, $F_{\rm arith},g_i,c_i$ replay};
   \node[checked,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (1.5,-1.45) (maps) {point / line maps CL marginals};
+    at (0,-1.45) (maps) {point / line maps CL marginals};
   \node[checked,text width=2.1cm,align=center,minimum height=1.35cm]
-    at (4.5,-1.45) (guard) {finite guarded PCP decider};
-  \draw[xform,check] (syntax) -- (poly);
+    at (3.0,-1.45) (guard) {finite guarded PCP decider};
+  \node[checked,text width=2.1cm,align=center,minimum height=1.35cm]
+    at (6.0,-1.45) (xf) {$\Introspect$, $\Repeat$ on toy descriptions};
+  \draw[xform,check] (front) -- (poly);
   \draw[xform,check] (poly) -- (maps);
   \draw[xform,check] (maps) -- (guard);
+  \draw[xform,check] (guard) -- (xf);
   % crossings, not implications: undirected wavy interfaces
-  \draw[quote,-] (cl.south) -- (syntax.north);
+  \draw[quote,-] (cl.south) -- (front.north);
   \draw[quote,-] (poly.north) -- (ldt.south);
-  \draw[quote,-] (guard.north) -- (rigid.south);
+  \draw[quote,-] (guard.north west) -- (rigid.south east);
+  \draw[quote,-] (xf.north west) -- (intro.south east);
   \node[descbox,fill=focuslt,draw=focus,minimum width=6.6cm,anchor=north]
     at (0,-2.55) {finite certificates cross no theorem boundary by themselves};
 \end{tikzpicture}

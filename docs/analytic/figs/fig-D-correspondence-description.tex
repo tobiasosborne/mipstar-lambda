@@ -2,9 +2,13 @@
   \node[descbox,minimum width=4.1cm] (paper) {bounded decider\\$\operatorname{ser}(t)$ and answer tapes};
   \node[stage,right=of paper,minimum width=4.2cm] (ir)
     {\texttt{Quoted\{Decider\}}\\\texttt{BoundedTrace} $\to$\\\texttt{SuccinctDecoupled5SAT}};
-  \node[citedbox,right=of ir,minimum width=4.2cm] (jl)
-    {\texttt{bounded\_trace}, \texttt{cook\_levin},\\\texttt{decouple5}: absent};
+  \node[checked,right=of ir,minimum width=4.2cm] (jl)
+    {\texttt{bounded\_trace}, \texttt{cook\_levin},\\\texttt{decouple5}: two fixtures};
   \draw[xform] (paper) -- (ir);
-  \draw[xform,dashed,cited] (ir) -- (jl);
-  \node[tag cited,above=2mm of jl] {CITED FRONT END};
+  \draw[xform,check] (ir) -- (jl);
+  \node[tag check,above=2mm of jl] {C10 TESTED};
+  \node[citedbox,below=7mm of jl,minimum width=4.2cm] (gen)
+    {Cook--Levin for every\\$\mathcal L$-description};
+  \draw[xform,dashed,cited] (jl) -- (gen);
+  \node[tag focus,anchor=east] at ([xshift=-3mm]gen.west) {C19 SKETCH; contracts CITED};
 \end{tikzpicture}

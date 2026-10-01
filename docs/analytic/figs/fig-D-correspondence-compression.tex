@@ -1,17 +1,33 @@
 \begin{tikzpicture}[node distance=5mm]
-  \node[citedbox,minimum width=3.4cm,minimum height=1.25cm] (intro)
-    {$\Introspect$\\cited theorem};
-  \node[citedbox,right=of intro,minimum width=3.4cm,minimum height=1.25cm] (ar)
-    {$\AnswerReduce$\\checked parts /\\cited soundness};
-  \node[citedbox,right=of ar,minimum width=3.4cm,minimum height=1.25cm] (repeat)
-    {$\Repeat$\\cited theorem};
-  \node[citedbox,right=of repeat,minimum width=3.4cm,minimum height=1.25cm] (comp)
-    {$\Compress$\\absent implementation};
-  \draw[xform,dashed,cited] (intro) -- (ar);
-  \draw[xform,dashed,cited] (ar) -- (repeat);
-  \draw[xform,dashed,cited] (repeat) -- (comp);
+  \node[checked,minimum width=3.4cm,minimum height=1.25cm] (intro)
+    {$\Introspect$\\built (TB6)};
+  \node[checked,right=of intro,minimum width=3.4cm,minimum height=1.25cm] (ar)
+    {$\AnswerReduce$\\built (TB2; TB7 on\\descriptions)};
+  \node[checked,right=of ar,minimum width=3.4cm,minimum height=1.25cm] (repeat)
+    {$\Repeat$\\built (TB5)};
+  \node[stage,draw=focus,fill=focuslt,right=of repeat,minimum width=3.4cm,
+    minimum height=1.25cm] (comp)
+    {$\Compress$\\TB4 skeleton;\\TB7 toy checkpoint};
+  \draw[xform,check] (intro) -- (ar);
+  \draw[xform,check] (ar) -- (repeat);
+  \draw[xform] (repeat) -- (comp);
+  \node[tag check,above=1.5mm of intro] {C14 TESTED (SCOPED)};
+  \node[tag check,above=1.5mm of ar] {C9 TESTED};
+  \node[tag check,above=1.5mm of repeat] {C13 TESTED};
+  \node[tag cited,above=1.5mm of comp,align=center]
+    {\textcolor{check}{C11 TESTED}\\C15 CONJECTURE};
+  % ---- the soundness leaves: cited, never promoted by the rows above
+  \foreach \n/\t in {intro/{\code{thm:introspection}},
+                     ar/{\code{thm:ar}},
+                     repeat/{\code{thm:repetition}},
+                     comp/{\code{thm:compression}}}{
+    \node[citedbox,below=7mm of \n,minimum width=3.4cm,font=\scriptsize\sffamily]
+      (\n-s) {\t};
+    \draw[xform,dashed,cited] (\n) -- (\n-s);
+  }
+  \node[tag cited,below=1.5mm of comp-s] {SOUNDNESS: CITED};
   \node[descbox,fill=focuslt,draw=focus,
-    below=7mm of $(ar.south)!0.5!(repeat.south)$]
+    below=7mm of $(ar-s.south)!0.5!(repeat-s.south)$]
     {$D_{M,\lambda}=\operatorname{YCode}(\Psi_{M,\lambda})$\\
      supplies self-reference, not the cited soundness leaves};
 \end{tikzpicture}

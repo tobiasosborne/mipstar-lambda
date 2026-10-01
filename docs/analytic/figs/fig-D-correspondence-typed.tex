@@ -2,9 +2,11 @@
   \node[descbox,minimum width=3.5cm] (paper) {18-type PCP sampler\\five guarded checks};
   \node[checked,right=of paper,minimum width=3.5cm] (shape) {\texttt{pcp\_sampler}\\\texttt{typed\_sampler\_product}};
   \node[checked,right=of shape,minimum width=3.5cm] (dec) {\texttt{typed\_answer\_}\\\texttt{reduced\_decider}};
-  \node[citedbox,right=of dec,minimum width=3.5cm] (theorem) {detyping and \texttt{thm:ar}\\quantum implication};
+  \node[citedbox,right=of dec,minimum width=3.5cm] (theorem) {detyping loss and \texttt{thm:ar}\\quantum implication};
   \draw[xform] (paper) -- (shape);
   \draw[xform,check] (shape) -- (dec);
   \draw[xform,dashed,cited] (dec) -- (theorem);
-  \node[tag cited,above=2mm of theorem] {NO ROW --- CITED};
+  \node[tag cited,above=2mm of theorem] {CITED --- NO RATCHET ROW};
+  \node[tag check,above=2mm of shape] {C4b TESTED};
+  \node[tag check,above=2mm of dec] {C9 TESTED};
 \end{tikzpicture}

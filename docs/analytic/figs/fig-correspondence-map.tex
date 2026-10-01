@@ -12,8 +12,8 @@
     |[draw=none,fill=none,lbl,text=desc]| claim \\
     bounded decider trace / succinct $5$SAT &
     \texttt{bounded\_trace}, \texttt{decouple5} &
-    absent; cited &
-    |[text=cited]| C19 SKETCH \\
+    |[checked, text width=2.3cm, align=center]| two fixtures; general cited &
+    |[text=check]| {C10 TESTED;\\\textcolor{term}{C19 SKETCH}} \\
     Tseitin / arithmetization / zero basis &
     \texttt{tseitin}, \texttt{arith\_q}, \texttt{zero\_basis\_decompose} &
     |[checked, text width=2.3cm, align=center]| checked instances &
@@ -31,9 +31,9 @@
     |[checked, text width=2.3cm, align=center]| C6,N1 proved &
     |[text=check]| C6, N1 PROVED \\
     $\Repeat\circ\AnswerReduce$ $\circ\,\Introspect$ &
-    \texttt{Compress} &
-    absent; cited &
-    |[text=cited]| C15 CONJ. \\
+    \texttt{Compress}, \texttt{compress} &
+    TB4 checked; TB7 toy; theorem cited &
+    |[text=check]| {C11 TESTED;\\\textcolor{cited}{C15 CONJ.}} \\
   };
   \foreach \r in {2,...,7}{
     \draw[xform] (M-\r-1) -- (M-\r-2);
