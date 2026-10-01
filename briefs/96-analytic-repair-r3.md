@@ -1,0 +1,5 @@
+# Brief 96 — PROPOSER (Sonnet or Opus): analytic document repair r3 — verdicts/analytic-doc-r5.md FAIL(R4, R10, F1, F2)
+
+Lane: `docs/analytic/**` + `briefs/96-analytic-repair-r3.last.md`. No Julia. pdflatex in place (twice; a third pass if the log says "Rerun"), `python3 tools/figcoverage.py` exit 0, 0 undefined refs. No git state changes. Never edit verdicts/ or CLAIMS.
+
+Specification: `verdicts/analytic-doc-r5.md` in full — the R4 and R10 rows of §1 (what remains PARTIAL and the exact authority), F1 (§2: "fails at 4 of 9" is reversed — 4 are the AGREEMENTS, five complete decisions reject at the unexecuted game layer; quote tb7-r1 T7-8 exactly), F2 (§3: figure 70 placed by `[t]` above its first reference on p59 — fix placement so the figure renders at or after its first reference; check the other four moved figures the same way), and §6 repair plan. Re-open every authority line the verdict cites (ground truth `gt-04-cl.tex:282–363` for R10) before writing. Report per item old→new with file:line; build numbers; nothing else changes.
