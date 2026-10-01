@@ -276,13 +276,13 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     <li><a href="#ch9"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">The PCP verifier</span><span class="rail-meta">TB0 · C1 TESTED</span></span></a></li>
     <li><a href="#ch10"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Answer reduction</span><span class="rail-meta">TB2 · C9 TESTED</span></span></a></li>
     <li><a href="#ch11"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">The quoted front end</span><span class="rail-meta">TB3 · C10 TESTED</span></span></a></li>
-    <li><a href="#ch12"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Introspection</span><span class="rail-meta">TB6 · C14 CONJECTURE (verdict pending)</span></span></a></li>
+    <li><a href="#ch12"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Introspection</span><span class="rail-meta">TB6 · C14 TESTED (scoped)</span></span></a></li>
     <li><a href="#ch13"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">Anchoring &amp; repetition</span><span class="rail-meta">TB5 · C13 TESTED</span></span></a></li>
-    <li><a href="#ch14"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="none"/></svg><span><span class="rail-name">Compress, Y Ψ, Halting</span><span class="rail-meta">TB7 · C15 CONJECTURE</span></span></a></li>
-    <li><a href="#ch15"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">How the claims were earned</span><span class="rail-meta">verdicts/ · 84 mutants</span></span></a></li>
+    <li><a href="#ch14"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="none"/></svg><span><span class="rail-name">Compress, Y Ψ, Halting</span><span class="rail-meta">TB7 checkpoint · C15 CONJECTURE</span></span></a></li>
+    <li><a href="#ch15"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">How the claims were earned</span><span class="rail-meta">verdicts/ · 235 mutants</span></span></a></li>
     <li><a href="#ch16"><svg class="rail-rung" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M5 0v22M17 0v22M5 11h12"/><circle cx="11" cy="11" r="2.6" fill="currentColor" stroke="none"/></svg><span><span class="rail-name">The certificate tree</span><span class="rail-meta">CHECKED / CITED / ASSUMED</span></span></a></li>
   </ol>
-  <p class="rail-foot">Solid rungs execute. Dashed rungs are designed and not yet executable.</p>
+  <p class="rail-foot">Solid rungs execute and carry a verdict. The dashed rung (Compress, TB7) executes only as a toy-policy checkpoint; its critic verdict is pending (C15 CONJECTURE).</p>
 </nav>
 
 <main class="main">
@@ -291,7 +291,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
   <p class="kicker">A working prototype of the MIP*=RE compression step</p>
   <h1>Compress, Explained</h1>
   <p class="standfirst">Ji, Natarajan, Vidick, Wright and Yuen prove <b>MIP* = RE</b> by building a machine that eats a verifier's <em>source code</em> and returns a verifier that does the same job exponentially faster. This page is a tour of that machine as we have actually built it in Julia — every instrument below runs on objects the test suite printed, and every number is stamped with what it is allowed to claim.</p>
-  <p class="sub">The one law of this page: <b>nothing is stated more strongly than <code>claims/CLAIMS.md</code> allows.</b> One chapter describes machinery that has not yet run end to end (the composed Compress and the halting fixed point); it says so in the margin, in the figure, and in the text. Sixteen instruments, six clips, one machine room.</p>
+  <p class="sub">The one law of this page: <b>nothing is stated more strongly than <code>claims/CLAIMS.md</code> allows.</b> One chapter describes machinery that runs end to end only as a toy-policy checkpoint whose critic verdict is still pending (the composed Compress and the halting fixed point, claim C15, still a CONJECTURE); it says so in the margin, in the figure, and in the text. Sixteen instruments, six clips, one machine room.</p>
 </header>
 
 <section class="chapter" id="overview">
@@ -338,29 +338,29 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
 
           <path d="M840 130 L840 190 L71 190 L71 128" fill="none" stroke="var(--term)" stroke-width="1.4" marker-end="url(#ar)" stroke-dasharray="6 4"/>
           <text x="455" y="182" text-anchor="middle" font-size="12" fill="var(--term)">the Halting verifier feeds its own compressed code back in: D = Y Ψ</text>
-          <text x="8" y="228" font-size="11.5" fill="var(--inkmute)">Green = the prototype executes it on real objects (Repeat since TB5, Introspect since TB6). The composition itself is TB7.</text>
+          <text x="8" y="228" font-size="11.5" fill="var(--inkmute)">Green = the prototype executes it on real objects (Repeat since TB5, Introspect since TB6). The composition itself runs at TB7 as a toy-policy checkpoint (C15 CONJECTURE).</text>
           <text x="8" y="42" font-size="12" fill="var(--inkmute)">Compress(V, λ) = Repeat<tspan font-size="10" dy="3">L,τ</tspan><tspan dy="-3"> ∘ AnswerReduce</tspan><tspan font-size="10" dy="3">L,μ,γ</tspan><tspan dy="-3"> ∘ Introspect</tspan><tspan font-size="10" dy="3">L,9</tspan><tspan dy="-3"> (V)</tspan></text>
         </g>
       </svg>
       </div></div>
-      <figcaption class="fig">The composition is trivial; the content is that each stage must preserve perfect completeness, keep the question distribution inside one closed algebra, and shrink runtime — all at once. Repeat became executable at TB5 (chapter 13) and Introspect at TB6 (chapter 12); the end-to-end Compress of chapter 14 is TB7, now being built.</figcaption>
+      <figcaption class="fig">The composition is trivial; the content is that each stage must preserve perfect completeness, keep the question distribution inside one closed algebra, and shrink runtime — all at once. Repeat became executable at TB5 (chapter 13) and Introspect at TB6 (chapter 12); the end-to-end Compress of chapter 14 is TB7, which executes as a checkpoint under a toy policy with its critic verdict still pending.</figcaption>
     </figure>
 
     <div class="grid3">
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">executed</p>
-        <p class="readout" style="font-size:26px">12105 / 12105</p>
-        <p class="note">assertions pass in <code>test/runtests.jl</code> (commit 0ec462e, TB0 test body <span class="num">15.3 s</span> against a 60 s wall-clock gate under the performance power profile; the same body reads 74–85 s in powersave at ~1 GHz — the gate is CPU-clock-bound, not structurally marginal).</p>
+        <p class="readout" style="font-size:26px">12730 passed</p>
+        <p class="note">assertions in <code>test/runtests.jl</code>, plus 1 deliberate <code>@test_broken</code> (the production symbolic description), exit 0. The TB0 timing gate is a clock-calibrated body/kernel <span class="num">ratio &lt; 100</span>, not a bare wall time.</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">red-capable</p>
-        <p class="readout" style="font-size:26px">182 / 182</p>
-        <p class="note">registered mutants KILLED, 75/75 baselines OK, 1011 s. Nothing SURVIVED, nothing UNATTRIBUTABLE.</p>
+        <p class="readout" style="font-size:26px">235 / 235</p>
+        <p class="note">registered mutants KILLED, 93/93 baselines OK, 2/2 runner probes refused. Established by full runs on the tree before one arbitrary memory-bound assertion was removed, plus a focused run after it — not one single run on the final tree.</p>
       </div></div>
       <div class="panel"><div class="panel-body tight">
         <p class="eyebrow">still open</p>
-        <p class="readout" style="font-size:26px">3 lanes</p>
-        <p class="note">TB3 <code>FAIL(N11)</code> at r2, TB4 <code>FAIL(O1–O5)</code> at r1 (repair landed, r2 running), TB5 <code>FAIL(O1,O2)</code> at r1 (repair running). TB0, TB1, TB2, the design and the analytic document have converged.</p>
+        <p class="readout" style="font-size:26px">no lanes open</p>
+        <p class="note">TB7 (C15, still a CONJECTURE) sits at a work-in-progress checkpoint awaiting its first critic round (brief 85, not yet launched), which also covers a TB6 round 4 on the scope of C14. TB4 converged at <code>verdicts/tb4-r3.md</code> (PASS); the TB3, TB5 and TB6 claims were promoted inside their verdicts. TB0, TB1, TB2, the design and the analytic document have converged.</p>
       </div></div>
     </div>
   </div>
@@ -1019,12 +1019,12 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
   <div class="ch-head">
     <div class="ch-no">§11</div>
     <div>
-      <p class="eyebrow"><span>The quoted front end</span><span class="chip gt">gt-10:237–273 prop:standard-succinct-sat</span><span class="chip tested">C10 TESTED · tb3-r2 FAIL(N11)</span></p>
+      <p class="eyebrow"><span>The quoted front end</span><span class="chip gt">gt-10:237–273 prop:standard-succinct-sat</span><span class="chip tested">C10 TESTED · verdicts/tb3-r2.md</span></p>
       <h2 class="thesis">From 33 bytes of quoted decider to a PCP instance, with nothing hand-written in between.</h2>
     </div>
   </div>
   <div class="ch-body">
-    <div class="warnbar" style="border-color:var(--check);background:var(--check-lt)">Claim <b>C10</b> was promoted to TESTED by <code>verdicts/tb3-r2.md</code>. One MAJOR remains open there (N11): it is the orchestrator's, not the code's — the instantiation clause on C16/C18 had been narrowed before adjudication and has since been corrected. The remaining minors (N12–N17) close inside the TB4 round.</div>
+    <div class="warnbar" style="border-color:var(--check);background:var(--check-lt)">Claim <b>C10</b> was promoted to TESTED by <code>verdicts/tb3-r2.md</code>. One MAJOR was left open there (N11): it was the orchestrator's, not the code's — the instantiation clause on C16/C18 had been narrowed before adjudication and has since been corrected. The remaining minors (N12–N17) were carried into the TB4 round, which converged at <code>verdicts/tb4-r3.md</code> (PASS).</div>
 
     <p>This is the rung that makes the pipeline real: the decider is quoted to canonical bytes, evaluated under fuel to produce a bounded trace, the trace is turned into succinct 3SAT by a Cook–Levin encoding, the shared 3SAT data is decoupled into five blocks, the result is padded and compiled to a circuit, and that <em>generated</em> circuit goes through the same PCP builder chapter 8 used — and then through chapter 10's decider.</p>
 
@@ -1062,13 +1062,13 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
   <div class="ch-head">
     <div class="ch-no">§12</div>
     <div>
-      <p class="eyebrow"><span>Introspection</span><span class="chip gt">gt-08-introspection.tex</span><span class="chip conjecture">C14 CONJECTURE</span></p>
+      <p class="eyebrow"><span>Introspection</span><span class="chip gt">gt-08-introspection.tex</span><span class="chip tested">C14 TESTED (scoped)</span></p>
       <h2 class="thesis">The verifier stops sending questions and instead asks the provers to sample their own — which only works because entanglement lets it check that they sampled honestly.</h2>
     </div>
   </div>
   <div class="ch-body">
-    <p class="lede"><span class="stamp" style="border-color:var(--check);background:var(--check-lt)">executed at TB6 — C14 still CONJECTURE, critic round 1 in progress</span></p>
-    <p>Everything in this chapter is transcribed into <code>docs/DESIGN.md</code> §11 with source line references, and as of TB6 it runs: the Pauli sampler and decider, the introspection sampler (typed, then downsized and detyped to level 5 with dimension 142 on fixture E and 179 on fixture M), and the introspection decider, which reads the input verifier only through the four sampler queries on the paper's schedule and meters every child call in units of one primitive interpreter step. Under the paper's budget <span class="mono">R = N<sup>λ</sup></span> every honest child call on fixture M times out at exactly 16 steps — so acceptance under the source gate is withdrawn, printed as <span class="mono">toy_child_fuel = FAIL(owner=tb6-child-meter)</span> — and under the explicit toy budget of 65,536 steps every call returns (measured costs 5 to 60 steps per mode). The honest strategy is simulated exactly on a stabilizer tableau of 6 (E) and 26 (M) qubits; every one of the 14,378 enumerated outcomes on E carries an exact dyadic probability with total mass one. The paper's literal <span class="mono">≥ 3Q</span> guard rejects exactly 10 of 116 and 22 of 128 oriented type pairs, which is why the operative guard reads <span class="mono">&gt; 3Q</span>. Two further places where the source as written does not typecheck surfaced as red tests and are carried as <span class="mono">SOURCE_REPAIR</span> nodes (the dual-map complement and the hiding suffix register); the critic is adjudicating both. It is here because it is the piece that makes compression exponential: a verifier of index <span class="mono">n</span> would need <span class="mono">2<sup>n</sup></span>-bit questions, so instead the provers are made to generate their own questions from shared randomness, and the verifier checks the generation with a Pauli test.</p>
+    <p class="lede"><span class="stamp" style="border-color:var(--check);background:var(--check-lt)">executed at TB6 — C14 TESTED (scoped); critic round 4 pending</span></p>
+    <p>Everything in this chapter is transcribed into <code>docs/DESIGN.md</code> §11 with source line references, and as of TB6 it runs: the Pauli sampler and decider, the introspection sampler (typed, then downsized and detyped to level 5 with dimension 142 on fixture E and 179 on fixture M), and the introspection decider, which reads the input verifier only through the four sampler queries on the paper's schedule and meters every child call in units of one primitive interpreter step. Under the paper's budget <span class="mono">R = N<sup>λ</sup></span> every honest child call on fixture M times out at exactly 16 steps — so acceptance under the source gate is withdrawn, printed as <span class="mono">toy_child_fuel = FAIL(owner=tb6-child-meter)</span> — and under the explicit toy budget of 65,536 steps every call returns (measured costs 5 to 60 steps per mode). The honest strategy is simulated exactly on a stabilizer tableau of 6 (E) and 26 (M) qubits; every one of the 14,378 enumerated outcomes on E carries an exact dyadic probability (structural to the enumerator, so total mass one is an identity and not evidence). The paper's literal <span class="mono">≥ 3Q</span> guard rejects exactly 10 of 116 and 22 of 128 oriented type pairs, which is why the operative guard reads <span class="mono">&gt; 3Q</span>. Two further places where the source as written does not typecheck surfaced as red tests and are carried as <span class="mono">SOURCE_REPAIR</span> nodes (the dual-map complement and the hiding suffix register); both are disclosed and repaired in the C14 row. It is here because it is the piece that makes compression exponential: a verifier of index <span class="mono">n</span> would need <span class="mono">2<sup>n</sup></span>-bit questions, so instead the provers are made to generate their own questions from shared randomness, and the verifier checks the generation with a Pauli test.</p>
 
     <div class="panel">
       <div class="panel-bar"><b>Instrument · the Pauli basis and the 3Q boundary</b><span>DESIGN §11.1–§11.4 · executed at TB6 on fixtures E and M</span></div>
@@ -1107,9 +1107,31 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
       </div>
     </div>
 
+    <div class="panel">
+      <div class="panel-bar"><b>What an honest child call costs</b><span>DESIGN §11.6 · exact metered steps, the finite maximum per slot</span></div>
+      <div class="panel-body scroller">
+        <table>
+          <thead><tr><th>fixture</th><th>mode</th><th>source R</th><th>toy F_child</th><th>measured steps</th><th>fits R?</th><th>fits F_child?</th></tr></thead>
+          <tbody>
+            <tr><td>TB6b-E</td><td>Dimension</td><td class="n">4</td><td class="n">65,536</td><td class="n">5</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-E</td><td>Marginal</td><td class="n">4</td><td class="n">65,536</td><td class="n">13</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-E</td><td>Factor</td><td class="n">4</td><td class="n">65,536</td><td class="n">10</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-E</td><td>Linear</td><td class="n">4</td><td class="n">65,536</td><td class="n">13</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-E</td><td>child decider</td><td class="n">4</td><td class="n">65,536</td><td class="n">10</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-M</td><td>Dimension</td><td class="n">16</td><td class="n">65,536</td><td class="n">5</td><td><span class="chip proved">PASS</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-M</td><td>Marginal</td><td class="n">16</td><td class="n">65,536</td><td class="n">53</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-M</td><td>Factor</td><td class="n">16</td><td class="n">65,536</td><td class="n">60</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-M</td><td>Linear</td><td class="n">16</td><td class="n">65,536</td><td class="n">50</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+            <tr><td>TB6b-M</td><td>child decider</td><td class="n">16</td><td class="n">65,536</td><td class="n">22</td><td><span class="chip held">FAIL</span></td><td><span class="chip proved">PASS</span></td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:12px">Only the measured fit to the supplied toy budget enables the operative-toy acceptance check; the general source time bound stays <span class="mono">NOT_EVALUABLE(owner=tb6-child-meter)</span> and never inherits a toy PASS.</p>
+      </div>
+    </div>
+
     <div class="paper-says">
       <span class="lbl">Status, precisely</span>
-      <p>C14 is still a <b>CONJECTURE</b> in the claims table: TB6 landed with a proposed TESTED row and its first critic round is running. Both fixtures fail the paper's own <span class="mono">|V| ≤ λ</span> hypothesis, so every hypothesis audit refuses and no theorem conclusion is invoked; what the rung establishes is construction behaviour with every failed predicate printed with an owner. Quantum rigidity — the actual content of <span class="mono">thm:pauli</span> — remains CITED.</p>
+      <p>C14 is <b>TESTED, scoped</b> in the claims table (<code>verdicts/tb6-r1.md</code>, PROMOTE with scope; <code>verdicts/tb6-r2.md</code>, row replaced). Critic round 3 (<code>verdicts/tb6-r3.md</code>, FAIL(R1,R2,R3)) found three defects and a repair round (brief 84) fixed them: non-Pauli answers are now checked for membership in V once, before dispatch, on every oriented pair including the self-loops of G<sup>intro</sup> (R1); the out-of-V witnesses cover the whole tail of coordinates, s+1, s+2 and Q (R2); and the mutation runner credits a kill only for a failed assertion, so an error or crash alone no longer counts (R3). Timed-out nested children are now pinned part-way charged (S1). The row stays on HOLD for the strike of its N1/N2 scope sentences and for the test-only scope of D1(d) until a round 4 (brief 85, not yet launched) rules on them, so it stays scoped. Both fixtures fail the paper's own <span class="mono">|V| ≤ λ</span> hypothesis, so every hypothesis audit refuses and no theorem conclusion is invoked; what the rung establishes is construction behaviour with every failed predicate printed with an owner. Quantum rigidity — the actual content of <span class="mono">thm:pauli</span> — remains CITED.</p>
       <span class="src">claims/CLAIMS.md C14 · docs/DESIGN.md §11 · gt-07-ldt.tex:1426–1447</span>
     </div>
   </div>
@@ -1175,7 +1197,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     </div>
   </div>
   <div class="ch-body">
-    <p class="lede"><span class="stamp">designed, not yet executable</span></p>
+    <p class="lede"><span class="stamp">checkpoint: executes under a toy policy — critic verdict pending (C15 CONJECTURE)</span></p>
 
     <div class="panel">
       <div class="panel-bar"><b>The machine room</b><span>one continuous scene · the ladder and the certificate tree</span></div>
@@ -1212,7 +1234,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     </div>
 
     <div class="panel">
-      <div class="panel-bar"><b>The predicate report — designed to fail visibly</b><span>DESIGN §12.5 · n = 2, λ = 32,768, s₀ = 9</span></div>
+      <div class="panel-bar"><b>The predicate report — built to fail visibly</b><span>DESIGN §12.5 · printed by the TB7 checkpoint · n = 2, λ = 32,768, s₀ = 9</span></div>
       <div class="panel-body scroller">
         <table>
           <thead><tr><th>predicate</th><th>result</th></tr></thead>
@@ -1246,8 +1268,8 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
         <p>Now the fixed point. Define, for a machine <span class="mono">M</span> and a bound <span class="mono">λ</span>,</p>
         <p class="mono" style="font-size:14px;margin:14px 0;padding-left:18px;border-left:2px solid var(--term)">Ψ<sub>M,λ</sub>(d)(n, x, y, a, b) = 1 &nbsp;if M halts within n steps,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= D<sub>Compress((S<sub>λ</sub>, d), λ)</sub>(n, x, y, a, b) &nbsp;otherwise.</p>
         <p>Then <span class="mono">D<sub>M,λ</sub> = Y Ψ<sub>M,λ</sub></span>. If <span class="mono">M</span> never halts, the verifier at index <span class="mono">n</span> defers to the compressed verifier at a larger index, forever, and the game has a perfect entangled strategy at every level; if <span class="mono">M</span> halts at step <span class="mono">T</span>, the deferral bottoms out and the value drops. Deciding the value of the game therefore decides the halting problem — which is <span class="mono">MIP* = RE</span>.</p>
-        <p style="margin-top:14px">Chapter 2's <span class="mono">Y</span> is exactly this combinator, and the implementation's <span class="mono">Fix</span> closes one <span class="mono">self_code</span> hole at constant charge rather than materialising the unfolding — which is what keeps <span class="mono">|D<sub>M,λ</sub>| = O(|M| + log λ + 1)</span> instead of unbounded. The TB7 run is specified to construct <span class="mono">Fix(Ψ<sub>M,λ</sub>)</span>, check that the embedded <span class="mono">self_code</span> hash equals the outer quote hash, simulate two steps of a non-halting <span class="mono">M_loop</span>, take the deferral branch, and execute the compressed decider without recursive host evaluation. It has not been run.</p>
-        <p class="note" style="margin-top:14px"><b>What this page does not claim.</b> One description-level self-reference is not the infinite fixed-point value argument. The general value and λ-bounded conclusions of <span class="mono">gt-12:502–519, 569–576</span> stay CITED, and so does every quantitative soundness and entanglement-dimension bound in the composition.</p>
+        <p style="margin-top:14px">Chapter 2's <span class="mono">Y</span> is exactly this combinator, and the implementation's <span class="mono">Fix</span> closes one <span class="mono">self_code</span> hole at constant charge rather than materialising the unfolding — which is what keeps <span class="mono">|D<sub>M,λ</sub>| = O(|M| + log λ + 1)</span> instead of unbounded. The TB7 checkpoint constructs <span class="mono">Compress</span> end to end under the printed toy policy (n = 2, λ = 32,768), with the level chain and dimensions of the table above checked, and performs one finite unfold of <span class="mono">D<sub>M,λ</sub> = Y Ψ<sub>M,λ</sub></span>; its fixed-point checks pass 5/5 (<code>briefs/44-tb7-compress.last.md</code>). It is a work-in-progress checkpoint: its critic round has not yet been run, and claim C15 stays a CONJECTURE.</p>
+        <p class="note" style="margin-top:14px"><b>What this page does not claim.</b> The checkpoint makes no aggregate “16 honest accepts” claim, executes no all-description run, proves no sampler-independence, and gives no production soundness claim; <span class="mono">enu:ar-game</span> against the actual D₁ is NOT_EXECUTED and the non-Pauli introspection schemas are VACUOUS at this fixture, each printed with an owner above. One description-level self-reference is not the infinite fixed-point value argument. The general value and λ-bounded conclusions of <span class="mono">gt-12:502–519, 569–576</span> stay CITED, and so does every quantitative soundness and entanglement-dimension bound in the composition.</p>
       </div>
     </div>
   </div>
@@ -1266,23 +1288,23 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
     <p>Each rung of the ladder is written by a proposer and then attacked by a critic that recomputes the numbers independently. The critic files a verdict with numbered objections; the proposer repairs; the next critic adjudicates the repairs and files fresh objections. A claim's status moves up only inside such a verdict — never because the author says so.</p>
 
     <div class="panel">
-      <div class="panel-bar"><b>Objection trajectories, by lane</b><span>25 verdict files · MAJOR objections, the count each verdict itself tracks</span></div>
+      <div class="panel-bar"><b>Objection trajectories, by lane</b><span>39 verdict files · MAJOR objections, the count each verdict itself tracks</span></div>
       <div class="panel-body">
         <div id="traj"></div>
-        <p class="note" style="margin-top:12px">Seven lanes converged to zero MAJOR objections and a PASS. Three are still open: TB3 at <span class="mono">FAIL(N11)</span> after two rounds, TB4 at <span class="mono">FAIL(O1–O5)</span> after one, TB5 at <span class="mono">FAIL(O1,O2)</span> after one. No verdict line ever reads PROMOTE — only PASS or FAIL(…); promotions live inside the per-claim decision sections.</p>
+        <p class="note" style="margin-top:12px">The chart above has not been refreshed since TB5. Seven lanes (design, design-v2, midpoint, TB0, the analytic document, TB1, TB2) converged to zero MAJOR objections and a PASS, and TB4 has since converged at <span class="mono">verdicts/tb4-r3.md</span>. TB3, TB5 and TB6 verdict lines read FAIL(…) — TB3 <span class="mono">FAIL(N11)</span>, TB5 <span class="mono">FAIL(O1,O2)</span>, TB6 <span class="mono">FAIL(O1,O2)</span> at r1, <span class="mono">FAIL(N1,N2,N3)</span> at r2, <span class="mono">FAIL(R1,R2,R3)</span> at r3, the last repaired by brief 84 — yet their claims (C10, C13, C14) were promoted inside the per-claim decision sections. No verdict line ever reads PROMOTE — only PASS or FAIL(…).</p>
       </div>
       <dl class="evidence">
-        <div class="ev"><dt>verdict files</dt><dd>36<small>7 PASS · 29 FAIL(…)</small></dd></div>
-        <div class="ev good"><dt>mutants killed</dt><dd>182 / 182<small>75/75 baselines OK, 1011 s</small></dd></div>
-        <div class="ev"><dt>suite assertions</dt><dd>12105 / 12105</dd></div>
-        <div class="ev"><dt>TB0 test body</dt><dd>15.3 s<small>vs a 60 s gate; 74–85 s in powersave at ~1 GHz</small></dd></div>
+        <div class="ev"><dt>verdict files</dt><dd>39<small>8 PASS · 31 FAIL(…)</small></dd></div>
+        <div class="ev good"><dt>mutants killed</dt><dd>235 / 235<small>93/93 baselines OK, 2/2 runner probes refused; full runs before the memory-bound removal plus a focused run after</small></dd></div>
+        <div class="ev"><dt>suite assertions</dt><dd>12730 passed<small>1 broken (@test_broken); exit 0</small></dd></div>
+        <div class="ev"><dt>TB0 timing gate</dt><dd>ratio &lt; 100<small>body over a calibration kernel, so it tracks CPU clock</small></dd></div>
       </dl>
     </div>
 
     <div class="panel">
       <div class="panel-bar"><b>The mutation runner</b><span>baseline-first, each mutant in an isolated copy</span></div>
       <div class="panel-body">
-        <p>Before any mutant runs, the runner establishes that the targeted test file passes unmutated — 43 baselines. Then each of the 84 registered mutants is applied in isolation and the target must exit non-zero. A mutant that survives is a test that proves nothing; a mutant that kills the wrong test is recorded as <span class="mono">UNATTRIBUTABLE</span> rather than counted. This run: no survivors, no load errors, nothing unattributable.</p>
+        <p>Before any mutant runs, the runner establishes that the targeted test file passes unmutated — 93 baselines. Then each of the 235 registered mutants is applied in isolation and the target must fail an assertion. A kill is credited only for a failed assertion: a mutant that merely makes the test error out or crash is recorded as <span class="mono">KILLED-BY-ERROR</span> or <span class="mono">KILLED-BY-CRASH</span> and not counted, and two permanent probes check that the runner refuses such deaths. A mutant that survives is a test that proves nothing; a mutant that kills the wrong test is recorded as <span class="mono">UNATTRIBUTABLE</span> rather than counted. The recorded runs: no survivors, no load errors, nothing unattributable.</p>
         <div class="scroller" style="margin-top:14px">
           <table>
             <thead><tr><th>a representative mutant</th><th>target</th><th>outcome</th></tr></thead>
@@ -1309,7 +1331,7 @@ figcaption.fig{font-family:var(--f-ui);font-size:12.5px;color:var(--inkmute);
           <button class="btn" data-cl="CONJECTURE" type="button" aria-pressed="false">CONJECTURE</button>
         </div>
         <div class="scroller"><table><thead><tr><th>id</th><th>what it says, in one line</th><th>status</th><th>depends on</th><th>verdict</th></tr></thead><tbody id="claims-body"></tbody></table></div>
-        <p class="note" style="margin-top:12px">Legend, from the file: <b>PROVED</b> = adversarially verified derivation · <b>TESTED</b> = machine-checked on explicit instances, red-capable · <b>SKETCH</b> = derivation written, not yet verified · <b>CONJECTURE</b> · <b>REFUTED</b> (kept as a negative result). There is no row for the low-degree decider (C4c is HELD) and none for the front end (C10 is a proposal).</p>
+        <p class="note" style="margin-top:12px">Legend, from the file: <b>PROVED</b> = adversarially verified derivation · <b>TESTED</b> = machine-checked on explicit instances, red-capable · <b>SKETCH</b> = derivation written, not yet verified · <b>CONJECTURE</b> · <b>REFUTED</b> (kept as a negative result). The low-degree decider (C4c, <code>verdicts/tb1-r1.md</code>…<code>tb1-r6.md</code>) and the front end (C10, <code>verdicts/tb3-r2.md</code>) are both TESTED.</p>
       </div>
     </div>
   </div>
@@ -2314,20 +2336,20 @@ var AR=(function(){
    ["C1","The two retained PCP proofs on the six-gate instance replay node by node; β₀ = 2 over GF(8), 96 over GF(2¹¹).","TESTED","C2, C3, D1","tb0-r4"],
    ["C2","The zero-basis rewrite gives c₀ = Σ cᵢ·zero(zᵢ) with r = 0 for the satisfying witnesses and a two-monomial remainder for the unsatisfying one.","TESTED","D1","tb0-r3"],
    ["C3","The degree and dependency report: occurrence vectors, quotient split, Dependencies(gᵢ) = {Xᵢ}.","TESTED","D1, C8","tb0-r1, tb0-r3"],
-   ["C4a","L_Point, L_ALine and L_DLine are CL of nesting depth 1, 2, 3 with exact histograms 512 and 18,432 over all 8⁵ seeds.","TESTED","D2","tb1-r1 … tb1-r5"],
+   ["C4a","L_Point, L_ALine and L_DLine are CL of nesting depth 1, 2, 3 with exact histograms 512 and 18,432 over all 8⁵ seeds.","TESTED","D2","tb1-r1 … tb1-r6"],
    ["C4c","The low-degree decider D^ld on the TB1 fixture: item 3 compared at every t on a zero-direction line; 71,360 support decisions, off-line branch reached 0 times.","TESTED","D2, C4a","tb1-r6"],
    ["C4b","The 18 PCP maps form one typed CL family at (q,k,m,d,s,m′) = (2048,11,1,11,6,16), describable at 3,009 / 2,893 / 10,228 / 2,754 / 10,479 bytes.","TESTED","D2, C4a","tb2-r2 … tb2-r5"],
    ["C5","Soundness assuming low-degree proofs: the formula bound (deg_F + 5d)m′/q.","SKETCH","C2, C8","—"],
    ["C6","The midpoint diagnostic: perfect completeness, optimal cheating value exactly 1 − 2⁻ⁿ.","PROVED","—","midpoint-r2"],
    ["C7","The reusable object is an algebra 𝒬 of CL question distributions closed under Introspect, PCPCompose and ×.","CONJECTURE","C4a, C4b","—"],
    ["C8","Refutation of prop:tseitin-arith-degree as we read NW19: deg_v(F_arith) ≤ occ_v, and occ grows with fan-out.","TESTED","—","tb0-r1 (scoped), r2, r3"],
-   ["C9","The typed answer-reduced decider on the TB0 fixture: 2,736 of 2,916 ordered pairs trigger no check; nine replay cases at three seeds, 27 (case, seed) pairs.","TESTED","D1, D2, C3, C4a, C4b","tb2-r2 … tb2-r5"],
+   ["C9","The typed answer-reduced decider on the TB0 fixture: 2,736 of 2,916 ordered pairs trigger no check; nine replay cases at three seeds, 27 (case, seed) pairs.","TESTED","D1, D2, C3, C4a, C4b","tb2-r2 … tb2-r8"],
    ["N1","Negative, sequential repetition only: adaptive r-copy repetition gives exactly (1 − 2⁻ⁿ)ʳ.","PROVED","C6","midpoint-r2"],
-   ["C11","The Compress skeleton composes the three contracts in fig:compress order with the quoted fixed point D = Y Ψ (388 bytes) and c_Y = 3 pinned at every fuel; weaker row.","TESTED","C10, C9, C16, C18","tb4-r1"],
+   ["C11","The Compress skeleton composes the three contracts in fig:compress order with the quoted fixed point D = Y Ψ (388 bytes) and c_Y = 3 pinned at every fuel; weaker row.","TESTED","C10, C9, C16, C18","tb4-r2; tb4-r3"],
    ["C10","Front-end faithfulness on the two one-bit-answer fixtures: quote → trace → 3SAT → 5SAT → padded circuit → PCP, every stage replayed and identity-bound.","TESTED","C1, C9, C16, C19","tb3-r2"],
    ["C12","Description-level CL closure: downsize, direct sum, product, detype, anchor and repeat definable from the four sampler queries alone; all 54 product maps describable.","TESTED","C4a, C4b","tb5-r1"],
-   ["C13","The TB5 Repeat fixture: levels and dimensions 1,1 → 3,9 → 3,729 at n = 9, λ = τ = c′ = 1; |S^rep| = 85 bytes independent of k; scoped weaker row.","TESTED","C12","tb5-r1"],
-   ["C14","The TB6 Introspect fixtures with explicit toy child fuel.","CONJECTURE","C12, C4a","design-v2-r3"],
+   ["C13","The TB5 Repeat fixture: levels and dimensions 1,1 → 3,9 → 3,729 at n = 9, λ = τ = c′ = 1; |S^rep| = 85 bytes independent of k; scoped weaker row.","TESTED","C12","tb5-r1; tb6-r1 §6"],
+   ["C14","The TB6 Introspect fixtures with explicit toy child fuel; scoped (HOLD on the N1/N2 strikes and D1(d) test-only scope pending TB6 r4).","TESTED","C12, C4a","tb6-r1 (PROMOTE, scoped); tb6-r2"],
    ["C15","Executable Compress and fixed point: level chain 9 → 5 → 7 → 9, dimensions 206 → 840 → 848 → 1,696.","CONJECTURE","C12, C13, C14","design-v2-r2"],
    ["C16","Semantics of the language L: the CEK relation is a function; fuel is monotone; Eval_L(Quote(t),u;f+h) = eval_L(t,u;f).","SKETCH","—","—"],
    ["C17","The costed machine/term bridge with universal constants and a fixed exponent e = 8.","SKETCH","C16","—"],
