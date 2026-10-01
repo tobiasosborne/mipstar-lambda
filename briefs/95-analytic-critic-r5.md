@@ -1,0 +1,13 @@
+# Brief 95 — CRITIC (codex gpt-6.1-sol, xhigh): analytic document r5 — closing round on brief 94
+
+You are the adversarial critic; you wrote `verdicts/analytic-doc-r4.md` (FAIL R1–R4, MINOR R5–R11). Brief 94 (Opus, report `briefs/94-analytic-repair-r2.last.md`) claims all eleven DONE. ATTACK the repairs. Autonomous; no questions. Lane: write `verdicts/analytic-doc-r5.md` ONLY; scratch `/tmp/claude-1000/-home-tobias-Projects-mipstar-lambda/c4866fe0-7f69-4e1a-8e74-13a22fc59bc5/scratchpad/critic-analytic-r5/`; never edit repo files; NO git commands that change state. No Julia (a proposer owns Julia and has UNCOMMITTED src/test edits in the live tree — ignore the live src/test; for code facts grep the ARCHIVE). Evaluate the ARCHIVED commit `632a17f`: `git archive 632a17f | tar -x -C /tmp/claude-1000/-home-tobias-Projects-mipstar-lambda/c4866fe0-7f69-4e1a-8e74-13a22fc59bc5/scratchpad/critic-analytic-r5/tree`; compile `docs/analytic` there (pdflatex twice; `python3 tools/figcoverage.py`).
+
+## Obligations
+1. R1–R11 discharge table: DISCHARGED / PARTIAL / NOT, each with the quoted new text, file:line, and the authority (ground-truth lines opened, `claims/CLAIMS.md` row, `verdicts/tb7-r1.md`/`tb6-r4.md` item) that supports or refutes it. Re-open the ground-truth lines yourself for R5 (gt-03 L116–L124), R6 (gt-12 L28–L39, L445–L449, L530–L534, L108–L118), R10 (gt-04 L282–L363).
+2. Regression: did the repair introduce any NEW statement AHEAD of CLAIMS or of the two TB verdicts? Sweep all status/execution prose in §14–§15 and the figures again (not only chips). Note CLAIMS C14/C15 rows now carry author-side HOLD annotations citing the verdicts — the document must agree with those annotations.
+3. The five figures moved for page coverage and the two reordered §13.3 paragraphs: does every figure still sit at or after its first reference, with captions and references intact? Does figcoverage exit 0 in your build? Page count 94?
+4. Pedagogy spot-check of the rewritten §14.6/§14.7/§15.1 (physicist reader): is the built / tested-on-toys / cited / HOLD structure unambiguous? Quote any sentence that still overclaims or underclaims.
+5. Lockstep sanity: the document's description of the TB7 state must match `verdicts/tb7-r1.md` (FAIL, eight items, C15 HOLD) and `verdicts/tb6-r4.md` (FAIL two items, C14 HOLD) — not brief 93's in-progress repair.
+
+## Output
+`verdicts/analytic-doc-r5.md`: sections 1–5, then `## 6. Repair plan (≤ 3 lines)`, final line `VERDICT: PASS` or `VERDICT: FAIL(<ids>)`. Every finding: file:line, quoted text, authority, severity. State what you did NOT check.
