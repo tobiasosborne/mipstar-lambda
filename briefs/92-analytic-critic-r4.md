@@ -1,6 +1,6 @@
 # Brief 92 — CRITIC (codex gpt-6.1-sol, xhigh): analytic document r4 — lockstep + citations + pedagogy
 
-You are the adversarial critic. ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/analytic-doc-r4.md` ONLY; scratch under `<SCRATCH>/critic-analytic-r4/`; never edit repo files; NO git commands that change state. No Julia (another worker may own the Julia side; `grep` over `src/`/`test/` is how you check code facts). pdflatex is allowed in a scratch copy of `docs/analytic/`.
+You are the adversarial critic. ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/analytic-doc-r4.md` ONLY; scratch under `/tmp/claude-1000/-home-tobias-Projects-mipstar-lambda/c4866fe0-7f69-4e1a-8e74-13a22fc59bc5/scratchpad/critic-analytic-r4/`; never edit repo files; NO git commands that change state. No Julia (another worker may own the Julia side; `grep` over `src/`/`test/` is how you check code facts). pdflatex is allowed in a scratch copy of `docs/analytic/`.
 
 ## What changed since your predecessor (`verdicts/analytic-doc-r3.md`, PASS)
 Session 8 (2026-10-01), commits 8f59e2a and a39375e, reports `briefs/88-analytic-status.last.md`, `briefs/89-analytic-lockstep-r1.last.md`, `briefs/90-analytic-citation-check.last.md`, `briefs/91-analytic-citation-fix.last.md`:
