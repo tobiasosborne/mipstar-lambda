@@ -302,18 +302,31 @@ function answer_reduce_predicates(V1::VerifierDescription, params::PCPParams, si
     degree_formula = maximum(occurrences(fx.pcp.tf.formula, length(fx.pcp.tf.layout.names)))
     pol = parameter_policy(params, degree_formula)
     six = (pol.P_shape, pol.P_formula_paper, pol.P_tail, pol.P_divisibility, pol.P_degree, pol.P_formula_structural)
-    row6 = all(==(PASS), six) ? :PASS : any(==(FAIL), six) ? :FAIL : :NOT_EVALUABLE
+    row6 = group_status(six)
     p6 = PolicyPredicate("AR P_shape, P_formula_paper, P_tail, P_divisibility, P_degree, structural formula check", row6;
                          detail="parameter_policy at (q, k, m, d, s, m') = ($(params.q), $(params.k), $(params.m), $(params.d), $(params.s), $(params.m_prime)), gamma = $(gamma), degree_formula = $(degree_formula): shape $(pol.P_shape), formula_paper $(pol.P_formula_paper), tail $(pol.P_tail), divisibility $(pol.P_divisibility), degree $(pol.P_degree), structural $(pol.P_formula_structural)")
-    p7 = PolicyPredicate("AR P_growth, universal mu/gamma/tau, n>=C_0", :NOT_EVALUABLE;
-                         detail="P_growth = $(pol.P_growth) (a', b' of lem:ld-soundness are symbols); mu = ceil(C_intro), gamma = ceil(2a_1/(b_1 b_2)), tau of eq:c_rep are universal constants (toy literals $(mu), $(gamma), $(policy.tau)); C_0 of thm:compression is not exposed")
+    # Row 7 groups P_growth with the universal constants and C_0 (verdicts/tb7-r1.md T7-1): the transcribed
+    # growth lower bound k <= (gamma + 3) log2(s) is a KNOWN failure for the whole admissible a', b' range
+    # (e.g. gamma = 2: 11 <= 5 log2(6) = 12.92), and a known failure propagates through the group.
+    row7 = group_status((pol.P_growth, :NOT_EVALUABLE, :NOT_EVALUABLE))
+    p7 = PolicyPredicate("AR P_growth, universal mu/gamma/tau, n>=C_0", row7;
+                         detail="P_growth = $(pol.P_growth) (k = $(params.k) vs the transcribed lower bound (gamma + 3) log2(s) = ($(params.gamma) + 3) log2($(params.s)) = $(round((params.gamma + 3) * log2(params.s); digits=4)): $(pol.P_growth == FAIL ? "k is below it, so P_growth FAILS for every admissible a' > 1, 0 < b' < 1" : "k exceeds it; a', b' of lem:ld-soundness are symbols, so P_growth is NOT_EVALUABLE")); mu = ceil(C_intro), gamma = ceil(2a_1/(b_1 b_2)), tau of eq:c_rep are universal constants (toy literals $(mu), $(gamma), $(policy.tau)): NOT_EVALUABLE; C_0 of thm:compression is not exposed: NOT_EVALUABLE")
     # def:pcpparams (gt-10:L1396-L1422) with prop:explicit-padded-succinct-deciders (L1226-L1275): 2^m >= 2T is explicit.
     logT = lambda * n * mu                          # log2 T = log2 (2^(lambda n))^mu
     m_bound_ok = params.m >= logT + 1
-    p8 = PolicyPredicate("AR tuple equals pcpparams(n,T,Q,sigma,gamma)", :FAIL;
-                         detail="pcpparams(n = $(n), T = 2^$(logT), Q = (lambda n)^mu = $(big(lambda * n)^mu), sigma = $(sigma), gamma = $(gamma)) requires 2^m >= 2T, i.e. m >= $(logT + 1) (prop:explicit-padded-succinct-deciders item 1), but the toy m = $(params.m)$(m_bound_ok ? "" : " < $(logT + 1)"); m(T, sigma), s(n, T, Q, sigma) and the a', b' conditions on k are otherwise NOT_EVALUABLE")
-    p11 = PolicyPredicate("fixed-width sigma_1=length(canonical_bytes(D1)) printed as an exact integer", :PASS;
-                          detail="sigma_1 = $(sigma) = length(canonical_bytes(D1)), fnv1a64 $(quote_hash(V1.decider)); $(V1.decider.term[1] == :Detype && V1.decider.term[4][1] == :TypedDecider && V1.decider.term[4][3][1] == :IntroFixed ? "two fixed lambda-byte slots (DESIGN 12.3)" : "NOT a fixed-width decider (unpadded)")")
+    row8 = group_status((m_bound_ok ? :PASS : :FAIL, :NOT_EVALUABLE))
+    p8 = PolicyPredicate("AR tuple equals pcpparams(n,T,Q,sigma,gamma)", row8;
+                         detail="pcpparams(n = $(n), T = 2^$(logT), Q = (lambda n)^mu = $(big(lambda * n)^mu), sigma = $(sigma), gamma = $(gamma)) requires 2^m >= 2T, i.e. m >= $(logT + 1) (prop:explicit-padded-succinct-deciders item 1): the toy m = $(params.m) $(m_bound_ok ? ">=" : "<") $(logT + 1) ($(m_bound_ok ? "PASS" : "FAIL")); m(T, sigma), s(n, T, Q, sigma) and the a', b' conditions on k are otherwise NOT_EVALUABLE")
+    # Row 11 is computed (verdicts/tb7-r1.md T7-1): sigma_1 must be the exact byte length of the supplied D1, and
+    # D1 must be the fixed-width decider whose length is the (lambda, ell, tuple, F_child) law of DESIGN 12.3.
+    t = V1.decider.term
+    fixed_shape = t isa Tuple && length(t) >= 4 && t[1] == :Detype && t[4] isa Tuple && length(t[4]) >= 3 &&
+                  t[4][1] == :TypedDecider && t[4][3] isa Tuple && t[4][3][1] == :IntroFixed
+    own_length = length(canonical_bytes(V1.decider))
+    law_length = fixed_shape ? fixed_width_length(lambda, t[4][3][3], policy) : -1
+    row11 = (sigma >= 0 && sigma == own_length && fixed_shape && sigma == law_length) ? :PASS : :FAIL
+    p11 = PolicyPredicate("fixed-width sigma_1=length(canonical_bytes(D1)) printed as an exact integer", row11;
+                          detail="sigma_1 = $(sigma) vs length(canonical_bytes(D1)) = $(own_length) (fnv1a64 $(quote_hash(V1.decider))) and the fixed-width law length = $(fixed_shape ? law_length : "n/a"); $(fixed_shape ? "two fixed lambda-byte slots (DESIGN 12.3)" : "NOT a fixed-width decider (unpadded)")")
     [p6, p7, p8, p11]
 end
 
@@ -348,9 +361,15 @@ function pcp_encodes_D1_evidence(D1::DeciderDescription, fx::FrontEndFixture, la
     fixture_m = fx.params.m
     fixture_hash = quote_hash(fx.quoted.term)
     logT = lambda * n * mu
+    # The status is COMPUTED (verdicts/tb7-r1.md T7-1): the instance supplied to pcpverifier encodes D1 only if
+    # it arithmetizes the lowered D1 program itself and its index width indexes 2T trace rows.
+    instance_is_D1 = fixture_hash == quote_hash(quoted.term)
+    width_ok = fixture_m >= logT + 1
+    encodes_status = instance_is_D1 && width_ok ? "PASS" : "FAIL"
     detail = "the instance supplied to pcpverifier arithmetizes the fixture decider $(fixture_hash) (|D| = $(fx.sigma) bytes) at T = $(fx.T) with index width m = $(fixture_m), while the ACTUAL fixed-width D1 (fnv1a64 $(quote_hash(D1)), sigma_1 = $(sigma) bytes) lowered into the program IR halts after $(T_actual) body transitions on a sorted input and TB3's bounded_trace -> cook_levin -> decouple5 front end gives $(actual.refused === nothing ? "index width m = $(actual.m), M = $(actual.M) variables, $(actual.clauses) 3SAT clauses, $(actual.decoupled_clauses) decoupled 5SAT clauses" : "CompilationRefused ($(actual.refused))"); at the printed (T = 2^$(logT), sigma_1 = $(sigma)) no instance of index width $(fixture_m) indexes a trace of 2^$(logT) rows (prop:explicit-padded-succinct-deciders: 2^m >= 2T)"
     CertNode(ASSUMED, :P_pcp_encodes_D1;
-        facts=(display="P_pcp_encodes_D1 | FAIL(owner=$(AR_GAME_OWNER)): $(detail)", status="FAIL", owner=AR_GAME_OWNER,
+        facts=(display="P_pcp_encodes_D1 | $(encodes_status)(owner=$(AR_GAME_OWNER)): instance is the lowered D1 program ($(quote_hash(quoted.term))): $(instance_is_D1); index width $(fixture_m) >= log2(2T) = $(logT + 1): $(width_ok); $(detail)",
+               status=encodes_status, owner=AR_GAME_OWNER, instance_is_D1, width_ok, logT, D1_program_hash=quote_hash(quoted.term),
                D1_hash=quote_hash(D1), sigma_1=sigma, T_actual=T_actual, actual=actual, fixture_m=fixture_m, fixture_hash=fixture_hash,
                used_fuel=trace.term.result isa Value ? "halted" : string(trace.term.result)),
         children=(decoupled isa CompilationRefused ? _relocate(trace.certificate, x -> trace.term) :
@@ -387,22 +406,64 @@ function answer_reduce_agreement_node(typed_decider::DeciderDescription, params:
             corrupt = decide_traced(x, 2, tl, xq, tr, yq, encode_pcp_answer_bits(case.left.pcp, cl, params), encode_pcp_answer_bits(case.right.pcp, cr, params))
             game = any(r -> r isa ARGameNotExecuted, honest[2])
             rule = isempty(corrupt[2]) ? :none : (last(corrupt[2]) isa ARStep ? last(corrupt[2]).rule : :not_executed)
-            push!(outcomes, (; case.case, case.step, game,
+            # verdicts/tb7-r1.md T7-8: a game-reaching case is graded by its ACTUAL trace -- the executed prefix
+            # (every recorded step before the NOT_EXECUTED record passed, and the case's own guard ran) separately
+            # from the unexecuted step 5.
+            honest_steps = [r for r in honest[2] if r isa ARStep]
+            push!(outcomes, (; case.case, case.step, game, not_executed=game,
+                               prefix_ok=all(r -> r.passed, honest_steps),
+                               own_rule_executed=any(r -> r.branch == case.case && r.passed, honest_steps),
                                honest_here=honest[1], honest_tb2=passed(honest_tb2),
                                corrupt_here=corrupt[1], corrupt_tb2=passed(corrupt_tb2), rule, case.expected_rule))
         end
         outcomes
     end
+    graded(o) = o.case == :game ?
+        # step 5 itself: NOT_EXECUTED on both the honest and the corrupted answers, after a passing prefix.
+        (o.game && o.not_executed && o.prefix_ok && !o.honest_here && !o.corrupt_here && o.rule == :not_executed) :
+        o.game ?
+        # a guard case whose honest transcript goes on to step 5: the guard runs and passes honestly (prefix
+        # agreement), the corruption is rejected by the named rule before step 5, and the honest NOT_EXECUTED
+        # rejection is recorded as such -- never as agreement with TB2's accept.
+        (o.not_executed && o.prefix_ok && o.own_rule_executed && !o.honest_here && o.honest_tb2 &&
+         !o.corrupt_here && !o.corrupt_tb2 && o.rule == o.expected_rule) :
+        # a complete decision on the executed layer: honest accept and corrupted reject agree with TB2.
+        (o.honest_here == o.honest_tb2 == true && o.corrupt_here == o.corrupt_tb2 == false && o.rule == o.expected_rule)
     check(x) = begin
         outcomes = run(x)
-        ok = all(o.case == :game ? (o.game && !o.honest_here && !o.corrupt_here) :
-                                   (o.honest_here == o.honest_tb2 == true && o.corrupt_here == o.corrupt_tb2 == false && o.rule == o.expected_rule)
-                 for o in outcomes)
-        CheckResult(ok, :answer_reduce_agreement; location=:AnswerReduceStepsAgreement, expected=:agreement, actual=outcomes)
+        CheckResult(all(graded, outcomes), :answer_reduce_agreement; location=:AnswerReduceStepsAgreement,
+                    expected=:graded_by_trace, actual=outcomes)
     end
     result = check(typed_decider)
-    executed = count(o -> !o.game, result.actual)
+    complete = [o for o in result.actual if !o.game]
+    prefix = [o for o in result.actual if o.game && o.case != :game]
+    display = "PCP encoding-consistency sub-test (local, fixture questions at the zero seed; verdicts/tb7-r1.md T7-8): " *
+              (result.ok ? "" : "FAILED (a case is not graded by its trace: $(join([string(o.case) for o in result.actual if !graded(o)], ", "))); ") *
+              "$(count(graded, complete)) complete accept/reject agreements with TB2's typed decider ($(join(string.(getfield.(complete, :case)), ", "))); " *
+              "$(count(graded, prefix)) game-reaching guard cases agree on their executed prefix ($(join(string.(getfield.(prefix, :case)), ", "))): the named guard passes honestly and rejects the corruption by its named rule, then the honest transcript reaches step 5 and is rejected NOT_EXECUTED(owner=$(AR_GAME_OWNER)) where TB2's pcpverifier accepts -- prefix evidence only, never agreement; the :game case reaches step 5 and is NOT_EXECUTED on both answers"
     CertNode(CHECKED, :AnswerReduceStepsAgreement;
-        facts=(display="PCP encoding-consistency sub-test (local, fixture questions at the zero seed): $(executed) of $(length(result.actual)) fig:decider-pcp guard cases -- steps 1-4 -- agree with TB2's typed decider on honest accept and corrupted reject by the named rule through the bit codecs; the :game case reaches step 5 and records NOT_EXECUTED(owner=$(AR_GAME_OWNER)) and rejects", outcomes=result.actual),
+        facts=(display=display, outcomes=result.actual, complete=length(complete), prefix=length(prefix), ok=result.ok),
         replay=_bound_replay(typed_decider, :AnswerReduceStepsAgreement, check))
+end
+
+"""
+    ar_game_probe(V2, n) -> (; reached, executed, bit, records)
+
+Run the ACTUAL answer-reduced decider of the detyped V2 on the step-5
+transcript (oracle,Point_6) vs (alice,Point_1) with zero questions and
+answers: `reached` when the trace records ARGameNotExecuted, `executed` when
+a pcpverifier step (step 5) ran. The report's `enu:ar-game` row is derived
+from this probe (verdicts/tb7-r1.md T7-1).
+"""
+function ar_game_probe(V2::VerifierDescription, n::Int)
+    typed = V2.decider.term[4]                        # (:TypedDecider, labels54, (:AnswerReduce, ...))
+    labels, body = typed[2], typed[3]
+    gamma, q, m, d, s, m_prime = body[4], body[6], body[7], body[8], body[9], body[10]
+    params = PCPParams(q, round(Int, log2(q)), m, d, s, m_prime, gamma)
+    zero_q = falses(_s1_dimension(body[11], n) + params.k * (2 * m_prime + 6))
+    trace = Any[]
+    bit = _decide_answer_reduce(labels, body, n, "oracle,Point_6", zero_q, "alice,Point_1", zero_q,
+                                falses(answer_bit_length(PCPType(:Point, 6), params)), falses(params.k), trace)
+    records = [r for r in trace if r isa ARGameNotExecuted]
+    (; reached=!isempty(records), executed=any(r -> r isa ARStep && r.step == 5, trace), bit, records)
 end

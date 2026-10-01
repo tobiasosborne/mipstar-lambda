@@ -27,7 +27,19 @@ using Test
 # tally is KILLED-BY-CRASH (not credited); both FAIL the registry. The
 # generic "Some tests did not pass" sentence is never evidence (Julia prints
 # it for 0 failed / >= 1 errored). test/mutations/runner_probes.jl holds the
-# two permanent negative tests of this rule (expected non-kills).
+# permanent negative tests of this rule (expected non-kills).
+#
+# The tally is consumed from ONE authoritative channel (verdicts/tb6-r4.md
+# T6-2, brief 93 A): the driver epilogue -- which runs after the rung file
+# has returned or thrown -- writes `MUTANT_TALLY nonce=<N> pass=.. fail=..
+# error=.. broken=..` to a result file in the sandbox, where <N> is a fresh
+# per-process nonce handed to the child through an environment variable the
+# driver pops before the rung file is included. The runner reads ONLY that
+# file and only a record carrying its own nonce; a stdout line is never
+# parsed for the tally. A child whose stdout carries more than one
+# MUTANT_TALLY record (a printed/forged tally beside the driver's own) is
+# FORGED-TALLY and never credited. test/mutations/runner_selftest.jl replays
+# the critic's forged-tally output in process before any mutant runs.
 
 const ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const MUTATION_FILTER = get(ENV, "MUTATION_FILTER", "")
@@ -328,14 +340,19 @@ baseline_key(mutant::Mutant) = _rung(mutant)[2:4]
 # exception outside a rung testset is recorded as an Error of the root).
 const TALLY_EPILOGUE = """
 let o = MUTANT_ROOT_OUTCOME
+    record(p, f, e, b) = begin
+        line = string("MUTANT_TALLY nonce=", MUTANT_DRIVER_CHANNEL[1], " pass=", p, " fail=", f, " error=", e, " broken=", b)
+        write(MUTANT_DRIVER_CHANNEL[2], line)   # the authoritative channel, written last
+        println(line)                           # for the human reader only; never parsed
+    end
     if o isa Test.TestSetException
-        println("MUTANT_TALLY pass=", o.pass, " fail=", o.fail, " error=", o.error, " broken=", o.broken)
+        record(o.pass, o.fail, o.error, o.broken)
         exit(1)
     elseif o isa Test.DefaultTestSet
         c = Test.get_test_counts(o)
         f = c.fails + c.cumulative_fails
         e = c.errors + c.cumulative_errors
-        println("MUTANT_TALLY pass=", c.passes + c.cumulative_passes, " fail=", f, " error=", e, " broken=", c.broken + c.cumulative_broken)
+        record(c.passes + c.cumulative_passes, f, e, c.broken + c.cumulative_broken)
         exit(f + e == 0 ? 0 : 1)
     else
         println("MUTANT_ROOT_OUTCOME unexpected ", typeof(o))
@@ -344,12 +361,26 @@ let o = MUTANT_ROOT_OUTCOME
 end
 """
 
-"The structured tally printed by the child, or nothing (the process died before printing it)."
-function test_tally(output::AbstractString)
-    m = match(r"MUTANT_TALLY pass=(\d+) fail=(\d+) error=(\d+) broken=(\d+)", output)
-    m === nothing && return nothing
-    (; pass=parse(Int, m[1]), fail=parse(Int, m[2]), error=parse(Int, m[3]), broken=parse(Int, m[4]))
+const TALLY_RECORD = r"^MUTANT_TALLY nonce=([0-9a-f]{16}) pass=(\d+) fail=(\d+) error=(\d+) broken=(\d+)$"
+
+"""
+    test_tally(result) -> (; pass, fail, error, broken) or nothing
+
+The structured tally of the child, read from the AUTHORITATIVE result file
+only (`result.record`, written by the driver epilogue) and only when it
+carries this process's nonce. Nothing when the process died before the
+epilogue, or the record is malformed or foreign. stdout is never parsed.
+"""
+function test_tally(result)
+    record = get(result, :record, nothing)
+    record === nothing && return nothing
+    m = match(TALLY_RECORD, strip(record))
+    (m === nothing || m[1] != get(result, :nonce, "")) && return nothing
+    (; pass=parse(Int, m[2]), fail=parse(Int, m[3]), error=parse(Int, m[4]), broken=parse(Int, m[5]))
 end
+"How many MUTANT_TALLY records the child's stdout carries (exactly one -- the driver's echo -- on an honest run)."
+stdout_tally_records(output::AbstractString) = count(_ -> true, eachmatch(r"^MUTANT_TALLY"m, output))
+
 
 # One isolated Julia process: load the package image, apply `patch` (a
 # `Base.include` of the mutated source file, or nothing), print the marker,
@@ -358,7 +389,13 @@ function run_isolated(sandbox::String, test_path::String, patch::String,
                       target_variable::String, target_name::String)
     mkpath(sandbox)
     script = joinpath(sandbox, "run.jl")
+    nonce = string(rand(UInt64); base=16, pad=16)
+    result_file = joinpath(sandbox, "tally.result")
+    rm(result_file; force=true)
+    # The nonce and result path reach the child only through two environment
+    # variables that the driver pops BEFORE the rung file is included.
     write(script, "using Test, MIPStarLambda\n" * patch *
+                  "const MUTANT_DRIVER_CHANNEL = (pop!(ENV, \"MUTANT_TALLY_NONCE\"), pop!(ENV, \"MUTANT_TALLY_FILE\"))\n" *
                   "println(\"MUTANT_TEST_STARTED\")\n" *
                   "const MUTANT_ROOT_OUTCOME = try\n" *
                   "    @testset \"MUTANT_ROOT\" begin\n" *
@@ -370,6 +407,7 @@ function run_isolated(sandbox::String, test_path::String, patch::String,
                   TALLY_EPILOGUE)
     command = addenv(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) $script`,
                      target_variable => target_name,
+                     "MUTANT_TALLY_NONCE" => nonce, "MUTANT_TALLY_FILE" => result_file,
                      "JULIA_PKG_PRECOMPILE_AUTO" => "0")
     log_path = joinpath(sandbox, "output.log")
     started = time()
@@ -377,7 +415,8 @@ function run_isolated(sandbox::String, test_path::String, patch::String,
         run(pipeline(ignorestatus(command), stdout=log, stderr=log))
     end
     output = read(log_path, String)
-    (; exitcode=process.exitcode, output,
+    record = isfile(result_file) ? read(result_file, String) : nothing
+    (; exitcode=process.exitcode, output, nonce, record,
        seconds=round(time() - started; digits=2),
        test_started=occursin("MUTANT_TEST_STARTED", output))
 end
@@ -387,9 +426,9 @@ function unmutated_baseline(key, index::Int, temporary::String)
     result = run_isolated(joinpath(temporary, "baseline-$(index)"),
                           joinpath(ROOT, "test", test_name), "",
                           target_variable, target_name)
-    tally = test_tally(result.output)
+    tally = test_tally(result)
     ok = result.exitcode == 0 && result.test_started && tally !== nothing &&
-         tally.fail == 0 && tally.error == 0
+         tally.fail == 0 && tally.error == 0 && stdout_tally_records(result.output) == 1
     println("BASELINE ", test_name, " ", target_variable, "=", target_name,
             " => ", ok ? "OK" : "BROKEN", " (exit=", result.exitcode, ", ",
             result.seconds, " s; pass/fail/error = ",
@@ -472,7 +511,7 @@ function disposition(mutant::Mutant, result, baseline)
                   label="UNATTRIBUTABLE (target exits $(baseline.exitcode) unmutated)")
     end
     result.test_started || return (; killed=false, label="LOAD-ERROR")
-    tally = test_tally(result.output)
+    tally = test_tally(result)
     if tally === nothing
         return (; killed=false,
                   label=result.exitcode == 0 ? "NO-TALLY (not credited)" :
@@ -482,6 +521,9 @@ function disposition(mutant::Mutant, result, baseline)
     tally.fail == 0 && tally.error == 0 && return (; killed=false, label="SURVIVED ($counts)")
     tally.fail == 0 && return (; killed=false, label="KILLED-BY-ERROR (not credited; $counts)")
     result.exitcode != 0 || return (; killed=false, label="INCONSISTENT (failed assertions but exit 0; $counts)")
+    records = stdout_tally_records(result.output)
+    records == 1 || return (; killed=false,
+                              label="FORGED-TALLY (not credited; $records MUTANT_TALLY records on stdout, the driver writes exactly one; $counts)")
     evidence_ok = mutant.expected_evidence === nothing ||
                   occursin(mutant.expected_evidence, result.output)
     evidence_ok || return (; killed=false,
@@ -489,6 +531,10 @@ function disposition(mutant::Mutant, result, baseline)
     (; killed=true, label="KILLED ($counts)")
 end
 
+# The runner's own kill rule, replayed in process on recorded child outputs
+# before any process is launched (verdicts/tb6-r4.md T6-2): a failure here
+# aborts the registry.
+include("runner_selftest.jl")
 started = time()
 # Warm the package image once so no mutant process pays for precompilation.
 run(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) -e "using MIPStarLambda"`)
@@ -548,7 +594,8 @@ probe_results = [r for r in results if r.name == "PROBE"]
 real_results = [r for r in results if r.name != "PROBE"]
 # A runner probe is correctly refused when its run DID fail (so the probe
 # was live) and the failure was NOT credited as a kill.
-probe_refused(r) = !r.killed && (startswith(r.label, "KILLED-BY-ERROR") || startswith(r.label, "KILLED-BY-CRASH"))
+probe_refused(r) = !r.killed && (startswith(r.label, "KILLED-BY-ERROR") || startswith(r.label, "KILLED-BY-CRASH") ||
+                                  startswith(r.label, "FORGED-TALLY"))
 for r in probe_results
     println("PROBE-CHECK ", r.id, " => ", probe_refused(r) ? "correctly refused" : "WRONGLY SCORED", " (", r.label, ")")
 end

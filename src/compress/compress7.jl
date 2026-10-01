@@ -185,7 +185,6 @@ function _edges_idx(typing::Typed)
     index = Dict(l => i for (i, l) in enumerate(typing.labels))
     Tuple{Int,Int}[(index[e[1]], index[e[2]]) for e in typing.edges]
 end
-_fits(bytes, lambda) = fixed_slot_fits(bytes, lambda)
 
 """
     compress_terms(V, lambda, policy; tracer_index=2) :: VerifierDescription
@@ -199,8 +198,9 @@ function compress_terms(V::VerifierDescription, lambda::Integer, policy::Constru
     ell = COMPRESS_LEVELS
     t = policy.intro_tuple
     S1_term = (:Detype, (:Downsize, (:Intro, Int(lambda), ell, t.q, t.m, t.d)))
-    S_eff = _fits(canonical_bytes(V.sampler), lambda) ? V.sampler.term : TRIVIAL_SAMPLER_TERM
-    D_eff = _fits(canonical_bytes(V.decider), lambda) ? V.decider.term : TRIVIAL_DECIDER_TERM
+    # gt-08:L757-L763: ONE verifier-size predicate chooses the PAIR (verdicts/tb7-r1.md T7-5).
+    pair = intro_effective_pair(V, lambda)
+    S_eff, D_eff = pair.S_term, pair.D_term
     intro_labels = intro_type_labels(ell)
     D1_typed = (:TypedDecider, intro_labels, (:IntroFixed, Int(lambda), ell, t.q, t.m, t.d, policy.child_fuel, S_eff, D_eff))
     D1_term = (:Detype, copy(intro_labels), _edges_idx(intro_typing(ell)), D1_typed)
@@ -238,7 +238,7 @@ const EXPECTED_COMPRESS_DEPENDENCIES = Set([:lambda, :ell, :introparams, :pcppar
 
 # --- the TB7 predicate report (DESIGN 12.5, thirteen rows) ----------------------------------------------
 function tb7_predicate_report(V::VerifierDescription, lambda::Int, n::Int, policy::ToyPolicy, v1::StageVerifier, v2::StageVerifier, v3::StageVerifier,
-                              ar_predicates::Vector{PolicyPredicate})
+                              ar_predicates::Vector{PolicyPredicate}; encodes::Union{Nothing,NamedTuple}=nothing)
     N = 2 ^ n
     R = big(N) ^ lambda
     V1, V2, V3 = v1.payload, v2.payload, v3.payload
@@ -252,16 +252,19 @@ function tb7_predicate_report(V::VerifierDescription, lambda::Int, n::Int, polic
                description_length(V) <= lambda && n >= 2
     p1 = PolicyPredicate("input field/level/lambda bounded; n>=2", input_ok ? :PASS : :FAIL;
                          detail="field $(V.sampler.field_size), level $(V.sampler.level) (= 9 of fig:compress), |V| = max(|S|, |D|) = max($(description_size(V.sampler)), $(description_size(V.decider))) = $(description_length(V)) <= lambda = $(lambda), n = $(n) >= 2; TIME_S/TIME_D are metered per query (constant on this fixture) and below n^lambda = $(n)^$(lambda)")
-    p2 = PolicyPredicate("intro field admissible, m_I divides q_I, d_I=1", all(l -> l.status == P_PASS, (line(:admissible_field), line(:m_divides_q), line(:d_equals_1))) ? :PASS : :FAIL;
+    p2 = PolicyPredicate("intro field admissible, m_I divides q_I, d_I=1", group_status(st.((line(:admissible_field), line(:m_divides_q), line(:d_equals_1))));
                          detail="$(line(:admissible_field).detail); $(line(:m_divides_q).detail); $(line(:d_equals_1).detail)")
     emb = line(:embedding_Q_ge_s)
     p3 = PolicyPredicate("intro embedding Q_I>=s_0(N): $(Q)>=$(s_N)", st(emb); owner=st(emb) == :PASS ? nothing : "Q_I<s_0", detail=emb.detail)
-    p4 = PolicyPredicate("intro canonical tuple equality; source M_I>=R", (line(:canonical_introparams).status == P_PASS && line(:capacity_M_ge_R).status == P_PASS) ? :PASS : :FAIL;
+    p4 = PolicyPredicate("intro canonical tuple equality; source M_I>=R", group_status(st.((line(:canonical_introparams), line(:capacity_M_ge_R))));
                          detail="$(line(:canonical_introparams).detail); $(line(:capacity_M_ge_R).detail)")
     non_pauli = [l for l in intro_type_labels(COMPRESS_LEVELS) if !is_pauli_label(l)]
+    # verdicts/tb7-r1.md T7-6: the Q_I >= s_0(N) embedding guard runs BEFORE every test dispatch, Pauli pairs
+    # included, so the measured dispatch census of the actual D1 is printed instead of a Pauli-execution claim.
+    census = intro_dispatch_census(V1.decider.term[4][3], n)
     p5 = PolicyPredicate("non-Pauli introspection answer schemas: Introspect, Sample, Read, every Hide stage (both roles)", st(emb) == :PASS ? :PASS : :VACUOUS;
                          owner=st(emb) == :PASS ? nothing : "Q_I<s_0",
-                         detail="$(length(non_pauli)) non-Pauli types at ell = 9; Q_I = $(Q) < s_0(N) = $(s_N) and 3Q_I = $(3Q) < $(s_N): the F_2^Q wire format cannot embed the nine-bit input space, so every non-Pauli schema is rejected at the embedding guard; executed non-Pauli schemas = 0 (only the Pauli-typed predicates execute at TB7)")
+                         detail="$(length(non_pauli)) non-Pauli types at ell = 9; Q_I = $(Q) < s_0(N) = $(s_N) and 3Q_I = $(3Q) < $(s_N): the F_2^Q wire format cannot embed the nine-bit input space, so every non-Pauli schema is rejected at the embedding guard; executed non-Pauli schemas = 0; introspection predicate dispatches at TB7 = $(census.dispatched) of $(census.pairs) oriented pairs ($(census.pauli_dispatched) of $(census.pauli_pairs) Pauli pairs): the embedding guard precedes the Pauli dispatch too, so no introspection predicate executes on the actual D1 at this fixture (the Pauli sampler construction and its finite sampler queries do execute; local Pauli predicate evidence is TB6b's, not TB7's)")
     k_source = k_rep(lambda, policy.tau, policy.c_prime, n)
     p12 = PolicyPredicate("repeat k_toy=(lambda*n)^((1+c')tau)", policy.repetitions == k_source ? :PASS : :FAIL;
                           detail="k_toy = $(policy.repetitions) vs (lambda n)^((1+c')tau) = ($(lambda)*$(n))^((1+$(policy.c_prime))*$(policy.tau)) = $(k_source)")
@@ -272,10 +275,18 @@ function tb7_predicate_report(V::VerifierDescription, lambda::Int, n::Int, polic
     p13 = PolicyPredicate("repeat question and answer component guard", (question_component <= B && largest_answer <= B) ? :PASS : :FAIL;
                           detail="B(n) = (lambda n)^tau = $(B); anchored question component s_2 + 8 = $(question_component) bits <= B; largest honest line answer (m'+6)(m'd+1) log q = $(largest_answer) bits <= B (not rejected by the guard)")
     p6, p7, p8, p11 = ar_predicates
-    p9 = PolicyPredicate("P_pcp_encodes_D1: PCP instance arithmetizes the actual fixed-width D1 trace at printed (T,sigma_1)", :FAIL; owner=AR_GAME_OWNER,
-                         detail="see the AnswerReduce stage's P_pcp_encodes_D1 evidence node: the instance arithmetizes the fixture's trivial decider at T = 1, not D1 at T = (2^(lambda n))^mu")
-    p10 = PolicyPredicate("enu:ar-game against the actual D1", :NOT_EXECUTED; owner=AR_GAME_OWNER,
-                          detail="fig:decider-pcp step 5 records NOT_EXECUTED and rejects whenever it is reached (gt-10:L2060-L2063)")
+    # Rows 9 and 10 are derived from their evidence (verdicts/tb7-r1.md T7-1): the P_pcp_encodes_D1 node's
+    # computed comparison, and an executed game-reaching probe of the actual AnswerReduce decider.
+    ev = encodes === nothing ? (; status="NOT_EVALUABLE", instance_is_D1=false, width_ok=false, logT=-1, fixture_m=-1) : encodes
+    s9 = Symbol(ev.status)
+    p9 = PolicyPredicate("P_pcp_encodes_D1: PCP instance arithmetizes the actual fixed-width D1 trace at printed (T,sigma_1)", s9;
+                         owner=s9 == :PASS ? nothing : AR_GAME_OWNER,
+                         detail=encodes === nothing ? "no P_pcp_encodes_D1 evidence node attached: NOT_EVALUABLE" :
+                                "from the AnswerReduce stage's P_pcp_encodes_D1 evidence node: the supplied instance is the lowered D1 program: $(ev.instance_is_D1); its index width $(ev.fixture_m) >= log2(2T) = $(ev.logT + 1): $(ev.width_ok)")
+    probe = ar_game_probe(V2, n)
+    s10 = probe.executed ? (probe.bit ? :PASS : :FAIL) : probe.reached ? :NOT_EXECUTED : :NOT_EVALUABLE
+    p10 = PolicyPredicate("enu:ar-game against the actual D1", s10; owner=s10 == :PASS ? nothing : AR_GAME_OWNER,
+                          detail="game probe of the actual V2 decider on (oracle,Point_6) vs (alice,Point_1): step 5 reached = $(probe.reached), pcpverifier executed = $(probe.executed), verdict = $(probe.bit); fig:decider-pcp step 5 records NOT_EXECUTED and rejects whenever it is reached (gt-10:L2060-L2063)")
     PolicyPredicate[p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13]
 end
 
@@ -288,7 +299,7 @@ end
 "A copy of the tree without every node carrying `rule`."
 function _without(node::CertNode, rule::Symbol)
     children = Tuple(_without(child, rule) for child in node.children if child.rule != rule)
-    CertNode(node.grade, node.rule; facts=node.facts, children, replay=node.replay)
+    CertNode(node.grade, node.rule; facts=node.facts, children, replay=unbound(node.replay))   # a construction-time rebuild: rebound (brief 93 E)
 end
 "The per-sampler chain/replay table of DESIGN 12.5: every SamplerValidity row in the tree."
 function chain_coverage(root::CertNode)
@@ -298,10 +309,14 @@ function chain_coverage(root::CertNode)
             reports = haskey(node.facts, :reports) ? node.facts.reports : []
             id = parent === nothing ? :root : parent.rule
             hash = parent !== nothing && haskey(parent.facts, :display) ? (m = match(r"fnv1a64 = ([0-9a-f]{16})", parent.facts.display); m === nothing ? "" : m[1]) : ""
-            selected = isempty(reports) ? 0 : maximum(r.report.completed_replays for r in reports)
-            push!(rows, (; sampler_id=id, hash, chain_set_id=node.facts.chain_set_id, selected, views=length(reports),
+            # verdicts/tb7-r1.md T7-4: seeds (declared seeds per view), views and selected queries (= one replayed
+            # (view, seed) chain each) are labelled separately.
+            seeds = isempty(reports) ? 0 : maximum(r.report.completed_replays for r in reports)
+            replayed = sum((r.report.completed_replays for r in reports); init=0)
+            push!(rows, (; sampler_id=id, hash, chain_set_id=node.facts.chain_set_id, seeds, views=length(reports),
+                           selected_queries=replayed,
                            distinct=sum((r.report.distinct_chains for r in reports); init=0),
-                           replayed=sum((r.report.completed_replays for r in reports); init=0),
+                           replayed,
                            ok=haskey(node.facts, :ok) ? node.facts.ok : false))
         end
         foreach(child -> walk(child, node), node.children)
@@ -309,11 +324,90 @@ function chain_coverage(root::CertNode)
     walk(root, nothing)
     rows
 end
-"The table as printed lines: sampler_id / hash / chain_set_id / selected / distinct / replayed."
+"The table as printed lines: sampler_id / hash / chain_set_id / seeds / views / selected queries / distinct / replayed."
 function chain_coverage_text(rows)
     isempty(rows) && return "VACUOUS(owner=chain-coverage): no sampler validity row"
-    join(("$(lpad(string(r.sampler_id), 18)) $(r.hash) $(rpad(r.chain_set_id, 44)) selected=$(r.selected) views=$(r.views) distinct=$(r.distinct) replayed=$(r.replayed)$(r.ok ? "" : " NOT OK")" for r in rows), "\n")
+    join(("$(lpad(string(r.sampler_id), 18)) $(r.hash) $(rpad(r.chain_set_id, 44)) seeds=$(r.seeds) views=$(r.views) queries=$(r.selected_queries) distinct=$(r.distinct) replayed=$(r.replayed)$(r.ok ? "" : " NOT OK")" for r in rows), "\n")
 end
+
+"DESIGN 12.5: the number of final questions sampled (and whose reached child chains are replayed)."
+const FINAL_QUESTION_COUNT = 16
+const FINAL_CHAIN_SET_ID = "tb7-final16(0x7b7)"
+
+"""
+    final_chain_coverage(S, n, count; rng_seed=0x7B7) -> Vector of rows
+
+verdicts/tb7-r1.md T7-4 (brief 93 K): sample the `count` final questions of
+`S` (the seeds of `final_questions`) through a TAPPED compile of S's term, in
+which every sub-term's machine logs the Marginal calls it receives (child
+seed, player, type, final-seed index). For every primitive/intermediate
+sampler of the term DAG (keyed by the fnv1a64 of its canonical bytes; one
+row per TAPPED sub-term, so the row set is the DAG) the distinct reached
+(player, type, seed) chains are replayed with lem:cl-kth's two obligations
+(`cl_kth_replay`, the declared-chain-set replay). Row fields: `final_seeds`
+(distinct final seeds reaching it), `views` (distinct (player, type) views),
+`queries` (Marginal calls received), `distinct` (distinct reached chains),
+`replayed` (completed replays), `ok`. A sampler that no final seed reaches
+has a row with zero counts: uniform seeds of a detyped sampler rarely encode
+a valid type, so below a detype the promoted zero map usually answers.
+"""
+function final_chain_coverage(S::SamplerDescription, n::Integer, count::Integer; rng_seed::Integer=0x7B7)
+    n = Int(n)
+    log = Any[]
+    seed_index = Ref(0)
+    terms = Dict{String,Any}()
+    order = String[]
+    wrap(term, m) = (id = quote_hash(sampler_term_bytes(term)); haskey(terms, id) || push!(order, id); terms[id] = term;
+                     TapMachine(m, id, log, seed_index))
+    root = wrap(S.term, compile_sampler(S.term, wrap))
+    descriptions = Dict{String,SamplerDescription}()
+    visit(D) = (descriptions[quote_hash(D)] = D; foreach(p -> p isa SamplerDescription && visit(p), D.parts))
+    visit(S)
+    agree = true
+    for (i, q) in enumerate(final_questions(S, n, count; rng_seed))
+        seed_index[] = i
+        for (k, w) in enumerate(PLAYERS)
+            tapped = _validated_answer(root, MarginalQuery(n, w, S.level, q.z, nothing), Meter())
+            agree &= collect(tapped) == collect(q.questions[k])
+        end
+    end
+    rows = NamedTuple[]
+    for id in order
+        entries = [e for e in log if e.id == id]
+        X = get(descriptions, id, nothing)
+        X === nothing && (X = _from_term(terms[id]))
+        chains = unique((e.w, e.t, e.z) for e in entries)
+        views = unique((w, t) for (w, t, _) in chains)
+        reports = [cl_kth_replay(described_cl(X, n, w, t), [z for (w2, t2, z) in chains if (w2, t2) == (w, t)];
+                                 chain_set_id="$(FINAL_CHAIN_SET_ID)@n=$(n)") for (w, t) in views]
+        push!(rows, (; hash=id, final_seeds=length(unique(e.seed for e in entries)), views=length(views), queries=length(entries),
+                       distinct=length(chains), replayed=sum((r.completed_replays for r in reports); init=0),
+                       ok=agree && all(r -> r.space_sum_ok && r.map_sum_ok, reports)))   # a row with no reached chain is ok iff the taps agree
+    end
+    rows
+end
+
+"""
+    final_chain_coverage_ok(declared, recorded, fresh) -> Bool
+
+The tapped sub-terms are exactly the declared samplers (the construction
+DAG's SamplerValidity rows: none untapped, none extra), every row replayed
+EVERY chain it reached, the root is reached by all FINAL_QUESTION_COUNT
+seeds, and the recorded rows equal a fresh recollection from the attached
+sampler: a missing, partial, untapped or forged final-chain row is red
+(verdicts/tb7-r1.md T7-4).
+"""
+function final_chain_coverage_ok(declared, recorded, fresh)
+    hashes = [r.hash for r in recorded]
+    (allunique(hashes) && Set(hashes) == Set(d.hash for d in declared)) || return false
+    all(r.ok && r.replayed == r.distinct && r.queries >= r.distinct && r.views <= r.distinct for r in recorded) || return false
+    any(r -> r.final_seeds == FINAL_QUESTION_COUNT && r.distinct >= 1, recorded) || return false
+    Set(fresh) == Set(recorded)
+end
+
+"The final-seed rows as printed lines: hash / final seeds reaching it / views / Marginal queries received / distinct chains / replayed."
+final_chain_coverage_text(rows) =
+    join(("$(r.hash) $(FINAL_CHAIN_SET_ID) final_seeds=$(r.final_seeds) views=$(r.views) queries=$(r.queries) distinct=$(r.distinct) replayed=$(r.replayed)$(r.ok ? "" : " NOT OK")" for r in rows), "\n")
 
 "The CITED labels of a tree (theorem-like only when `theorem_like`)."
 function cited_labels(root::CertNode; theorem_like::Bool=true)
@@ -420,39 +514,67 @@ function compress(V::VerifierDescription, lambda::Integer; policy::ConstructionP
     D1 = V1.decider
     sigma = description_size(D1)
     fixed_length = fixed_width_length(lambda, COMPRESS_LEVELS, policy)
+    # verdicts/tb7-r1.md T7-2: the replay recomputes the PRINTED facts from the attached term -- the D1 embedded
+    # in the compressed decider (RepeatToy -> anchored Detype -> TypedAnchor -> D2 -> AnswerReduce body slot 12),
+    # its byte length, the sigma_1 the AnswerReduce body was built with (slot 5) and the fixed-width law.
+    sigma_facts = (display="sigma_1 = |D1| = $(sigma) bytes = the fixed-width length $(fixed_length) of (lambda, ell, tuple, F_child) = ($(lambda), 9, $(policy.intro_tuple), $(policy.child_fuel)): two lambda-byte slots (2 * $(lambda) = $(2lambda)) + $(fixed_length - 2lambda) bytes of labels and parameters; SOURCE_REPAIR(intro-decider-fixed-width), DESIGN 12.3", sigma_1=sigma, fixed_length)
     sigma_node = CertNode(CHECKED, :FixedWidthSigma;
-        facts=(display="sigma_1 = |D1| = $(sigma) bytes = the fixed-width length $(fixed_length) of (lambda, ell, tuple, F_child) = ($(lambda), 9, $(policy.intro_tuple), $(policy.child_fuel)): two lambda-byte slots (2 * $(lambda) = $(2lambda)) + $(fixed_length - 2lambda) bytes of labels and parameters; SOURCE_REPAIR(intro-decider-fixed-width), DESIGN 12.3", sigma_1=sigma, fixed_length),
+        facts=sigma_facts,
         replay=x -> begin
             x === out || return CheckResult(false, :fixed_width_sigma; location=:FixedWidthSigma, actual=:borrowed)
-            d = V1.decider
-            body = d.term[4][3]
-            CheckResult(description_size(d) == fixed_length && d.term[1] == :Detype && d.term[4][1] == :TypedDecider && body[1] == :IntroFixed,
-                        :fixed_width_sigma; location=:FixedWidthSigma, expected=fixed_length, actual=description_size(d))
+            ar_body = _compressed_ar_body(x)
+            d1 = ar_body[12]
+            fresh = length(decider_term_bytes(d1))
+            ok = fresh == sigma_facts.sigma_1 == sigma_facts.fixed_length == fixed_width_length(lambda, COMPRESS_LEVELS, policy) == ar_body[5] &&
+                 d1[1] == :Detype && d1[4][1] == :TypedDecider && d1[4][3][1] == :IntroFixed &&
+                 occursin("sigma_1 = |D1| = $(sigma_facts.sigma_1) bytes", sigma_facts.display)
+            CheckResult(ok, :fixed_width_sigma; location=:FixedWidthSigma, expected=sigma_facts.sigma_1,
+                        actual=(; recomputed=fresh, law=fixed_width_length(lambda, COMPRESS_LEVELS, policy), ar_sigma=ar_body[5]))
         end)
     fixed_width = CertNode(SOURCE_REPAIR, :IntroDeciderFixedWidth;
         facts=(display="gt-08-introspection.tex:L757-L776 stores V' in the decider (trivial code when |V| > lambda) and proves only a polynomial upper bound on |D^(1)|, while thm:ar (gt-10:L2094-L2096) makes S^ar depend on |D^(1)| and lem:compress-independent-samplers (gt-12:L128-L147) needs equal lengths: the executable stores S and D in two fixed lambda-byte slots so sigma_1 is an exact function of (lambda, ell): SOURCE_REPAIR(intro-decider-fixed-width)",
                source="gt-08-introspection.tex", lines=757:776))
     deps = parameter_dependencies(canonical_bytes(out.sampler))
     fresh_sampler = compute_sampler(lambda, policy; tracer_index=n)
+    independence_facts = (display="dependencies(S^compr) by syntax walk = {$(join(sort(string.(collect(deps))), ", "))} = {lambda, universal_constant_ids} (DESIGN 12.3); S^compr bytes ($(description_size(out.sampler)) B, fnv1a64 $(quote_hash(out.sampler))) equal ComputeSampler(lambda) = the sampler of Compress(V*, lambda) on the trivial V* (lem:compress-independent-samplers), so no byte of V reaches the sampler", dependencies=deps, hash=quote_hash(out.sampler))
+    # verdicts/tb7-r1.md T7-2: the printed hash and dependency set are recomputed from the attached sampler.
     independence = CertNode(CHECKED, :CodeDependencyIndependence;
-        facts=(display="dependencies(S^compr) by syntax walk = {$(join(sort(string.(collect(deps))), ", "))} = {lambda, universal_constant_ids} (DESIGN 12.3); S^compr bytes ($(description_size(out.sampler)) B, fnv1a64 $(quote_hash(out.sampler))) equal ComputeSampler(lambda) = the sampler of Compress(V*, lambda) on the trivial V* (lem:compress-independent-samplers), so no byte of V reaches the sampler", dependencies=deps, hash=quote_hash(out.sampler)),
-        replay=x -> CheckResult(parameter_dependencies(canonical_bytes(x.sampler)) == EXPECTED_COMPRESS_DEPENDENCIES &&
-                                canonical_bytes(x.sampler) == canonical_bytes(compute_sampler(lambda, policy; tracer_index=n)),
-                                :code_dependency_independence; location=:CodeDependencyIndependence, expected=EXPECTED_COMPRESS_DEPENDENCIES,
-                                actual=parameter_dependencies(canonical_bytes(x.sampler))))
+        facts=independence_facts,
+        replay=x -> begin
+            fresh_hash = quote_hash(x.sampler)
+            fresh_deps = parameter_dependencies(canonical_bytes(x.sampler))
+            ok = fresh_hash == independence_facts.hash && occursin("fnv1a64 $(independence_facts.hash)", independence_facts.display) &&
+                 fresh_deps == independence_facts.dependencies == EXPECTED_COMPRESS_DEPENDENCIES &&
+                 canonical_bytes(x.sampler) == canonical_bytes(compute_sampler(lambda, policy; tracer_index=n))
+            CheckResult(ok, :code_dependency_independence; location=:CodeDependencyIndependence,
+                        expected=(independence_facts.hash, EXPECTED_COMPRESS_DEPENDENCIES), actual=(fresh_hash, fresh_deps))
+        end)
     # 12.4 the predicate report.
     ar_node = only(n_ for n_ in _nodes(C4.certificate) if n_.rule == :toy_override && haskey(n_.facts, :predicates))
     ar_predicates = ar_node.facts.predicates
-    predicates = tb7_predicate_report(V, lambda, n, policy, v1, v2, v3, ar_predicates)
-    recompute = x -> tb7_predicate_report(V, lambda, n, policy, v1, v2, v3, ar_predicates)
+    encodes = only(n_ for n_ in _nodes(C4.certificate) if n_.rule == :P_pcp_encodes_D1).facts
+    predicates = tb7_predicate_report(V, lambda, n, policy, v1, v2, v3, ar_predicates; encodes)
+    recompute = x -> tb7_predicate_report(V, lambda, n, policy, v1, v2, v3, ar_predicates; encodes)
     report = toy_override_node(policy, predicates; extra=(policy_grade_validation_node(predicates, recompute), toy_contract_audit_node(predicates)))
     # 12.5 chain coverage.
     inner = _without(C4.certificate, Symbol("lem:commute"))
     coverage_rows = chain_coverage(inner)
+    # verdicts/tb7-r1.md T7-4: the chains ACTUALLY reached by the sixteen final-question seeds at every
+    # primitive/intermediate sampler, collected through the tapped compile and replayed; the replay
+    # recollects them from the attached sampler and is red when a declared sampler lacks its reached chains.
+    final_rows = final_chain_coverage(out.sampler, n, FINAL_QUESTION_COUNT)
+    coverage_ok = final_chain_coverage_ok(coverage_rows, final_rows, final_rows)
     coverage = CertNode(isempty(coverage_rows) ? ASSUMED : CHECKED, :ChainCoverage;
-        facts=(display=(isempty(coverage_rows) ? "VACUOUS(owner=chain-coverage)" : "per-sampler chain/replay counts on the declared chain sets ($(length(coverage_rows)) sampler rows, every intermediate sampler included):\n" * chain_coverage_text(coverage_rows)),
-               rows=coverage_rows, status=isempty(coverage_rows) ? "VACUOUS" : "PASS", owner=isempty(coverage_rows) ? "chain-coverage" : nothing),
-        replay=isempty(coverage_rows) ? nothing : (x -> CheckResult(all(r.ok && r.replayed >= r.distinct && r.replayed > 0 for r in coverage_rows), :chain_coverage; location=:ChainCoverage, actual=coverage_rows)))
+        facts=(display=(isempty(coverage_rows) ? "VACUOUS(owner=chain-coverage)" : "per-sampler chain/replay counts on the declared chain sets ($(length(coverage_rows)) sampler rows, every intermediate sampler included):\n" * chain_coverage_text(coverage_rows) *
+                        "\nand on the child chains reached by the $(FINAL_QUESTION_COUNT) final-question seeds (MersenneTwister(0x7B7), the seeds of final_questions):\n" * final_chain_coverage_text(final_rows)),
+               rows=coverage_rows, final_rows, status=isempty(coverage_rows) ? "VACUOUS" : coverage_ok ? "PASS" : "FAIL",
+               owner=isempty(coverage_rows) ? "chain-coverage" : nothing),
+        replay=isempty(coverage_rows) ? nothing : (x -> begin
+            fresh = final_chain_coverage(x.sampler, n, FINAL_QUESTION_COUNT)
+            ok = all(r.ok && r.replayed >= r.distinct && r.replayed > 0 for r in coverage_rows) &&
+                 final_chain_coverage_ok(coverage_rows, final_rows, fresh)
+            CheckResult(ok, :chain_coverage; location=:ChainCoverage, expected=final_rows, actual=fresh)
+        end))
     commute_note = CertNode(CONSTRUCTED, :ResidueFilter;
         facts=(display="lem:commute (gt-08:L923-L953) is removed from the TB7 tree: it is a source anchor of the honest-strategy simulation, which TB7 does not run (no non-Pauli transcript executes at Q_I < s_0), and DESIGN 13.2 excludes it from the residue inventory",))
     residue_extra = CertNode(CONSTRUCTED, :ResidueLeaves;
@@ -542,4 +664,12 @@ function final_questions(S::SamplerDescription, n::Integer, count::Integer; rng_
     s = _raise(Dimension(S, n))
     rng = MersenneTwister(rng_seed)
     [(z = GF2[GF2(rand(rng, 0:1)) for _ in 1:s]; (; z, questions=sample_questions(S, n, z))) for _ in 1:count]
+end
+
+"The AnswerReduce body (:AnswerReduce, lambda, mu, gamma, sigma_1, q, m, d, s, m', S1, D1) inside a compressed decider."
+function _compressed_ar_body(x::VerifierDescription)
+    t = x.decider.term                         # (:RepeatToy | :Repeat, ..., D_anch)
+    anchored = t[end]                          # (:Detype, ["Game","Anchor"], edges, (:TypedAnchor, D2))
+    D2 = anchored[4][2]                        # (:Detype, labels54, edges, (:TypedDecider, labels54, body))
+    D2[4][3]
 end

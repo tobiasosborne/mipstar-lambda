@@ -21,6 +21,18 @@ end
 tb7_nodes(node, rule::Symbol) = [x for x in M7._nodes(node) if x.rule == rule]
 tb7_predicates() = only(x for x in tb7_nodes(tb7_C().certificate, :toy_override)
                          if haskey(x.facts, :predicates) && length(x.facts.predicates) == 13).facts.predicates
+"The first nested tuple of a description term whose head is `tag` (depth-first), or nothing."
+function tb7_find(term, tag::Symbol)
+    term isa Tuple || return nothing
+    !isempty(term) && term[1] === tag && return term
+    for x in term
+        found = tb7_find(x, tag)
+        found === nothing || return found
+    end
+    nothing
+end
+"Verify one CHECKED node on its own (its fact/child binding and its replay), without recursing into the children."
+tb7_local(n, term) = M7.verify_local(n, term)
 function tb7_atoms(x)
     x isa Expr && return reduce(vcat, (tb7_atoms(a) for a in x.args); init=Any[])
     x isa NamedTuple && return reduce(vcat, (tb7_atoms(a) for a in values(x)); init=Any[])
@@ -151,8 +163,27 @@ if tb7_runs("tb7_execution")
         end
         rows = chain_coverage(C.certificate)
         @test !isempty(rows)
-        @test all(r.ok && r.selected > 0 && r.replayed >= r.distinct for r in rows)
+        # verdicts/tb7-r1.md T7-4 (brief 93 K): seeds, views and selected queries are labelled separately
+        # (`selected` used to be the maximum completed replays per view).
+        @test all(r.ok && r.seeds > 0 && r.selected_queries == r.replayed && r.replayed >= r.distinct for r in rows)
         @test all(!isempty(r.chain_set_id) for r in rows)
+        # ... and every primitive/intermediate sampler replays the child chains ACTUALLY reached by the
+        # sixteen final-question seeds (the same seeds as `final_questions`), not only its own rng/exhaustive set.
+        coverage = only(tb7_nodes(C.certificate, :ChainCoverage))
+        final = coverage.facts.final_rows
+        @test length(final) == length(rows) == 12
+        @test Set(r.hash for r in final) == Set(r.hash for r in rows)
+        @test all(r.ok && r.replayed == r.distinct && r.queries >= r.distinct for r in final)
+        @test only(r for r in final if r.hash == M7.quote_hash(C.term.sampler)).final_seeds == 16
+        # The 16 uniform seeds reach the repetition, the anchored detype, the anchor and the AR detype; below the
+        # AR detype a uniform 54-bit vertex register is (almost) never a valid type encoding, so the promoted zero
+        # map answers and no chain of the product or its children is reached (rows printed with zero counts).
+        reached = [r for r in final if r.distinct > 0]
+        @test length(reached) == 4 && all(r.final_seeds >= 1 && r.replayed >= 1 for r in reached)
+        @test passed(tb7_local(coverage, C.term))
+        # Missing final-chain coverage is red: drop one sampler's reached-chain row.
+        @test !M7.final_chain_coverage_ok(rows, final[2:end], M7.final_chain_coverage(C.term.sampler, 2, 16))
+        println("TB7 FINAL-SEED CHAIN COVERAGE\n", M7.final_chain_coverage_text(final))
         @test any(n.rule == :AnswerReduceStepsAgreement for n in M7._nodes(C.certificate))
         @test any(n.rule == :PCPFixtureLocalOnly for n in M7._nodes(C.certificate))
         @test only(tb7_nodes(C.certificate, :PCPFixtureLocalOnly)).facts.representation == "structural-evaluator"
@@ -172,6 +203,34 @@ if tb7_runs("tb7_fixed_point")
         @test run.outcome.result isa Value
         @test run.fuel_boundary.ok
         @test run.fuel_boundary.below isa OutOfFuel
+        # verdicts/tb7-r1.md T7-3 (brief 93 D): the fifth step executes the ACTUAL D -- an independent evaluation of
+        # the returned D on the returned transcript uses exactly the recorded fuel and returns the recorded value
+        # (a constant-true decider substituted for D used 3716 units against D's own 181978 and survived step 5).
+        t = run.transcript
+        actual = eval_quoted(run.D, (2, t.x, t.y, t.a, t.b), 600_000; hard_cap=600_000)
+        @test run.outcome.used == actual.used
+        @test actual.result isa Value && run.outcome.result.value == actual.result.value
+        @test run.evaluated_hash == M7.quote_hash(run.D)
+    end
+end
+
+if tb7_runs("tb7_compressor_provenance")
+    @testset "TB7 (h2) the Compressor primitive retains the supplied decider byte for byte (verdicts/tb7-r1.md T7-3)" begin
+        S = tb7_V().sampler
+        dp = Lambda(5, Prim(false, Concrete(1), ()))
+        pair = M7._quoted_pair(Code(lower_sampler(S), :Sampler), Code(dp, :Decider))
+        code, _ = M7._run_compress_descriptions(pair, 32768, M7.policy_bytes(TB7_TOY_POLICY), 1_000_000)
+        term = M7.decode_decider_term(M7.lowered_bytes(code.program))
+        body = tb7_find(term, :IntroFixed)
+        @test body !== nothing
+        if body !== nothing
+            expected = lift_decider(quote_program(dp; sort=:Decider).term).term.term
+            @test expected[1] == :Program
+            @test body[9] == expected                                            # the supplied decider, not trivial code
+            @test M7.decider_term_bytes(body[9]) == M7.decider_term_bytes(expected)
+            @test Vector{UInt8}(body[9][2]) == canonical_bytes(quote_program(dp; sort=:Decider).term)
+            @test body[8] == S.term                                              # and the supplied sampler
+        end
     end
 end
 
@@ -218,6 +277,136 @@ if tb7_runs("tb7_nested_meter")
         @test_throws FuelExhausted M7._decide_typed_body(ar_labels, ar_body, 2, ar_labels[1], Bool[], ar_labels[1], Bool[], Bool[], Bool[], Any[]; parent=Meter(1))
         intro_body = (:Intro, 1, 1, 2, 1, 1, 0, TRIVIAL_SAMPLER_TERM, TRIVIAL_DECIDER_TERM)
         @test_throws FuelExhausted M7._decide_intro(intro_body, 2, "Pauli_X", Bool[], "Pauli_X", Bool[], Bool[], Bool[], Any[]; parent=Meter(1))
+    end
+end
+if tb7_runs("tb7_policy_red")
+    @testset "TB7 (f2) report statuses derived from owned evidence; eligibility needs every premise discharged (verdicts/tb7-r1.md T7-1)" begin
+        C = tb7_C()
+        v1 = C.certificate.facts.skeleton.input.input.input
+        for status in (:NOT_EVALUABLE, :VACUOUS, :NOT_EXECUTED, :FAIL)
+            audit = M7.toy_contract_audit_node([PolicyPredicate("missing production premise", status; owner="critic")])
+            @test !passed(audit.replay(C.term))
+        end
+        @test passed(M7.toy_contract_audit_node([PolicyPredicate("every premise discharged", :PASS)]).replay(C.term))
+        fx = M7.frontend_fixture()
+        D1 = v1.payload.decider
+        sigma1 = description_size(D1)
+        ar(V, a, sigma, gamma, policy) = M7.answer_reduce_predicates(V, a, sigma, 32768, 1, gamma, 2, policy, fx)
+        # Row 11 is computed: an unpadded trivial D1, sigma = -1, or a sigma that is not |D1| is never PASS.
+        trivial = M7.trivial_verifier_description()
+        @test last(ar(trivial, TB7_TOY_POLICY.pcp_tuple, -1, 1, TB7_TOY_POLICY)).status == :FAIL
+        @test last(ar(trivial, TB7_TOY_POLICY.pcp_tuple, description_size(trivial.decider), 1, TB7_TOY_POLICY)).status == :FAIL
+        @test last(ar(v1.payload, TB7_TOY_POLICY.pcp_tuple, sigma1 + 1, 1, TB7_TOY_POLICY)).status == :FAIL
+        honest = ar(v1.payload, TB7_TOY_POLICY.pcp_tuple, sigma1, 1, TB7_TOY_POLICY)
+        @test last(honest).status == :PASS
+        # Row 7: gamma = 2 definitely FAILS the transcribed growth lower bound 11 <= (2 + 3) log2(6) = 12.92...
+        a2 = PCPParams(2048, 11, 1, 11, 6, 16, 2)
+        p2 = ToyPolicy(; intro_tuple=TB7_TOY_POLICY.intro_tuple, pcp_tuple=a2, gamma=2, repetitions=2)
+        @test ar(v1.payload, a2, sigma1, 2, p2)[2].status == :FAIL
+        @test honest[2].status == :NOT_EVALUABLE                 # gamma = 1: 11 > 4 log2(6) = 10.34, unknown a', b'
+        # Row 8 is computed from its 2^m >= 2T witness: with m >= 65537 the witness no longer refutes it.
+        wide = PCPParams(2048, 11, 65537, 11, 6, 16, 1)
+        @test honest[3].status == :FAIL
+        @test ar(v1.payload, wide, sigma1, 1, TB7_TOY_POLICY)[3].status == :NOT_EVALUABLE
+        # Rows 9 and 10 are bound to their evidence: the P_pcp_encodes_D1 node's computed comparison and an executed
+        # game-reaching probe of the actual AnswerReduce decider.
+        p = tb7_predicates()
+        ev = only(tb7_nodes(C.certificate, :P_pcp_encodes_D1)).facts
+        @test ev.status == (ev.instance_is_D1 && ev.width_ok ? "PASS" : "FAIL")
+        @test !ev.instance_is_D1 && !ev.width_ok
+        @test String(p[9].status) == ev.status
+        @test p[10].status == :NOT_EXECUTED && occursin("probe", p[10].detail)
+        probe = M7.ar_game_probe(C.certificate.facts.skeleton.input.input.payload, 2)
+        @test probe.reached && !probe.executed && !probe.bit
+    end
+end
+
+if tb7_runs("tb7_replay_binding")
+    @testset "TB7 (i2) every CHECKED replay is bound to its node's facts and children (verdicts/tb7-r1.md T7-2)" begin
+        C = tb7_C()
+        ns = M7._nodes(C.certificate)
+        checked = [n for n in ns if n.grade == CHECKED]
+        census = [count(n -> n.grade == g, ns) for g in instances(Grade)]
+        @test length(ns) == 317 && census == [34, 133, 70, 62, 18]
+        println("TB7 CENSUS ", length(ns), " = ", join(("$(c) $(g)" for (g, c) in zip(instances(Grade), census)), " + "))
+        failing = [n.rule for n in checked if !passed(tb7_local(n, C.term))]
+        @test failing == [:ToyContractAudit]                 # the one designed refusal: toy predicates fail
+        forged_passing = 0
+        for n in checked
+            forged = CertNode(n.grade, n.rule; facts=merge(n.facts, (; display="FORGED checked assertion")), children=n.children, replay=n.replay)
+            forged_passing += passed(tb7_local(forged, C.term))
+        end
+        @test forged_passing == 0
+        sigma = only(tb7_nodes(C.certificate, :FixedWidthSigma))
+        forged = CertNode(CHECKED, sigma.rule; facts=merge(sigma.facts, (; sigma_1=-1)), children=sigma.children, replay=sigma.replay)
+        @test !passed(M7._verify_node(forged, C.term))
+        gap = only(tb7_nodes(C.certificate, :IntroGap))
+        drop = CertNode(CHECKED, gap.rule; facts=gap.facts, children=(first(gap.children),), replay=gap.replay)
+        @test !passed(M7._verify_node(drop, C.term))
+        dep = only(tb7_nodes(C.certificate, :CodeDependencyIndependence))
+        @test dep.facts.hash == M7.quote_hash(C.term.sampler)
+        @test occursin(dep.facts.hash, dep.facts.display)
+    end
+end
+
+if tb7_runs("tb7_pair_padding")
+    @testset "TB7 (d2) |V| > lambda replaces the PAIR by two trivial machines in both paths (gt-08:L757-L763; verdicts/tb7-r1.md T7-5)" begin
+        large = tb7_input_verifier_large()
+        @test description_size(large.sampler) <= 32768 < description_size(large.decider)   # sampler 546 fits, decider 34006 does not
+        I = introspect(large, 32768, 9; tuple=TB7_TOY_POLICY.intro_tuple, fixed_width=true, tracer_index=2, seeds=0).term
+        effective = I.decider.term[4][3]
+        @test effective[1] == :IntroFixed
+        @test effective[8] == TRIVIAL_SAMPLER_TERM
+        @test effective[9] == TRIVIAL_DECIDER_TERM
+        body = tb7_find(compress_terms(large, 32768, TB7_TOY_POLICY).decider.term, :IntroFixed)
+        @test body[8] == TRIVIAL_SAMPLER_TERM && body[9] == TRIVIAL_DECIDER_TERM
+        small = tb7_find(compress_terms(tb7_V(), 32768, TB7_TOY_POLICY).decider.term, :IntroFixed)
+        @test small[8] == tb7_V().sampler.term && small[9] == tb7_V().decider.term       # control: |V| <= lambda keeps V
+    end
+end
+
+if tb7_runs("tb7_intro_dispatch")
+    @testset "TB7 (f3) Q_I = 2 < s = 9: zero introspection predicates dispatch at TB7, Pauli pairs included (verdicts/tb7-r1.md T7-6)" begin
+        C = tb7_C()
+        v1 = C.certificate.facts.skeleton.input.input.input
+        body = v1.payload.decider.term[4][3]
+        pp = M7.PauliParams(2, 1, 1)
+        edges = M7.intro_typing(9).edges
+        pauli_edges = [e for e in edges if all(M7.is_pauli_label, e)]
+        @test length(edges) == 164 && length(pauli_edges) == 86
+        answer(l) = M7.is_pauli_label(l) ? Vector{Bool}(falses(M7.answer_schema(pp, l).bits)) : Vector{Bool}(falses(3))
+        dispatched = 0
+        pauli_fired = 0
+        for (l, r) in edges
+            bit, _, fired = intro_decide_traced(body, 2, l, falses(6), r, falses(6), answer(l), answer(r))
+            dispatched += !isempty(fired)
+            pauli_fired += :pauli in fired
+            @test !bit
+        end
+        @test dispatched == 0 && pauli_fired == 0
+        p = tb7_predicates()
+        @test !occursin("only the Pauli-typed predicates execute", p[5].detail)
+        @test occursin("introspection predicate dispatches at TB7 = 0 of 164 oriented pairs (0 of 86 Pauli pairs)", p[5].detail)
+    end
+end
+
+if tb7_runs("tb7_ar_agreement")
+    @testset "TB7 (g2) AnswerReduceStepsAgreement grades game-reaching cases by their NOT_EXECUTED trace (verdicts/tb7-r1.md T7-8)" begin
+        C = tb7_C()
+        n = only(tb7_nodes(C.certificate, :AnswerReduceStepsAgreement))
+        @test passed(n.replay(C.term))
+        @test passed(tb7_local(n, C.term))
+        o = n.facts.outcomes
+        @test length(o) == 9
+        complete = [x for x in o if !x.game]
+        reaching = [x for x in o if x.game]
+        @test [x.case for x in complete] == [:global_consistency, :input_axis, :input_diagonal, :proof_individual_diagonal]
+        @test all(x.honest_here == x.honest_tb2 == true && x.corrupt_here == x.corrupt_tb2 == false && x.rule == x.expected_rule for x in complete)
+        @test length(reaching) == 5
+        @test all(!x.honest_here && x.not_executed && x.prefix_ok for x in reaching)
+        @test all(x.own_rule_executed && x.rule == x.expected_rule for x in reaching if x.case != :game)
+        @test occursin("4 complete accept/reject agreements", n.facts.display)
+        @test occursin("4 game-reaching guard cases agree on their executed prefix", n.facts.display)
     end
 end
 end # TB7 full rung

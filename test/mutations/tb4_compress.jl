@@ -23,12 +23,13 @@ const TB4_ORDER_INTRO_LAST_MUTANT = Mutant(
     "tb4_levels")
 
 # verify_certificate accepts a CHECKED node without a replay: the relabelled
-# CITED leaf passes.
+# CITED leaf passes. (Brief 93 E moved the check into `_verify_own`; only the
+# indentation of the before/after strings changed.)
 const TB4_RELABEL_MUTANT = Mutant(
     "TB4 M-relabel verify_accepts_replayless_checked",
     "src/certificates.jl",
-    "        node.replay === nothing &&\n            return CheckResult(false, :certificate_replay;",
-    "        node.replay === nothing &&\n            return CheckResult(true, :certificate_replay;",
+    "    node.replay === nothing &&\n        return CheckResult(false, :certificate_replay;",
+    "    node.replay === nothing &&\n        return CheckResult(true, :certificate_replay;",
     "tb4_relabel")
 
 # YCode materialises the unfolding on the host instead of returning Fix.
@@ -145,12 +146,13 @@ const TB4_STUB_UNDISCLOSED_MUTANT = Mutant(
     "                  _relocate(decider.certificate, x -> x.decider)))",
     "tb4_psi")
 
-# O4: the FuelBound construction change is no longer disclosed.
+# O4: the FuelBound construction change is no longer disclosed. (Brief 93 E:
+# the rebuilt node's replay is rebound with `unbound`; only that call changed.)
 const TB4_FUELBOUND_UNDISCLOSED_MUTANT = Mutant(
     "TB4 M-fuelbound-undisclosed halt_decider_fuel_bound_not_in_tree",
     "src/compress.jl",
-    "                                   children=(node.children..., repair), replay=node.replay))",
-    "                                   children=node.children, replay=node.replay))",
+    "                                   children=(node.children..., repair), replay=unbound(node.replay)))",
+    "                                   children=node.children, replay=unbound(node.replay)))",
     "tb4_psi")
 
 # O7: one Introspect hypothesis loses its completeness/soundness scope.
@@ -258,13 +260,16 @@ const TB4_STUB_SYMBOL_MISNAMED_MUTANT = Mutant(
     "               compressor=compress === COMPRESS_STUB ? :COMPRESS_IDENTITY :\n                          compress === COMPRESS_IDENTITY ? :COMPRESS_STUB : :custom,",
     "tb4_ycode")
 
-# NEW-3: the gate is owned on the quantity it bounds -- an inflated body
-# (60 extra kernel runs, ratio ~ 60 > TB4_RATIO) trips the ratio gate.
+# NEW-3: the gate is owned on the quantity it bounds -- an inflated body trips
+# the ratio gate. verdicts/tb7-r1.md T7-7 (brief 93 C): the inflation is
+# MEASURED (the body waits until its elapsed time exceeds (TB4_RATIO + 1) x
+# the recorded TB4_CALIBRATION), no longer 60 kernel calls, which share the
+# TB5/TB7 witnesses' load weakness.
 const TB4_GATE_BODY_INFLATED_MUTANT = Mutant(
-    "TB4 M-gate-body-inflated sixty_kernel_runs_in_body",
+    "TB4 M-gate-body-inflated body_beyond_ratio_plus_1_kernels_measured",
     "test/tb4_compress_ir.jl",
     "const TB4_BODY_STARTED = time()\n",
-    "const TB4_BODY_STARTED = time()\nfor _ in 1:60; tb4_calibration_kernel(); end\n",
+    "const TB4_BODY_STARTED = time()\nwhile time() - TB4_BODY_STARTED <= (TB4_RATIO + 1) * TB4_CALIBRATION; sleep(0.05); end\n",
     "tb4_gate")
 
 # NEW-5: a CITED leaf that was display-only at r2 loses its label again;

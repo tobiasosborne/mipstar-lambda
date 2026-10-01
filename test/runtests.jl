@@ -16,7 +16,8 @@ println("MIPStarLambda load/precompile seconds = ", round(load_elapsed; digits=3
 # BEFORE `started` so it is excluded from the timed body; the gate is
 # elapsed / calibration < TB0_RATIO, set once from quiet performance-governor
 # runs (brief 77). TB0_BUDGET_SECONDS only LOWERS the wall bound. Red
-# witness: test/mutations/tb5_gate.jl (TB0_RATIO + 1 kernel passes added to the body). The kernel
+# witness: test/mutations/tb5_gate.jl (the body waits until its measured elapsed time exceeds
+# (TB0_RATIO + 1) x SUITE_CALIBRATION; verdicts/tb7-r1.md T7-7, brief 93 C). The kernel
 # lives in test/calibration.jl (brief 80 D2) so every rung file gates on it.
 include("calibration.jl")   # suite_calibration_kernel, SUITE_CALIBRATION, calibrated_gate (brief 80 D2)
 # 2026-09-27 (session 7, new device: Threadripper 3970X, WSL2): the body/kernel
@@ -24,8 +25,8 @@ include("calibration.jl")   # suite_calibration_kernel, SUITE_CALIBRATION, calib
 # here (body 37.6-38.4 s, kernel 0.65-0.71 s, load ~4 from unrelated sessions),
 # so K = 50 failed the UNMUTATED suite on this device. K = 100 admits both
 # machines; the red witness no longer triples the body (ratio ~90 on the
-# reference box would now pass) but adds K + 1 kernel passes, like every other
-# calibrated gate's witness. Pending adjudication by the next critic (brief 85).
+# reference box would now pass) but inflates the body by measured elapsed time
+# beyond (K + 1) kernels, like every other calibrated gate's witness (brief 93 C). Pending adjudication by the next critic (brief 85).
 const TB0_RATIO = 100.0
 const TB0_WALL_BUDGET = min(60.0, haskey(ENV, "TB0_BUDGET_SECONDS") ? parse(Float64, ENV["TB0_BUDGET_SECONDS"]) : 60.0)
 

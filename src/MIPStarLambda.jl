@@ -140,7 +140,7 @@ export build_pcp_fixture, tb0_build_fixture, tb0_build_nondegenerate_fixture,
        tb0_base_point, tb0_certified_points
 
 export Grade, CONSTRUCTED, CHECKED, CITED, ASSUMED, SOURCE_REPAIR,
-       CheckResult, passed, CertNode, Checked, verify_certificate, traceprint
+       CheckResult, passed, CertNode, Checked, verify_certificate, verify_local, BoundReplay, traceprint
 
 # TB5: the description layer (DESIGN 9) and executable Repeat (DESIGN 10).
 export GF2, QueryError, Untyped, Typed, TypeCount, SamplerQuery, DimensionQuery,

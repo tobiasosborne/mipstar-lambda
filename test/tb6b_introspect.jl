@@ -1081,6 +1081,8 @@ if tb6b_runs("tb6b_negative")
         # with exactly one bit of that one field set at coordinate s+1, s+2 or Q (outside V, inside the Q-bit
         # field): the parser refuses it and the decider rejects with no child call past Dimension. The critic's
         # red_tail.jl case is (Read_bob) y_perp at coordinate Q = 12, wire position 24, on (Introspect_bob, Read_bob).
+        # verdicts/tb6-r4.md T6-1 (brief 93 B): EVERY coordinate s+1:Q (7..12 here, not only 7, 8, 12) of every
+        # slot, typed AND valid-detyped -- the critic's `_in_V` that skips only s+3 = 9 survived the whole rung.
         slots = ((:Introspect_y, ("Introspect_alice", "Sample_alice"), :A, 0),
                  (:Sample_z,     ("Introspect_alice", "Sample_alice"), :B, 0),
                  (:Read_y,       ("Introspect_bob", "Read_bob"),       :B, 0),
@@ -1093,7 +1095,7 @@ if tb6b_runs("tb6b_negative")
         for (slot, edge, side, offset) in slots
             t = first(tb6b_enumerate(inst, edge, zero_hat)).result
             @test M6.typed_decision(inst, t)[1]
-            for coordinate in (s + 1, s + 2, Q)
+            for coordinate in s+1:Q
                 answer = side == :A ? t.aA : t.aB
                 wire = offset + coordinate
                 @test !answer[wire]                                     # honest leaves vanish outside V
@@ -1104,13 +1106,76 @@ if tb6b_runs("tb6b_negative")
                 @test M6.parse_intro_answer(label, corrupted, Q, s) === nothing
                 bit, trace, _ = M6.typed_decision(inst, t_neg)
                 @test !bit
+                detyped_bit = M6.detyped_decision(inst, t_neg)
+                @test !detyped_bit
                 @test [r.mode for r in trace] == [:Dimension]
                 tail_cases += 1
-                tail_rejected += M6.parse_intro_answer(label, corrupted, Q, s) === nothing && !bit && [r.mode for r in trace] == [:Dimension]
+                tail_rejected += M6.parse_intro_answer(label, corrupted, Q, s) === nothing && !bit && !detyped_bit && [r.mode for r in trace] == [:Dimension]
             end
         end
-        @test tail_rejected == tail_cases == 21
-        println("MUTATION_EXPECTED_RULE tb6b_out_of_V_tail rejected=", tail_rejected, "/21")
+        @test tail_rejected == tail_cases == 7 * (Q - s) == 42
+        println("MUTATION_EXPECTED_RULE tb6b_out_of_V_tail rejected=", tail_rejected, "/42")
+    end
+end
+
+# verdicts/tb6-r4.md T6-1 (brief 93 B): the critic's all-edge malformed-field test, verbatim in substance --
+# every real oriented pair of G^intro on TB6b-M, both positions, every non-Pauli answer-key vector slot and
+# EVERY tail coordinate s+1:Q (960 corruptions), real self-loops with equal malformed answers, plus one
+# capacity-right / schema-wrong answer per (edge, side) (76), typed and valid-detyped. Membership must reject
+# before any ordered test: `fired == [:membership]`, no child call past the sizing Dimension.
+if tb6b_runs("tb6b_tail_edges")
+    @testset "TB6b (j2) every real edge, every malformed field and every tail coordinate s+1:Q (verdicts/tb6-r4.md T6-1)" begin
+        tail_started = time()
+        inst = tb6b_instance(tb6b_M())
+        Q, s = inst.Q, inst.s
+        function zero_answer(label)
+            M6.is_pauli_label(label) && return Vector{Bool}(falses(M6.answer_schema(M6.PauliParams(8, 2, 1), label).bits))
+            k, _ = M6.parse_type_label(label)
+            Vector{Bool}(falses(k in (:Introspect, :Sample) ? Q + 1 : k == :Read ? 2Q + 1 : 3Q))
+        end
+        function transcript(edge)
+            x, y = sample_questions(inst.hat, 2, fill(GF2(0), Dimension(inst.hat, 2)), edge)
+            (; edge, tA=edge[1], tB=edge[2], xA=tb6b_bits(x), xB=tb6b_bits(y), aA=zero_answer(edge[1]), aB=zero_answer(edge[2]))
+        end
+        cases = 0
+        schema_cases = 0
+        rejected = 0
+        for edge in tb6b_edges(tb6b_M())
+            t = transcript(edge)
+            for side in (:A, :B)
+                label = side == :A ? t.tA : t.tB
+                M6.is_pauli_label(label) && continue
+                k, _ = M6.parse_type_label(label)
+                fields = k in (:Introspect, :Sample) ? 1 : k == :Read ? 2 : 3
+                for slot in 1:fields, coordinate in s+1:Q
+                    bad = zero_answer(label); bad[(slot - 1) * Q + coordinate] = true
+                    neg = side == :A ? merge(t, (; aA=bad)) : merge(t, (; aB=bad))
+                    edge[1] == edge[2] && (neg = merge(neg, (; aA=bad, aB=copy(bad))))
+                    @test M6.parse_intro_answer(label, bad, Q, s) === nothing
+                    bit, trace, fired = M6.typed_decision(inst, neg)
+                    @test !bit
+                    @test !M6.detyped_decision(inst, neg)
+                    @test [r.mode for r in trace] == [:Dimension]
+                    @test fired == [:membership]
+                    cases += 1
+                    rejected += !bit && fired == [:membership]
+                end
+                bad = Vector{Bool}(falses(fields * Q - 1))   # capacity-right, schema wrong
+                neg = side == :A ? merge(t, (; aA=bad)) : merge(t, (; aB=bad))
+                edge[1] == edge[2] && (neg = merge(neg, (; aA=bad, aB=copy(bad))))
+                @test length(bad) <= 3Q
+                @test M6.parse_intro_answer(label, bad, Q, s) === nothing
+                bit, trace, fired = M6.typed_decision(inst, neg)
+                @test !bit && !M6.detyped_decision(inst, neg)
+                @test [r.mode for r in trace] == [:Dimension]
+                schema_cases += 1
+            end
+        end
+        @test cases == 960 && schema_cases == 76 && rejected == 960
+        TB6B_LOG[:tail_edges_seconds] = round(time() - tail_started; digits=3)
+        println("TB6b (j2) all-edge malformed cases = ", cases, " (rejected ", rejected, "), schema cases = ", schema_cases,
+                ", wall = ", TB6B_LOG[:tail_edges_seconds], " s")
+        println("MUTATION_EXPECTED_RULE tb6b_tail_edges rejected=", rejected, "/960")
     end
 end
 

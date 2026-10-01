@@ -75,9 +75,12 @@ function halting_fixed_point(lambda::Integer; policy::ConstructionPolicy=TB7_TOY
     compressed = compress(V_desc, lambda; policy, tracer_index=n, seeds)
     sampler_hash = quote_hash(compressed.term.sampler)
     step4 = sampler_hash == quote_hash(S_lambda) && (independent_hash === nothing || sampler_hash == independent_hash)
-    # 5. execute D on the supplied transcript through the evaluator.
+    # 5. execute D on the supplied transcript through the evaluator. `evaluated_hash` is the
+    # provenance of the program handed to the evaluator; the TB7 (h) test re-evaluates the
+    # returned D independently and pins the fuel used and the value (verdicts/tb7-r1.md T7-3).
     transcript = anchor_transcript(compressed.term.decider, n)
     args = (n, transcript.x, transcript.y, transcript.a, transcript.b)
+    evaluated_hash = quote_hash(D)
     outcome = eval_quoted(D, args, fuel; hard_cap=max(fuel, DEFAULT_HARD_CAP))
     step5 = outcome.result isa Value && outcome.result.value === true
     # The same transcript through the description interpreter (the compressed decider directly).
@@ -99,5 +102,5 @@ function halting_fixed_point(lambda::Integer; policy::ConstructionPolicy=TB7_TOY
                steps, sampler_hash, fuel_used=outcome.used, fuel_boundary, D_size=description_size(D), D_hash=quote_hash(D)),
         children=(CITED_DHALT_VALUES, CITED_LEM_LAMBDA, CITED_THM_HALTING,
                   _relocate(V_halt.certificate, x -> V_halt.term)))
-    (; V_halt, D, S_lambda, compressed, sampler_hash, outcome, transcript, direct, steps, fuel_boundary, node)
+    (; V_halt, D, S_lambda, compressed, sampler_hash, outcome, evaluated_hash, transcript, direct, steps, fuel_boundary, node)
 end

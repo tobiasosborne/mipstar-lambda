@@ -160,25 +160,26 @@ const TB6_CONJUNCT_MUTANTS = (
            "        return true\n", "tb6b_negative"),
 )
 
-# D2: the calibrated gates' red witnesses inflate a BODY (K + 1 extra kernel passes inside the timed region), never
-# the kernel; the ratio gate must fail while the absolute ceiling (>= 4 K kernels) still holds.
+# D2: the calibrated gates' red witnesses inflate a BODY, never the kernel. verdicts/tb7-r1.md T7-7 (brief 93 C):
+# the inflation is MEASURED -- the body waits until its own elapsed time exceeds (K + 1) x the recorded kernel
+# SUITE_CALIBRATION -- so ratio > K + 1 under any load (K + 1 kernel CALLS left TB5 at ratio 3.91 < 4, SURVIVED).
 const TB6A_GATE_BODY_INFLATED_MUTANT = Mutant(
-    "TB6 M6a-gate-body-inflated tb6a_audit_body_plus_19_kernels",
+    "TB6 M6a-gate-body-inflated tb6a_audit_body_beyond_K_plus_1_kernels_measured",
     "test/tb6a_audit.jl",
     "tb6a_audit_elapsed = round(time() - tb6a_started; digits=3)   # the audit proper: testsets (1) and (2)",
-    "for _ in 1:(CALIBRATED_GATES.tb6a_audit.K + 1)\n    suite_calibration_kernel()\nend\ntb6a_audit_elapsed = round(time() - tb6a_started; digits=3)   # the audit proper: testsets (1) and (2)",
+    "while time() - tb6a_started <= (CALIBRATED_GATES.tb6a_audit.K + 1) * SUITE_CALIBRATION\n    sleep(0.05)\nend\ntb6a_audit_elapsed = round(time() - tb6a_started; digits=3)   # the audit proper: testsets (1) and (2)",
     "tb6a_gate", "tb6a_gate ratio<18 => false")
 const TB6B_GATE_BODY_INFLATED_MUTANT = Mutant(
-    "TB6 M6b-gate-body-inflated tb6b_M_transcripts_plus_K_kernels",
+    "TB6 M6b-gate-body-inflated tb6b_M_transcripts_beyond_K_plus_1_kernels_measured",
     "test/tb6b_introspect.jl",
     "        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)",
-    "        for _ in 1:(CALIBRATED_GATES.tb6b_M.K + 1)\n            suite_calibration_kernel()\n        end\n        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)",
+    "        while time() - started <= (CALIBRATED_GATES.tb6b_M.K + 1) * SUITE_CALIBRATION\n            sleep(0.05)\n        end\n        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)",
     "tb6b_gate", "tb6b_walls E ratio<33 => true M ratio<21 => false")
 const TB5_GATE_BODY_INFLATED_MUTANT = Mutant(
-    "TB5 M5-gate-body-inflated tb5_transcripts_plus_K_kernels",
+    "TB5 M5-gate-body-inflated tb5_transcripts_beyond_K_plus_1_kernels_measured",
     "test/tb5_repeat.jl",
     "        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)",
-    "        for _ in 1:(CALIBRATED_GATES.tb5_transcripts.K + 1)\n            suite_calibration_kernel()\n        end\n        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)",
+    "        while time() - started <= (CALIBRATED_GATES.tb5_transcripts.K + 1) * SUITE_CALIBRATION\n            sleep(0.05)\n        end\n        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)",
     "tb5_gate", "tb5_walls transcripts ratio<4 => false")
 
 # D3: a determined stabilizer outcome sampled freely -- the enumerator's total mass stays one, the distribution
@@ -270,6 +271,21 @@ const TB6_IN_V_FIRST_TAIL_ONLY_MUTANT = Mutant(
     "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v))",
     "_in_V(v::AbstractVector{Bool}, s::Int) = length(v) <= s || !v[s+1]",
     "tb6b_negative")
+# verdicts/tb6-r4.md T6-1 (brief 93 B): the critic's interior-tail survivor, verbatim -- membership checks the
+# whole tail EXCEPT coordinate s+3 (= 9 on TB6b-M); it SURVIVED the entire TB6b rung (9811/9811) at 2fa15e4.
+# Killed by TB6b (j)'s every-coordinate tail witnesses (s+1:Q) and, separately, by (j2)'s all-edge test.
+const TB6_IN_V_SKIP_INTERIOR_MUTANT = Mutant(
+    "TB6 M6-in-V-skip-interior all_but_coordinate_s_plus_3_checked",
+    "src/introspect/intro_decider.jl",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v))",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v) if i != s+3)",
+    "tb6b_negative", "tb6b_out_of_V_tail rejected=35/42")
+const TB6_IN_V_SKIP_INTERIOR_EDGES_MUTANT = Mutant(
+    "TB6 M6-in-V-skip-interior-edges all_but_coordinate_s_plus_3_checked_all_edges",
+    "src/introspect/intro_decider.jl",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v))",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v) if i != s+3)",
+    "tb6b_tail_edges", "tb6b_tail_edges rejected=800/960")
 # brief 84 S1 (the critic's CRIT-R3-decider-timeout): the decider-call twin of M6-nested-timeout-uncharged; killed
 # by TB6b (k)'s part-way decider boundary (budget 22,745).
 const TB6_NESTED_DECIDER_TIMEOUT_UNCHARGED_MUTANT = Mutant(
@@ -314,6 +330,7 @@ const TB6_REPAIR_R1_MUTANTS = (TB6_CONJUNCT_MUTANTS..., TB6A_GATE_BODY_INFLATED_
                                TB6_LITERAL_SUFFIX_REGISTER_MUTANT, TB6A_REQUIRE_IMAGE_CHARGE_MUTANT, TB6_PROBE_FROM_INPUT_MUTANT,
                                TB6_FUEL_ATTEMPTED_CLAMPED_MUTANT, TB6_NESTED_DEPTH_MUTANT, TB7_CURRENCY_FLAT_CHARGE_MUTANT, TB7_LOWER_SAMPLER_ARITY_MUTANT, TB6_IN_V_MUTANT, TB6_NESTED_TIMEOUT_UNCHARGED_MUTANT,
                                TB6_MEMBERSHIP_DISPATCH_BYPASS_MUTANT, TB6_IN_V_FIRST_TAIL_ONLY_MUTANT,
+                               TB6_IN_V_SKIP_INTERIOR_MUTANT, TB6_IN_V_SKIP_INTERIOR_EDGES_MUTANT,
                                TB6_NESTED_DECIDER_TIMEOUT_UNCHARGED_MUTANT, TB6_DECIDER_CHARGE_TRANSFER_MUTANT,
                                TB7_REPEAT_INDEX_MUTANT, TB7_NORMAL_FORM_DISPLAY_MUTANT)
 

@@ -141,15 +141,37 @@ function policy_grade_validation_node(predicates::Vector{PolicyPredicate}, recom
         replay=replay)
 end
 
+"""
+    group_status(statuses) -> Symbol
+
+The status of a GROUPED predicate row from its component statuses
+(verdicts/tb7-r1.md T7-1): a known FAIL anywhere is FAIL; otherwise an
+unexecuted component makes it NOT_EXECUTED, an unevaluable one
+NOT_EVALUABLE, an empty guard set VACUOUS; PASS only when every component
+passes. Accepts policy symbols and the TB0 `PredicateStatus` enum.
+"""
+function group_status(statuses)
+    sym(x) = x isa Symbol ? x : x == PASS ? :PASS : x == FAIL ? :FAIL : :NOT_EVALUABLE
+    s = [sym(x) for x in statuses]
+    isempty(s) && return :VACUOUS
+    any(==(:FAIL), s) && return :FAIL
+    any(==(:NOT_EXECUTED), s) && return :NOT_EXECUTED
+    any(==(:NOT_EVALUABLE), s) && return :NOT_EVALUABLE
+    any(==(:VACUOUS), s) && return :VACUOUS
+    :PASS
+end
+
 # The CHECKED toy-eligibility audit: a ToyPolicy result never satisfies a
-# theorem contract while a required production predicate fails (DESIGN
-# 12.4); the replay REFUSES at the first failed predicate, exactly as the
-# HypothesisAudit of a contract refuses a violated hypothesis.
+# theorem contract unless EVERY required production premise is discharged
+# (DESIGN 12.4; verdicts/tb7-r1.md T7-1): a FAIL, NOT_EXECUTED,
+# NOT_EVALUABLE or VACUOUS premise is not discharged, and the replay REFUSES
+# at the first such predicate, exactly as the HypothesisAudit of a contract
+# refuses a violated hypothesis.
 function toy_contract_audit_node(predicates::Vector{PolicyPredicate})
-    failed = [p.name for p in predicates if p.status in (:FAIL, :NOT_EXECUTED)]
+    failed = [p.name for p in predicates if p.status != :PASS]
     CertNode(CHECKED, :ToyContractAudit;
-        facts=(display=isempty(failed) ? "every production predicate holds: the theorem contracts may be invoked" :
-                       "theorem contracts NOT invoked: $(length(failed)) production predicate(s) fail under the ToyPolicy ($(join(failed, "; "))) -- a toy result establishes construction behaviour only (DESIGN 12.4)",
+        facts=(display=isempty(failed) ? "every production premise is discharged (PASS): the theorem contracts may be invoked" :
+                       "theorem contracts NOT invoked: $(length(failed)) production premise(s) not discharged under the ToyPolicy ($(join(("$(p.name) = $(p.status)" for p in predicates if p.status != :PASS), "; "))) -- only PASS discharges a premise; a toy result establishes construction behaviour only (DESIGN 12.4)",
                failed=failed),
         replay=x -> isempty(failed) ? CheckResult(true, :toy_predicate_failed; location=:ToyContractAudit) :
                     CheckResult(false, :toy_predicate_failed; location=Symbol(replace(failed[1], r"[^A-Za-z0-9_]+" => "_")),

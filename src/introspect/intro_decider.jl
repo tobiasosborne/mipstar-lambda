@@ -535,13 +535,13 @@ function typed_intro_decider(V::VerifierDescription, lambda::Integer, ell::Integ
     V.sampler.typing isa Untyped || throw(ArgumentError("the introspected verifier is an untyped normal-form verifier"))
     V.sampler.field_size == 2 || throw(ArgumentError("the introspected sampler is over F_2 (normal form)"))
     # TB7 (DESIGN 12.3, SOURCE_REPAIR(intro-decider-fixed-width)): the two
-    # fixed lambda-byte slots hold S and D when their bytes fit, else the
-    # canonical trivial code (gt-08:L757-L776); the in-memory term carries
-    # the EFFECTIVE content so evaluation and bytes agree.
-    S_fits = fixed_slot_fits(canonical_bytes(V.sampler), lambda)
-    D_fits = fixed_slot_fits(canonical_bytes(V.decider), lambda)
-    S_term = !fixed_width || S_fits ? V.sampler.term : TRIVIAL_SAMPLER_TERM
-    D_term = !fixed_width || D_fits ? V.decider.term : TRIVIAL_DECIDER_TERM
+    # fixed lambda-byte slots hold V' = intro_effective_pair(V, lambda): V
+    # itself when |V| <= lambda, else the PAIR of trivial machines
+    # (gt-08:L757-L763); the in-memory term carries the EFFECTIVE content so
+    # evaluation and bytes agree.
+    pair = intro_effective_pair(V, lambda)
+    S_term = fixed_width ? pair.S_term : V.sampler.term
+    D_term = fixed_width ? pair.D_term : V.decider.term
     body_tag = fixed_width ? :IntroFixed : :Intro
     term = (:TypedDecider, intro_type_labels(ell), (body_tag, Int(lambda), Int(ell), tuple.q, tuple.m, tuple.d, Int(F_child), S_term, D_term))
     desc = _decider_from_term(term; parts=(V.decider,))
@@ -578,8 +578,59 @@ function typed_intro_decider(V::VerifierDescription, lambda::Integer, ell::Integ
         CheckResult(ok, :intro_decider; location=:IntroDecider, actual=(; bit1, bit2, calls=length(trace2), bit3, bit4, embedding, bit5, bit6, outside))
     end
     _decider_certificate(:IntroDecider, desc,
-        "fig:intro-decider on (lambda, ell) = ($(lambda), $(ell)), $(tuple), Q = $(Q): Dimension(N) first (reject if s(N) > R = N^lambda), operative > 3Q guard, then the nine tests in both player orders with child calls under the step meter ($(F_child == 0 ? "budget R = N^lambda (production)" : "toy budget F_child = $(F_child)")), accept when no test applies$(fixed_width ? "; S and D in two fixed lambda-byte slots (S fits: $(S_fits), D fits: $(D_fits); DESIGN 12.3)" : "")$(embedding ? "" : "; the equal-answer accept is VACUOUS(owner=Q_I<s_0): Q = $(Q) < s(N) = $(s_N)")",
+        "fig:intro-decider on (lambda, ell) = ($(lambda), $(ell)), $(tuple), Q = $(Q): Dimension(N) first (reject if s(N) > R = N^lambda), operative > 3Q guard, then the nine tests in both player orders with child calls under the step meter ($(F_child == 0 ? "budget R = N^lambda (production)" : "toy budget F_child = $(F_child)")), accept when no test applies$(fixed_width ? "; V' in two fixed lambda-byte slots: |V| = max(|S|, |D|) = $(description_length(V)) $(pair.fits ? "<=" : ">") lambda = $(lambda), so V' = $(pair.fits ? "V" : "the pair of trivial machines (gt-08:L757-L763)") (DESIGN 12.3)" : "")$(embedding ? "" : "; the equal-answer accept is VACUOUS(owner=Q_I<s_0): Q = $(Q) < s(N) = $(s_N)")",
         replay, (CITED_INTRO_DECIDER_FIG, CITED_INTRO_DECIDER_COMPLEXITY, CITED_PAULI_DECIDER, CITED_THM_PAULI, CITED_CL_CANONICAL, CITED_L_PERP, INTRO_3Q_GUARD, INTRO_HIDE_SUFFIX_REGISTER, INTRO_PERP_ORTHOGONAL), (V.decider,))
+end
+
+"""
+    intro_effective_pair(V, lambda) -> (; fits, S_term, D_term)
+
+ComputeIntroDecider's V' (gt-08-introspection.tex:L757-L763): ONE
+verifier-size predicate `|V| = max(|S|, |D|) <= lambda` chooses BOTH
+components -- V' = V when it holds, else the pair of trivial machines
+(S', D') = (0, 0). Used by `typed_intro_decider` and `compress_terms`
+alike (verdicts/tb7-r1.md T7-5: the two slots used to fall back
+independently, so a fitting sampler beside an oversized decider survived).
+"""
+function intro_effective_pair(V::VerifierDescription, lambda::Integer)
+    fits = description_length(V) <= lambda
+    (; fits, S_term = fits ? V.sampler.term : TRIVIAL_SAMPLER_TERM, D_term = fits ? V.decider.term : TRIVIAL_DECIDER_TERM)
+end
+
+"""
+    intro_dispatch_census(body, n) -> (; pairs, pauli_pairs, dispatched, pauli_dispatched)
+
+Run the typed introspection decider `body` on EVERY oriented pair of
+G^intro at index n with zero answers of each type's schema length and count
+the pairs on which any test of items 1-5 is dispatched (`fired` other than
+the up-front `:membership` rejection), and the Pauli pairs on which
+D^pauli is dispatched. At TB7 (Q_I = 2 < s_0(N) = 9) the embedding guard
+precedes every dispatch, so both counts are 0 (verdicts/tb7-r1.md T7-6).
+"""
+function intro_dispatch_census(body, n::Int)
+    ell, q, m, d = body[3], body[4], body[5], body[6]
+    p = PauliParams(q, m, d)
+    Q = pauli_Q(p.tuple)
+    answer(label) = is_pauli_label(label) ? Vector{Bool}(falses(answer_schema(p, label).bits)) :
+                    (k = parse_type_label(label)[1]; Vector{Bool}(falses(k in (:Introspect, :Sample) ? Q + 1 : k == :Read ? 2Q + 1 : 3Q)))
+    edges = intro_typing(ell).edges
+    dispatched = 0
+    pauli_pairs = 0
+    pauli_dispatched = 0
+    for (l, r) in edges
+        fired = try
+            intro_decide_traced(body, n, l, Bool[], r, Bool[], answer(l), answer(r))[3]
+        catch error
+            error isa ArgumentError || rethrow()
+            Symbol[:dispatched_then_threw]      # a test was reached (and refused the census's empty questions)
+        end
+        dispatched += any(f -> f != :membership, fired)
+        if is_pauli_label(l) && is_pauli_label(r)
+            pauli_pairs += 1
+            pauli_dispatched += (:pauli in fired || :dispatched_then_threw in fired)
+        end
+    end
+    (; pairs=length(edges), pauli_pairs, dispatched, pauli_dispatched)
 end
 
 "The literal register choice of enu:hiding-same on one ordered (Hide_k, Hide_{k+1}) transcript: does x_w|V_{>k+1}(y_w) equal x_wbar|V_{>k+1}(y_wbar)? (for the report; not the operative decider)"

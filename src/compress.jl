@@ -164,7 +164,7 @@ function halting_decider(machine::Program, lambda::Program; sampler::Program=SAM
         facts=(display="the returned decider runs under Eval(..., FuelBound(n, lambda)) = n^lambda units, a construction change: fig:halt_f step 5 (gt-12-compression.tex:L448-L449) accepts iff D^compr accepts (n, x, y, a, b) with no budget, and TIME_{D^halt}(n) <= n^lambda is lem:lambda's conclusion (gt-12-compression.tex:L570-L638), not a specification; below the budget the fixed point returns OutOfFuel, not a decider answer (definitions.md F: SOURCE_REPAIR(HaltDeciderFuelBound))",
                source="gt-12-compression.tex", lines=448:449))
     Checked(checked.term, CertNode(node.grade, node.rule; facts=node.facts,
-                                   children=(node.children..., repair), replay=node.replay))
+                                   children=(node.children..., repair), replay=unbound(node.replay)))   # rebound to the extended node (brief 93 E)
 end
 
 "The materialised unfolding Specialize(P, {self_code -> Quote(Fix P)}) of thm:ycode, a closed Quoted with the SubstCert."

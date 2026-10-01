@@ -737,22 +737,47 @@ _linear(m::RecordingMachine, n::Int, w::Symbol, j::Int, u, y, t, ctx::Meter) =
 _factor(m::RecordingMachine, n::Int, w::Symbol, j::Int, u, t, ctx::Meter) =
     (push!(m.log, (:factor, n, w, j, t)); _factor(m.inner, n, w, j, u, t, ctx))
 
+# TB7 final-seed chain coverage (verdicts/tb7-r1.md T7-4, brief 93 K): a
+# transparent tap on one compiled sub-term. It logs every Marginal call the
+# sub-term's machine RECEIVES while a final question is sampled -- the child
+# seed z, the player and the type actually reached -- tagged with the
+# fnv1a64 of the sub-term's canonical bytes and the index of the final seed
+# being sampled; every query is forwarded unchanged and nothing is charged.
+struct TapMachine <: SamplerMachine
+    inner::SamplerMachine
+    id::String
+    log::Vector{Any}
+    seed_index::Base.RefValue{Int}
+end
+_field(m::TapMachine) = _field(m.inner)
+machine_field_size(m::TapMachine) = machine_field_size(m.inner)
+machine_level(m::TapMachine) = machine_level(m.inner)
+machine_typing(m::TapMachine) = machine_typing(m.inner)
+_dimension(m::TapMachine, n::Int, ctx::Meter) = _dimension(m.inner, n, ctx)
+_marginal(m::TapMachine, n::Int, w::Symbol, j::Int, z, t, ctx::Meter) =
+    (push!(m.log, (; id=m.id, seed=m.seed_index[], w, j, t, z=copy(z))); _marginal(m.inner, n, w, j, z, t, ctx))
+_linear(m::TapMachine, n::Int, w::Symbol, j::Int, u, y, t, ctx::Meter) = _linear(m.inner, n, w, j, u, y, t, ctx)
+_factor(m::TapMachine, n::Int, w::Symbol, j::Int, u, t, ctx::Meter) = _factor(m.inner, n, w, j, u, t, ctx)
+
 # ---------------------------------------------------------------------------
 # Compilation of a term to its machine, and the public boundary.
 
-function compile_sampler(term)
+# `wrap(subterm, machine)`, when given, wraps every compiled SUB-term's
+# machine (the TB7 final-seed tap); the root is wrapped by the caller.
+function compile_sampler(term, wrap=nothing)
     tag = term[1]
+    sub(t) = wrap === nothing ? compile_sampler(t) : wrap(t, compile_sampler(t, wrap))
     tag in (:Pair, :TypedFamily) && return _compile_leaf(term)
-    tag == :DirectSum && return DirectSumMachine(SamplerMachine[compile_sampler(c) for c in term[2]])
-    tag == :Repeat && return RepeatMachine(term[2], term[3], term[4] // term[5], compile_sampler(term[6]))
-    tag == :RepeatToy && return RepeatMachine(term[3], term[4], term[5] // term[6], compile_sampler(term[7]), term[2])
-    tag == :Pad && return PadMachine(compile_sampler(term[3]), term[2])
-    tag == :Oracularize && return OracularizeMachine(compile_sampler(term[2]))
+    tag == :DirectSum && return DirectSumMachine(SamplerMachine[sub(c) for c in term[2]])
+    tag == :Repeat && return RepeatMachine(term[2], term[3], term[4] // term[5], sub(term[6]))
+    tag == :RepeatToy && return RepeatMachine(term[3], term[4], term[5] // term[6], sub(term[7]), term[2])
+    tag == :Pad && return PadMachine(sub(term[3]), term[2])
+    tag == :Oracularize && return OracularizeMachine(sub(term[2]))
     tag == :PCP && return _compile_pcp(term)
-    tag == :Anchor && return AnchorMachine(compile_sampler(term[2]))
-    tag == :Detype && return DetypeMachine(compile_sampler(term[2]))
-    tag == :Product && return ProductMachine(compile_sampler(term[2]), compile_sampler(term[3]))
-    tag == :Downsize && return DownsizeMachine(compile_sampler(term[2]))
+    tag == :Anchor && return AnchorMachine(sub(term[2]))
+    tag == :Detype && return DetypeMachine(sub(term[2]))
+    tag == :Product && return ProductMachine(sub(term[2]), sub(term[3]))
+    tag == :Downsize && return DownsizeMachine(sub(term[2]))
     # TB6 primitives (src/introspect/): compact terms compiled to in-memory families.
     tag == :Pauli && return _compile_pauli(term)
     tag == :Intro && return _compile_intro(term)
