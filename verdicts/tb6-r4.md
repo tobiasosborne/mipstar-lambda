@@ -35,7 +35,7 @@ Converted owners, actual required-registry tallies: `M-repair` 6/3/0 (assert exa
 `julia --project=. test/runtests.jl`: **exit 0**, 12729 pass / 1 broken (the ProductionPolicy construction assertion), wall 234.992 s:
 
 ```text
-MIPStarLambda load/precompile seconds = 0.507 (ungated; cold image build: tools/cold_precompile.sh)
+MIPStarLambda                                                                                                                                                | 12729       1  12730  3m52.6s
 TB0 test-body wall seconds = 20.385 (warning=45.0, hard_limit=60.0); calibration kernel = 0.5257 s; ratio = 38.8 (gate 100.0)
 TB0 ratio gate: ratio<100.0 => true; wall<60.0 => true
 TB4 test-body wall seconds = 4.276; calibration kernel = 0.1866 s; ratio = 22.9 (gate 38.0 = floor(6.0 s / 0.154 s reference in-suite kernel); enforced body budget at this kernel rate = 7.09 s; TB4_BUDGET_SECONDS = Inf; gated)
