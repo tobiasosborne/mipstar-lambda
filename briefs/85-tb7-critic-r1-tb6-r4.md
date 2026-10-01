@@ -1,8 +1,8 @@
 # Brief 85 — CRITIC: TB7 r1 (Compress, brief 44 + addenda) and TB6 r4 (brief 84 = TB6 repair r3; closing round for C14)
 
-You are the adversarial critic (codex, gpt-6-astra, xhigh). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb7-r1.md` and `verdicts/tb6-r4.md` ONLY; Julia and files only under your scratch dir; never edit repo files; NO git commands that change state. Evaluate the ARCHIVED tree at commit `<SHA>` (`git archive <SHA> | tar -x -C <scratch>/tree`; there `julia --project=. -e 'using Pkg; Pkg.instantiate()'`).
+You are the adversarial critic (codex, gpt-6.1-sol, xhigh). ATTACK; do not summarize. Autonomous; no questions. Lane: write `verdicts/tb7-r1.md` and `verdicts/tb6-r4.md` ONLY; Julia and files only under your scratch dir; never edit repo files; NO git commands that change state. Evaluate the ARCHIVED tree at commit `2fa15e4` (`git archive 2fa15e4 | tar -x -C <scratch>/tree`; there `julia --project=. -e 'using Pkg; Pkg.instantiate()'`).
 
-Scratch: `<SCRATCH>/critic-tb7-r1/` (create it). Keep every probe, red test and raw log there and ALSO paste each new red test / mutant definition verbatim (or as a precise diff) into the verdict — scratch does not survive; the verdict must be sufficient to rebuild them.
+Scratch: `/tmp/claude-1000/-home-tobias-Projects-mipstar-lambda/c4866fe0-7f69-4e1a-8e74-13a22fc59bc5/scratchpad/critic-tb7-r1/` (create it). Keep every probe, red test and raw log there and ALSO paste each new red test / mutant definition verbatim (or as a precise diff) into the verdict — scratch does not survive; the verdict must be sufficient to rebuild them.
 
 Environment: 64-core WSL2 machine, Julia 1.12.3. You are the ONLY worker running. Walls are advisory; every gate is a clock-calibrated ratio (`test/calibration.jl`). Report `uptime` before/after each run. `MUTATION_JOBS=4`. Runs one at a time.
 

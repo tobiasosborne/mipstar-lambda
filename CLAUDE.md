@@ -18,7 +18,7 @@ Key locations:
 - Claims ratchet in `claims/CLAIMS.md`. Status ∈ {PROVED, TESTED, SKETCH, CONJECTURE, REFUTED}. Status goes UP only via a converged critic verdict in `verdicts/`. Never by the author.
 - Single-source definitions: `docs/DESIGN.md` (term language) and `docs/definitions.md`. Code cites; never redefines.
 - Every machine-checkable claim has a test in `test/` AND a mutation (red) test proving the test can fail (`test/mutations/`).
-- **Roles (user directive 2026-09-27, supersedes the 2026-09-25 no-codex directive).** The main thread orchestrates. Hard work goes to Opus subagents (never Fable subagents); the HARDEST work, code review/critic rounds above all, goes to `codex exec -m gpt-6-astra` at xhigh reasoning effort. **Strictly ONE subagent/worker at a time — serial, never concurrent.** Briefs live in `briefs/`, verdicts in `verdicts/`.
+- **Roles (user directive 2026-10-01, supersedes 2026-09-27).** The main thread (Fable) orchestrates only. Workers alternate: **Opus subagents** for hard CODING (proposer/repair briefs); **`codex exec -m gpt-6.1-sol`** at xhigh reasoning for REVIEW and CRITIC rounds (sol is the better reviewer, Opus the better coder); **Sonnet (medium effort) subagents** for everything that is not hard coding — quick bug hunts, code exploration, research, doc lookups. NEVER Fable subagents; NEVER gpt-6-astra. **Strictly ONE subagent/worker at a time — serial, never concurrent.** Keep quota under pace (`~/.claude/scripts/claude-usage`). Briefs live in `briefs/`, verdicts in `verdicts/`.
 - Red/green TDD: tests are written and shown RED before implementation; mutation testing after GREEN.
 
 ## Build & test
