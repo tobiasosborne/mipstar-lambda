@@ -1,4 +1,4 @@
-# Brief 96 — PROPOSER (Sonnet or Opus): analytic document repair r3 — verdicts/analytic-doc-r5.md FAIL(R4, R10, F1, F2)
+# Brief 96 — PROPOSER (codex gpt-6-astra xhigh): analytic document repair r3 — verdicts/analytic-doc-r5.md FAIL(R4, R10, F1, F2)
 
 Lane: `docs/analytic/**` + `briefs/96-analytic-repair-r3.last.md`. No Julia. pdflatex in place (twice; a third pass if the log says "Rerun"), `python3 tools/figcoverage.py` exit 0, 0 undefined refs. No git state changes. Never edit verdicts/ or CLAIMS.
 
