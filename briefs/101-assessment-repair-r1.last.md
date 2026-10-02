@@ -1,0 +1,8 @@
+- Edited only [docs/assessment.md](/home/tobias/Projects/mipstar-lambda/docs/assessment.md): **2,247 words**; DRAFT, date and pending marks retained.
+- A1, L44: necessary `d≥8` → sufficient uniform choice; smaller-degree allowance and F1’s omitted output increment explained.
+- A2, L50: abbreviated chain → `206→624→840→848→1696`, with +418 and +216 explained and cited.
+- A3, L52/54/70: omissions → paired-fallback defect, closure criterion, answer-cap repair and fixed-width caveat.
+- Missing content added at L60/62/72/74/76: embedding interpretation, binder gap, downstream obligation, structural feasibility ladder and two later experiments.
+- Shell results: `pwd; rg --files`=0; numbered verdict read=0; assessment read=0; CLAIMS read/filter=0.
+- Eight `python3` invocations—initial authorities, focused authorities, TB/GT additions, three GT batches, representation, validation—each exit=0; patches=2/2; status mismatches=0/22.
+- Not done: Julia/runtime/mutations/benchmarks/rebuilds=0; git/bd/commits/pushes=0. Brief-97 adjudication remains pending; orchestrator owns committing.
