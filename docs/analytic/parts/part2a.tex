@@ -514,10 +514,11 @@ them with what each obliges its author to supply.
 \label{fig:grades}
 \end{figure}
 
-\code{verify\_certificate} walks the tree and re-runs every
-\grade{CHECKED} replay against the term actually attached; a
-\grade{CHECKED} node with no replay function is a verification failure, not a
-pass.  That is all the walk itself guarantees.  A replay is an arbitrary
+\code{verify\_certificate} walks the tree, re-running \grade{CHECKED}
+callbacks at visited nodes against the attached term.  It stops at the first
+failure, including a visited \grade{CHECKED} node with no replay.  Only a
+passing walk guarantees that every \grade{CHECKED} replay ran and passed.
+A replay is an arbitrary
 callback stored in the node (\code{src/certificates.jl}), and calling it does
 not by itself show that it checks the node's recorded facts, its children, or
 the attached subject.  Where the binding has been tested, it is a property of
@@ -1456,7 +1457,7 @@ description.  Define
 
 Figure~\ref{fig:C-closed-verifier} closes the construction into the exact
 sampler--decider pair passed to the later game machinery.
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \input{figs/fig-C-closed-verifier.tex}
 \caption{The literal bound \(\lambda\) produces \(S_\lambda\), while \(\operatorname{YCode}(\Psi_{M,\lambda})\) closes its sole self-code socket before quotation places \(D_{M,\lambda}\) beside that sampler.  The resulting \(V_{M,\lambda}\) is one finite normal-form verifier description, not an oracle for either component.}

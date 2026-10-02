@@ -970,9 +970,11 @@ verdict.  Part~II has two further lemmas with no row of their own.
 Lemma~\ref{lem:zero-rewrite} states the implemented rewrite behind the division
 step of the \code{prop:zero-basis} proof (\code{gt-10} L1296--L1359), and
 Lemma~\ref{lem:level-laws} restates for levels the source's concatenation and
-direct-sum lemmas (\code{gt-04} L282--L363).  Their executed instances are
-checked under C2 and under C4a and C12 respectively; their general statements
-are written proofs that no verdict has examined.  \code{C16} covers Section~\ref{sec:resource-lambda}, \code{C17}
+direct-sum lemmas (\code{gt-04} L282--L363).  C2 checks the rewrite on its
+fixtures.  C12 checks description-law AST equality against a separately
+transcribed table and evaluates the laws at the tracer index; concatenation
+and direct-sum semantic implications stay \grade{CITED}.  The general proofs
+here have not been reviewed.  \code{C16} covers Section~\ref{sec:resource-lambda}, \code{C17}
 Section~\ref{sec:simulation}, \code{C18} Section~\ref{sec:self-reference},
 and \code{C19} Section~\ref{sec:l-cook-levin}, as stated at the head of
 Section~\ref{sec:resource-lambda}.
@@ -1349,6 +1351,9 @@ transformation pipeline.
 \label{fig:evidence-boundary}
 \end{figure}
 
+Figure~\ref{fig:final-accounting} closes the account at the fixed point itself,
+with the three analytic leaves kept visibly dashed.
+
 \begin{center}
 \small
 \begin{tabularx}{\textwidth}{P{0.20\textwidth}P{0.35\textwidth}X}
@@ -1398,6 +1403,8 @@ quantitative extraction argument.  Rigidity and oracularization require the
 same operator layer.  Detyping additionally needs a formal probability and
 rejection-sampling argument with the \(16^{|\mathrm{Type}|}\) loss.
 
+% Keep the midpoint figure on this page after the longer T7-8 correction.
+\enlargethispage{\baselineskip}
 Anchoring and parallel repetition are combined in \(\Repeat\); the
 transformation is built and its soundness is theorem-backed.  The same split
 holds for the whole compression layer: \code{docs/DESIGN.md} \S\S9--12 fixes
@@ -1420,7 +1427,9 @@ two semantic mutants survive the TB7 rung (T7-3), the reached final-seed chains
 are not replayed (T7-4), the trivial-pair fallback chooses sampler and decider
 separately (T7-5), the report claimed Pauli predicate execution (T7-6), two
 timing-gate mutants survive (T7-7), and the answer-reduction agreement node
-fails at 4 of 9 cases (T7-8).  The C14 replacement row is likewise on HOLD
+agrees in four of nine cases: ``the other five complete decisions reject at the
+disclosed unexecuted game layer'' (T7-8), so its \grade{CHECKED} replay fails.
+The C14 replacement row is likewise on HOLD
 (\code{verdicts/tb6-r4.md}, T6-1 and T6-2).  A repair round (brief~93) is in
 progress and has no converged verdict.  So what is missing is these evidence
 repairs, a production-policy construction (still a broken test in
@@ -1475,9 +1484,6 @@ term can represent an exponentially long computation, and a fixed point can
 make that term self-referential, while the acceptance gap collapses too quickly
 for iteration.  Representability is easy; an iteratable, gap-preserving
 analytic transformation is the hard requirement.
-
-Figure~\ref{fig:final-accounting} closes the account at the fixed point itself,
-with the three analytic leaves kept visibly dashed.
 
 \subsection{Final accounting}
 
