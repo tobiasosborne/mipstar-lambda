@@ -41,6 +41,10 @@ end
 
 @testset "TB7 full rung" begin
 
+if tb7_runs("tb7_review")
+    include("tb7_review_regressions.jl")
+end
+
 if tb7_runs("tb7_order")
     @testset "TB7 (a) constructor order AST equals fig:compress" begin
         policy = TB7_TOY_POLICY

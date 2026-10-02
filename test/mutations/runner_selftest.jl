@@ -25,7 +25,7 @@ MUTANT_TALLY nonce=$(SELFTEST_NONCE) pass=5 fail=1 error=0 broken=0
 let ok_baseline = (; ok=true, exitcode=0),
     m = Mutant("selftest forged-tally", "test/tb6b_introspect.jl", "unused", "unused", "tb6b_nested")
     record(p, f, e) = "MUTANT_TALLY nonce=$(SELFTEST_NONCE) pass=$(p) fail=$(f) error=$(e) broken=0"
-    child(output, rec; nonce=SELFTEST_NONCE, exitcode=1) = (; output, exitcode, nonce, record=rec, test_started=true)
+    child(output, rec; nonce=SELFTEST_NONCE, exitcode=1, completed=true) = (; output, exitcode, nonce, record=rec, completed, test_started=true)
     @testset "runner tally channel (verdicts/tb6-r4.md T6-2)" begin
         # (e) the critic's fifth probe: a printed tally, then an error-only run.
         forged = child(SELFTEST_FORGED_OUTPUT, record(0, 0, 1))
@@ -47,5 +47,11 @@ let ok_baseline = (; ok=true, exitcode=0),
         # Positive control: one driver record with a failed assertion is KILLED.
         honest = child(SELFTEST_HONEST_KILL_OUTPUT, record(5, 1, 0))
         @test disposition(m, honest, ok_baseline).killed
+        # P97-1: one passing assertion, a stolen public channel, exit(19).
+        early = child("MUTANT_TEST_STARTED\n" * record(0,1,0) * "\n", record(0,1,0); exitcode=19, completed=false)
+        @test test_tally(early) === nothing
+        @test !disposition(m,early,ok_baseline).killed
+        @test !disposition(m,merge(early,(;exitcode=1)),ok_baseline).killed
+        @test !disposition(m,merge(honest,(;exitcode=19)),ok_baseline).killed
     end
 end

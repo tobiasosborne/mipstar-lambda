@@ -581,7 +581,7 @@ end
 
 function _relocate(node::CertNode, locate::Function)
     children = map(child -> _relocate(child, locate), node.children)
-    replay = node.grade == CHECKED ? (x -> node.replay(locate(x))) : node.replay
+    replay = node.grade == CHECKED ? (x -> _verify_own(node, locate(x))) : node.replay
     CertNode(node.grade, node.rule; facts=node.facts, children, replay)
 end
 

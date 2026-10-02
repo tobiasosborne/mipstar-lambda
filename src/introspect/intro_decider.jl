@@ -549,7 +549,8 @@ function typed_intro_decider(V::VerifierDescription, lambda::Integer, ell::Integ
     # The F_2^Q wire embedding needs Q >= s(N) (gt-08:L524-L530); below it every
     # non-Pauli transcript is rejected at the embedding guard, so the equal-answer
     # accept (bit4) is VACUOUS(owner=Q_I<s_0) and expected to reject (DESIGN 12.5).
-    s_N = Dimension(V.sampler, 2 ^ 2)
+    effective_sampler = fixed_width ? decode_sampler(sampler_term_bytes(pair.S_term)) : V.sampler
+    s_N = Dimension(effective_sampler, 2 ^ 2)
     embedding = s_N isa QueryError ? false : Q >= s_N
     replay = x -> begin
         n = 2

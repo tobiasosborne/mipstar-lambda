@@ -172,8 +172,10 @@ function toy_contract_audit_node(predicates::Vector{PolicyPredicate})
     CertNode(CHECKED, :ToyContractAudit;
         facts=(display=isempty(failed) ? "every production premise is discharged (PASS): the theorem contracts may be invoked" :
                        "theorem contracts NOT invoked: $(length(failed)) production premise(s) not discharged under the ToyPolicy ($(join(("$(p.name) = $(p.status)" for p in predicates if p.status != :PASS), "; "))) -- only PASS discharges a premise; a toy result establishes construction behaviour only (DESIGN 12.4)",
-               failed=failed),
-        replay=x -> isempty(failed) ? CheckResult(true, :toy_predicate_failed; location=:ToyContractAudit) :
-                    CheckResult(false, :toy_predicate_failed; location=Symbol(replace(failed[1], r"[^A-Za-z0-9_]+" => "_")),
-                                expected=:PASS, actual=failed))
+               failed=failed, predicates=Tuple(predicates)),
+        replay=FactReplay((facts, children, x) -> begin
+            pending = [p.name for p in facts.predicates if p.status != :PASS]
+            CheckResult(isempty(pending) && facts.failed == pending, :toy_predicate_failed;
+                        location=:ToyContractAudit, expected=:PASS, actual=pending)
+        end))
 end

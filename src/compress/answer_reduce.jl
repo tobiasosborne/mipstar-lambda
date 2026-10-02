@@ -357,16 +357,15 @@ function pcp_encodes_D1_evidence(D1::DeciderDescription, fx::FrontEndFixture, la
              (; m=sat.term.index_width, M=sat.term.variable_count, clauses=length(sat.term.clauses),
                 decoupled_clauses=decoupled isa CompilationRefused ? nothing : length(decoupled.term.clauses),
                 refused=decoupled isa CompilationRefused ? string(decoupled) : nothing)
-    fixture_sat = fx.padded.term
     fixture_m = fx.params.m
     fixture_hash = quote_hash(fx.quoted.term)
     logT = lambda * n * mu
-    # The status is COMPUTED (verdicts/tb7-r1.md T7-1): the instance supplied to pcpverifier encodes D1 only if
-    # it arithmetizes the lowered D1 program itself and its index width indexes 2T trace rows.
+    # Necessary header checks can refute, but do not authenticate the encoded
+    # formula/proof or its (n,T,Q,gamma,x,y) construction chain (P97-4).
     instance_is_D1 = fixture_hash == quote_hash(quoted.term)
     width_ok = fixture_m >= logT + 1
-    encodes_status = instance_is_D1 && width_ok ? "PASS" : "FAIL"
-    detail = "the instance supplied to pcpverifier arithmetizes the fixture decider $(fixture_hash) (|D| = $(fx.sigma) bytes) at T = $(fx.T) with index width m = $(fixture_m), while the ACTUAL fixed-width D1 (fnv1a64 $(quote_hash(D1)), sigma_1 = $(sigma) bytes) lowered into the program IR halts after $(T_actual) body transitions on a sorted input and TB3's bounded_trace -> cook_levin -> decouple5 front end gives $(actual.refused === nothing ? "index width m = $(actual.m), M = $(actual.M) variables, $(actual.clauses) 3SAT clauses, $(actual.decoupled_clauses) decoupled 5SAT clauses" : "CompilationRefused ($(actual.refused))"); at the printed (T = 2^$(logT), sigma_1 = $(sigma)) no instance of index width $(fixture_m) indexes a trace of 2^$(logT) rows (prop:explicit-padded-succinct-deciders: 2^m >= 2T)"
+    encodes_status = instance_is_D1 && width_ok ? "NOT_EVALUABLE" : "FAIL"
+    detail = "fixture headers claim program $(fixture_hash), |D| = $(fx.sigma), T = $(fx.T), m = $(fixture_m); the actual fixed-width D1 has hash $(quote_hash(D1)), sigma_1 = $(sigma), and the required trace bound is T = 2^$(logT). The separate short D1 probe halts after $(T_actual) transitions. These headers do not authenticate the encoded formula/proof or its bound (n,T,Q,gamma,x,y); a header mismatch refutes the claim, and matching headers leave it NOT_EVALUABLE. Width witness 2^m >= 2T: $(width_ok)."
     CertNode(ASSUMED, :P_pcp_encodes_D1;
         facts=(display="P_pcp_encodes_D1 | $(encodes_status)(owner=$(AR_GAME_OWNER)): instance is the lowered D1 program ($(quote_hash(quoted.term))): $(instance_is_D1); index width $(fixture_m) >= log2(2T) = $(logT + 1): $(width_ok); $(detail)",
                status=encodes_status, owner=AR_GAME_OWNER, instance_is_D1, width_ok, logT, D1_program_hash=quote_hash(quoted.term),
@@ -443,7 +442,15 @@ function answer_reduce_agreement_node(typed_decider::DeciderDescription, params:
               "$(count(graded, prefix)) game-reaching guard cases agree on their executed prefix ($(join(string.(getfield.(prefix, :case)), ", "))): the named guard passes honestly and rejects the corruption by its named rule, then the honest transcript reaches step 5 and is rejected NOT_EXECUTED(owner=$(AR_GAME_OWNER)) where TB2's pcpverifier accepts -- prefix evidence only, never agreement; the :game case reaches step 5 and is NOT_EXECUTED on both answers"
     CertNode(CHECKED, :AnswerReduceStepsAgreement;
         facts=(display=display, outcomes=result.actual, complete=length(complete), prefix=length(prefix), ok=result.ok),
-        replay=_bound_replay(typed_decider, :AnswerReduceStepsAgreement, check))
+        replay=FactReplay((facts, children, x) -> begin
+            x === typed_decider || return CheckResult(false,:certificate_binding; location=:AnswerReduceStepsAgreement)
+            fresh = check(x)
+            ok = passed(fresh) && fresh.actual == facts.outcomes && length(fresh.actual) == 9 &&
+                 facts.complete == count(o -> !o.game,fresh.actual) &&
+                 facts.prefix == count(o -> o.game && o.case != :game,fresh.actual) && facts.ok == fresh.ok
+            CheckResult(ok,:answer_reduce_agreement; location=:AnswerReduceStepsAgreement,
+                        expected=fresh.actual,actual=facts.outcomes)
+        end)))
 end
 
 """

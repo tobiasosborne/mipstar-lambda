@@ -68,7 +68,7 @@ tb5_repeat() = get!(TB5_CACHE, :repeat) do
     live_before = Base.gc_live_bytes()
     stats = @timed anchored_repeat(tb5_copy_verifier(), TB5_LAMBDA, TB5_TAU;
                                    c_prime=TB5_C_PRIME, tracer_index=TB5_N, seeds=32)
-    TB5_LOG[:construction_seconds] = round(stats.time; digits=3)
+    TB5_LOG[:construction_seconds] = stats.time
     TB5_LOG[:construction_alloc_MiB] = round(stats.bytes / 2^20; digits=1)
     TB5_LOG[:construction_peak_rss_delta_MiB] = round((Sys.maxrss() - rss_before) / 2^20; digits=1)
     TB5_LOG[:construction_live_delta_MiB] = round((Base.gc_live_bytes() - live_before) / 2^20; digits=1)
@@ -383,7 +383,7 @@ if tb5_runs("tb5_laws")
         @test passed(verify_certificate(prod))
         @test canonical_bytes(decode_sampler(canonical_bytes(Tp))) == canonical_bytes(Tp)
         @test Marginal(Tp, 1, :alice, 1, fill(zero(GF2048), 40), "nobody") isa QueryError
-        TB5_LOG[:product_seconds] = round(time() - started; digits=3)
+        TB5_LOG[:product_seconds] = (time() - started)
 
         # DL9-downsize (def:downsize_sampler / lem:downsize_sampler, gt-04:628-680) on L_ALine at q = 8.
         Aq = tb1_pairs()[:ALine].term
@@ -797,7 +797,7 @@ if tb5_runs("tb5_transcripts")
         @test decide_traced(D, TB5_N, vcat(frame_components(t.xs), false), frame_components(t.ys),
                             frame_components(t.as), frame_components(t.bs)) == (false, [])
         println("MUTATION_EXPECTED_RULE T5-boundary accept9=", bit9, " reject10=", !bit10, " pre_call_log_empty=", isempty(calls10))
-        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)
+        TB5_LOG[:transcript_seconds] = (time() - started)
         println("TB5 (g) warm transcript seconds = ", TB5_LOG[:transcript_seconds], " (DESIGN 10.3 gate < 5)")
         gate = calibrated_gate(:tb5_transcripts, TB5_LOG[:transcript_seconds])        # verdicts/tb6-r1.md O2 (brief 80 D2)
         println("MUTATION_EXPECTED_RULE tb5_walls transcripts ratio<", gate.K, " => ", gate.ratio_ok, " wall<", gate.ceiling, " => ", gate.wall_ok)

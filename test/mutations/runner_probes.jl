@@ -9,6 +9,10 @@
 # not fail at all. Under the pre-brief-84 rule the inside probe was credited
 # (verdicts/tb6-r3.md R3: 0 pass / 0 fail / 1 error, registry exit 0).
 const RUNNER_PROBES = (
+    Mutant("PROBE P97-1-stolen-channel early_exit_after_forged_record",
+           "test/mutations/runner_channel.jl", "@test true\n",
+           "@test true\nnonce, path = Main.MUTANT_DRIVER_CHANNEL\nline = \"MUTANT_TALLY nonce=\$(nonce) pass=0 fail=1 error=0 broken=0\"\nwrite(path, line)\nprintln(line)\nexit(19)\n",
+           "runner_channel"),
     Mutant("PROBE CRIT-R3-crash-outside tb6b_top_level_setup_method_error",
            "test/tb6b_introspect.jl",
            "const TB6B_F_CHILD = 65_536\n",

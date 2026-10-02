@@ -159,7 +159,7 @@ function _zero_promotion_nodes(::Type{F}, n::Int, level::Int, labels::Vector{Str
     pad_node = CertNode(pad.certificate.grade, pad.certificate.rule;
         facts=(; pad.certificate.facts..., padding_context=:top_level_ambient,
                  display="$(join(labels, ", ")) = pad_level(CLZero(F_$(field_size(F)), $(n)), $(level)) in the top-level ambient context: stage 1 reports the all-ones indicator, stages 2..$(level) empty"),
-        children=pad.certificate.children, replay=unbound(pad.certificate.replay))   # a constructor rebuild with extended facts: rebound (brief 93 E)
+        children=pad.certificate.children, replay=_reconstruction_replay(pad.certificate))
     repair = CertNode(SOURCE_REPAIR, :zero_map_factor_report;
         facts=(display="$(source) writes the identically-0 (0-level) map for $(join(labels, ", ")); the executable reports V_1 = V^pauli at stage 1 and empty factors at stages 2..$(level) (rk:higher-level, gt-04-cl.tex:122-130) so enu:cl-space-sum holds: SOURCE_REPAIR(zero-map-factor-partition)",))
     (pad.term, (repair, _relocate(pad_node, x -> x.evidence)))

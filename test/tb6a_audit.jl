@@ -159,7 +159,7 @@ if tb6a_runs("tb6a_schemas")
     end
 end
 
-tb6a_audit_elapsed = round(time() - tb6a_started; digits=3)   # the audit proper: testsets (1) and (2)
+tb6a_audit_elapsed = (time() - tb6a_started)   # the audit proper: testsets (1) and (2)
 
 if tb6a_runs("tb6a_require_image")
     @testset "TB6a (3) the _require_image cost at dimensions 142 and 179, level 5 (briefs/43 addendum risk)" begin
@@ -239,7 +239,7 @@ if tb6a_runs("tb6a_require_image")
     end
 end
 
-tb6a_elapsed = round(time() - tb6a_started; digits=3)
+tb6a_elapsed = (time() - tb6a_started)
 println("TB6a audit wall seconds (testsets 1-2) = ", tb6a_audit_elapsed, "; with the _require_image measurement = ", tb6a_elapsed,
         " (DESIGN 11.6 target < 1 s; measured in-suite 2.5 s, first-use compilation of the Pauli maps and guards; the gate is the calibrated ratio CALIBRATED_GATES.tb6a_audit, brief 80 D2)")
 if TB6A_TARGET in ("all", "tb6a_gate")

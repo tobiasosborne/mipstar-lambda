@@ -166,20 +166,20 @@ const TB6_CONJUNCT_MUTANTS = (
 const TB6A_GATE_BODY_INFLATED_MUTANT = Mutant(
     "TB6 M6a-gate-body-inflated tb6a_audit_body_beyond_K_plus_1_kernels_measured",
     "test/tb6a_audit.jl",
-    "tb6a_audit_elapsed = round(time() - tb6a_started; digits=3)   # the audit proper: testsets (1) and (2)",
-    "while time() - tb6a_started <= (CALIBRATED_GATES.tb6a_audit.K + 1) * SUITE_CALIBRATION\n    sleep(0.05)\nend\ntb6a_audit_elapsed = round(time() - tb6a_started; digits=3)   # the audit proper: testsets (1) and (2)",
+    "tb6a_audit_elapsed = (time() - tb6a_started)   # the audit proper: testsets (1) and (2)",
+    "while time() - tb6a_started <= (CALIBRATED_GATES.tb6a_audit.K + 1) * SUITE_CALIBRATION\n    sleep(0.05)\nend\ntb6a_audit_elapsed = (time() - tb6a_started)   # the audit proper: testsets (1) and (2)",
     "tb6a_gate", "tb6a_gate ratio<18 => false")
 const TB6B_GATE_BODY_INFLATED_MUTANT = Mutant(
     "TB6 M6b-gate-body-inflated tb6b_M_transcripts_beyond_K_plus_1_kernels_measured",
     "test/tb6b_introspect.jl",
-    "        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)",
-    "        while time() - started <= (CALIBRATED_GATES.tb6b_M.K + 1) * SUITE_CALIBRATION\n            sleep(0.05)\n        end\n        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)",
+    "        TB6B_LOG[:M_transcript_seconds] = (time() - started)",
+    "        while time() - started <= (CALIBRATED_GATES.tb6b_M.K + 1) * SUITE_CALIBRATION\n            sleep(0.05)\n        end\n        TB6B_LOG[:M_transcript_seconds] = (time() - started)",
     "tb6b_gate", "tb6b_walls E ratio<33 => true M ratio<21 => false")
 const TB5_GATE_BODY_INFLATED_MUTANT = Mutant(
     "TB5 M5-gate-body-inflated tb5_transcripts_beyond_K_plus_1_kernels_measured",
     "test/tb5_repeat.jl",
-    "        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)",
-    "        while time() - started <= (CALIBRATED_GATES.tb5_transcripts.K + 1) * SUITE_CALIBRATION\n            sleep(0.05)\n        end\n        TB5_LOG[:transcript_seconds] = round(time() - started; digits=3)",
+    "        TB5_LOG[:transcript_seconds] = (time() - started)",
+    "        while time() - started <= (CALIBRATED_GATES.tb5_transcripts.K + 1) * SUITE_CALIBRATION\n            sleep(0.05)\n        end\n        TB5_LOG[:transcript_seconds] = (time() - started)",
     "tb5_gate", "tb5_walls transcripts ratio<4 => false")
 
 # D3: a determined stabilizer outcome sampled freely -- the enumerator's total mass stays one, the distribution
@@ -325,7 +325,14 @@ const TB7_NORMAL_FORM_DISPLAY_MUTANT = Mutant(
     "-- decider a total five-input predicate, the structural check of gt-05:625-635 (field size 2, untyped)",
     "tb5_cited")
 
-const TB6_REPAIR_R1_MUTANTS = (TB6_CONJUNCT_MUTANTS..., TB6A_GATE_BODY_INFLATED_MUTANT, TB6B_GATE_BODY_INFLATED_MUTANT,
+const TB6_IN_V_EVEN_PARITY_MUTANT = Mutant(
+    "TB6 M6-in-V-even-parity nonzero_even_tail_accepted",
+    "src/introspect/intro_decider.jl",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = all(!v[i] for i in s+1:length(v))",
+    "_in_V(v::AbstractVector{Bool}, s::Int) = iseven(count(identity, v[s+1:end]))",
+    "tb6b_tail_parity", "MUTATION_EXPECTED_RULE tail_parity rejected=false")
+
+const TB6_REPAIR_R1_MUTANTS = (TB6_IN_V_EVEN_PARITY_MUTANT, TB6_CONJUNCT_MUTANTS..., TB6A_GATE_BODY_INFLATED_MUTANT, TB6B_GATE_BODY_INFLATED_MUTANT,
                                TB5_GATE_BODY_INFLATED_MUTANT, TB6_FORCED_OUTCOME_FREE_MUTANT, TB6_CHARGE_BRANCH_MUTANT,
                                TB6_LITERAL_SUFFIX_REGISTER_MUTANT, TB6A_REQUIRE_IMAGE_CHARGE_MUTANT, TB6_PROBE_FROM_INPUT_MUTANT,
                                TB6_FUEL_ATTEMPTED_CLAMPED_MUTANT, TB6_NESTED_DEPTH_MUTANT, TB7_CURRENCY_FLAT_CHARGE_MUTANT, TB7_LOWER_SAMPLER_ARITY_MUTANT, TB6_IN_V_MUTANT, TB6_NESTED_TIMEOUT_UNCHARGED_MUTANT,

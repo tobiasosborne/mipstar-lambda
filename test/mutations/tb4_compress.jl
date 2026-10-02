@@ -151,8 +151,8 @@ const TB4_STUB_UNDISCLOSED_MUTANT = Mutant(
 const TB4_FUELBOUND_UNDISCLOSED_MUTANT = Mutant(
     "TB4 M-fuelbound-undisclosed halt_decider_fuel_bound_not_in_tree",
     "src/compress.jl",
-    "                                   children=(node.children..., repair), replay=unbound(node.replay)))",
-    "                                   children=node.children, replay=unbound(node.replay)))",
+    "                                   children=(node.children..., repair), replay=_reconstruction_replay(node)))",
+    "                                   children=node.children, replay=_reconstruction_replay(node)))",
     "tb4_psi")
 
 # O7: one Introspect hypothesis loses its completeness/soundness scope.

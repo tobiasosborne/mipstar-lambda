@@ -309,6 +309,7 @@ const TB3_MUTANTS = (TB3_ACC_MUTANT, TB3_SIZE_MUTANT, TB3_FUEL_MUTANT,
                      TB3_N13_MUTANT)
 
 function _rung(mutant::Mutant)
+    mutant.target == "runner_channel" && return (:runner, "mutations/runner_channel.jl", "RUNNER_TARGET", "runner_channel")
     # The suite driver itself (the TB0 calibration-ratio gate lives there):
     # the whole suite runs, TB0 selected in full.
     mutant.target == "tb0_gate" && return (:suite, "runtests.jl", "TB0_TARGET", "all")
@@ -344,6 +345,10 @@ let o = MUTANT_ROOT_OUTCOME
         line = string("MUTANT_TALLY nonce=", MUTANT_DRIVER_CHANNEL[1], " pass=", p, " fail=", f, " error=", e, " broken=", b)
         write(MUTANT_DRIVER_CHANNEL[2], line)   # the authoritative channel, written last
         println(line)                           # for the human reader only; never parsed
+        # Private lexical channel, populated only after the real root outcome
+        # has returned. A test's write to Main.MUTANT_DRIVER_CHANNEL cannot
+        # stand in for driver completion or choose the assertion counts.
+        write(driver_completion_file, string(driver_completion_token, "\\n", line))
     end
     if o isa Test.TestSetException
         record(o.pass, o.fail, o.error, o.broken)
@@ -372,11 +377,14 @@ carries this process's nonce. Nothing when the process died before the
 epilogue, or the record is malformed or foreign. stdout is never parsed.
 """
 function test_tally(result)
+    get(result, :completed, false) || return nothing
     record = get(result, :record, nothing)
     record === nothing && return nothing
     m = match(TALLY_RECORD, strip(record))
     (m === nothing || m[1] != get(result, :nonce, "")) && return nothing
-    (; pass=parse(Int, m[2]), fail=parse(Int, m[3]), error=parse(Int, m[4]), broken=parse(Int, m[5]))
+    tally = (; pass=parse(Int, m[2]), fail=parse(Int, m[3]), error=parse(Int, m[4]), broken=parse(Int, m[5]))
+    get(result, :exitcode, -1) == (tally.fail + tally.error == 0 ? 0 : 1) || return nothing
+    tally
 end
 "How many MUTANT_TALLY records the child's stdout carries (exactly one -- the driver's echo -- on an honest run)."
 stdout_tally_records(output::AbstractString) = count(_ -> true, eachmatch(r"^MUTANT_TALLY"m, output))
@@ -392,22 +400,27 @@ function run_isolated(sandbox::String, test_path::String, patch::String,
     nonce = string(rand(UInt64); base=16, pad=16)
     result_file = joinpath(sandbox, "tally.result")
     rm(result_file; force=true)
+    completion_file = joinpath(sandbox, "driver-completion.result")
+    completion_token = string(rand(UInt128); base=16, pad=32)
+    rm(completion_file; force=true)
     # The nonce and result path reach the child only through two environment
     # variables that the driver pops BEFORE the rung file is included.
     write(script, "using Test, MIPStarLambda\n" * patch *
                   "const MUTANT_DRIVER_CHANNEL = (pop!(ENV, \"MUTANT_TALLY_NONCE\"), pop!(ENV, \"MUTANT_TALLY_FILE\"))\n" *
+                  "let driver_completion_file = pop!(ENV, \"MUTANT_COMPLETION_FILE\"), driver_completion_token = pop!(ENV, \"MUTANT_COMPLETION_TOKEN\")\n" *
                   "println(\"MUTANT_TEST_STARTED\")\n" *
-                  "const MUTANT_ROOT_OUTCOME = try\n" *
+                  "MUTANT_ROOT_OUTCOME = try\n" *
                   "    @testset \"MUTANT_ROOT\" begin\n" *
                   "        include($(repr(test_path)))\n" *
                   "    end\n" *
                   "catch err\n" *
                   "    err\n" *
                   "end\n" *
-                  TALLY_EPILOGUE)
+                  TALLY_EPILOGUE * "end\n")
     command = addenv(`$(Base.julia_cmd()) --startup-file=no --project=$(ROOT) $script`,
                      target_variable => target_name,
                      "MUTANT_TALLY_NONCE" => nonce, "MUTANT_TALLY_FILE" => result_file,
+                     "MUTANT_COMPLETION_FILE" => completion_file, "MUTANT_COMPLETION_TOKEN" => completion_token,
                      "JULIA_PKG_PRECOMPILE_AUTO" => "0")
     log_path = joinpath(sandbox, "output.log")
     started = time()
@@ -416,7 +429,9 @@ function run_isolated(sandbox::String, test_path::String, patch::String,
     end
     output = read(log_path, String)
     record = isfile(result_file) ? read(result_file, String) : nothing
-    (; exitcode=process.exitcode, output, nonce, record,
+    completion = isfile(completion_file) ? read(completion_file, String) : nothing
+    completed = record !== nothing && completion == string(completion_token, "\n", record)
+    (; exitcode=process.exitcode, output, nonce, record, completed,
        seconds=round(time() - started; digits=2),
        test_started=occursin("MUTANT_TEST_STARTED", output))
 end
@@ -441,15 +456,19 @@ end
 # except the directory holding `mutated_source`, which is rebuilt from links
 # to everything but that file (the caller writes the mutated copy there).
 function _shadow_repository!(sandbox::String, mutated_source::String)
-    top = first(splitpath(mutated_source))
-    for entry in readdir(ROOT)
-        entry == top && continue
-        symlink(joinpath(ROOT, entry), joinpath(sandbox, entry))
-    end
-    mkpath(joinpath(sandbox, top))
-    for entry in readdir(joinpath(ROOT, top))
-        top * "/" * entry == mutated_source && continue
-        symlink(joinpath(ROOT, top, entry), joinpath(sandbox, top, entry))
+    # Rebuild every ancestor of the changed file. In particular a nested
+    # test/mutations probe must never be written through a directory symlink
+    # into the working tree.
+    source_dir, shadow_dir = ROOT, sandbox
+    parts = splitpath(mutated_source)
+    for (depth, changed) in enumerate(parts)
+        for entry in readdir(source_dir)
+            entry == changed && continue
+            symlink(joinpath(source_dir,entry),joinpath(shadow_dir,entry))
+        end
+        depth == length(parts) && break
+        source_dir, shadow_dir = joinpath(source_dir,changed), joinpath(shadow_dir,changed)
+        mkpath(shadow_dir)
     end
 end
 

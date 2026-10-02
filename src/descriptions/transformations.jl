@@ -315,7 +315,7 @@ function typed_anchor_sampler(S::Union{SamplerDescription,Checked}; tracer_index
     pad_node = CertNode(pad.certificate.grade, pad.certificate.rule;
         facts=(; pad.certificate.facts..., padding_context=:top_level_ambient,
                  display="Anchor = pad_level(CLZero(F_2, $(s)), $(part.level)) in the top-level ambient context: stage 1 reports the all-ones indicator, stages 2..$(part.level) empty"),
-        children=pad.certificate.children, replay=unbound(pad.certificate.replay))   # a constructor rebuild with extended facts: rebound (brief 93 E)
+        children=pad.certificate.children, replay=_reconstruction_replay(pad.certificate))
     anchor_zero = CertNode(SOURCE_REPAIR, :AnchorFactorReport;
         facts=(display="gt-11-parallel-repetition.tex:L96 prints the all-zero factor for Anchor at every stage; the executable reports V_1 = V (rk:higher-level, gt-04-cl.tex:122-130) so enu:cl-space-sum holds: SOURCE_REPAIR(zero-map-factor-partition)",))
     _composite(Symbol("DL9-anchor"), term, (S,), (CITED_TYPED_SAMPLER, CITED_CL_KTH);

@@ -1,5 +1,50 @@
 @enum Grade CONSTRUCTED CHECKED CITED ASSUMED SOURCE_REPAIR
 
+import SHA
+
+# An immutable value seal of the actual evidence, including mutable Expr
+# arguments, arrays, dictionaries and fields of evidence structs. References
+# break cycles; functions/types are opaque identities, never alleged proofs.
+# Keep this generic walker unspecialized: evidence has many large tuple types.
+function _write_fact(io, @nospecialize(x), seen::IdDict{Any,Int})
+    print(io, typeof(x), ':')
+    if isbitstype(typeof(x)) || x isa Number || x isa AbstractString || x isa Symbol || x isa Char ||
+       x === nothing || x isa Type || x isa Module || x isa Function
+        s = repr(x)
+        print(io, ncodeunits(s), ':', s, ';')
+        return
+    end
+    if ismutabletype(typeof(x))
+        if haskey(seen,x)
+            print(io,"ref",seen[x],';')
+            return
+        end
+        seen[x] = length(seen)+1
+    end
+    if x isa AbstractArray
+        print(io,size(x), '[')
+        for v in x
+            _write_fact(io,v,seen)
+        end
+    elseif x isa AbstractDict || x isa AbstractSet || x isa Tuple
+        print(io,length(x),'[')
+        for v in x
+            _write_fact(io,v,seen)
+        end
+    else
+        print(io,fieldcount(typeof(x)),'[')
+        for i in 1:fieldcount(typeof(x))
+            isdefined(x,i) ? _write_fact(io,getfield(x,i),seen) : print(io,"undef;")
+        end
+    end
+    print(io,']')
+end
+function _fact_seal(@nospecialize(x))
+    io = IOBuffer()
+    _write_fact(io,x,IdDict{Any,Int}())
+    Tuple(SHA.sha256(take!(io)))
+end
+
 "Structured result used by library checkers; no checker relies on `@assert`."
 struct CheckResult
     ok::Bool
@@ -38,21 +83,40 @@ replay was constructed with (a forged printed fact, a dropped CITED child)
 before running the replay, so a replay can no longer certify a node it was
 not built for. Calling it runs the inner replay on the attached term.
 """
+struct FactReplay
+    check::Any
+end
+
 struct BoundReplay
     inner::Any
     facts::NamedTuple
     children::Tuple
+    fact_seal::NTuple{32,UInt8}
+    child_seals::Tuple
 end
-(b::BoundReplay)(term) = b.inner(term)
+BoundReplay(inner, facts, children) = BoundReplay(inner, facts, children, _fact_seal(facts),
+    Tuple((c.grade,c.rule,_fact_seal(c.facts)) for c in children))
+_invoke_bound(b::BoundReplay, term) = b.inner isa FactReplay ? b.inner.check(b.facts,b.children,term) : b.inner(term)
+function (b::BoundReplay)(term)
+    node = CertNode(CHECKED,:bound_replay,b.facts,b.children,b)
+    binding = _replay_binding(node)
+    passed(binding) || return binding
+    _invoke_bound(b,term)
+end
 """
     unbound(replay)
 
-The unbound inner replay, for a CONSTRUCTOR that deliberately rebuilds a
-node with other children (e.g. appending a SOURCE_REPAIR leaf); the keyword
-constructor then binds it to the rebuilt node. Copying a node with the same
-`replay` keeps the old binding and is refused.
+Compatibility spelling that retains the existing replay and its seals.
+It cannot turn a forged node or missing required child into fresh evidence.
 """
-unbound(replay) = replay isa BoundReplay ? replay.inner : replay
+# Compatibility spelling: reconstruction never discards an existing seal.
+unbound(replay) = replay
+
+# Explicit construction adapters retain the original validation before adding
+# a disclosure or changing a display. Unlike unbound, this requires the source
+# node, and replays its real binding on every invocation.
+_reconstruction_replay(node::CertNode) = node.grade == CHECKED ?
+    (term -> _verify_own(node,term)) : node.replay
 
 # The keyword constructor binds every CHECKED replay to the node it builds; an
 # already-bound replay is carried unchanged (so a copy with other facts or
@@ -77,9 +141,13 @@ function _replay_binding(node::CertNode)
         return CheckResult(false, :replay_binding; location=node.rule, expected=:bound_replay, actual=typeof(r))
     r.facts === node.facts ||
         return CheckResult(false, :replay_binding; location=node.rule, expected=:recorded_facts, actual=:facts_differ)
+    _fact_seal(node.facts) == r.fact_seal ||
+        return CheckResult(false, :replay_binding; location=node.rule, expected=:frozen_facts, actual=:facts_mutated)
     (length(r.children) == length(node.children) && all(a === b for (a, b) in zip(r.children, node.children))) ||
         return CheckResult(false, :replay_binding; location=node.rule, expected=[c.rule for c in r.children],
                            actual=[c.rule for c in node.children])
+    Tuple((c.grade,c.rule,_fact_seal(c.facts)) for c in node.children) == r.child_seals ||
+        return CheckResult(false, :replay_binding; location=node.rule, expected=:required_child_evidence, actual=:child_mutated)
     CheckResult(true, :replay_binding; location=node.rule)
 end
 
@@ -92,7 +160,7 @@ function _verify_own(node::CertNode, term)
     binding = _replay_binding(node)
     passed(binding) || return binding
     result = try
-        node.replay(term)
+        _invoke_bound(node.replay,term)
     catch err
         return CheckResult(false, :certificate_replay;
                            location=node.rule, expected=:pass,

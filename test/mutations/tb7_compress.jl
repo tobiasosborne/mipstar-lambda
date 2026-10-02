@@ -2,6 +2,15 @@
 # the PadMachine terminal walk. Every target is a standalone TB7 testset;
 # runner N8 credits only an assertion failure after an unmutated baseline.
 const TB7_MUTANTS = (
+    Mutant("TB7 M7-pcp-header-positive matching_headers_claim_content", "src/compress/answer_reduce.jl",
+           "encodes_status = instance_is_D1 && width_ok ? \"NOT_EVALUABLE\" : \"FAIL\"",
+           "encodes_status = instance_is_D1 && width_ok ? \"PASS\" : \"FAIL\"", "tb7_review"),
+    Mutant("TB7 M7-fallback-replay-original original_sampler_dimension", "src/introspect/intro_decider.jl",
+           "s_N = Dimension(effective_sampler, 2 ^ 2)",
+           "s_N = Dimension(V.sampler, 2 ^ 2)", "tb7_review"),
+    Mutant("TB7 M7-fallback-report-original original_sampler_report", "src/compress/compress7.jl",
+           "s_N = Dimension(effective_sampler, N)",
+           "s_N = Dimension(V.sampler, N)", "tb7_review"),
     Mutant("TB7 M7-order permute_composition_ast", "src/compress/compress7.jl",
            "stage.origin == :AnswerReduce ? :(AnswerReduce(\$(ast), lambda, mu, gamma)) :",
            "stage.origin == :Repeat ? :(AnswerReduce(\$(ast), lambda, mu, gamma)) :", "tb7_order"),
@@ -32,7 +41,7 @@ const TB7_MUTANTS = (
     # Brief 93 F: P_pcp_encodes_D1's status is now COMPUTED (instance = the lowered D1 and index width >= log2 2T);
     # the forged PASS replaces that computation (the literal "FAIL" it used to replace no longer exists).
     Mutant("TB7 M7-pcp-content forge_D1_encoding", "src/compress/answer_reduce.jl",
-           "encodes_status = instance_is_D1 && width_ok ? \"PASS\" : \"FAIL\"",
+           "encodes_status = instance_is_D1 && width_ok ? \"NOT_EVALUABLE\" : \"FAIL\"",
            "encodes_status = \"PASS\"", "tb7_policy"),
     Mutant("TB7 M7-intro-schema forge_non_Pauli_pass", "src/compress/compress7.jl",
            "st(emb) == :PASS ? :PASS : :VACUOUS;",

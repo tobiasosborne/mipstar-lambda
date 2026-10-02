@@ -243,7 +243,10 @@ function tb7_predicate_report(V::VerifierDescription, lambda::Int, n::Int, polic
     R = big(N) ^ lambda
     V1, V2, V3 = v1.payload, v2.payload, v3.payload
     t = policy.intro_tuple
-    s_N = Dimension(V.sampler, N)
+    original_s_N = Dimension(V.sampler, N)
+    pair = intro_effective_pair(V, lambda)
+    effective_sampler = decode_sampler(sampler_term_bytes(pair.S_term))
+    s_N = Dimension(effective_sampler, N)
     lines = pauli_policy_report(t; R, s_N=s_N isa QueryError ? -1 : s_N, lambda, description_bytes=description_length(V), F_child=policy.child_fuel, ell=COMPRESS_LEVELS)
     line(name) = only(l for l in lines if l.name == name)
     st(l) = l.status == P_PASS ? :PASS : l.status == P_FAIL ? :FAIL : l.status == P_NOT_EVALUABLE ? :NOT_EVALUABLE : :VACUOUS
@@ -251,7 +254,7 @@ function tb7_predicate_report(V::VerifierDescription, lambda::Int, n::Int, polic
     input_ok = V.sampler.field_size == 2 && V.sampler.typing isa Untyped && V.sampler.level == COMPRESS_LEVELS &&
                description_length(V) <= lambda && n >= 2
     p1 = PolicyPredicate("input field/level/lambda bounded; n>=2", input_ok ? :PASS : :FAIL;
-                         detail="field $(V.sampler.field_size), level $(V.sampler.level) (= 9 of fig:compress), |V| = max(|S|, |D|) = max($(description_size(V.sampler)), $(description_size(V.decider))) = $(description_length(V)) <= lambda = $(lambda), n = $(n) >= 2; TIME_S/TIME_D are metered per query (constant on this fixture) and below n^lambda = $(n)^$(lambda)")
+                         detail="field $(V.sampler.field_size), level $(V.sampler.level) (= 9 of fig:compress), |V| = max(|S|, |D|) = max($(description_size(V.sampler)), $(description_size(V.decider))) = $(description_length(V)) <= lambda = $(lambda), n = $(n) >= 2; original s(N) = $(original_s_N); effective pair = $(pair.fits ? "input" : "trivial fallback"); TIME_S/TIME_D are metered per query (constant on this fixture) and below n^lambda = $(n)^$(lambda)")
     p2 = PolicyPredicate("intro field admissible, m_I divides q_I, d_I=1", group_status(st.((line(:admissible_field), line(:m_divides_q), line(:d_equals_1))));
                          detail="$(line(:admissible_field).detail); $(line(:m_divides_q).detail); $(line(:d_equals_1).detail)")
     emb = line(:embedding_Q_ge_s)
@@ -264,7 +267,13 @@ function tb7_predicate_report(V::VerifierDescription, lambda::Int, n::Int, polic
     census = intro_dispatch_census(V1.decider.term[4][3], n)
     p5 = PolicyPredicate("non-Pauli introspection answer schemas: Introspect, Sample, Read, every Hide stage (both roles)", st(emb) == :PASS ? :PASS : :VACUOUS;
                          owner=st(emb) == :PASS ? nothing : "Q_I<s_0",
-                         detail="$(length(non_pauli)) non-Pauli types at ell = 9; Q_I = $(Q) < s_0(N) = $(s_N) and 3Q_I = $(3Q) < $(s_N): the F_2^Q wire format cannot embed the nine-bit input space, so every non-Pauli schema is rejected at the embedding guard; executed non-Pauli schemas = 0; introspection predicate dispatches at TB7 = $(census.dispatched) of $(census.pairs) oriented pairs ($(census.pauli_dispatched) of $(census.pauli_pairs) Pauli pairs): the embedding guard precedes the Pauli dispatch too, so no introspection predicate executes on the actual D1 at this fixture (the Pauli sampler construction and its finite sampler queries do execute; local Pauli predicate evidence is TB6b's, not TB7's)")
+                         detail="$(length(non_pauli)) non-Pauli types at ell = 9; effective s(N) = $(s_N) (original $(original_s_N)), Q_I = $(Q), 3Q_I = $(3Q); " *
+                                (st(emb) == :PASS ? "the effective pair fits the wire embedding; non-Pauli schemas have representable vectors; " :
+                                 "every non-Pauli schema is rejected at the embedding guard; executed non-Pauli schemas = 0; ") *
+                                "introspection predicate dispatches at TB7 = $(census.dispatched) of $(census.pairs) oriented pairs ($(census.pauli_dispatched) of $(census.pauli_pairs) Pauli pairs)" *
+                                (census.dispatched == 0 ? ": no introspection predicate executes on the actual D1 at this fixture" :
+                                 "; dispatch counts record reached predicates, not acceptance or soundness"))
+
     k_source = k_rep(lambda, policy.tau, policy.c_prime, n)
     p12 = PolicyPredicate("repeat k_toy=(lambda*n)^((1+c')tau)", policy.repetitions == k_source ? :PASS : :FAIL;
                           detail="k_toy = $(policy.repetitions) vs (lambda n)^((1+c')tau) = ($(lambda)*$(n))^((1+$(policy.c_prime))*$(policy.tau)) = $(k_source)")
@@ -299,7 +308,7 @@ end
 "A copy of the tree without every node carrying `rule`."
 function _without(node::CertNode, rule::Symbol)
     children = Tuple(_without(child, rule) for child in node.children if child.rule != rule)
-    CertNode(node.grade, node.rule; facts=node.facts, children, replay=unbound(node.replay))   # a construction-time rebuild: rebound (brief 93 E)
+    CertNode(node.grade, node.rule; facts=node.facts, children, replay=_reconstruction_replay(node))
 end
 "The per-sampler chain/replay table of DESIGN 12.5: every SamplerValidity row in the tree."
 function chain_coverage(root::CertNode)
@@ -477,19 +486,26 @@ function compress(V::VerifierDescription, lambda::Integer; policy::ConstructionP
     gap = intro_gap_ast(lambda, n)
     floor_node = CertNode(CHECKED, :IntroGapFloor;
         facts=(display="the scalar entanglement-floor branch $(gap.floor_branch) with lambda = $(lambda), n = $(n) substituted symbolically: $(gap.substituted) (the integer 2^(2^$(lambda * n)) is never materialized)", branch=gap.floor_branch, substituted=gap.substituted),
-        replay=x -> begin
+        replay=FactReplay((facts, children, x) -> begin
             g = intro_gap_ast(lambda, n)
-            ok = g.full.head == :call && g.full.args[1] == :max && length(g.full.args) == 3 && g.full.args[3] == g.floor_branch &&
+            ok = facts.branch == g.floor_branch && facts.substituted == g.substituted && isempty(children) &&
+                 g.full.head == :call && g.full.args[1] == :max && length(g.full.args) == 3 && g.full.args[3] == g.floor_branch &&
                  g.substituted == :((1 - delta_intro(epsilon, $(n))) * 2 ^ (2 ^ $(lambda * n)))
             CheckResult(ok, :intro_gap_floor; location=:IntroGapFloor, expected=g.floor_branch, actual=g.full)
-        end)
+        end))
     ent_node = CertNode(CITED, Symbol("thm:introspection");
         facts=(display="gt-08-introspection.tex:L809-L815 (thm:introspection): the Ent(V_{2^n}, 1 - delta) branch of the max and the semantic max implication are CITED, never evaluated",
                source="gt-08-introspection.tex", lines=809:815, label="thm:introspection"))
     gap_node = CertNode(CHECKED, :IntroGap;
         facts=(display="IntroGap(epsilon, n, delta_intro, $(gap.full)): a max node with exactly two children, the CHECKED scalar floor branch and the CITED Ent branch (DESIGN 9.2)", ast=gap.full),
         children=(floor_node, ent_node),
-        replay=x -> CheckResult(intro_gap_ast(lambda, n).full == :(max(Ent(V_{2 ^ n}, 1 - delta_intro(epsilon, n)), (1 - delta_intro(epsilon, n)) * 2 ^ (2 ^ (lambda * n)))), :intro_gap; location=:IntroGap))
+        replay=FactReplay((facts, children, x) -> begin
+            required = length(children) == 2 && children[1].grade == CHECKED && children[1].rule == :IntroGapFloor &&
+                       children[2].grade == CITED && children[2].rule == Symbol("thm:introspection")
+            expected = :(max(Ent(V_{2 ^ n}, 1 - delta_intro(epsilon, n)), (1 - delta_intro(epsilon, n)) * 2 ^ (2 ^ (lambda * n))))
+            CheckResult(required && facts.ast == intro_gap_ast(lambda,n).full == expected,
+                        :intro_gap; location=:IntroGap, expected, actual=facts.ast)
+        end))
     # 12.2 the bookkeeping table.
     rows = bookkeeping_rows(V, V1, V2, out, lambda, n, policy)
     row_certs = Tuple(CertNode(CHECKED, :LawCert;

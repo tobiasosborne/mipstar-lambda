@@ -90,7 +90,7 @@ tb6b_M() = TB6bFixture(:TB6b_M, tb6b_M_verifier(), 2, 3, M6.PauliTuple(8, 2, 1),
 function tb6b_intro(f::TB6bFixture; F_child::Int=TB6B_F_CHILD)
     get!(TB6B_CACHE, Symbol(f.name, :_intro_, F_child)) do
         stats = @timed M6.introspect(f.V, f.lambda, f.ell; tuple=f.tuple, F_child, tracer_index=2, seeds=16)
-        TB6B_LOG[Symbol(f.name, :_construction_seconds)] = round(stats.time; digits=3)
+        TB6B_LOG[Symbol(f.name, :_construction_seconds)] = stats.time
         stats.value
     end
 end
@@ -632,7 +632,7 @@ if tb6b_runs("tb6b_E")
             M6.typed_decision(inst, t)[1] && M6.detyped_decision(inst, t) && (accepted += 1)
         end
         @test accepted == 256
-        TB6B_LOG[:E_transcript_seconds] = round(time() - started; digits=3)
+        TB6B_LOG[:E_transcript_seconds] = (time() - started)
         println("MUTATION_EXPECTED_RULE tb6b_E literal_rejected=", length(literal_rejected), "/116 operative=", P_operative, " draws=", accepted, "/256 leaves=", leaves_total)
         println("TB6b-E transcript seconds = ", TB6B_LOG[:E_transcript_seconds], " (target < 15)")
     end
@@ -751,7 +751,7 @@ if tb6b_runs("tb6b_M")
         @test !decide(inst.decider, 2, xd, yd, swapped_aA, swapped_aB)                  # rejection preserved after detyping
         @test decide(inst.decider, 2, xd, yd, swapped_aB, swapped_aA)
         println("MUTATION_EXPECTED_RULE T6-view-swap typed_reject=", !typed_swapped[1], " detyped_reject=", !decide(inst.decider, 2, xd, yd, swapped_aA, swapped_aB))
-        TB6B_LOG[:M_transcript_seconds] = round(time() - started; digits=3)
+        TB6B_LOG[:M_transcript_seconds] = (time() - started)
         println("MUTATION_EXPECTED_RULE tb6b_M literal_rejected=", length(literal_rejected), "/128 draws=", accepted, "/512 prefix_branch=", seen_prefix_branch)
         println("TB6b-M transcript seconds = ", TB6B_LOG[:M_transcript_seconds], " (8 directed + 512 seeded + 128 literal; target < 20)")
     end
@@ -1176,6 +1176,23 @@ if tb6b_runs("tb6b_tail_edges")
         println("TB6b (j2) all-edge malformed cases = ", cases, " (rejected ", rejected, "), schema cases = ", schema_cases,
                 ", wall = ", TB6B_LOG[:tail_edges_seconds], " s")
         println("MUTATION_EXPECTED_RULE tb6b_tail_edges rejected=", rejected, "/960")
+    end
+end
+
+if tb6b_runs("tb6b_tail_parity")
+    @testset "P97-3 even nonzero tail e7+e8 must reject" begin
+        inst = tb6b_instance(tb6b_M())
+        label = "Introspect_bob"
+        x,y = sample_questions(inst.hat,2,fill(GF2(0),Dimension(inst.hat,2)),(label,label))
+        bad = Vector{Bool}(falses(inst.Q+1))
+        bad[inst.s+1] = bad[inst.s+2] = true
+        t = (;edge=(label,label),tA=label,tB=label,xA=tb6b_bits(x),xB=tb6b_bits(y),aA=bad,aB=copy(bad))
+        bit,trace,fired = M6.typed_decision(inst,t)
+        @test M6.parse_intro_answer(label,bad,inst.Q,inst.s) === nothing
+        @test !bit
+        @test !M6.detyped_decision(inst,t)
+        @test fired == [:membership]
+        println("MUTATION_EXPECTED_RULE tail_parity rejected=",!bit," fired=",fired)
     end
 end
 
