@@ -1,6 +1,8 @@
 # Brief 97a — CRITIC (codex gpt-6-astra xhigh): STATIC pre-review of the brief 93 checkpoint (TB7 repair r1 + TB6 repair r4) at 78b2dce
 
-You are an adversarial critic. ATTACK; do not summarize. Autonomous; no questions. This is a STATIC round on battery: it cannot raise any status and authorizes NO CLAIMS row. Its job is to find every defect in brief 93 BEFORE the expensive closing round (brief 97, full suite + registry on mains power), so a repair can land first.
+You are a rigorous reviewer of a mathematical-software test suite. Look for real defects; do not summarize. Autonomous; no questions. This is a STATIC round on battery: it cannot raise any status and authorizes NO CLAIMS row. Its job is to find every defect in brief 93 BEFORE the expensive closing round (brief 97, full suite + registry on mains power), so a repair can land first.
+
+Note: a previous run of this brief was interrupted; the stub `verdicts/tb7-r2-pre.md` and any scripts under the scratch dir `b97a/` are yours to reuse or overwrite.
 
 Lane: write `verdicts/tb7-r2-pre.md` ONLY (+ scratch `/tmp/claude-1000/-home-tobias-Projects-mipstar-lambda/d3f5af8d-c6be-47d3-8dfd-f5988bd164de/scratchpad/b97a/`). The live tree's `src/`, `test/`, `docs/DESIGN.md` are exactly commit 78b2dce and stay frozen today (other workers write only under `docs/analytic/` and `docs/assessment.md`), so read them in place and reuse the existing precompiled depot. Probes and red tests go in scratch as standalone scripts that `include` or `using MIPStarLambda`; never edit repo files outside your lane. Paste every red test / mutant definition verbatim into the verdict (scratch does not survive).
 
@@ -13,11 +15,11 @@ Lane: write `verdicts/tb7-r2-pre.md` ONLY (+ scratch `/tmp/claude-1000/-home-tob
 
 ## Obligations
 1. **Discharge table** for T7-1…T7-9 and T6-1, T6-2: DISCHARGED-STATICALLY / PARTIAL / NOT, each with file:line evidence and what only a full run can still decide.
-2. **Attack each repair by reading and by small probes** (Julia budget in the preamble): 
-   - A/T6-2: can a mutant still obtain credit without a failed owned assertion — forge `tally.result` (predict/steal the nonce? env var? file left from a previous mutant? race between parallel jobs with MUTATION_JOBS=4?), crash after writing, `exit(0)` inside an epilogue? Does `runner_selftest.jl` itself fail if the guard is removed?
+2. **Check each repair by reading and by small probes** (Julia budget in the preamble): 
+   - A/T6-2 (test-accounting correctness): can a mutation run be counted as KILLED although no owned assertion failed — e.g. a stale `tally.result` left over from an earlier mutant, a nonce shared between parallel jobs under MUTATION_JOBS=4, a process that exits after the tally is written, a test that only prints text resembling a tally? Does `runner_selftest.jl` itself fail when its check is removed? Keep this to reading the runner plus at most one small local probe; describe any finding in plain test-accounting terms ("spurious credit") — this is ordinary test-harness QA on a local research repo.
    - B/T6-1: write at least two NEW weakened `_in_V` variants not in the registry (e.g. checks the tail only on detyped answers; checks only the first answer of a pair; off-by-one at s+1) and decide by reading/probing whether `tb6b_negative`/`tb6b_tail_edges` kills them.
    - C/T7-7: does waiting on measured elapsed make every gate mutant killable regardless of load, or can a gate pass under a fast kernel? Are K values untouched?
-   - D/T7-3, E/T7-2: tamper with a CHECKED node's facts/children AFTER construction and with the code it replays; does `verify_local`/`BoundReplay` refuse? Is the worker's caveat ("authenticates against construction-time facts, not against re-constructing code") a real hole — construct the concrete attack if so. Is the fixed-point re-evaluation red-capable for a constant-true evaluator and for discarded decider code (the two tb7-r1 survivors)?
+   - D/T7-3, E/T7-2: modify a CHECKED certificate node's facts/children AFTER construction, and the function it replays; does `verify_local`/`BoundReplay` reject the inconsistent node? Is the worker's caveat ("binds to construction-time facts, not to re-running the constructing code") a real gap in the certificate logic — give the concrete counterexample if so. Is the fixed-point re-evaluation red-capable for a constant-true evaluator and for discarded decider code (the two tb7-r1 survivors)?
    - H/T7-5: re-derive the source rule at gt-08:L757–L763 yourself and check `intro_effective_pair` against it, including the boundary `max(|S|,|D|) = λ`.
    - I/T7-6: is "0 of 164 oriented pairs" honest everywhere it is stated (code, DESIGN §12.5/§13.2, proposed C15 row)? Any remaining text that claims Pauli predicates execute?
    - K/T7-4: rule on the caveat that "every reached chain" honours T7-4 (8 rows zero below the AR detype). Acceptable scoped limitation or defect?
